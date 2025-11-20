@@ -205,7 +205,7 @@ if [ -x /usr/bin/update-desktop-database ]; then
 fi
 
 %changelog
-* Mon Oct 06 2025 Package Builder <nscheutz@redhat.com> - 25100
-- Initial RPM package for O3DE main branch
+* Mon Oct 06 2025 Package Builder <nscheutz@redhat.com> - 25100.0.1
+- Initial RPM package for O3DE from main branch
 - Built for Fedora 43
 - Commit: ece239c0113d988907edea0022f7609387ae7baa
