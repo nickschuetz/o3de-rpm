@@ -152,9 +152,10 @@ fi
 # Build
 cmake --build build --parallel %{_smp_build_ncpus}
 
-# Generate o3de.egg-info for Python package metadata (required for install)
+# Create a source distribution package for the o3de Python scripts
+# This allows get_python.sh to install it without needing write access to /usr/o3de
 cd scripts/o3de
-python3 setup.py egg_info
+python3 setup.py sdist
 cd ../..
 
 %install
@@ -167,6 +168,10 @@ DESTDIR=%{buildroot} cmake --install build --component DEFAULT_PROFILE
 
 # Fix Python shebangs
 find %{buildroot} -type f -name "*.py" -exec sed -i '1s|^#!/usr/bin/env python$|#!/usr/bin/env python3|' {} +
+
+# Create symlink to python directory in the binary location
+# O3DE binaries expect python scripts to be relative to their location
+ln -s ../../../../python %{buildroot}/usr/o3de/bin/Linux/profile/Default/python
 
 # Create desktop entry
 mkdir -p %{buildroot}%{_datadir}/applications
