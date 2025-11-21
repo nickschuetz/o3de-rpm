@@ -169,9 +169,29 @@ DESTDIR=%{buildroot} cmake --install build --component DEFAULT_PROFILE
 # Fix Python shebangs
 find %{buildroot} -type f -name "*.py" -exec sed -i '1s|^#!/usr/bin/env python$|#!/usr/bin/env python3|' {} +
 
-# Create symlink to python directory in the binary location
-# O3DE binaries expect python scripts to be relative to their location
+# Create symlinks in the binary location
+# O3DE binaries expect certain files to be relative to their location
 ln -s ../../../../python %{buildroot}/usr/o3de/bin/Linux/profile/Default/python
+ln -s ../../../../engine.json %{buildroot}/usr/o3de/bin/Linux/profile/Default/engine.json
+
+# Patch get_python.sh to create engine.json symlink and Python path config
+# This is required for O3DE to find the engine configuration and modules
+sed -i '$i\
+# Create engine.json symlink and .pth file in venv (RPM package fix)\
+if [ -d "$HOME/.o3de/Python/venv" ]; then\
+    for venv_dir in $HOME/.o3de/Python/venv/*/; do\
+        if [ -d "$venv_dir" ]; then\
+            # Create engine.json symlink\
+            if [ ! -f "${venv_dir}lib/engine.json" ]; then\
+                ln -sf "$DIR/../engine.json" "${venv_dir}lib/engine.json" 2>/dev/null || true\
+            fi\
+            # Create .pth file so embedded Python can find o3de module\
+            mkdir -p "$HOME/.local/lib/python3.10/site-packages" 2>/dev/null\
+            echo "${venv_dir}lib/python3.10/site-packages" > "$HOME/.local/lib/python3.10/site-packages/o3de-venv.pth"\
+        fi\
+    done\
+fi\
+' %{buildroot}/usr/o3de/python/get_python.sh
 
 # Create desktop entry
 mkdir -p %{buildroot}%{_datadir}/applications
@@ -195,6 +215,29 @@ mkdir -p %{buildroot}%{_datadir}/pixmaps
 # Create symlinks for common executables
 mkdir -p %{buildroot}%{_bindir}
 
+# Create O3DE wrapper script with proper environment setup
+cat > %{buildroot}%{_bindir}/o3de << 'O3DE_WRAPPER_EOF'
+#!/bin/bash
+# O3DE Launcher Wrapper - Sets up environment for O3DE
+
+# Calculate engine ID (matches how python.sh calculates it with trailing slash)
+ENGINE_ID=$(/usr/bin/cmake -P /usr/o3de/cmake/CalculateEnginePathId.cmake "/usr/o3de/python/.." 2>/dev/null | tail -1)
+
+# Set PYTHONPATH to include O3DE scripts and venv site-packages
+if [ -d "$HOME/.o3de/Python/venv/$ENGINE_ID" ]; then
+    export PYTHONPATH="/usr/o3de/scripts:$HOME/.o3de/Python/venv/$ENGINE_ID/lib/python3.10/site-packages:$PYTHONPATH"
+else
+    export PYTHONPATH="/usr/o3de/scripts:$PYTHONPATH"
+fi
+
+# Set LD_LIBRARY_PATH for O3DE libraries
+export LD_LIBRARY_PATH="/usr/o3de/bin/Linux/profile/Default:$LD_LIBRARY_PATH"
+
+# Launch O3DE
+exec /usr/o3de/bin/Linux/profile/Default/o3de "$@"
+O3DE_WRAPPER_EOF
+chmod +x %{buildroot}%{_bindir}/o3de
+
 # Set up environment script
 mkdir -p %{buildroot}%{_sysconfdir}/profile.d
 cat > %{buildroot}%{_sysconfdir}/profile.d/o3de.sh <<'EOF'
@@ -207,6 +250,7 @@ EOF
 %license LICENSE.txt LICENSE_APACHE2.TXT LICENSE_MIT.TXT
 %doc README.md CODE_OF_CONDUCT.md CONTRIBUTING.md
 /usr/o3de/*
+%{_bindir}/o3de
 %{_datadir}/applications/o3de-editor.desktop
 %config(noreplace) %{_sysconfdir}/profile.d/o3de.sh
 %{_datadir}/icons/hicolor/256x256/apps/
@@ -223,6 +267,31 @@ if [ -x /usr/bin/update-desktop-database ]; then
     /usr/bin/update-desktop-database -q %{_datadir}/applications || true
 fi
 
+# Display post-installation instructions
+cat << 'POSTINSTALL_MSG'
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+O3DE Installation Complete!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Before using O3DE, you must set up the Python environment:
+
+    /usr/o3de/python/get_python.sh
+
+This will:
+  • Download and configure Python 3.10.13
+  • Install required Python dependencies
+  • Set up the O3DE Python virtual environment
+
+After running the script, you can launch O3DE:
+
+    o3de
+
+Or use the desktop entry from your application menu.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+POSTINSTALL_MSG
+
 %postun
 # Update desktop database
 if [ -x /usr/bin/update-desktop-database ]; then
@@ -230,7 +299,7 @@ if [ -x /usr/bin/update-desktop-database ]; then
 fi
 
 %changelog
-* Thurs Nov 20 2025 Package Builder <builder@localhost> - 25100.0.1
+* Thu Nov 20 2025 Package Builder <builder@localhost> - 25100.0.1
 - Initial RPM package for O3DE from main branch
 - Built for Fedora 43
 - Commit: ece239c0113d988907edea0022f7609387ae7baa
