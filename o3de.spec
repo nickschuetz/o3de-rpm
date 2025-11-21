@@ -119,6 +119,7 @@ cmake \
     -S . \
     -B build \
     -G Ninja \
+    -DCMAKE_BUILD_PARALLEL_LEVEL=$(nproc) \
     -DCMAKE_BUILD_TYPE=debug \
     -DCMAKE_CONFIGURATION_TYPES=debug \
     -DCMAKE_INSTALL_PREFIX=/usr/o3de \
@@ -174,6 +175,12 @@ find %{buildroot} -type f -name "*.py" -exec sed -i '1s|^#!/usr/bin/env python$|
 ln -s ../../../../python %{buildroot}/usr/o3de/bin/Linux/debug/Default/python
 ln -s ../../../../engine.json %{buildroot}/usr/o3de/bin/Linux/debug/Default/engine.json
 
+# Patch get_python.sh to NOT install the o3de package in the venv
+# Installing it in the venv causes manifest.py to incorrectly detect the engine path
+# as the venv lib directory instead of /usr/o3de. We rely on PYTHONPATH instead.
+sed -i 's|^\(\s*\)\$DIR/pip.sh install.*o3de.*$|\1# O3DE package installation disabled - using PYTHONPATH instead\n\1# \0|' %{buildroot}/usr/o3de/python/get_python.sh
+sed -i '/echo "Failed to install.*o3de into python/d' %{buildroot}/usr/o3de/python/get_python.sh
+
 # Patch get_python.sh to create engine.json symlink and Python path config
 # This is required for O3DE to find the engine configuration and modules
 sed -i '$i\
@@ -205,12 +212,6 @@ if [ -x "$(command -v cmake)" ]; then\
             ln -s "$ALTERNATE_ENGINE_ID" "$HOME/.o3de/Python/venv/$STANDARD_ENGINE_ID" 2>/dev/null || true\
         fi\
     fi\
-fi\
-\
-# Fix manifest corruption: The o3de Python package installation may incorrectly\
-# register the venv lib directory as the engine. Re-register the correct engine path.\
-if [ -x "$DIR/../scripts/o3de.sh" ]; then\
-    "$DIR/../scripts/o3de.sh" register --this-engine --force 2>/dev/null || true\
 fi\
 ' %{buildroot}/usr/o3de/python/get_python.sh
 
