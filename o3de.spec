@@ -114,14 +114,13 @@ unset CFLAGS
 unset CXXFLAGS
 unset LDFLAGS
 
-# Configure with CMake - debug configuration
+# Configure with CMake - debug and profile configurations
 cmake \
     -S . \
     -B build \
-    -G Ninja \
+    -G "Ninja Multi-Config" \
     -DCMAKE_BUILD_PARALLEL_LEVEL=$(nproc) \
-    -DCMAKE_BUILD_TYPE=debug \
-    -DCMAKE_CONFIGURATION_TYPES=debug \
+    -DCMAKE_CONFIGURATION_TYPES="debug;profile" \
     -DCMAKE_INSTALL_PREFIX=/usr/o3de \
     -DLY_3RDPARTY_PATH=%{_builddir}/o3de-%{commit}/build/3rdParty \
     -DO3DE_INSTALL_ENGINE_NAME=o3de \
@@ -150,8 +149,9 @@ GTEST_EOF
     cmake build
 fi
 
-# Build
-cmake --build build --parallel %{_smp_build_ncpus}
+# Build both debug and profile configurations
+cmake --build build --config debug --parallel %{_smp_build_ncpus}
+cmake --build build --config profile --parallel %{_smp_build_ncpus}
 
 # Create a source distribution package for the o3de Python scripts
 # This allows get_python.sh to install it without needing write access to /usr/o3de
@@ -161,11 +161,14 @@ cd ../..
 
 %install
 # Install from the build directory
-# Install all components (CORE, DEFAULT, and DEFAULT_DEBUG) to get scripts, python, cmake, and engine.json
-# CMake requires separate install commands for each component
-DESTDIR=%{buildroot} cmake --install build --component CORE
-DESTDIR=%{buildroot} cmake --install build --component DEFAULT
-DESTDIR=%{buildroot} cmake --install build --component DEFAULT_DEBUG
+# Install all components (CORE, DEFAULT, DEFAULT_DEBUG, and DEFAULT_PROFILE) to get scripts, python, cmake, and engine.json
+# CMake requires separate install commands for each component, and with multi-config we need to specify --config
+# CORE and DEFAULT are shared, so install with debug config first
+DESTDIR=%{buildroot} cmake --install build --config debug --component CORE
+DESTDIR=%{buildroot} cmake --install build --config debug --component DEFAULT
+DESTDIR=%{buildroot} cmake --install build --config debug --component DEFAULT_DEBUG
+# Install profile-specific components
+DESTDIR=%{buildroot} cmake --install build --config profile --component DEFAULT_PROFILE
 
 # Fix Python shebangs
 find %{buildroot} -type f -name "*.py" -exec sed -i '1s|^#!/usr/bin/env python$|#!/usr/bin/env python3|' {} +
@@ -174,6 +177,8 @@ find %{buildroot} -type f -name "*.py" -exec sed -i '1s|^#!/usr/bin/env python$|
 # O3DE binaries expect certain files to be relative to their location
 ln -s ../../../../python %{buildroot}/usr/o3de/bin/Linux/debug/Default/python
 ln -s ../../../../engine.json %{buildroot}/usr/o3de/bin/Linux/debug/Default/engine.json
+ln -s ../../../../python %{buildroot}/usr/o3de/bin/Linux/profile/Default/python
+ln -s ../../../../engine.json %{buildroot}/usr/o3de/bin/Linux/profile/Default/engine.json
 
 # Patch manifest.py to fix engine path detection when installed in venv
 # When o3de package is installed in venv, __file__.parents[3] resolves to venv lib dir
@@ -209,18 +214,21 @@ if [ -d "$HOME/.o3de/Python/venv" ]; then\
 fi\
 \
 # Fix for engine path ID mismatch between get_python.sh and O3DE binary\
-# The O3DE binary calculates engine ID from bin/Linux/debug/Default/python/..\
+# The O3DE binary calculates engine ID from bin/Linux/<config>/Default/python/..\
 # while get_python.sh uses the direct engine path, resulting in different hashes\
 if [ -x "$(command -v cmake)" ]; then\
     STANDARD_ENGINE_ID=$(cmake -P $DIR/../cmake/CalculateEnginePathId.cmake "$DIR/.." 2>/dev/null | tail -1)\
-    ALTERNATE_ENGINE_ID=$(cmake -P $DIR/../cmake/CalculateEnginePathId.cmake "$DIR/../bin/Linux/debug/Default/python/.." 2>/dev/null | tail -1)\
-    if [ -n "$STANDARD_ENGINE_ID" ] && [ -n "$ALTERNATE_ENGINE_ID" ] && [ "$STANDARD_ENGINE_ID" != "$ALTERNATE_ENGINE_ID" ]; then\
-        if [ -d "$HOME/.o3de/Python/venv/$STANDARD_ENGINE_ID" ] && [ ! -e "$HOME/.o3de/Python/venv/$ALTERNATE_ENGINE_ID" ]; then\
-            ln -s "$STANDARD_ENGINE_ID" "$HOME/.o3de/Python/venv/$ALTERNATE_ENGINE_ID" 2>/dev/null || true\
-        elif [ -d "$HOME/.o3de/Python/venv/$ALTERNATE_ENGINE_ID" ] && [ ! -e "$HOME/.o3de/Python/venv/$STANDARD_ENGINE_ID" ]; then\
-            ln -s "$ALTERNATE_ENGINE_ID" "$HOME/.o3de/Python/venv/$STANDARD_ENGINE_ID" 2>/dev/null || true\
+    # Handle both debug and profile configurations\
+    for config in debug profile; do\
+        ALTERNATE_ENGINE_ID=$(cmake -P $DIR/../cmake/CalculateEnginePathId.cmake "$DIR/../bin/Linux/$config/Default/python/.." 2>/dev/null | tail -1)\
+        if [ -n "$STANDARD_ENGINE_ID" ] && [ -n "$ALTERNATE_ENGINE_ID" ] && [ "$STANDARD_ENGINE_ID" != "$ALTERNATE_ENGINE_ID" ]; then\
+            if [ -d "$HOME/.o3de/Python/venv/$STANDARD_ENGINE_ID" ] && [ ! -e "$HOME/.o3de/Python/venv/$ALTERNATE_ENGINE_ID" ]; then\
+                ln -s "$STANDARD_ENGINE_ID" "$HOME/.o3de/Python/venv/$ALTERNATE_ENGINE_ID" 2>/dev/null || true\
+            elif [ -d "$HOME/.o3de/Python/venv/$ALTERNATE_ENGINE_ID" ] && [ ! -e "$HOME/.o3de/Python/venv/$STANDARD_ENGINE_ID" ]; then\
+                ln -s "$ALTERNATE_ENGINE_ID" "$HOME/.o3de/Python/venv/$STANDARD_ENGINE_ID" 2>/dev/null || true\
+            fi\
         fi\
-    fi\
+    done\
 fi\
 \
 # Patch manifest.py in all venvs after pip install to fix engine path detection\
@@ -264,6 +272,16 @@ cat > %{buildroot}%{_bindir}/o3de << 'O3DE_WRAPPER_EOF'
 # Set engine path for manifest.py to detect correctly
 export O3DE_ENGINE_PATH="/usr/o3de"
 
+# Default to profile configuration, but allow override with O3DE_BUILD_CONFIG env var
+BUILD_CONFIG="${O3DE_BUILD_CONFIG:-profile}"
+
+# Validate build configuration
+if [ "$BUILD_CONFIG" != "debug" ] && [ "$BUILD_CONFIG" != "profile" ]; then
+    echo "Error: O3DE_BUILD_CONFIG must be 'debug' or 'profile' (got: $BUILD_CONFIG)"
+    echo "Usage: O3DE_BUILD_CONFIG=debug o3de"
+    exit 1
+fi
+
 # Calculate engine ID (matches how python.sh calculates it with trailing slash)
 ENGINE_ID=$(/usr/bin/cmake -P /usr/o3de/cmake/CalculateEnginePathId.cmake "/usr/o3de/python/.." 2>/dev/null | tail -1)
 
@@ -275,10 +293,10 @@ else
 fi
 
 # Set LD_LIBRARY_PATH for O3DE libraries
-export LD_LIBRARY_PATH="/usr/o3de/bin/Linux/debug/Default:$LD_LIBRARY_PATH"
+export LD_LIBRARY_PATH="/usr/o3de/bin/Linux/$BUILD_CONFIG/Default:$LD_LIBRARY_PATH"
 
 # Launch O3DE
-exec /usr/o3de/bin/Linux/debug/Default/o3de "$@"
+exec /usr/o3de/bin/Linux/$BUILD_CONFIG/Default/o3de "$@"
 O3DE_WRAPPER_EOF
 chmod +x %{buildroot}%{_bindir}/o3de
 
