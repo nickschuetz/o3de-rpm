@@ -175,11 +175,20 @@ find %{buildroot} -type f -name "*.py" -exec sed -i '1s|^#!/usr/bin/env python$|
 ln -s ../../../../python %{buildroot}/usr/o3de/bin/Linux/debug/Default/python
 ln -s ../../../../engine.json %{buildroot}/usr/o3de/bin/Linux/debug/Default/engine.json
 
-# Patch get_python.sh to NOT install the o3de package in the venv
-# Installing it in the venv causes manifest.py to incorrectly detect the engine path
-# as the venv lib directory instead of /usr/o3de. We rely on PYTHONPATH instead.
-sed -i 's|^\(\s*\)\$DIR/pip.sh install.*o3de.*$|\1# O3DE package installation disabled - using PYTHONPATH instead\n\1# \0|' %{buildroot}/usr/o3de/python/get_python.sh
-sed -i '/echo "Failed to install.*o3de into python/d' %{buildroot}/usr/o3de/python/get_python.sh
+# Patch manifest.py to fix engine path detection when installed in venv
+# When o3de package is installed in venv, __file__.parents[3] resolves to venv lib dir
+# Instead, use O3DE_ENGINE_PATH environment variable if set, otherwise fall back to original logic
+sed -i '/def get_this_engine_path/,/return.*resolve()/c\
+def get_this_engine_path() -> pathlib.Path:\
+    # When running from SNAP, __file__ was returning an incorrect (temporary) folder so\
+    # we manually build the correct path from env variables here when running from snap\
+    if "SNAP" in os.environ and "SNAP_BUILD" in os.environ:\
+        return pathlib.Path(os.environ.get('"'"'SNAP'"'"')) / os.environ.get('"'"'SNAP_BUILD'"'"')\
+    # RPM package fix: When installed in venv, use O3DE_ENGINE_PATH environment variable\
+    elif "O3DE_ENGINE_PATH" in os.environ:\
+        return pathlib.Path(os.environ.get('"'"'O3DE_ENGINE_PATH'"'"')).resolve()\
+    else:\
+        return pathlib.Path(os.path.realpath(__file__)).parents[3].resolve()' %{buildroot}/usr/o3de/scripts/o3de/o3de/manifest.py
 
 # Patch get_python.sh to create engine.json symlink and Python path config
 # This is required for O3DE to find the engine configuration and modules
@@ -213,6 +222,16 @@ if [ -x "$(command -v cmake)" ]; then\
         fi\
     fi\
 fi\
+\
+# Patch manifest.py in all venvs after pip install to fix engine path detection\
+for venv_dir in $HOME/.o3de/Python/venv/*/; do\
+    if [ -d "$venv_dir" ]; then\
+        manifest_py="${venv_dir}lib/python3.10/site-packages/o3de/manifest.py"\
+        if [ -f "$manifest_py" ]; then\
+            cp "$DIR/../scripts/o3de/o3de/manifest.py" "$manifest_py" 2>/dev/null || true\
+        fi\
+    fi\
+done\
 ' %{buildroot}/usr/o3de/python/get_python.sh
 
 # Create desktop entry
@@ -241,6 +260,9 @@ mkdir -p %{buildroot}%{_bindir}
 cat > %{buildroot}%{_bindir}/o3de << 'O3DE_WRAPPER_EOF'
 #!/bin/bash
 # O3DE Launcher Wrapper - Sets up environment for O3DE
+
+# Set engine path for manifest.py to detect correctly
+export O3DE_ENGINE_PATH="/usr/o3de"
 
 # Calculate engine ID (matches how python.sh calculates it with trailing slash)
 ENGINE_ID=$(/usr/bin/cmake -P /usr/o3de/cmake/CalculateEnginePathId.cmake "/usr/o3de/python/.." 2>/dev/null | tail -1)
@@ -321,7 +343,7 @@ if [ -x /usr/bin/update-desktop-database ]; then
 fi
 
 %changelog
-* Thu Nov 20 2025 Package Builder <builder@localhost> - 25100.0.1
+* Fri Nov 21 2025 Package Builder <builder@localhost> - 25100.0.1
 - Initial RPM package for O3DE from main branch
 - Built for Fedora 43
 - Commit: ece239c0113d988907edea0022f7609387ae7baa
