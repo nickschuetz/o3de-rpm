@@ -7,6 +7,7 @@
 %global commit ece239c0113d988907edea0022f7609387ae7baa
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global commitdate 20251015
+%undefine _disable_source_fetch
 
 Name:           o3de
 Version:        25100.0.1
