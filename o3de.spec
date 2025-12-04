@@ -7,6 +7,7 @@
 %global commit ece239c0113d988907edea0022f7609387ae7baa
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global commitdate 20251015
+%global tag 2510.0
 %undefine _disable_source_fetch
 
 Name:           o3de
@@ -16,7 +17,7 @@ Summary:        Open 3D Engine - A real-time, multi-platform 3D game engine
 
 License:        Apache-2.0 OR MIT
 URL:            https://o3de.org
-Source0:        https://github.com/o3de/o3de/archive/%{commit}/o3de-%{shortcommit}.tar.gz
+Source0:        https://github.com/o3de/o3de/releases/download/%{tag}/o3de_%{tag}_lfs.tar.gz
 
 # Build requirements
 BuildRequires:  cmake >= 3.24.0
@@ -98,7 +99,7 @@ that enables developers and content creators to build AAA games, cinema-quality
 This package is built from the main branch.
 
 %prep
-%autosetup -n o3de-%{commit}
+%autosetup -n o3de
 
 # Patch O3DE's Clang configuration to add warning suppressions for clang 21+
 sed -i '/Wno-dllexport-explicit-instantiation-decl/a\        -Wno-error=deprecated-volatile  # clang 21+ compatibility\n        -Wno-error=character-conversion  # clang 21+ compatibility' cmake/Platform/Common/Clang/Configurations_clang.cmake
