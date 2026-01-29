@@ -173,7 +173,7 @@ cd ../..
 # CORE and DEFAULT are shared, so install with debug config first
 DESTDIR=%{buildroot} cmake --install build --config debug --component CORE
 DESTDIR=%{buildroot} cmake --install build --config debug --component DEFAULT
-# DESTDIR=%{buildroot} cmake --install build --config debug --component DEFAULT_DEBUG
+DESTDIR=%{buildroot} cmake --install build --config debug --component DEFAULT_DEBUG
 # Install profile-specific components (skip if debug_only is defined)
 %{!?debug_only:DESTDIR=%{buildroot} cmake --install build --config profile --component DEFAULT_PROFILE}
 
