@@ -110,7 +110,7 @@ sed -i '/Wno-dllexport-explicit-instantiation-decl/a\        -Wno-error=deprecat
 
 %build
 # Remove any existing build directory to ensure clean configuration
-rm -rf build
+# rm -rf build
 
 # Create build directory
 mkdir -p build
@@ -173,7 +173,7 @@ cd ../..
 # CORE and DEFAULT are shared, so install with debug config first
 DESTDIR=%{buildroot} cmake --install build --config debug --component CORE
 DESTDIR=%{buildroot} cmake --install build --config debug --component DEFAULT
-DESTDIR=%{buildroot} cmake --install build --config debug --component DEFAULT_DEBUG
+# DESTDIR=%{buildroot} cmake --install build --config debug --component DEFAULT_DEBUG
 # Install profile-specific components (skip if debug_only is defined)
 %{!?debug_only:DESTDIR=%{buildroot} cmake --install build --config profile --component DEFAULT_PROFILE}
 
@@ -265,8 +265,8 @@ chmod -R a+w %{buildroot}/usr/o3de/scripts
 
 # Create symlinks in the binary location
 # O3DE binaries expect certain files to be relative to their location
-ln -s ../../../../python %{buildroot}/usr/o3de/bin/Linux/debug/Default/python
-ln -s ../../../../engine.json %{buildroot}/usr/o3de/bin/Linux/debug/Default/engine.json
+#ln -s ../../../../python %{buildroot}/usr/o3de/bin/Linux/debug/Default/python
+#ln -s ../../../../engine.json %{buildroot}/usr/o3de/bin/Linux/debug/Default/engine.json
 %{!?debug_only:ln -s ../../../../python %{buildroot}/usr/o3de/bin/Linux/profile/Default/python}
 %{!?debug_only:ln -s ../../../../engine.json %{buildroot}/usr/o3de/bin/Linux/profile/Default/engine.json}
 
