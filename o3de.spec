@@ -6,12 +6,16 @@
 %global __requires_exclude ^libclang-12\\.so.*|^libtinfo\\.so\\.6.*
 %global commit ece239c0113d988907edea0022f7609387ae7baa
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
-%global commitdate 20251015
-%global tag 2510.0
+%global tag 2510.2
+%global commitdate 20260127
+
+%define _source_payload w0.ufdio
+%define _binary_payload w0.ufdio
+%define __jar_repack 0
 %undefine _disable_source_fetch
 
 Name:           o3de
-Version:        25100.0.1
+Version:        2510.2.1
 Release:        1.%{commitdate}git%{shortcommit}%{?dist}
 Summary:        Open 3D Engine - A real-time, multi-platform 3D game engine
 
@@ -152,8 +156,9 @@ GTEST_EOF
 fi
 
 # Build both debug and profile configurations
+# To build only debug, use: rpmbuild --define 'debug_only 1' -bb o3de.spec
 cmake --build build --config debug --parallel %{_smp_build_ncpus}
-cmake --build build --config profile --parallel %{_smp_build_ncpus}
+%{!?debug_only:cmake --build build --config profile --parallel %{_smp_build_ncpus}}
 
 # Create a source distribution package for the o3de Python scripts
 # This allows get_python.sh to install it without needing write access to /usr/o3de
@@ -168,9 +173,87 @@ cd ../..
 # CORE and DEFAULT are shared, so install with debug config first
 DESTDIR=%{buildroot} cmake --install build --config debug --component CORE
 DESTDIR=%{buildroot} cmake --install build --config debug --component DEFAULT
-DESTDIR=%{buildroot} cmake --install build --config debug --component DEFAULT_DEBUG
-# Install profile-specific components
-DESTDIR=%{buildroot} cmake --install build --config profile --component DEFAULT_PROFILE
+# DESTDIR=%{buildroot} cmake --install build --config debug --component DEFAULT_DEBUG
+# Install profile-specific components (skip if debug_only is defined)
+%{!?debug_only:DESTDIR=%{buildroot} cmake --install build --config profile --component DEFAULT_PROFILE}
+
+# Fix flattened gem directory structure
+# CMake's install process flattens nested external_subdirectories, but O3DE expects them to be hierarchical
+# This section reorganizes the flattened structure back into the correct hierarchy
+
+# Atom gem subdirectories (from Gems/Atom/gem.json external_subdirectories)
+echo "Fixing Atom gem subdirectory structure..."
+for subdir in Bootstrap RHI RPI ImageProcessingAtom Shader DebugCamera Common ShaderManagementConsole; do
+    if [ -d "%{buildroot}/usr/o3de/External/$subdir" ]; then
+        echo "  Moving External/$subdir -> External/Atom/$subdir"
+        mkdir -p %{buildroot}/usr/o3de/External/Atom/$subdir
+        # Use rsync-like behavior: copy contents, then remove source
+        cp -a %{buildroot}/usr/o3de/External/$subdir/. %{buildroot}/usr/o3de/External/Atom/$subdir/
+        rm -rf %{buildroot}/usr/o3de/External/$subdir
+    fi
+done
+
+# RHI platform-specific subdirectories (from Gems/Atom/RHI/gem.json)
+echo "Fixing RHI platform subdirectory structure..."
+for subdir in DX12 Metal Null Vulkan; do
+    if [ -d "%{buildroot}/usr/o3de/External/$subdir" ]; then
+        echo "  Moving External/$subdir -> External/Atom/RHI/$subdir"
+        mkdir -p %{buildroot}/usr/o3de/External/Atom/RHI/$subdir
+        cp -a %{buildroot}/usr/o3de/External/$subdir/. %{buildroot}/usr/o3de/External/Atom/RHI/$subdir/
+        rm -rf %{buildroot}/usr/o3de/External/$subdir
+    fi
+done
+
+# AtomLyIntegration gem subdirectories (from Gems/AtomLyIntegration/gem.json)
+echo "Fixing AtomLyIntegration gem subdirectory structure..."
+for subdir in AtomBridge AtomFont AtomImGuiTools AtomRenderOptions AtomViewportDisplayIcons AtomViewportDisplayInfo CommonFeatures EditorModeFeedback EMotionFXAtom ImguiAtom; do
+    if [ -d "%{buildroot}/usr/o3de/External/$subdir" ]; then
+        echo "  Moving External/$subdir -> External/AtomLyIntegration/$subdir"
+        mkdir -p %{buildroot}/usr/o3de/External/AtomLyIntegration/$subdir
+        cp -a %{buildroot}/usr/o3de/External/$subdir/. %{buildroot}/usr/o3de/External/AtomLyIntegration/$subdir/
+        rm -rf %{buildroot}/usr/o3de/External/$subdir
+    fi
+done
+
+# TechnicalArt subdirectory under AtomLyIntegration
+if [ -d "%{buildroot}/usr/o3de/External/DccScriptingInterface" ]; then
+    echo "  Moving External/DccScriptingInterface -> External/AtomLyIntegration/TechnicalArt/DccScriptingInterface"
+    mkdir -p %{buildroot}/usr/o3de/External/AtomLyIntegration/TechnicalArt/DccScriptingInterface
+    cp -a %{buildroot}/usr/o3de/External/DccScriptingInterface/. %{buildroot}/usr/o3de/External/AtomLyIntegration/TechnicalArt/DccScriptingInterface/
+    rm -rf %{buildroot}/usr/o3de/External/DccScriptingInterface
+fi
+
+# AtomContent gem subdirectories (from Gems/AtomContent/gem.json)
+echo "Fixing AtomContent gem subdirectory structure..."
+for subdir in Sponza ReferenceMaterials TestData; do
+    if [ -d "%{buildroot}/usr/o3de/External/$subdir" ]; then
+        echo "  Moving External/$subdir -> External/AtomContent/$subdir"
+        mkdir -p %{buildroot}/usr/o3de/External/AtomContent/$subdir
+        cp -a %{buildroot}/usr/o3de/External/$subdir/. %{buildroot}/usr/o3de/External/AtomContent/$subdir/
+        rm -rf %{buildroot}/usr/o3de/External/$subdir
+    fi
+done
+
+# Multiplayer gem subdirectories (from Gems/Multiplayer/gem.json)
+if [ -d "%{buildroot}/usr/o3de/External/Multiplayer_ScriptCanvas" ]; then
+    echo "  Moving External/Multiplayer_ScriptCanvas -> External/Multiplayer/Multiplayer_ScriptCanvas"
+    mkdir -p %{buildroot}/usr/o3de/External/Multiplayer/Multiplayer_ScriptCanvas
+    cp -a %{buildroot}/usr/o3de/External/Multiplayer_ScriptCanvas/. %{buildroot}/usr/o3de/External/Multiplayer/Multiplayer_ScriptCanvas/
+    rm -rf %{buildroot}/usr/o3de/External/Multiplayer_ScriptCanvas
+fi
+
+# Streamer gem subdirectories (from Gems/Streamer/gem.json)
+if [ -d "%{buildroot}/usr/o3de/External/StreamerProfiler" ]; then
+    echo "  Moving External/StreamerProfiler -> External/Streamer/StreamerProfiler"
+    mkdir -p %{buildroot}/usr/o3de/External/Streamer/StreamerProfiler
+    cp -a %{buildroot}/usr/o3de/External/StreamerProfiler/. %{buildroot}/usr/o3de/External/Streamer/StreamerProfiler/
+    rm -rf %{buildroot}/usr/o3de/External/StreamerProfiler
+fi
+
+# Clean up any duplicate directories that may have been created by CMake with hash suffixes
+find %{buildroot}/usr/o3de/External -maxdepth 1 -type d -name "*-[a-f0-9]*" -exec rm -rf {} \; 2>/dev/null || true
+
+echo "Gem directory structure fix completed."
 
 # Fix Python shebangs
 find %{buildroot} -type f -name "*.py" -exec sed -i '1s|^#!/usr/bin/env python$|#!/usr/bin/env python3|' {} +
@@ -184,8 +267,8 @@ chmod -R a+w %{buildroot}/usr/o3de/scripts
 # O3DE binaries expect certain files to be relative to their location
 ln -s ../../../../python %{buildroot}/usr/o3de/bin/Linux/debug/Default/python
 ln -s ../../../../engine.json %{buildroot}/usr/o3de/bin/Linux/debug/Default/engine.json
-ln -s ../../../../python %{buildroot}/usr/o3de/bin/Linux/profile/Default/python
-ln -s ../../../../engine.json %{buildroot}/usr/o3de/bin/Linux/profile/Default/engine.json
+%{!?debug_only:ln -s ../../../../python %{buildroot}/usr/o3de/bin/Linux/profile/Default/python}
+%{!?debug_only:ln -s ../../../../engine.json %{buildroot}/usr/o3de/bin/Linux/profile/Default/engine.json}
 
 # Patch manifest.py to fix engine path detection when installed in venv
 # When o3de package is installed in venv, __file__.parents[3] resolves to venv lib dir
@@ -302,8 +385,16 @@ fi
 # Set LD_LIBRARY_PATH for O3DE libraries
 export LD_LIBRARY_PATH="/usr/o3de/bin/Linux/$BUILD_CONFIG/Default:$LD_LIBRARY_PATH"
 
-# Launch O3DE
-exec /usr/o3de/bin/Linux/$BUILD_CONFIG/Default/o3de "$@"
+# Set up user directories in home folder to avoid permission issues
+# O3DE needs writable directories for cache and user settings
+# Note: O3DE already creates ~/.o3de/Logs, so we reuse that
+mkdir -p "$HOME/.o3de/user"
+
+# Launch O3DE with user paths pointing to writable locations in home directory
+exec /usr/o3de/bin/Linux/$BUILD_CONFIG/Default/o3de \
+    --project-user-path="$HOME/.o3de/user" \
+    --project-log-path="$HOME/.o3de/Logs" \
+    "$@"
 O3DE_WRAPPER_EOF
 chmod +x %{buildroot}%{_bindir}/o3de
 
@@ -368,7 +459,32 @@ if [ -x /usr/bin/update-desktop-database ]; then
 fi
 
 %changelog
-* Sat Nov 22 2025 Package Builder <builder@localhost> - 25100.0.1
-- Initial RPM package for O3DE from main branch
+* Tue Jan 27 2026 Nicholas Schuetz <nschuetz@redhat.com> - 2510.2-1
+- New point release build for 25.10.2
+
+* Wed Dec 10 2025 Nicholas Schuetz <nschuetz@redhat.com> - 2510.1-1
+- New point release build for 25.10.1
+
+* Fri Nov 28 2025 Package Builder <builder@localhost> - 25100.0.1-2
+- Fix flattened gem directory structure in External/
+- Reorganize Atom, AtomLyIntegration, AtomContent, Multiplayer, and Streamer subdirectories
+- Resolves "Invalid gem json" errors for nested gems on startup
+- Fix user cache directory permissions by redirecting to ~/.o3de/
+- Set project-user-path and project-log-path to writable locations in home directory
+
+* Sat Nov 22 2025 Nicholas Schuetz <nschuetz@redhat.com> - 25100.0.1-1
+- Rewritten RPM package for O3DE v25.10.0 from main github branch
 - Built for Fedora 43
 - Commit: ece239c0113d988907edea0022f7609387ae7baa
+
+* Thu Aug 24 2023 Roddie Kieley <roddie@kieley.ca> 2305.1-1
+- Updated for v23.05.1 release
+
+* Fri Aug 4 2023 Nicholas Frizzell <nfrizzel@redhat.com> 2305.0-6
+- Misc. cleanup and documentation
+
+* Mon Jul 31 2023 Nicholas Frizzell <nfrizzel@redhat.com> 2305.0-5
+- Add option to specify use of certain system packages
+
+* Mon Jul 24 2023 Nicholas Frizzell <nfrizzel@redhat.com> 2305.0-4
+- Add manual changelog to remove git commit noise and specify release versions properly
