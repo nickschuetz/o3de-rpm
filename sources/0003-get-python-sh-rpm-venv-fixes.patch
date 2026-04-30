@@ -1,0 +1,74 @@
+From: Nick Schuetz <nschuetz@redhat.com>
+Subject: [PATCH] Wire up per-engine venvs for RPM-installed engine
+
+When O3DE is installed as an RPM, the bundled Python venv that
+get_python.sh creates lives under $HOME/.o3de/Python/venv/<engine-id>.
+Three things break:
+  1. The bundled Python can't find engine.json from the venv.
+  2. User-site Python can't import the o3de module from the venv.
+  3. get_python.sh and the O3DE binary compute different engine-IDs
+     because they resolve $DIR differently, leading to two venvs.
+  4. manifest.py installed into the venv via 'pip install -e' is the
+     pre-patch version; the venv copy needs the O3DE_ENGINE_PATH fix.
+
+Fix all four after install_dependencies completes.
+
+---
+--- a/python/get_python.sh	2026-04-29 16:28:59.139257538 -0500
++++ b/python/get_python.sh	2026-04-29 16:30:06.977767535 -0500
+@@ -123,4 +123,54 @@
+ fi
+ 
+ install_dependencies
+-exit $?
++INSTALL_DEPENDENCIES_RC=$?
++
++# RPM package fixes - link engine.json/manifest.py/pth into per-engine venvs
++# so the bundled Python in /opt/o3de/python can find the engine config and
++# the o3de Python module wherever the venv was placed.
++if [ -d "$HOME/.o3de/Python/venv" ]; then
++    for venv_dir in "$HOME/.o3de/Python/venv"/*/; do
++        [ -d "$venv_dir" ] || continue
++        # engine.json symlink for the bundled Python to discover the engine.
++        [ -f "${venv_dir}lib/engine.json" ] || \
++            ln -sf "$DIR/../engine.json" "${venv_dir}lib/engine.json" 2>/dev/null || true
++        # .pth file so user-site Python can import the venv's o3de package.
++        if [ -d "${venv_dir}lib/python3.10/site-packages" ]; then
++            mkdir -p "$HOME/.local/lib/python3.10/site-packages" 2>/dev/null || true
++            printf '%s\n' "${venv_dir}lib/python3.10/site-packages" \
++                > "$HOME/.local/lib/python3.10/site-packages/o3de-venv.pth" 2>/dev/null || true
++        fi
++    done
++fi
++
++# Reconcile engine-id mismatch: get_python.sh resolves the engine path one
++# way; the O3DE binary resolves it via bin/Linux/<config>/Default/python/..,
++# producing a different hash. Symlink the venv directories together so both
++# IDs find the same venv.
++if [ -x "$(command -v cmake)" ]; then
++    STANDARD_ENGINE_ID=$(cmake -P "$DIR/../cmake/CalculateEnginePathId.cmake" "$DIR/.." 2>/dev/null | tail -1)
++    for config in debug profile; do
++        ALTERNATE_ENGINE_ID=$(cmake -P "$DIR/../cmake/CalculateEnginePathId.cmake" \
++            "$DIR/../bin/Linux/$config/Default/python/.." 2>/dev/null | tail -1)
++        [ -n "$STANDARD_ENGINE_ID" ] && [ -n "$ALTERNATE_ENGINE_ID" ] || continue
++        [ "$STANDARD_ENGINE_ID" = "$ALTERNATE_ENGINE_ID" ] && continue
++        if [ -d "$HOME/.o3de/Python/venv/$STANDARD_ENGINE_ID" ] && \
++           [ ! -e "$HOME/.o3de/Python/venv/$ALTERNATE_ENGINE_ID" ]; then
++            ln -s "$STANDARD_ENGINE_ID" "$HOME/.o3de/Python/venv/$ALTERNATE_ENGINE_ID" 2>/dev/null || true
++        elif [ -d "$HOME/.o3de/Python/venv/$ALTERNATE_ENGINE_ID" ] && \
++             [ ! -e "$HOME/.o3de/Python/venv/$STANDARD_ENGINE_ID" ]; then
++            ln -s "$ALTERNATE_ENGINE_ID" "$HOME/.o3de/Python/venv/$STANDARD_ENGINE_ID" 2>/dev/null || true
++        fi
++    done
++fi
++
++# Refresh manifest.py inside each venv from the engine copy so the
++# O3DE_ENGINE_PATH-aware version takes effect (see manifest.py patch).
++for venv_dir in "$HOME/.o3de/Python/venv"/*/; do
++    [ -d "$venv_dir" ] || continue
++    manifest_py="${venv_dir}lib/python3.10/site-packages/o3de/manifest.py"
++    [ -f "$manifest_py" ] || continue
++    cp "$DIR/../scripts/o3de/o3de/manifest.py" "$manifest_py" 2>/dev/null || true
++done
++
++exit $INSTALL_DEPENDENCIES_RC

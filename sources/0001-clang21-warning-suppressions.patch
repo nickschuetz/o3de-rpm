@@ -1,0 +1,23 @@
+From: Nick Schuetz <nschuetz@redhat.com>
+Subject: [PATCH] Demote clang 21+ -Werror promotions back to warnings
+
+Fedora 44 ships clang 19/20+ on stable and clang 22 in updates; clang 21
+promoted -Wdeprecated-volatile and -Wcharacter-conversion to errors.
+O3DE upstream's -Werror prevents the build from completing under these
+compilers. Anchor on the -Werror line itself (stable across upstream
+releases) and append two -Wno-error=... flags.
+
+---
+--- a/cmake/Platform/Common/Clang/Configurations_clang.cmake	2026-04-29 16:57:49.527909425 -0500
++++ b/cmake/Platform/Common/Clang/Configurations_clang.cmake	2026-04-29 16:58:01.375650022 -0500
+@@ -64,6 +64,10 @@
+         -fvisibility-inlines-hidden
+         -Wall
+         -Werror
++        # Fedora RPM build: clang 21+ promoted these to errors; demote
++        # back to warnings so upstream -Werror doesn't fail the build.
++        -Wno-error=deprecated-volatile
++        -Wno-error=character-conversion
+ 
+         ###################
+         # Disabled warnings (please do not disable any others without first consulting sig-build)

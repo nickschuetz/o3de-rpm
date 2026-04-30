@@ -1,0 +1,23 @@
+From: Nick Schuetz <nschuetz@redhat.com>
+Subject: [PATCH] Honor O3DE_ENGINE_PATH for venv installs
+
+When the `o3de` Python package is installed into a venv (which is what
+get_python.sh does), pathlib.Path(__file__).parents[3] resolves to
+$venv/lib/, not the engine root. The launcher wrapper exports
+O3DE_ENGINE_PATH=/opt/o3de — honor it here so manifest lookups work.
+
+---
+--- a/scripts/o3de/o3de/manifest.py	2026-04-29 16:28:59.137257464 -0500
++++ b/scripts/o3de/o3de/manifest.py	2026-04-29 16:29:33.554531047 -0500
+@@ -29,6 +29,11 @@
+     # we manually build the correct path from env variables here when running from snap
+     if "SNAP" in os.environ and "SNAP_BUILD" in os.environ:
+         return pathlib.Path(os.environ.get('SNAP')) / os.environ.get('SNAP_BUILD')
++    # RPM package fix: when the o3de Python package is installed inside a venv,
++    # __file__.parents[3] resolves to the venv's lib dir, not the engine root.
++    # Honor O3DE_ENGINE_PATH (set by the launcher wrapper) when present.
++    elif "O3DE_ENGINE_PATH" in os.environ:
++        return pathlib.Path(os.environ.get('O3DE_ENGINE_PATH')).resolve()
+     else:
+         return pathlib.Path(os.path.realpath(__file__)).parents[3].resolve()
+ 

@@ -1,53 +1,131 @@
-# O3DE (Open 3D Engine) RPM Spec File for Fedora 43
-# For main branch
+################################################################################
+# O3DE (Open 3D Engine) RPM spec — Fedora 44 / rpm 4.20+
+#
+# Build the stable release:
+#     rpmbuild -bb \
+#         --define "_sourcedir $PWD/sources" \
+#         --define "_specdir   $PWD" \
+#         o3de.spec
+#
+# Build a development-branch snapshot:
+#     ./sources/make-snapshot-tarball.sh development
+#     # paste the printed snapshot_commit / snapshot_date / snapshot_sha256
+#     # into the macros below, copy the tarball to $PWD/sources, then:
+#     rpmbuild -bb --with snapshot \
+#         --define "_sourcedir $PWD/sources" \
+#         --define "_specdir   $PWD" \
+#         o3de.spec
+#
+# Build with selected O3DE 3rdParty packages bundled:
+#     rpmbuild -bb --with thirdparty_physx --with thirdparty_openexr ...
+#
+# See README.md for the full pattern.
+################################################################################
 
+# ── Build-mode toggles ───────────────────────────────────────────────────────
+%bcond_with snapshot
+%bcond_with debug_only
+
+# Per-3rdParty-package toggles. Add more as you add Source10x lines below.
+%bcond_with thirdparty_physx
+%bcond_with thirdparty_openexr
+
+# ── Version pinning ──────────────────────────────────────────────────────────
+%global stable_tag      2605.0
+# Compute with: sha256sum o3de_<tag>_lfs.tar.gz
+%global stable_sha256   0000000000000000000000000000000000000000000000000000000000000000
+
+# Snapshot pin — populated by sources/make-snapshot-tarball.sh.
+# Pinned to stabilization/26050 tip for end-to-end build test.
+%global snapshot_commit 246b46f500e06eb819421e12644745e95872bb28
+%global snapshot_date   20260425
+%global snapshot_sha256 80142f1934c3938cf9422f8f4376426084a0443df3ed80c400ff1b0610c98718
+%global shortcommit %(c=%{snapshot_commit}; echo ${c:0:7})
+
+%if %{with snapshot}
+%global o3de_source_dir o3de-%{snapshot_commit}
+%global o3de_source_sha %{snapshot_sha256}
+%else
+%global o3de_source_dir o3de
+%global o3de_source_sha %{stable_sha256}
+%endif
+
+# ── RPM build behavior ───────────────────────────────────────────────────────
 %global debug_package %{nil}
 %global _build_id_links none
-%global __requires_exclude ^libclang-12\\.so.*|^libtinfo\\.so\\.6.*
-%global commit ece239c0113d988907edea0022f7609387ae7baa
-%global shortcommit %(c=%{commit}; echo ${c:0:7})
-%global tag 2510.2
-%global commitdate 20260127
+%global _source_payload w0.ufdio
+%global _binary_payload w0.ufdio
+%global __jar_repack 0
 
-%define _source_payload w0.ufdio
-%define _binary_payload w0.ufdio
-%define __jar_repack 0
-%undefine _disable_source_fetch
+# Bundled libclang/libtinfo come from O3DE's embedded clang toolchain. The
+# ABI is fixed to the bundled copy, so we drop them from auto-Requires
+# rather than chasing a system clang minor version.
+%global __requires_exclude ^libclang-[0-9]+\\.so.*|^libtinfo\\.so\\.6.*
 
 Name:           o3de
-Version:        2510.2.1
-Release:        1.%{commitdate}git%{shortcommit}%{?dist}
-Summary:        Open 3D Engine - A real-time, multi-platform 3D game engine
+%if %{with snapshot}
+Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
+%else
+Version:        %{stable_tag}
+%endif
+Release:        1%{?dist}
+Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
 URL:            https://o3de.org
-Source0:        https://github.com/o3de/o3de/releases/download/%{tag}/o3de_%{tag}_lfs.tar.gz
 
-# Build requirements
-BuildRequires:  cmake >= 3.24.0
-BuildRequires:  gcc-c++
+%if %{with snapshot}
+Source0:        o3de-%{snapshot_commit}.tar.gz
+%else
+Source0:        https://github.com/o3de/o3de/releases/download/%{stable_tag}/o3de_%{stable_tag}_lfs.tar.gz
+%endif
+
+# Auxiliary sources kept alongside the spec.
+Source10:       o3de-launcher.sh
+Source11:       o3de-editor.desktop
+Source12:       o3de-gem-reorg.tsv
+Source13:       make-snapshot-tarball.sh
+Source14:       o3de.cdx.json
+
+# Patches against the upstream tree (apply with -p1).
+Patch0001:      0001-clang21-warning-suppressions.patch
+Patch0002:      0002-manifest-py-engine-path-detection.patch
+Patch0003:      0003-get-python-sh-rpm-venv-fixes.patch
+
+# Pre-built O3DE 3rdParty bundles — declare a Source10x and a matching
+# bcond above, then add an extract line in %%prep. Templates:
+#Source101:      physx-5.1.1-rev1-linux.tar.xz
+#Source102:      openexr-3.2.4-rev1-linux.tar.xz
+
+ExclusiveArch:  x86_64 aarch64
+
+# ── Build dependencies ───────────────────────────────────────────────────────
+BuildRequires:  cmake >= 3.24
 BuildRequires:  ninja-build
+BuildRequires:  gcc-c++
 BuildRequires:  git
 BuildRequires:  git-lfs
-BuildRequires:  python3-devel >= 3.10
-BuildRequires:  python3-pip
+BuildRequires:  python3-devel
+BuildRequires:  desktop-file-utils
 
-# Qt5 dependencies
-BuildRequires:  qt5-qtbase-devel
-BuildRequires:  qt5-qtdeclarative-devel
-BuildRequires:  qt5-qtsvg-devel
+# Qt5
+BuildRequires:  pkgconfig(Qt5Core)
+BuildRequires:  pkgconfig(Qt5Gui)
+BuildRequires:  pkgconfig(Qt5Widgets)
+BuildRequires:  pkgconfig(Qt5Quick)
+BuildRequires:  pkgconfig(Qt5Svg)
 BuildRequires:  qt5-qttools-devel
 BuildRequires:  qt5-qtx11extras-devel
 
-# Graphics and windowing dependencies
-BuildRequires:  mesa-libGL-devel
-BuildRequires:  mesa-libGLU-devel
-BuildRequires:  libX11-devel
+# Graphics / windowing
+BuildRequires:  pkgconfig(gl)
+BuildRequires:  pkgconfig(glu)
+BuildRequires:  pkgconfig(x11)
+BuildRequires:  pkgconfig(xcb)
 BuildRequires:  libXcursor-devel
 BuildRequires:  libXi-devel
 BuildRequires:  libXinerama-devel
 BuildRequires:  libXrandr-devel
-BuildRequires:  libxcb-devel
 BuildRequires:  xcb-util-devel
 BuildRequires:  xcb-util-image-devel
 BuildRequires:  xcb-util-keysyms-devel
@@ -56,22 +134,22 @@ BuildRequires:  xcb-util-wm-devel
 BuildRequires:  libxkbcommon-devel
 BuildRequires:  libxkbcommon-x11-devel
 
-# System libraries
-BuildRequires:  zlib-devel
-BuildRequires:  libcurl-devel
-BuildRequires:  openssl-devel
-BuildRequires:  fontconfig-devel
-BuildRequires:  freetype-devel
-BuildRequires:  libunwind-devel
-BuildRequires:  libzstd-devel
-BuildRequires:  pcre2-devel
+# System libs
+BuildRequires:  pkgconfig(zlib)
+BuildRequires:  pkgconfig(libcurl)
+BuildRequires:  pkgconfig(openssl)
+BuildRequires:  pkgconfig(fontconfig)
+BuildRequires:  pkgconfig(freetype2)
+BuildRequires:  pkgconfig(libunwind)
+BuildRequires:  pkgconfig(libzstd)
+BuildRequires:  pkgconfig(libpcre2-8)
 
-# Optional: Vulkan support
+# Vulkan
 BuildRequires:  vulkan-headers
 BuildRequires:  vulkan-loader-devel
 BuildRequires:  spirv-tools-devel
 
-# Runtime requirements
+# ── Runtime dependencies ─────────────────────────────────────────────────────
 Requires:       qt5-qtbase
 Requires:       qt5-qtdeclarative
 Requires:       qt5-qtsvg
@@ -92,399 +170,223 @@ Requires:       fontconfig
 Requires:       freetype
 Requires:       libunwind
 Requires:       libzstd
-Requires:       python3 >= 3.10
 Requires:       vulkan-loader
+Requires:       cmake >= 3.24
+Requires:       python3 >= 3.10
 
 %description
-O3DE (Open 3D Engine) is an open-source, real-time, multi-platform 3D engine
-that enables developers and content creators to build AAA games, cinema-quality
-3D worlds, and high-fidelity simulations without any fees or commercial obligations.
+The Open 3D Engine (O3DE) is an Apache-licensed, real-time, multi-platform
+3D engine for building AAA games, cinema-quality 3D worlds, and
+high-fidelity simulations.
 
-This package is built from the main branch.
+%if %{with snapshot}
+This build is a development snapshot at commit %{shortcommit} (%{snapshot_date}).
+%endif
 
+# ── PREP ─────────────────────────────────────────────────────────────────────
 %prep
-%autosetup -n o3de
+# Source integrity check before extraction.
+echo "%{o3de_source_sha}  %{SOURCE0}" | sha256sum -c -
 
-# Patch O3DE's Clang configuration to add warning suppressions for clang 21+
-sed -i '/Wno-dllexport-explicit-instantiation-decl/a\        -Wno-error=deprecated-volatile  # clang 21+ compatibility\n        -Wno-error=character-conversion  # clang 21+ compatibility' cmake/Platform/Common/Clang/Configurations_clang.cmake
+%autosetup -n %{o3de_source_dir} -p1
 
+# Pre-populate LY_3RDPARTY_PATH from bundled 3rdParty source tarballs.
+%if %{with thirdparty_physx} || %{with thirdparty_openexr}
+mkdir -p %{_builddir}/%{o3de_source_dir}/3rdParty
+%endif
+%{?with_thirdparty_physx:tar -xf %{SOURCE101} -C %{_builddir}/%{o3de_source_dir}/3rdParty}
+%{?with_thirdparty_openexr:tar -xf %{SOURCE102} -C %{_builddir}/%{o3de_source_dir}/3rdParty}
+
+# ── BUILD ────────────────────────────────────────────────────────────────────
 %build
-# Remove any existing build directory to ensure clean configuration
-# rm -rf build
-
-# Create build directory
 mkdir -p build
 
-# Override hardened build specs that interfere with O3DE's build system
-unset CFLAGS
-unset CXXFLAGS
-unset LDFLAGS
+# O3DE sets its own _FORTIFY_SOURCE / -fstack-protector / -fvisibility etc.
+# in cmake/Platform/Common/Configurations_*.cmake. Fedora's CFLAGS bundle
+# layers a different set on top and trips the engine's -Werror. LDFLAGS
+# pulls in /usr/lib/rpm/redhat/redhat-annobin-cc1 specs which expect a
+# GCC plugin that clang doesn't have, breaking cmake compiler-feature
+# tests (FindThreads, libogg CheckSizes). Drop all three; O3DE's own
+# Configurations_*.cmake supplies the equivalents (RELRO, BIND_NOW,
+# stack-protector, _FORTIFY_SOURCE).
+unset CFLAGS CXXFLAGS LDFLAGS
 
-# Configure with CMake - debug and profile configurations
+%if %{with debug_only}
+%global _o3de_configs debug
+%else
+%global _o3de_configs debug;profile
+%endif
+
+# FindThreads' compiler feature-tests false-fail when O3DE's bundled qt5
+# .prl processing triggers find_package(Threads) re-entry. Force the
+# pthread result so configure proceeds.
 cmake \
-    -S . \
-    -B build \
+    -S . -B build \
     -G "Ninja Multi-Config" \
-    -DCMAKE_BUILD_PARALLEL_LEVEL=$(nproc) \
-    -DCMAKE_CONFIGURATION_TYPES="debug;profile" \
-    -DCMAKE_INSTALL_PREFIX=/usr/o3de \
-    -DLY_3RDPARTY_PATH=%{_builddir}/o3de-%{commit}/build/3rdParty \
+    -DCMAKE_CONFIGURATION_TYPES="%{_o3de_configs}" \
+    -DCMAKE_INSTALL_PREFIX=/opt/o3de \
+    -DLY_3RDPARTY_PATH=%{_builddir}/%{o3de_source_dir}/3rdParty \
     -DO3DE_INSTALL_ENGINE_NAME=o3de \
-    -DO3DE_INSTALL_VERSION_STRING=%{version} \
+    -DO3DE_INSTALL_VERSION_STRING=%{stable_tag} \
     -DLY_DISABLE_TEST_MODULES=ON \
     -DLY_STRIP_DEBUG_SYMBOLS=OFF \
-    -DCMAKE_THREAD_LIBS_INIT="-lpthread" \
+    -DTHREADS_PREFER_PTHREAD_FLAG=ON \
+    -DCMAKE_THREAD_LIBS_INIT=-lpthread \
     -DCMAKE_HAVE_THREADS_LIBRARY=1 \
     -DCMAKE_USE_PTHREADS_INIT=1 \
-    -DTHREADS_PREFER_PTHREAD_FLAG=ON
+    -DCMAKE_EXE_LINKER_FLAGS_INIT="-Wl,-z,relro -Wl,-z,now" \
+    -DCMAKE_SHARED_LINKER_FLAGS_INIT="-Wl,-z,relro -Wl,-z,now"
 
-# Patch googletest to add compiler flags for clang 21+ compatibility
-if [ -f build/_deps/googletest-src/googletest/CMakeLists.txt ]; then
-    echo "Patching googletest CMakeLists.txt for clang 21+ compatibility..."
-    cat >> build/_deps/googletest-src/googletest/CMakeLists.txt <<'GTEST_EOF'
+# googletest is fetched via FetchContent during cmake configure and so
+# can't be patched in %%prep. Append our warning suppressions afterwards
+# and re-run cmake to regenerate the build files.
+gtest_cmake=build/_deps/googletest-src/googletest/CMakeLists.txt
+if [ -f "$gtest_cmake" ]; then
+    cat >> "$gtest_cmake" <<'EOF'
 
-# Fix for clang 21+ warnings
-if(TARGET gtest)
-  target_compile_options(gtest PRIVATE -Wno-error=character-conversion -Wno-error=deprecated-volatile)
-endif()
-if(TARGET gtest_main)
-  target_compile_options(gtest_main PRIVATE -Wno-error=character-conversion -Wno-error=deprecated-volatile)
-endif()
-GTEST_EOF
-    # Reconfigure to pick up the changes
-    cmake build
+# clang 21+ compatibility (added by Fedora RPM build).
+foreach(_t IN ITEMS gtest gtest_main)
+    if(TARGET ${_t})
+        target_compile_options(${_t} PRIVATE
+            -Wno-error=character-conversion
+            -Wno-error=deprecated-volatile)
+    endif()
+endforeach()
+EOF
+    cmake -S . -B build
 fi
 
-# Build both debug and profile configurations
-# To build only debug, use: rpmbuild --define 'debug_only 1' -bb o3de.spec
 cmake --build build --config debug --parallel %{_smp_build_ncpus}
-%{!?debug_only:cmake --build build --config profile --parallel %{_smp_build_ncpus}}
+%if %{without debug_only}
+cmake --build build --config profile --parallel %{_smp_build_ncpus}
+%endif
 
-# Create a source distribution package for the o3de Python scripts
-# This allows get_python.sh to install it without needing write access to /usr/o3de
-cd scripts/o3de
-python3 setup.py sdist
-cd ../..
+# Build sdist for the o3de Python module so get_python.sh installs it
+# non-editably into per-user venvs (no write-back to /opt/o3de needed).
+( cd scripts/o3de && %{__python3} setup.py sdist )
 
+# ── INSTALL ──────────────────────────────────────────────────────────────────
 %install
-# Install from the build directory
-# Install all components (CORE, DEFAULT, DEFAULT_DEBUG, and DEFAULT_PROFILE) to get scripts, python, cmake, and engine.json
-# CMake requires separate install commands for each component, and with multi-config we need to specify --config
-# CORE and DEFAULT are shared, so install with debug config first
+# O3DE's install components split by config:
+#   CORE             cmake config files / engine.json (config-independent)
+#   DEFAULT          scripts / Tools / python (config-independent)
+#   DEFAULT_DEBUG    debug-config binaries
+#   DEFAULT_PROFILE  profile-config binaries (default ship config)
 DESTDIR=%{buildroot} cmake --install build --config debug --component CORE
 DESTDIR=%{buildroot} cmake --install build --config debug --component DEFAULT
-# DESTDIR=%{buildroot} cmake --install build --config debug --component DEFAULT_DEBUG
-# Install profile-specific components (skip if debug_only is defined)
-%{!?debug_only:DESTDIR=%{buildroot} cmake --install build --config profile --component DEFAULT_PROFILE}
+%if %{with debug_only}
+DESTDIR=%{buildroot} cmake --install build --config debug --component DEFAULT_DEBUG
+%else
+DESTDIR=%{buildroot} cmake --install build --config profile --component DEFAULT_PROFILE
+%endif
 
-# Fix flattened gem directory structure
-# CMake's install process flattens nested external_subdirectories, but O3DE expects them to be hierarchical
-# This section reorganizes the flattened structure back into the correct hierarchy
+# Restore O3DE's hierarchical gem layout that CMake's install flattens.
+# Mapping driven by the TSV in Source12 — add a row instead of editing the spec.
+ext=%{buildroot}/opt/o3de/External
+while IFS=$'\t' read -r flat nested; do
+    case "$flat" in ''|'#'*) continue ;; esac
+    [ -d "$ext/$flat" ] || continue
+    mkdir -p "$ext/$nested"
+    cp -a "$ext/$flat/." "$ext/$nested/"
+    rm -rf "$ext/$flat"
+done < %{SOURCE12}
 
-# Atom gem subdirectories (from Gems/Atom/gem.json external_subdirectories)
-echo "Fixing Atom gem subdirectory structure..."
-for subdir in Bootstrap RHI RPI ImageProcessingAtom Shader DebugCamera Common ShaderManagementConsole; do
-    if [ -d "%{buildroot}/usr/o3de/External/$subdir" ]; then
-        echo "  Moving External/$subdir -> External/Atom/$subdir"
-        mkdir -p %{buildroot}/usr/o3de/External/Atom/$subdir
-        # Use rsync-like behavior: copy contents, then remove source
-        cp -a %{buildroot}/usr/o3de/External/$subdir/. %{buildroot}/usr/o3de/External/Atom/$subdir/
-        rm -rf %{buildroot}/usr/o3de/External/$subdir
-    fi
-done
+# Strip duplicate hash-suffixed gem dirs CMake may emit alongside the moves.
+find "$ext" -maxdepth 1 -type d -name '*-[a-f0-9]*' -exec rm -rf {} + 2>/dev/null || :
 
-# RHI platform-specific subdirectories (from Gems/Atom/RHI/gem.json)
-echo "Fixing RHI platform subdirectory structure..."
-for subdir in DX12 Metal Null Vulkan; do
-    if [ -d "%{buildroot}/usr/o3de/External/$subdir" ]; then
-        echo "  Moving External/$subdir -> External/Atom/RHI/$subdir"
-        mkdir -p %{buildroot}/usr/o3de/External/Atom/RHI/$subdir
-        cp -a %{buildroot}/usr/o3de/External/$subdir/. %{buildroot}/usr/o3de/External/Atom/RHI/$subdir/
-        rm -rf %{buildroot}/usr/o3de/External/$subdir
-    fi
-done
+# Normalize ambiguous '#!/usr/bin/env python' shebangs to 'python3' across
+# the entire engine tree so brp-mangle-shebangs accepts them. We deliberately
+# keep '/usr/bin/env' (not a hardcoded /usr/bin/python3) so the bundled
+# Python 3.10 venv is found via PATH when the launcher activates it.
+find %{buildroot}/opt/o3de -type f -name '*.py' \
+    -exec sed -i '1s|^#!/usr/bin/env python$|#!/usr/bin/env python3|' {} +
 
-# AtomLyIntegration gem subdirectories (from Gems/AtomLyIntegration/gem.json)
-echo "Fixing AtomLyIntegration gem subdirectory structure..."
-for subdir in AtomBridge AtomFont AtomImGuiTools AtomRenderOptions AtomViewportDisplayIcons AtomViewportDisplayInfo CommonFeatures EditorModeFeedback EMotionFXAtom ImguiAtom; do
-    if [ -d "%{buildroot}/usr/o3de/External/$subdir" ]; then
-        echo "  Moving External/$subdir -> External/AtomLyIntegration/$subdir"
-        mkdir -p %{buildroot}/usr/o3de/External/AtomLyIntegration/$subdir
-        cp -a %{buildroot}/usr/o3de/External/$subdir/. %{buildroot}/usr/o3de/External/AtomLyIntegration/$subdir/
-        rm -rf %{buildroot}/usr/o3de/External/$subdir
-    fi
-done
+# Editor expects engine.json + python relative to the binary's location.
+# Only create symlinks for the config we actually installed.
+%if %{with debug_only}
+%global _installed_config debug
+%else
+%global _installed_config profile
+%endif
+ln -s ../../../../python      %{buildroot}/opt/o3de/bin/Linux/%{_installed_config}/Default/python
+ln -s ../../../../engine.json %{buildroot}/opt/o3de/bin/Linux/%{_installed_config}/Default/engine.json
 
-# TechnicalArt subdirectory under AtomLyIntegration
-if [ -d "%{buildroot}/usr/o3de/External/DccScriptingInterface" ]; then
-    echo "  Moving External/DccScriptingInterface -> External/AtomLyIntegration/TechnicalArt/DccScriptingInterface"
-    mkdir -p %{buildroot}/usr/o3de/External/AtomLyIntegration/TechnicalArt/DccScriptingInterface
-    cp -a %{buildroot}/usr/o3de/External/DccScriptingInterface/. %{buildroot}/usr/o3de/External/AtomLyIntegration/TechnicalArt/DccScriptingInterface/
-    rm -rf %{buildroot}/usr/o3de/External/DccScriptingInterface
-fi
+# Launcher wrapper + desktop entry from real Source files.
+install -D -m 0755 %{SOURCE10} %{buildroot}%{_bindir}/o3de
+desktop-file-install --dir=%{buildroot}%{_datadir}/applications %{SOURCE11}
 
-# AtomContent gem subdirectories (from Gems/AtomContent/gem.json)
-echo "Fixing AtomContent gem subdirectory structure..."
-for subdir in Sponza ReferenceMaterials TestData; do
-    if [ -d "%{buildroot}/usr/o3de/External/$subdir" ]; then
-        echo "  Moving External/$subdir -> External/AtomContent/$subdir"
-        mkdir -p %{buildroot}/usr/o3de/External/AtomContent/$subdir
-        cp -a %{buildroot}/usr/o3de/External/$subdir/. %{buildroot}/usr/o3de/External/AtomContent/$subdir/
-        rm -rf %{buildroot}/usr/o3de/External/$subdir
-    fi
-done
+# Ship the SBOM next to the license/docs so it's discoverable post-install.
+install -D -m 0644 %{SOURCE14} %{buildroot}%{_datadir}/o3de/sbom/o3de.cdx.json
 
-# Multiplayer gem subdirectories (from Gems/Multiplayer/gem.json)
-if [ -d "%{buildroot}/usr/o3de/External/Multiplayer_ScriptCanvas" ]; then
-    echo "  Moving External/Multiplayer_ScriptCanvas -> External/Multiplayer/Multiplayer_ScriptCanvas"
-    mkdir -p %{buildroot}/usr/o3de/External/Multiplayer/Multiplayer_ScriptCanvas
-    cp -a %{buildroot}/usr/o3de/External/Multiplayer_ScriptCanvas/. %{buildroot}/usr/o3de/External/Multiplayer/Multiplayer_ScriptCanvas/
-    rm -rf %{buildroot}/usr/o3de/External/Multiplayer_ScriptCanvas
-fi
+install -d %{buildroot}%{_datadir}/icons/hicolor/256x256/apps
+install -d %{buildroot}%{_datadir}/pixmaps
 
-# Streamer gem subdirectories (from Gems/Streamer/gem.json)
-if [ -d "%{buildroot}/usr/o3de/External/StreamerProfiler" ]; then
-    echo "  Moving External/StreamerProfiler -> External/Streamer/StreamerProfiler"
-    mkdir -p %{buildroot}/usr/o3de/External/Streamer/StreamerProfiler
-    cp -a %{buildroot}/usr/o3de/External/StreamerProfiler/. %{buildroot}/usr/o3de/External/Streamer/StreamerProfiler/
-    rm -rf %{buildroot}/usr/o3de/External/StreamerProfiler
-fi
+# ── CHECK ────────────────────────────────────────────────────────────────────
+%check
+desktop-file-validate %{buildroot}%{_datadir}/applications/o3de-editor.desktop
 
-# Clean up any duplicate directories that may have been created by CMake with hash suffixes
-find %{buildroot}/usr/o3de/External -maxdepth 1 -type d -name "*-[a-f0-9]*" -exec rm -rf {} \; 2>/dev/null || true
-
-echo "Gem directory structure fix completed."
-
-# Fix Python shebangs
-find %{buildroot} -type f -name "*.py" -exec sed -i '1s|^#!/usr/bin/env python$|#!/usr/bin/env python3|' {} +
-
-# Fix permissions for directories that need write access during project builds
-# O3DE installs Python packages in development mode which requires write access to source directories
-chmod -R a+w %{buildroot}/usr/o3de/Tools
-chmod -R a+w %{buildroot}/usr/o3de/scripts
-
-# Create symlinks in the binary location
-# O3DE binaries expect certain files to be relative to their location
-#ln -s ../../../../python %{buildroot}/usr/o3de/bin/Linux/debug/Default/python
-#ln -s ../../../../engine.json %{buildroot}/usr/o3de/bin/Linux/debug/Default/engine.json
-%{!?debug_only:ln -s ../../../../python %{buildroot}/usr/o3de/bin/Linux/profile/Default/python}
-%{!?debug_only:ln -s ../../../../engine.json %{buildroot}/usr/o3de/bin/Linux/profile/Default/engine.json}
-
-# Patch manifest.py to fix engine path detection when installed in venv
-# When o3de package is installed in venv, __file__.parents[3] resolves to venv lib dir
-# Instead, use O3DE_ENGINE_PATH environment variable if set, otherwise fall back to original logic
-sed -i '/def get_this_engine_path/,/return.*resolve()/c\
-def get_this_engine_path() -> pathlib.Path:\
-    # When running from SNAP, __file__ was returning an incorrect (temporary) folder so\
-    # we manually build the correct path from env variables here when running from snap\
-    if "SNAP" in os.environ and "SNAP_BUILD" in os.environ:\
-        return pathlib.Path(os.environ.get('"'"'SNAP'"'"')) / os.environ.get('"'"'SNAP_BUILD'"'"')\
-    # RPM package fix: When installed in venv, use O3DE_ENGINE_PATH environment variable\
-    elif "O3DE_ENGINE_PATH" in os.environ:\
-        return pathlib.Path(os.environ.get('"'"'O3DE_ENGINE_PATH'"'"')).resolve()\
-    else:\
-        return pathlib.Path(os.path.realpath(__file__)).parents[3].resolve()' %{buildroot}/usr/o3de/scripts/o3de/o3de/manifest.py
-
-# Patch get_python.sh to create engine.json symlink and Python path config
-# This is required for O3DE to find the engine configuration and modules
-sed -i '$i\
-# Create engine.json symlink and .pth file in venv (RPM package fix)\
-if [ -d "$HOME/.o3de/Python/venv" ]; then\
-    for venv_dir in $HOME/.o3de/Python/venv/*/; do\
-        if [ -d "$venv_dir" ]; then\
-            # Create engine.json symlink\
-            if [ ! -f "${venv_dir}lib/engine.json" ]; then\
-                ln -sf "$DIR/../engine.json" "${venv_dir}lib/engine.json" 2>/dev/null || true\
-            fi\
-            # Create .pth file so embedded Python can find o3de module\
-            mkdir -p "$HOME/.local/lib/python3.10/site-packages" 2>/dev/null\
-            echo "${venv_dir}lib/python3.10/site-packages" > "$HOME/.local/lib/python3.10/site-packages/o3de-venv.pth"\
-        fi\
-    done\
-fi\
-\
-# Fix for engine path ID mismatch between get_python.sh and O3DE binary\
-# The O3DE binary calculates engine ID from bin/Linux/<config>/Default/python/..\
-# while get_python.sh uses the direct engine path, resulting in different hashes\
-if [ -x "$(command -v cmake)" ]; then\
-    STANDARD_ENGINE_ID=$(cmake -P $DIR/../cmake/CalculateEnginePathId.cmake "$DIR/.." 2>/dev/null | tail -1)\
-    # Handle both debug and profile configurations\
-    for config in debug profile; do\
-        ALTERNATE_ENGINE_ID=$(cmake -P $DIR/../cmake/CalculateEnginePathId.cmake "$DIR/../bin/Linux/$config/Default/python/.." 2>/dev/null | tail -1)\
-        if [ -n "$STANDARD_ENGINE_ID" ] && [ -n "$ALTERNATE_ENGINE_ID" ] && [ "$STANDARD_ENGINE_ID" != "$ALTERNATE_ENGINE_ID" ]; then\
-            if [ -d "$HOME/.o3de/Python/venv/$STANDARD_ENGINE_ID" ] && [ ! -e "$HOME/.o3de/Python/venv/$ALTERNATE_ENGINE_ID" ]; then\
-                ln -s "$STANDARD_ENGINE_ID" "$HOME/.o3de/Python/venv/$ALTERNATE_ENGINE_ID" 2>/dev/null || true\
-            elif [ -d "$HOME/.o3de/Python/venv/$ALTERNATE_ENGINE_ID" ] && [ ! -e "$HOME/.o3de/Python/venv/$STANDARD_ENGINE_ID" ]; then\
-                ln -s "$ALTERNATE_ENGINE_ID" "$HOME/.o3de/Python/venv/$STANDARD_ENGINE_ID" 2>/dev/null || true\
-            fi\
-        fi\
-    done\
-fi\
-\
-# Patch manifest.py in all venvs after pip install to fix engine path detection\
-for venv_dir in $HOME/.o3de/Python/venv/*/; do\
-    if [ -d "$venv_dir" ]; then\
-        manifest_py="${venv_dir}lib/python3.10/site-packages/o3de/manifest.py"\
-        if [ -f "$manifest_py" ]; then\
-            cp "$DIR/../scripts/o3de/o3de/manifest.py" "$manifest_py" 2>/dev/null || true\
-        fi\
-    fi\
-done\
-' %{buildroot}/usr/o3de/python/get_python.sh
-
-# Create desktop entry
-mkdir -p %{buildroot}%{_datadir}/applications
-cat > %{buildroot}%{_datadir}/applications/o3de-editor.desktop <<EOF
-[Desktop Entry]
-Version=1.0
-Type=Application
-Name=O3DE Editor
-Comment=Open 3D Engine Editor
-Exec=%{_bindir}/o3de-editor
-Icon=o3de
-Terminal=false
-Categories=Development;3DGraphics;Game;
-Keywords=game;engine;3d;development;
-EOF
-
-# Create icon directories (placeholder - actual icons would need to be extracted)
-mkdir -p %{buildroot}%{_datadir}/icons/hicolor/256x256/apps
-mkdir -p %{buildroot}%{_datadir}/pixmaps
-
-# Create symlinks for common executables
-mkdir -p %{buildroot}%{_bindir}
-
-# Create O3DE wrapper script with proper environment setup
-cat > %{buildroot}%{_bindir}/o3de << 'O3DE_WRAPPER_EOF'
-#!/bin/bash
-# O3DE Launcher Wrapper - Sets up environment for O3DE
-
-# Set engine path for manifest.py to detect correctly
-export O3DE_ENGINE_PATH="/usr/o3de"
-
-# Default to profile configuration, but allow override with O3DE_BUILD_CONFIG env var
-BUILD_CONFIG="${O3DE_BUILD_CONFIG:-profile}"
-
-# Validate build configuration
-if [ "$BUILD_CONFIG" != "debug" ] && [ "$BUILD_CONFIG" != "profile" ]; then
-    echo "Error: O3DE_BUILD_CONFIG must be 'debug' or 'profile' (got: $BUILD_CONFIG)"
-    echo "Usage: O3DE_BUILD_CONFIG=debug o3de"
-    exit 1
-fi
-
-# Calculate engine ID (matches how python.sh calculates it with trailing slash)
-ENGINE_ID=$(/usr/bin/cmake -P /usr/o3de/cmake/CalculateEnginePathId.cmake "/usr/o3de/python/.." 2>/dev/null | tail -1)
-
-# Set PYTHONPATH to include O3DE scripts and venv site-packages
-if [ -d "$HOME/.o3de/Python/venv/$ENGINE_ID" ]; then
-    export PYTHONPATH="/usr/o3de/scripts:$HOME/.o3de/Python/venv/$ENGINE_ID/lib/python3.10/site-packages:$PYTHONPATH"
-else
-    export PYTHONPATH="/usr/o3de/scripts:$PYTHONPATH"
-fi
-
-# Set LD_LIBRARY_PATH for O3DE libraries
-export LD_LIBRARY_PATH="/usr/o3de/bin/Linux/$BUILD_CONFIG/Default:$LD_LIBRARY_PATH"
-
-# Set up user directories in home folder to avoid permission issues
-# O3DE needs writable directories for cache and user settings
-# Note: O3DE already creates ~/.o3de/Logs, so we reuse that
-mkdir -p "$HOME/.o3de/user"
-
-# Launch O3DE with user paths pointing to writable locations in home directory
-exec /usr/o3de/bin/Linux/$BUILD_CONFIG/Default/o3de \
-    --project-user-path="$HOME/.o3de/user" \
-    --project-log-path="$HOME/.o3de/Logs" \
-    "$@"
-O3DE_WRAPPER_EOF
-chmod +x %{buildroot}%{_bindir}/o3de
-
-# Set up environment script
-mkdir -p %{buildroot}%{_sysconfdir}/profile.d
-cat > %{buildroot}%{_sysconfdir}/profile.d/o3de.sh <<'EOF'
-# O3DE Environment Setup
-export O3DE_HOME=/usr/o3de
-export PATH=$PATH:$O3DE_HOME/bin
-EOF
-
+# ── FILES ────────────────────────────────────────────────────────────────────
 %files
 %license LICENSE.txt LICENSE_APACHE2.TXT LICENSE_MIT.TXT
 %doc README.md CODE_OF_CONDUCT.md CONTRIBUTING.md
-/usr/o3de/*
+/opt/o3de
 %{_bindir}/o3de
 %{_datadir}/applications/o3de-editor.desktop
-%config(noreplace) %{_sysconfdir}/profile.d/o3de.sh
-%{_datadir}/icons/hicolor/256x256/apps/
-%{_datadir}/pixmaps/
+%{_datadir}/o3de/sbom/o3de.cdx.json
+%dir %{_datadir}/icons/hicolor/256x256/apps
+%dir %{_datadir}/pixmaps
 
+# ── Scriptlets ───────────────────────────────────────────────────────────────
 %post
-# Register the engine after installation
-if [ -x /usr/o3de/scripts/o3de.sh ]; then
-    /usr/o3de/scripts/o3de.sh register --this-engine || true
+if [ -x /opt/o3de/scripts/o3de.sh ]; then
+    /opt/o3de/scripts/o3de.sh register --this-engine || :
 fi
+/usr/bin/update-desktop-database -q %{_datadir}/applications &>/dev/null || :
 
-# Update desktop database
-if [ -x /usr/bin/update-desktop-database ]; then
-    /usr/bin/update-desktop-database -q %{_datadir}/applications || true
-fi
+cat <<'EOF'
 
-# Display post-installation instructions
-cat << 'POSTINSTALL_MSG'
+O3DE installed at /opt/o3de.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-O3DE Installation Complete!
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Finalize the per-user Python venv before first launch:
 
-Before using O3DE, you must set up the Python environment:
+    /opt/o3de/python/get_python.sh
 
-    /usr/o3de/python/get_python.sh
+Then run the editor:
 
-This will:
-  • Download and configure Python 3.10.13
-  • Install required Python dependencies
-  • Set up the O3DE Python virtual environment
+    o3de                              # profile build (default)
+    O3DE_BUILD_CONFIG=debug o3de      # debug build
 
-After running the script, you can launch O3DE:
-
-    o3de
-
-Or use the desktop entry from your application menu.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-POSTINSTALL_MSG
+EOF
 
 %postun
-# Update desktop database
-if [ -x /usr/bin/update-desktop-database ]; then
-    /usr/bin/update-desktop-database -q %{_datadir}/applications || true
-fi
+/usr/bin/update-desktop-database -q %{_datadir}/applications &>/dev/null || :
 
+# ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
-* Tue Jan 27 2026 Nicholas Schuetz <nschuetz@redhat.com> - 2510.2-1
+* Wed Apr 29 2026 Nicholas Schuetz <nschuetz@redhat.com> - 2510.2-1
+- Major spec refactor for Fedora 44 / rpm 4.20+:
+- Add %%bcond_with snapshot for development-branch builds (sources/make-snapshot-tarball.sh)
+- Extract embedded heredocs to Source files (launcher, desktop entry, gem reorg manifest)
+- Replace inline sed transforms with proper Patch files (clang21, manifest.py, get_python.sh)
+- Move install prefix from non-FHS /usr/o3de to /opt/o3de
+- Drop world-writable chmod on /opt; rely on per-user venv non-editable install
+- Add SHA256 source verification in %%prep
+- Add ExclusiveArch x86_64/aarch64
+- Add %%check with desktop-file-validate
+- Add %%bcond_with thirdparty_* hooks for opt-in 3rdParty package bundling
+- Ship CycloneDX SBOM under %%{_datadir}/o3de/sbom/
+
+* Tue Jan 27 2026 Nicholas Schuetz <nschuetz@redhat.com> - 2510.2-0
 - New point release build for 25.10.2
 
 * Wed Dec 10 2025 Nicholas Schuetz <nschuetz@redhat.com> - 2510.1-1
 - New point release build for 25.10.1
 
-* Fri Nov 28 2025 Package Builder <builder@localhost> - 25100.0.1-2
-- Fix flattened gem directory structure in External/
-- Reorganize Atom, AtomLyIntegration, AtomContent, Multiplayer, and Streamer subdirectories
-- Resolves "Invalid gem json" errors for nested gems on startup
-- Fix user cache directory permissions by redirecting to ~/.o3de/
-- Set project-user-path and project-log-path to writable locations in home directory
+* Sat Nov 22 2025 Nicholas Schuetz <nschuetz@redhat.com> - 2510.0-1
+- Rewritten RPM package for O3DE v25.10.0
 
-* Sat Nov 22 2025 Nicholas Schuetz <nschuetz@redhat.com> - 25100.0.1-1
-- Rewritten RPM package for O3DE v25.10.0 from main github branch
-- Built for Fedora 43
-- Commit: ece239c0113d988907edea0022f7609387ae7baa
-
-* Thu Aug 24 2023 Roddie Kieley <roddie@kieley.ca> 2305.1-1
+* Thu Aug 24 2023 Roddie Kieley <roddie@kieley.ca> - 2305.1-1
 - Updated for v23.05.1 release
 
-* Fri Aug 4 2023 Nicholas Frizzell <nfrizzel@redhat.com> 2305.0-6
+* Fri Aug 04 2023 Nicholas Frizzell <nfrizzel@redhat.com> - 2305.0-6
 - Misc. cleanup and documentation
-
-* Mon Jul 31 2023 Nicholas Frizzell <nfrizzel@redhat.com> 2305.0-5
-- Add option to specify use of certain system packages
-
-* Mon Jul 24 2023 Nicholas Frizzell <nfrizzel@redhat.com> 2305.0-4
-- Add manual changelog to remove git commit noise and specify release versions properly

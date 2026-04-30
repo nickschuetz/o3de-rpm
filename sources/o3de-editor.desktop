@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=O3DE Editor
+GenericName=Game Engine
+Comment=Open 3D Engine Editor
+Exec=/usr/bin/o3de %F
+Icon=o3de
+Terminal=false
+StartupNotify=true
+Categories=Development;3DGraphics;Game;
+Keywords=game;engine;3d;development;rendering;

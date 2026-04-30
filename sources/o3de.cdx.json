@@ -1,0 +1,156 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "serialNumber": "urn:uuid:o3de-rpm-2510.2-1",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-04-29T00:00:00Z",
+    "tools": {
+      "components": [
+        {
+          "type": "application",
+          "name": "o3de-rpm",
+          "version": "2510.2-1",
+          "description": "O3DE RPM packaging spec"
+        }
+      ]
+    },
+    "component": {
+      "bom-ref": "pkg:rpm/fedora/o3de@2510.2-1",
+      "type": "application",
+      "name": "o3de",
+      "version": "2510.2",
+      "description": "Open 3D Engine — real-time, multi-platform 3D engine",
+      "licenses": [
+        { "expression": "Apache-2.0 OR MIT" }
+      ],
+      "purl": "pkg:rpm/fedora/o3de@2510.2-1?arch=x86_64",
+      "externalReferences": [
+        { "type": "website",          "url": "https://o3de.org" },
+        { "type": "vcs",              "url": "https://github.com/o3de/o3de" },
+        { "type": "release-notes",    "url": "https://github.com/o3de/o3de/releases/tag/2510.2" },
+        { "type": "distribution",     "url": "https://github.com/o3de/o3de/releases/download/2510.2/o3de_2510.2_lfs.tar.gz" }
+      ]
+    }
+  },
+  "components": [
+    {
+      "bom-ref": "build-dep:cmake",
+      "type": "application",
+      "name": "cmake",
+      "scope": "required",
+      "purl": "pkg:rpm/fedora/cmake",
+      "description": "Build dependency: cmake >= 3.24"
+    },
+    {
+      "bom-ref": "build-dep:ninja-build",
+      "type": "application",
+      "name": "ninja-build",
+      "scope": "required",
+      "purl": "pkg:rpm/fedora/ninja-build"
+    },
+    {
+      "bom-ref": "build-dep:gcc-c++",
+      "type": "application",
+      "name": "gcc-c++",
+      "scope": "required",
+      "purl": "pkg:rpm/fedora/gcc-c%2B%2B"
+    },
+    {
+      "bom-ref": "build-dep:python3-devel",
+      "type": "library",
+      "name": "python3-devel",
+      "scope": "required",
+      "purl": "pkg:rpm/fedora/python3-devel"
+    },
+    {
+      "bom-ref": "build-dep:git-lfs",
+      "type": "application",
+      "name": "git-lfs",
+      "scope": "required",
+      "purl": "pkg:rpm/fedora/git-lfs"
+    },
+    {
+      "bom-ref": "runtime-dep:qt5-qtbase",
+      "type": "library",
+      "name": "qt5-qtbase",
+      "scope": "required",
+      "purl": "pkg:rpm/fedora/qt5-qtbase",
+      "description": "Runtime: Qt5 base libraries used by the editor UI"
+    },
+    {
+      "bom-ref": "runtime-dep:vulkan-loader",
+      "type": "library",
+      "name": "vulkan-loader",
+      "scope": "required",
+      "purl": "pkg:rpm/fedora/vulkan-loader"
+    },
+    {
+      "bom-ref": "runtime-dep:mesa-libGL",
+      "type": "library",
+      "name": "mesa-libGL",
+      "scope": "required",
+      "purl": "pkg:rpm/fedora/mesa-libGL"
+    },
+    {
+      "bom-ref": "runtime-dep:libcurl",
+      "type": "library",
+      "name": "libcurl",
+      "scope": "required",
+      "purl": "pkg:rpm/fedora/libcurl"
+    },
+    {
+      "bom-ref": "runtime-dep:openssl",
+      "type": "library",
+      "name": "openssl",
+      "scope": "required",
+      "purl": "pkg:rpm/fedora/openssl"
+    },
+    {
+      "bom-ref": "bundled:googletest",
+      "type": "library",
+      "name": "googletest",
+      "scope": "optional",
+      "description": "Fetched at cmake configure time via FetchContent (test scaffolding only; built into LY_DISABLE_TEST_MODULES=ON skipped tests)",
+      "licenses": [{ "id": "BSD-3-Clause" }],
+      "purl": "pkg:github/google/googletest"
+    },
+    {
+      "bom-ref": "bundled:clang-toolchain",
+      "type": "application",
+      "name": "o3de-clang-toolchain",
+      "scope": "required",
+      "description": "Embedded clang/libclang/libtinfo bundled by O3DE; libclang-* and libtinfo.so.6 are excluded from auto-Requires (see __requires_exclude in spec)",
+      "licenses": [{ "id": "Apache-2.0" }]
+    },
+    {
+      "bom-ref": "bundled:python-3.10",
+      "type": "application",
+      "name": "o3de-python",
+      "version": "3.10.13",
+      "scope": "required",
+      "description": "Bundled Python 3.10 venv installed by /opt/o3de/python/get_python.sh into ~/.o3de/Python/venv/<engine-id>",
+      "licenses": [{ "id": "PSF-2.0" }]
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "pkg:rpm/fedora/o3de@2510.2-1",
+      "dependsOn": [
+        "build-dep:cmake",
+        "build-dep:ninja-build",
+        "build-dep:gcc-c++",
+        "build-dep:python3-devel",
+        "build-dep:git-lfs",
+        "runtime-dep:qt5-qtbase",
+        "runtime-dep:vulkan-loader",
+        "runtime-dep:mesa-libGL",
+        "runtime-dep:libcurl",
+        "runtime-dep:openssl",
+        "bundled:googletest",
+        "bundled:clang-toolchain",
+        "bundled:python-3.10"
+      ]
+    }
+  ]
+}
