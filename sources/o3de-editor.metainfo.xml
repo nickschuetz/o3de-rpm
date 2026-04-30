@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.o3de.O3DE</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>Apache-2.0 OR MIT</project_license>
+
+  <name>O3DE Editor</name>
+  <summary>Real-time 3D engine and editor for games and simulations</summary>
+
+  <description>
+    <p>
+      The Open 3D Engine (O3DE) is an Apache-licensed multi-platform 3D engine
+      that enables developers to build AAA games, cinema-quality 3D worlds, and
+      high-fidelity simulations without any fees or commercial obligations.
+    </p>
+    <p>
+      Major features include:
+    </p>
+    <ul>
+      <li>Atom physically-based renderer with Vulkan backend</li>
+      <li>Visual scripting with Script Canvas</li>
+      <li>Component-entity scene composition (AzCore / AzFramework)</li>
+      <li>Networking and multiplayer (mostly C++, partially native)</li>
+      <li>Asset pipeline with hot-reload (Asset Processor)</li>
+      <li>Python-driven editor extensibility (PySide2)</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">o3de-editor.desktop</launchable>
+  <provides>
+    <id>o3de-editor.desktop</id>
+    <binary>o3de</binary>
+  </provides>
+
+  <categories>
+    <category>Development</category>
+    <category>3DGraphics</category>
+    <category>Game</category>
+  </categories>
+
+  <keywords>
+    <keyword>game</keyword>
+    <keyword>engine</keyword>
+    <keyword>3d</keyword>
+    <keyword>rendering</keyword>
+    <keyword>simulation</keyword>
+    <keyword>vulkan</keyword>
+    <keyword>development</keyword>
+  </keywords>
+
+  <url type="homepage">https://o3de.org</url>
+  <url type="bugtracker">https://github.com/o3de/o3de/issues</url>
+  <url type="help">https://docs.o3de.org</url>
+  <url type="vcs-browser">https://github.com/o3de/o3de</url>
+  <url type="contribute">https://github.com/o3de/o3de/blob/development/CONTRIBUTING.md</url>
+
+  <developer id="org.o3de">
+    <name>The Open 3D Foundation</name>
+  </developer>
+
+  <content_rating type="oars-1.1"/>
+
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+
+  <recommends>
+    <display_length compare="ge">1280</display_length>
+    <memory>16384</memory>
+  </recommends>
+
+  <releases>
+    <release version="2510.2" date="2026-01-27">
+      <description>
+        <p>O3DE 25.10.2 — point release.</p>
+      </description>
+    </release>
+    <release version="2510.1" date="2025-12-09">
+      <description>
+        <p>O3DE 25.10.1 — point release.</p>
+      </description>
+    </release>
+    <release version="2510.0" date="2025-10-15">
+      <description>
+        <p>O3DE 25.10.0 — major feature release.</p>
+      </description>
+    </release>
+  </releases>
+</component>

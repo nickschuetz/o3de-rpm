@@ -51,16 +51,23 @@
 %endif
 
 # ── RPM build behavior ───────────────────────────────────────────────────────
+# debug_package is suppressed because rpmbuild's debug-symbol extraction
+# trips on O3DE's binary layout. A real -debuginfo subpackage is on the
+# Fedora-inclusion roadmap (see FEDORA_ROADMAP.md, stage 5).
 %global debug_package %{nil}
 %global _build_id_links none
-%global _source_payload w0.ufdio
-%global _binary_payload w0.ufdio
 %global __jar_repack 0
 
-# Bundled libclang/libtinfo come from O3DE's embedded clang toolchain. The
-# ABI is fixed to the bundled copy, so we drop them from auto-Requires
-# rather than chasing a system clang minor version.
-%global __requires_exclude ^libclang-[0-9]+\\.so.*|^libtinfo\\.so\\.6.*
+# Uncompressed cpio at the spec level — final payload still gets the
+# rpm-config compression. Empirically faster builds on slow disks; size
+# tradeoff measured separately (see FEDORA_ROADMAP.md).
+%global _source_payload w0.ufdio
+%global _binary_payload w0.ufdio
+
+# Bundled Python series — comes from O3DE's package CDN's
+# python-X.Y.Z-revN-linux tarball. Used for venv site-packages
+# directory name and shebang fix-ups. Bump when O3DE bumps.
+%global o3de_bundled_python 3.10
 
 Name:           o3de
 %if %{with snapshot}
@@ -85,6 +92,17 @@ Source10:       o3de-launcher.sh
 Source11:       o3de-editor.desktop
 Source12:       make-snapshot-tarball.sh
 Source13:       o3de.cdx.json
+Source14:       o3de-editor.metainfo.xml
+
+# App icons in hicolor sizes. Extracted from upstream's
+# cmake/Platform/Windows/Packaging/product_icon.ico (256x256 master,
+# downsampled with imagemagick).
+Source20:       icons/o3de-16x16.png
+Source21:       icons/o3de-32x32.png
+Source22:       icons/o3de-48x48.png
+Source23:       icons/o3de-64x64.png
+Source24:       icons/o3de-128x128.png
+Source25:       icons/o3de-256x256.png
 
 # Patches against the upstream tree (apply with -p1).
 Patch0001:      0001-clang21-warning-suppressions.patch
@@ -109,6 +127,7 @@ BuildRequires:  gcc-c++
 BuildRequires:  git
 BuildRequires:  python3-devel
 BuildRequires:  desktop-file-utils
+BuildRequires:  libappstream-glib
 
 # Graphics / windowing — system OpenGL + X11/XCB stack the bundled Qt
 # links against at runtime.
@@ -261,7 +280,7 @@ DESTDIR=%{buildroot} cmake --install build --config profile --component DEFAULT_
 # Normalize ambiguous '#!/usr/bin/env python' shebangs to 'python3' across
 # the entire engine tree so brp-mangle-shebangs accepts them. We deliberately
 # keep '/usr/bin/env' (not a hardcoded /usr/bin/python3) so the bundled
-# Python 3.10 venv is found via PATH when the launcher activates it.
+# Python venv is found via PATH when the launcher activates it.
 find %{buildroot}/opt/o3de -type f -name '*.py' \
     -exec sed -i '1s|^#!/usr/bin/env python$|#!/usr/bin/env python3|' {} +
 
@@ -279,15 +298,30 @@ ln -s ../../../../engine.json %{buildroot}/opt/o3de/bin/Linux/%{_installed_confi
 install -D -m 0755 %{SOURCE10} %{buildroot}%{_bindir}/o3de
 desktop-file-install --dir=%{buildroot}%{_datadir}/applications %{SOURCE11}
 
+# AppStream metainfo for GNOME Software / KDE Discover. Required for
+# Fedora-distributed GUI applications.
+install -D -m 0644 %{SOURCE14} \
+    %{buildroot}%{_metainfodir}/o3de-editor.metainfo.xml
+
+# Hicolor icon theme — six standard sizes from the upstream master ICO.
+for SZ in 16 32 48 64 128 256; do
+    case $SZ in
+        16)  SRC=%{SOURCE20} ;; 32)  SRC=%{SOURCE21} ;;
+        48)  SRC=%{SOURCE22} ;; 64)  SRC=%{SOURCE23} ;;
+        128) SRC=%{SOURCE24} ;; 256) SRC=%{SOURCE25} ;;
+    esac
+    install -D -m 0644 "$SRC" \
+        %{buildroot}%{_datadir}/icons/hicolor/${SZ}x${SZ}/apps/o3de.png
+done
+
 # Ship the SBOM next to the license/docs so it's discoverable post-install.
 install -D -m 0644 %{SOURCE13} %{buildroot}%{_datadir}/o3de/sbom/o3de.cdx.json
-
-install -d %{buildroot}%{_datadir}/icons/hicolor/256x256/apps
-install -d %{buildroot}%{_datadir}/pixmaps
 
 # ── CHECK ────────────────────────────────────────────────────────────────────
 %check
 desktop-file-validate %{buildroot}%{_datadir}/applications/o3de-editor.desktop
+appstream-util validate-relax --nonet \
+    %{buildroot}%{_metainfodir}/o3de-editor.metainfo.xml
 
 # ── FILES ────────────────────────────────────────────────────────────────────
 %files
@@ -296,9 +330,14 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/o3de-editor.desktop
 /opt/o3de
 %{_bindir}/o3de
 %{_datadir}/applications/o3de-editor.desktop
+%{_metainfodir}/o3de-editor.metainfo.xml
+%{_datadir}/icons/hicolor/16x16/apps/o3de.png
+%{_datadir}/icons/hicolor/32x32/apps/o3de.png
+%{_datadir}/icons/hicolor/48x48/apps/o3de.png
+%{_datadir}/icons/hicolor/64x64/apps/o3de.png
+%{_datadir}/icons/hicolor/128x128/apps/o3de.png
+%{_datadir}/icons/hicolor/256x256/apps/o3de.png
 %{_datadir}/o3de/sbom/o3de.cdx.json
-%dir %{_datadir}/icons/hicolor/256x256/apps
-%dir %{_datadir}/pixmaps
 
 # ── Scriptlets ───────────────────────────────────────────────────────────────
 %post
@@ -306,6 +345,8 @@ if [ -x /opt/o3de/scripts/o3de.sh ]; then
     /opt/o3de/scripts/o3de.sh register --this-engine || :
 fi
 /usr/bin/update-desktop-database -q %{_datadir}/applications &>/dev/null || :
+/usr/bin/gtk-update-icon-cache --quiet --force \
+    %{_datadir}/icons/hicolor &>/dev/null || :
 
 cat <<'EOF'
 
@@ -324,9 +365,28 @@ EOF
 
 %postun
 /usr/bin/update-desktop-database -q %{_datadir}/applications &>/dev/null || :
+/usr/bin/gtk-update-icon-cache --quiet --force \
+    %{_datadir}/icons/hicolor &>/dev/null || :
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Wed Apr 29 2026 Nicholas Schuetz <nschuetz@redhat.com> - 2605.0-2
+- Ship app icons in six hicolor sizes (16, 32, 48, 64, 128, 256), extracted
+  from upstream's product_icon.ico master and downsampled with imagemagick
+- Add AppStream metainfo (org.o3de.O3DE) for GNOME Software / KDE Discover
+  with %%check appstream-util validation
+- Drop dead %%__requires_exclude — auto-Requires no longer matches it on
+  the cleaned build (libclang-*/libtinfo.so.6 don't appear)
+- Parameterize the bundled-Python series as %%global o3de_bundled_python
+  (3.10 today) used by the launcher; eases the eventual 3.13 system-Python
+  migration in the Fedora roadmap
+- Replace the launcher's sed-based engine_path migration with an inline
+  python3 JSON edit — resilient to whitespace / sibling keys / trailing
+  commas in user/project.json
+- Document why %%debug_package %%nil is set, with a roadmap pointer to the
+  proper -debuginfo subpackage work
+- Add gtk-update-icon-cache calls in %%post / %%postun for the new icon set
+
 * Wed Apr 29 2026 Nicholas Schuetz <nschuetz@redhat.com> - 2605.0-1
 - Validated end-to-end on stabilization/26050 (commit 246b46f)
 - Drop obsolete gem-reorg machinery (Source12 + %%install loop + TSV file);

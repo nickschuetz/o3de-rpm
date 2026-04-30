@@ -7,9 +7,13 @@
 #                      packaged with rpmbuild --with debug_only ship only
 #                      debug, so the fallback is what matters there.
 #   O3DE_ENGINE_PATH   override engine root (default: /opt/o3de)
+#   O3DE_PYTHON_VERSION  bundled-Python series (default: 3.10)
+#                        Comes from O3DE's package CDN's python-X.Y.Z-revN-linux
+#                        and matches the venv site-packages directory name.
 set -euo pipefail
 
 ENGINE_PATH="${O3DE_ENGINE_PATH:-/opt/o3de}"
+PYV="${O3DE_PYTHON_VERSION:-3.10}"
 
 if [ -n "${O3DE_BUILD_CONFIG:-}" ]; then
     BUILD_CONFIG="$O3DE_BUILD_CONFIG"
@@ -46,8 +50,8 @@ ENGINE_ID="$(/usr/bin/cmake -P "$ENGINE_PATH/cmake/CalculateEnginePathId.cmake" 
     "$ENGINE_PATH/python/.." 2>/dev/null | tail -1 || true)"
 
 VENV_SITEPKGS=""
-if [ -n "$ENGINE_ID" ] && [ -d "$HOME/.o3de/Python/venv/$ENGINE_ID/lib/python3.10/site-packages" ]; then
-    VENV_SITEPKGS="$HOME/.o3de/Python/venv/$ENGINE_ID/lib/python3.10/site-packages"
+if [ -n "$ENGINE_ID" ] && [ -d "$HOME/.o3de/Python/venv/$ENGINE_ID/lib/python$PYV/site-packages" ]; then
+    VENV_SITEPKGS="$HOME/.o3de/Python/venv/$ENGINE_ID/lib/python$PYV/site-packages"
 fi
 
 PYTHONPATH="$ENGINE_PATH/scripts${VENV_SITEPKGS:+:$VENV_SITEPKGS}${PYTHONPATH:+:$PYTHONPATH}"
@@ -60,15 +64,37 @@ mkdir -p "$HOME/.o3de/user" "$HOME/.o3de/Logs"
 # First-run migration: rewrite legacy engine_path overrides in
 # <project>/user/project.json. Idempotent — gated by a per-prefix
 # marker file. Only touches user/project.json (the override layer),
-# never the project.json under VCS. Silently skips on any error so
-# a malformed home dir can't block the editor from launching.
+# never the project.json under VCS. JSON-aware (resilient to whitespace,
+# trailing commas, sibling keys). Silently skips on any error so a
+# malformed home dir can't block the editor from launching.
 migration_marker="$HOME/.o3de/.engine-path-migrated-${ENGINE_PATH//\//_}"
 if [ ! -f "$migration_marker" ] && [ -d "$HOME/O3DE/Projects" ]; then
-    find "$HOME/O3DE/Projects" -maxdepth 3 -path '*/user/project.json' \
-        -exec sed -i \
-            -e "s|\"engine_path\":[[:space:]]*\"/usr/o3de\"|\"engine_path\": \"$ENGINE_PATH\"|g" \
-            -e "s|\"engine_path\":[[:space:]]*\"/opt/o3de\"|\"engine_path\": \"$ENGINE_PATH\"|g" \
-            {} + 2>/dev/null || :
+    find "$HOME/O3DE/Projects" -maxdepth 3 -path '*/user/project.json' -print0 2>/dev/null \
+        | xargs -0 -r /usr/bin/python3 -c '
+import json, sys
+target = sys.argv[1]
+legacy_prefixes = ("/usr/o3de", "/opt/o3de")
+for path in sys.argv[2:]:
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        continue
+    ep = data.get("engine_path")
+    if not isinstance(ep, str):
+        continue
+    # Only rewrite engine_path values that match a known legacy prefix
+    # AND differ from the current install. Preserves user-customized paths.
+    if ep == target or ep not in legacy_prefixes:
+        continue
+    data["engine_path"] = target
+    try:
+        with open(path, "w") as f:
+            json.dump(data, f, indent=4)
+            f.write("\n")
+    except OSError:
+        pass
+' "$ENGINE_PATH" 2>/dev/null || :
     touch "$migration_marker" 2>/dev/null || :
 fi
 
