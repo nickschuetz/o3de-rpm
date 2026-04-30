@@ -36,7 +36,7 @@ RPMBUILD_DEFINES = \
 .PHONY: help lint spec-parse spec-parse-snapshot \
         snapshot srpm srpm-snapshot rpm rpm-snapshot rpm-full \
         copr-stable copr-snapshot copr-init \
-        test test-setup test-full test-branch clean
+        test test-setup test-full test-ui test-ui-full test-branch clean
 
 help:
 	@awk '/^# / { sub(/^# /,"",$$0); print } /^[a-z][a-z0-9_-]*:/ && $$0 !~ /^\./' Makefile | head -40
@@ -124,6 +124,14 @@ test-setup:
 
 test-full:
 	tests/integration-test.sh --setup --with-project
+
+# UI smoke (Tier 6): Project Manager launches under Xvfb without crashing.
+# Add --editor (test-ui-full) to also run Editor scripted automation.
+test-ui:
+	tests/ui-smoke-test.sh --screenshot
+
+test-ui-full:
+	tests/ui-smoke-test.sh --screenshot --editor
 
 # End-to-end driver: build a snapshot RPM from <REF> and test it.
 # Usage: make test-branch REF=stabilization/26050

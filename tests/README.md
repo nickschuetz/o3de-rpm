@@ -19,6 +19,9 @@ Each tier requires more state from the prior. You can run any subset.
 | **3** | First-run user setup (`get_python.sh`, `o3de.sh register`, manifest.py patch active) | regular user, network | ~3 min (first run) |
 | **4** | Engine binary smoke (launcher, vulkan loader) | nothing extra | <1 s |
 | **5** | Project end-to-end (`o3de create-project` + `cmake -B build/linux -S .`) | Tier 3 done, network for 3rdParty CDN | ~5–10 min |
+| **6** | UI smoke (Project Manager + Editor launch under Xvfb, don't crash) | Xvfb, scrot, software Vulkan (lavapipe) for CI | ~30 s (PM only) / ~90 s (with --editor) |
+| **7** *(future)* | Visual regression (pixel-diff screenshots vs baseline) | maintained baselines per Fedora version | varies |
+| **8** *(future)* | Render correctness (compare rendered scene to reference) | GPU-equipped runner | varies |
 
 Tiers 1, 2, 4 are read-only and safe on a developer machine. Tier 3 modifies `~/.o3de/` (creates the per-user venv). Tier 5 creates a temporary project that's cleaned up on exit.
 
@@ -27,12 +30,20 @@ Tiers 1, 2, 4 are read-only and safe on a developer machine. Tier 3 modifies `~/
 ### Against an existing install
 ```bash
 sudo dnf install -y ./o3de-*.rpm
+
+# Non-UI tiers
 tests/integration-test.sh                          # tiers 1, 2, 4
 tests/integration-test.sh --setup                  # also tier 3
-tests/integration-test.sh --setup --with-project   # all tiers
+tests/integration-test.sh --setup --with-project   # also tier 5
+
+# UI smoke (tier 6) — Project Manager + (optional) Editor
+sudo dnf install -y xorg-x11-server-Xvfb scrot xorg-x11-utils
+tests/ui-smoke-test.sh                             # Project Manager smoke
+tests/ui-smoke-test.sh --editor                    # also Editor scripted run
+tests/ui-smoke-test.sh --editor --screenshot      # with screenshots
 ```
 
-`make test`, `make test-setup`, `make test-full` are shortcuts for the above.
+`make test`, `make test-setup`, `make test-full`, `make test-ui`, `make test-ui-full` are shortcuts for the above.
 
 ### End-to-end from a git ref
 ```bash
@@ -75,11 +86,12 @@ For automated COPR → CI integration, configure a COPR webhook that triggers th
 - `o3de create-project` + `cmake configure` against installed engine
 
 ❌ **Not covered (yet):**
-- GUI launch of Project Manager / Editor (would need a virtual X server like Xvfb; possible but heavyweight)
 - Compile of the sample project (currently only `cmake configure`; full build takes hours)
 - Asset Processor functional test (needs assets to process)
 - Full upgrade path test (install old → install new → verify state migrated)
 - Cross-Fedora upgrade test (install on F44, upgrade to F45)
+- Tier 7: visual regression (screenshots → pixel-diff against baselines per Fedora version) — pattern documented, not yet implemented
+- Tier 8: render correctness (Vulkan render vs reference image) — needs GPU-equipped runners
 
 The "not covered" items are tracked here so contributors can pick them up. None are blockers for a useful first version.
 

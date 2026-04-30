@@ -26,6 +26,7 @@ o3de-rpm/
 ├── tests/                                             # post-install test suite
 │   ├── README.md                                      #   tier breakdown + community usage
 │   ├── integration-test.sh                            #   tiers 1–5 against installed RPM
+│   ├── ui-smoke-test.sh                               #   tier 6: Project Manager + Editor smoke under Xvfb
 │   └── test-branch.sh                                 #   build + install + test from git ref
 └── sources/                                           # rpm SOURCES dir (sources + patches)
     ├── o3de-launcher.sh                               # /usr/bin/o3de wrapper
@@ -108,10 +109,12 @@ flowchart TB
     end
 
     subgraph TEST["Test gate (community-shared)"]
-        T1["tests/integration-test.sh<br/>Tiers 1–5 against installed RPM"]
-        T2[".github/workflows/test-installed.yml<br/>matrix: F44, rawhide, F45+, …"]
+        T1["tests/integration-test.sh<br/>Tiers 1–5 (rpm / install / setup /<br/>engine smoke / project end-to-end)"]
+        T2["tests/ui-smoke-test.sh<br/>Tier 6: Project Manager + Editor<br/>under Xvfb"]
+        T3[".github/workflows/test-installed.yml<br/>matrix: F44, rawhide, F45+, …"]
         DC1 -.-> T1
         DC1 -.-> T2
+        DC1 -.-> T3
     end
 ```
 
@@ -281,7 +284,16 @@ make test-setup
 
 # Full end-to-end (also creates a project + cmake-configures it)
 make test-full
+
+# UI smoke — Project Manager launches under Xvfb without crashing
+sudo dnf install -y xorg-x11-server-Xvfb scrot xorg-x11-utils
+make test-ui
+
+# UI smoke + Editor scripted automation
+make test-ui-full
 ```
+
+Tier 6 (UI) uses Xvfb (virtual display) and Mesa lavapipe (software Vulkan in CI containers; real GPU on user workstations). Tier 7 (visual regression) and Tier 8 (render correctness) are documented as future work in `tests/README.md`.
 
 ### Validate an arbitrary O3DE git ref end-to-end
 

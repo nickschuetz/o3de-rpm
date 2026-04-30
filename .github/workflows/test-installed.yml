@@ -26,6 +26,16 @@ on:
         required: false
         default: false
         type: boolean
+      run_ui:
+        description: 'Run Tier 6 UI smoke (Project Manager under Xvfb)'
+        required: false
+        default: true
+        type: boolean
+      run_ui_editor:
+        description: 'Run Tier 6 with --editor (Editor scripted automation)'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   test:
@@ -48,8 +58,10 @@ jobs:
             sudo curl rpm \
             desktop-file-utils libappstream-glib appstream \
             python3 cmake ninja-build vulkan-loader \
-            findutils diffutils
-          # The integration tests need a regular user (not root) for Tiers 3-5.
+            findutils diffutils \
+            xorg-x11-server-Xvfb xorg-x11-utils scrot xdotool wmctrl \
+            mesa-vulkan-drivers
+          # The integration tests need a regular user (not root) for Tiers 3-6.
           useradd -m runner
 
       - uses: actions/checkout@v4
@@ -73,3 +85,24 @@ jobs:
         if: ${{ inputs.run_project }}
         run: |
           su -l runner -c "$GITHUB_WORKSPACE/tests/integration-test.sh --setup --with-project"
+
+      - name: Tier 6 (UI smoke under Xvfb)
+        if: ${{ inputs.run_ui }}
+        env:
+          # Force Mesa lavapipe (software Vulkan) — no GPU in CI containers.
+          VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
+        run: |
+          chown -R runner:runner /home/runner $GITHUB_WORKSPACE
+          if [ "${{ inputs.run_ui_editor }}" = "true" ]; then
+              su -l runner -c "$GITHUB_WORKSPACE/tests/ui-smoke-test.sh --editor --screenshot"
+          else
+              su -l runner -c "$GITHUB_WORKSPACE/tests/ui-smoke-test.sh --screenshot"
+          fi
+
+      - name: Upload screenshots
+        if: ${{ inputs.run_ui && always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-screenshots-${{ matrix.chroot }}
+          path: /tmp/o3de-*.png
+          if-no-files-found: ignore
