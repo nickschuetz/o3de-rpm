@@ -240,14 +240,6 @@ unset CFLAGS CXXFLAGS LDFLAGS
 # FindThreads' compiler feature-tests false-fail when O3DE's bundled qt5
 # .prl processing triggers find_package(Threads) re-entry. Force the
 # pthread result so configure proceeds.
-#
-# CMAKE_UNITY_BUILD=OFF: clang 22 (Fedora 44) crashes with SIGSEGV in
-# the register allocator (Greedy RA / foldMemoryOperand) on profile-
-# config -O2 builds of Unity-merged TUs containing complex
-# AZStd::hash_table template instantiations. Per-file TUs are smaller
-# and avoid the failing codegen path. Cost: ~2-3x slower compile per
-# config. Remove this when clang ships a fix or O3DE's templates
-# are simplified enough to dodge the bug.
 cmake \
     -S . -B build \
     -G "Ninja Multi-Config" \
@@ -259,7 +251,6 @@ cmake \
     -DO3DE_INSTALL_DISPLAY_VERSION_STRING=%{engine_cmake_version} \
     -DLY_DISABLE_TEST_MODULES=ON \
     -DLY_STRIP_DEBUG_SYMBOLS=OFF \
-    -DCMAKE_UNITY_BUILD=OFF \
     -DTHREADS_PREFER_PTHREAD_FLAG=ON \
     -DCMAKE_THREAD_LIBS_INIT=-lpthread \
     -DCMAKE_HAVE_THREADS_LIBRARY=1 \
@@ -417,11 +408,10 @@ EOF
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
 * Thu Apr 30 2026 Nicholas Schuetz <nschuetz@redhat.com> - 2605.0-6
-- Disable cmake's Unity build (CMAKE_UNITY_BUILD=OFF) to work around
-  a clang 22 codegen bug (Greedy Register Allocator SIGSEGV on
-  profile-config -O2 builds of heavily-templated AZStd containers).
-  ~2-3x slower compile per config. Remove this flag once clang ships
-  a fix or O3DE's templates dodge the failing path.
+- Re-enable cmake's Unity build. The clang 22.1.2 codegen bug (Greedy
+  Register Allocator SIGSEGV on heavily-templated AZStd containers at
+  -O2) is fixed in clang 22.1.4 (Fedora 44 update on 2026-04-30).
+  Verified via stress-test compile of representative templates.
 
 * Thu Apr 30 2026 Nicholas Schuetz <nschuetz@redhat.com> - 2605.0-5
 - Set O3DE_INSTALL_DISPLAY_VERSION_STRING=26.05.0 (was 00.00 placeholder
