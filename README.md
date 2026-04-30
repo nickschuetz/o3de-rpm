@@ -17,6 +17,8 @@ It also provides an extension point for bundling pre-built **O3DE 3rdParty packa
 o3de-rpm/
 ├── o3de.spec                                          # the spec
 ├── README.md                                          # this file
+├── Makefile                                           # lint / srpm / copr targets
+├── .github/workflows/lint.yml                         # CI: spec parse, rpmlint, validators
 └── sources/                                           # rpm SOURCES dir (sources + patches)
     ├── o3de-launcher.sh                               # /usr/bin/o3de wrapper
     ├── o3de-editor.desktop                            # .desktop entry
@@ -172,6 +174,40 @@ rpmbuild -bb --with debug_only ...
 ```
 
 Skips the `profile` configuration entirely — both build and install steps.
+
+---
+
+## Distribution
+
+This repo ships RPMs through two COPR projects under the same owner:
+
+- **[`hellaenergy/o3de-dependencies`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-dependencies/)** — Fedora-clean SRPMs for O3DE 3rdParty packages that aren't in Fedora proper (custom Qt 5.15-rev9, PhysX, AWSNativeSDK, azslc, …). `enable_net=false`. Built first — depended on by the next one.
+- **[`hellaenergy/o3de`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de/)** *(stable)* and **[`hellaenergy/o3de-snapshot`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-snapshot/)** *(development branch)* — the engine itself. `enable_net=true` so cmake can still fetch the four restricted bundles from `packages.o3de.org` (DXC, NvCloth, poly2tri, squish-ccr) — those four cannot be redistributed via Fedora/COPR for licensing reasons.
+
+To consume:
+
+```bash
+sudo dnf copr enable hellaenergy/o3de-dependencies
+sudo dnf copr enable hellaenergy/o3de            # stable
+# OR
+sudo dnf copr enable hellaenergy/o3de-snapshot   # development
+sudo dnf install o3de
+/opt/o3de/python/get_python.sh                   # one-time per-user venv setup
+o3de                                             # launch
+```
+
+To publish from this checkout:
+
+```bash
+make snapshot REF=stabilization/26050   # generate tarball + print pin values
+$EDITOR o3de.spec                       # paste the printed snapshot_* macros
+make copr-snapshot                      # builds SRPM, uploads to hellaenergy/o3de-snapshot
+make copr-stable                        # for stable releases
+```
+
+A `make copr-init` target prints the one-time setup commands for the COPR project. Run `make help` for the full target list.
+
+CI (`.github/workflows/lint.yml`) runs spec-parse + rpmlint + desktop-file-validate + appstream-util validate on every push, against a Fedora 44 container. The full RPM build is too heavy for free runners (>2 hours, 14 GB output) — the COPR projects do that.
 
 ---
 

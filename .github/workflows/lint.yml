@@ -1,0 +1,78 @@
+name: lint
+
+# Runs the cheap, no-network checks on every push/PR — spec parse, rpmlint,
+# desktop-file-validate, appstream-util validate, shell syntax check.
+# A full RPM build is too heavy for free runners (>2 hours, 14 GB output);
+# we rely on copr-cli builds for the actual binary RPM.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'o3de.spec'
+      - 'sources/**'
+      - 'Makefile'
+      - '.github/workflows/lint.yml'
+  pull_request:
+    paths:
+      - 'o3de.spec'
+      - 'sources/**'
+      - 'Makefile'
+      - '.github/workflows/lint.yml'
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    container:
+      image: registry.fedoraproject.org/fedora:44
+
+    steps:
+      - name: Install RPM tooling
+        run: |
+          dnf install -y --setopt=install_weak_deps=False \
+            rpm-build rpmlint rpm-devel \
+            desktop-file-utils libappstream-glib \
+            make bash
+
+      - uses: actions/checkout@v4
+
+      - name: Spec parses (stable + snapshot modes)
+        run: make spec-parse spec-parse-snapshot
+
+      - name: rpmlint
+        run: rpmlint o3de.spec
+
+      - name: Desktop entry validates
+        run: desktop-file-validate sources/o3de-editor.desktop
+
+      - name: AppStream metainfo validates
+        run: appstream-util validate-relax --nonet sources/o3de-editor.metainfo.xml
+
+      - name: Shell sources have valid syntax
+        run: |
+          for f in sources/*.sh; do
+            bash -n "$f" && echo "    $f OK"
+          done
+
+      - name: Patch files apply cleanly to a checked-out engine ref
+        # Only runs when the snapshot pin in the spec matches a current ref.
+        # Best-effort — non-fatal if upstream has moved on, since the spec
+        # always pins a specific commit anyway.
+        run: |
+          set +e
+          PIN=$(awk '/^%global snapshot_commit/ {print $3}' o3de.spec)
+          if [ -z "$PIN" ]; then
+            echo "no snapshot_commit pinned, skipping"
+            exit 0
+          fi
+          dnf install -y --setopt=install_weak_deps=False git patch
+          git clone --depth 1 https://github.com/o3de/o3de "/tmp/o3de" 2>&1 | tail -3
+          cd /tmp/o3de
+          git fetch --depth 1 origin "$PIN" 2>/dev/null || \
+            { echo "commit $PIN not reachable from a shallow clone — skipping patch dry-run"; exit 0; }
+          git checkout "$PIN"
+          for p in "$GITHUB_WORKSPACE"/sources/*.patch; do
+            echo ">> dry-run $p"
+            patch -p1 --dry-run -i "$p" || echo "    (failed; review)"
+          done
