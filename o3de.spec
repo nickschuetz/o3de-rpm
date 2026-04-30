@@ -69,6 +69,15 @@
 # directory name and shebang fix-ups. Bump when O3DE bumps.
 %global o3de_bundled_python 3.10
 
+# DirectXShaderCompiler bundles its own libclang-12.so.1 and libtinfo.so.6
+# under Builders/DirectXShaderCompiler/lib/ (DXC is LLVM-based; this is a
+# restricted upstream-CDN bundle, see FEDORA_ROADMAP.md). RPATH resolves
+# them internally; they never need to come from the system. Without this,
+# auto-Requires demands libclang-12 (Fedora 44 ships clang 22) and a
+# libtinfo with NCURSES6_TINFO_5.0.19991023 versioned symbol that doesn't
+# match the system's, and `dnf install` fails with "nothing provides".
+%global __requires_exclude ^libclang-12\\.so.*|^libtinfo\\.so\\.6.*
+
 Name:           o3de
 %if %{with snapshot}
 Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
@@ -370,6 +379,11 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Thu Apr 30 2026 Nicholas Schuetz <nschuetz@redhat.com> - 2605.0-3
+- Restore %%__requires_exclude for libclang-12 / libtinfo.so.6 — required
+  by O3DE's bundled DirectXShaderCompiler (RPATH-resolved internally).
+  Without it, dnf install fails with "nothing provides libclang-12.so.1".
+
 * Wed Apr 29 2026 Nicholas Schuetz <nschuetz@redhat.com> - 2605.0-2
 - Ship app icons in six hicolor sizes (16, 32, 48, 64, 128, 256), extracted
   from upstream's product_icon.ico master and downsampled with imagemagick
