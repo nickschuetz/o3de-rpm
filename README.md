@@ -27,8 +27,7 @@ o3de-rpm/
     ├── o3de-editor.metainfo.xml                       # AppStream metainfo
     ├── o3de.cdx.json                                  # CycloneDX SBOM
     ├── make-snapshot-tarball.sh                       # snapshot builder
-    ├── icons/                                         # hicolor app icons
-    │   └── o3de-{16,32,48,64,128,256}x*.png
+    ├── o3de-{16,32,48,64,128,256}x*.png               # hicolor app icons
     ├── 0001-clang21-warning-suppressions.patch
     ├── 0002-manifest-py-engine-path-detection.patch
     └── 0003-get-python-sh-rpm-venv-fixes.patch

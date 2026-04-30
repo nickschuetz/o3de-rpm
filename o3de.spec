@@ -97,12 +97,12 @@ Source14:       o3de-editor.metainfo.xml
 # App icons in hicolor sizes. Extracted from upstream's
 # cmake/Platform/Windows/Packaging/product_icon.ico (256x256 master,
 # downsampled with imagemagick).
-Source20:       icons/o3de-16x16.png
-Source21:       icons/o3de-32x32.png
-Source22:       icons/o3de-48x48.png
-Source23:       icons/o3de-64x64.png
-Source24:       icons/o3de-128x128.png
-Source25:       icons/o3de-256x256.png
+Source20:       o3de-16x16.png
+Source21:       o3de-32x32.png
+Source22:       o3de-48x48.png
+Source23:       o3de-64x64.png
+Source24:       o3de-128x128.png
+Source25:       o3de-256x256.png
 
 # Patches against the upstream tree (apply with -p1).
 Patch0001:      0001-clang21-warning-suppressions.patch
