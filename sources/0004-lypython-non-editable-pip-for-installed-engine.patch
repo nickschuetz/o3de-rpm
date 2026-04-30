@@ -1,0 +1,38 @@
+From: Nick Schuetz <nschuetz@redhat.com>
+Subject: [PATCH] LYPython: drop pip's -e flag when INSTALLED_ENGINE is true
+
+When a user project's `cmake configure` runs against a system-installed
+engine at /opt/o3de, the engine source directory is read-only. O3DE's
+ly_pip_install_local_package_editable function does `pip install -e` on
+several Tools/* and scripts/o3de packages, and editable installs write
+.egg-info directories next to the package's setup.py. That fails on a
+read-only engine root with `Permission denied`.
+
+Drop the `-e` flag when INSTALLED_ENGINE is set. Plain `pip install
+<dir>` builds in a temp directory, so no source modifications are
+needed. The semantic difference (editable vs pinned) doesn't matter
+for an installed engine because the engine source can't change anyway.
+
+This patch goes away on the day O3DE upstream adopts the same gate.
+---
+--- a/cmake/LYPython.cmake	2026-04-30 00:50:55.719478155 -0500
++++ b/cmake/LYPython.cmake	2026-04-30 00:50:44.729859260 -0500
+@@ -267,8 +267,17 @@
+ 
+     # now install the new one:
+ 
++    # When running against an installed (read-only) engine, drop the -e flag
++    # because editable installs write .egg-info into the source directory and
++    # /opt/o3de is read-only. Plain pip install builds in a temp dir.
++    if (INSTALLED_ENGINE)
++        set(_pip_install_mode_args "")
++    else()
++        set(_pip_install_mode_args "-e")
++    endif()
++
+     execute_process(COMMAND 
+-        ${LY_PYTHON_CMD} -m pip install -e ${package_folder_path} --no-deps --disable-pip-version-check  --no-warn-script-location 
++        ${LY_PYTHON_CMD} -m pip install ${_pip_install_mode_args} ${package_folder_path} --no-deps --disable-pip-version-check  --no-warn-script-location 
+         WORKING_DIRECTORY ${LY_ROOT_FOLDER}/python
+         RESULT_VARIABLE PIP_RESULT
+         OUTPUT_VARIABLE PIP_OUT 

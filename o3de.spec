@@ -35,6 +35,13 @@
 # Compute with: sha256sum o3de_<tag>_lfs.tar.gz
 %global stable_sha256   0000000000000000000000000000000000000000000000000000000000000000
 
+# CMake's project(VERSION) and O3DE's cmake/Version.cmake split the
+# version string by '.' and require MAJOR.MINOR.PATCH (3 components).
+# stable_tag is YYMM.PATCH (2 components) — derive a 3-component form:
+#   2605.0  →  26.05.0
+#   2510.2  →  25.10.2
+%global engine_cmake_version %(awk -F. '{ printf "%%d.%%02d.%%d", int($1/100), $1%%100, $2 }' <<< "%{stable_tag}")
+
 # Snapshot pin — populated by sources/make-snapshot-tarball.sh.
 # Pinned to stabilization/26050 tip for end-to-end build test.
 %global snapshot_commit 246b46f500e06eb819421e12644745e95872bb28
@@ -121,6 +128,7 @@ Source25:       o3de-256x256.png
 Patch0001:      0001-clang21-warning-suppressions.patch
 Patch0002:      0002-manifest-py-engine-path-detection.patch
 Patch0003:      0003-get-python-sh-rpm-venv-fixes.patch
+Patch0004:      0004-lypython-non-editable-pip-for-installed-engine.patch
 
 # Pre-built O3DE 3rdParty bundles — declare a Source10x and a matching
 # bcond above, then add an extract line in %%prep. Templates:
@@ -237,7 +245,7 @@ cmake \
     -DCMAKE_INSTALL_PREFIX=/opt/o3de \
     -DLY_3RDPARTY_PATH=%{_builddir}/%{o3de_source_dir}/3rdParty \
     -DO3DE_INSTALL_ENGINE_NAME=o3de \
-    -DO3DE_INSTALL_VERSION_STRING=%{stable_tag} \
+    -DO3DE_INSTALL_VERSION_STRING=%{engine_cmake_version} \
     -DLY_DISABLE_TEST_MODULES=ON \
     -DLY_STRIP_DEBUG_SYMBOLS=OFF \
     -DTHREADS_PREFER_PTHREAD_FLAG=ON \
@@ -383,6 +391,19 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Thu Apr 30 2026 Nicholas Schuetz <nschuetz@redhat.com> - 2605.0-4
+- Fix user-project cmake configure failures against installed engine:
+  - Pass 3-component version (26.05.0) via new %%{engine_cmake_version}
+    macro derived from %%{stable_tag}; previously baked stable_tag's
+    YYMM.PATCH (2 components) into engine.json which broke
+    cmake/Version.cmake's MAJOR.MINOR.PATCH parser.
+  - Add Patch0004 to gate ly_pip_install_local_package_editable on
+    INSTALLED_ENGINE — drops the -e flag so pip doesn't try to write
+    .egg-info into read-only /opt/o3de/Tools/.
+- Add StartupWMClass=O3DE to the desktop entry and pass -name O3DE from
+  the launcher so the dock icon links to the installed hicolor icon
+  instead of the engine's internal Qt fallback.
+
 * Thu Apr 30 2026 Nicholas Schuetz <nschuetz@redhat.com> - 2605.0-3
 - Restore %%__requires_exclude for libclang-12 / libtinfo.so.6 — required
   by O3DE's bundled DirectXShaderCompiler (RPATH-resolved internally).
