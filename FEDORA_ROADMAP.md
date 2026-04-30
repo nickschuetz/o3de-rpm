@@ -118,13 +118,51 @@ Target: system OpenSSL 3.x.
 
 | Item | Description | Independent? |
 |---|---|---|
+| **License-clean DXC rebuild** | See dedicated section below. Highest-leverage Stage 5 task. | yes (mostly) |
 | Real `-debuginfo` subpackage | Drop `%global debug_package %{nil}`; figure out why O3DE's binary layout trips rpmbuild's debug-symbol extraction; likely a `BUILD_ID` ambiguity from the Ninja Multi-Config split. May need patches to O3DE's link rules. | yes |
 | `-debugsource` subpackage | Source code corresponding to each debuginfo line. Should fall out automatically once `debuginfo` works. | yes |
-| Bundled Library Exception filing | Required for the custom Qt 5.15-rev9 (load-bearing — see project memory). Justification doc in `BUNDLED_LIBRARIES.md`. | yes |
+| Bundled Library Exception filing | Required for the custom Qt 5.15-rev9 (load-bearing). Justification doc in `BUNDLED_LIBRARIES.md`. | yes |
 | Mock-clean SRPM build | `mock --rebuild o3de.src.rpm` must succeed with `--isolation=simple --no-network` enabled. | needs Stage 1 / 2 / 3 |
 | Reproducible build | byte-identical RPM from the same SRPM on different hosts | needs all earlier stages |
 | AppStream `<screenshots>` | Required by Flathub; nice-to-have for Fedora. Need actual editor screenshots from a working install. | yes |
 | `<content_rating>` review | Currently `oars-1.1` empty (which means "no objectionable content"). Verify with O3DE upstream that no mature-content engine features need flagging. | yes |
+
+### License-clean DXC rebuild — the critical sub-task
+
+**Why this is on the critical path:** DXC is the only one of the four restricted bundles that's **non-optional for engine use** (see § "Restricted bundles" below — without DXC, the engine can't compile shaders). NvCloth/poly2tri/squish-ccr are all feature-gated and can be runtime-fetched (handling option B). DXC alone needs a different solution.
+
+**The opportunity:** The licensing problem is *only* the Windows DXIL signing tooling, not DXC itself. The HLSL → SPIR-V (Vulkan) code path is fully open-source under NCSA/Apache-2.0. Linux O3DE doesn't use the DXIL path at all. So we can ship a Linux-only DXC built from upstream Microsoft sources without the DXIL bits, and it's redistributable.
+
+**The technical context, so the work is unambiguous when we get to it:**
+
+DXC is a fork of Clang/LLVM, not a separate project. Microsoft forked Clang ~2017 to add an HLSL frontend. Internally, DXC is structurally a full Clang/LLVM build with:
+- HLSL parser/AST (alongside Clang's existing C/C++ frontend)
+- DXIL backend (Windows shader format — the licensed-encumbered piece)
+- SPIR-V backend (cross-platform — what we want)
+
+This is also why the bundled DXC carries `libclang-12.so.1` and `libtinfo.so.6` — those are DXC's own internal LLVM 12 stack, RPATH-resolved from `Builders/DirectXShaderCompiler/lib/`. It's also why we need `%__requires_exclude` in the spec today.
+
+**The migration plan (when we reach Stage 5):**
+
+1. Build upstream Microsoft DXC (`github.com/microsoft/DirectXShaderCompiler`) from source against system clang/LLVM (Fedora 44 ships clang 22). The version we need to match is whatever O3DE's `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` pins — currently DXC `1.8.2505.1-o3de-rev3`.
+2. Configure the build SPIR-V-only:
+   ```
+   -DENABLE_SPIRV_CODEGEN=ON
+   -DSPIRV_BUILD_TESTS=OFF
+   -DCLANG_INCLUDE_TESTS=OFF
+   ```
+   Do *not* enable any DXIL-target options.
+3. Verify the resulting `libdxcompiler.so` and `dxc` binary link against system `libclang`/`libLLVM`, not bundled copies — `ldd` should show `/usr/lib64/libclang.so.*` etc.
+4. Package as a new `o3de-dxc-spirv` SRPM in `hellaenergy/o3de-dependencies` (the COPR repo with `enable_net=false`). License is NCSA + Apache-2.0 with LLVM exception, both Fedora-compatible.
+5. In `o3de.spec`, drop the upstream DXC fetch (remove the package from `BuiltInPackages_linux_x86_64.cmake` via patch), add `BuildRequires: o3de-dxc-spirv-devel`, and patch O3DE's cmake to find DXC via pkg-config or a `LY_DXC_PATH` cmake var.
+6. **Drop** the `%__requires_exclude ^libclang-12\.so.*|^libtinfo\.so\.6.*` line from the spec (it's only there because DXC's bundled libclang/libtinfo aren't auto-Provided by rpm — system libclang from a clean rebuild *is*).
+
+**Side benefits of completing this:**
+- Eliminates the only mandatory restricted bundle, leaving NvCloth/poly2tri/squish as purely optional feature-gated bits (handling option A becomes viable).
+- Drops the `__requires_exclude` workaround (one fewer thing to justify in the Fedora package review).
+- Reduces the runtime-fetcher surface area dramatically — most users won't need it at all.
+
+**Risk:** O3DE may have applied custom patches on top of upstream DXC for the `1.8.2505.1-o3de-rev3` build (the `-o3de-rev3` suffix suggests it). If those patches are non-trivial, we'd need to track them and rebase onto whatever DXC version we ship. Worth investigating early — `git log` on O3DE's DXC fork (if there is one) or the patch set inside the bundled tarball.
 
 ---
 

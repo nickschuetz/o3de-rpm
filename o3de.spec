@@ -69,13 +69,17 @@
 # directory name and shebang fix-ups. Bump when O3DE bumps.
 %global o3de_bundled_python 3.10
 
-# DirectXShaderCompiler bundles its own libclang-12.so.1 and libtinfo.so.6
-# under Builders/DirectXShaderCompiler/lib/ (DXC is LLVM-based; this is a
-# restricted upstream-CDN bundle, see FEDORA_ROADMAP.md). RPATH resolves
-# them internally; they never need to come from the system. Without this,
-# auto-Requires demands libclang-12 (Fedora 44 ships clang 22) and a
-# libtinfo with NCURSES6_TINFO_5.0.19991023 versioned symbol that doesn't
-# match the system's, and `dnf install` fails with "nothing provides".
+# DXC is structurally a fork of Clang/LLVM, so its bundled libdxcompiler.so
+# links against its own internal libclang-12.so.1 (and transitively libtinfo)
+# under Builders/DirectXShaderCompiler/lib/. RPATH resolves them; they never
+# need to come from the system. Without this, auto-Requires demands
+# libclang-12 (Fedora 44 ships clang 22) and a libtinfo with a versioned
+# symbol that doesn't match the system's — `dnf install` fails with
+# "nothing provides".
+#
+# This goes away when Stage 5 of FEDORA_ROADMAP.md ships a license-clean
+# DXC rebuilt against system clang. Don't add new entries to this regex
+# without checking — most Requires we'd want to drop are real.
 %global __requires_exclude ^libclang-12\\.so.*|^libtinfo\\.so\\.6.*
 
 Name:           o3de
