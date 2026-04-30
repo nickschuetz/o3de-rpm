@@ -18,6 +18,8 @@ o3de-rpm/
 ├── o3de.spec                                          # the spec
 ├── README.md                                          # this file
 ├── Makefile                                           # lint / srpm / copr targets
+├── FEDORA_ROADMAP.md                                  # path to Fedora inclusion
+├── BUNDLED_LIBRARIES.md                               # per-bundle license + migration status
 ├── .github/workflows/lint.yml                         # CI: spec parse, rpmlint, validators
 └── sources/                                           # rpm SOURCES dir (sources + patches)
     ├── o3de-launcher.sh                               # /usr/bin/o3de wrapper
@@ -209,6 +211,8 @@ A `make copr-init` target prints the one-time setup commands for the COPR projec
 
 CI (`.github/workflows/lint.yml`) runs spec-parse + rpmlint + desktop-file-validate + appstream-util validate on every push, against a Fedora 44 container. The full RPM build is too heavy for free runners (>2 hours, 14 GB output) — the COPR projects do that.
 
+The longer-term goal is **inclusion in Fedora proper**. The roadmap lives in [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) and the per-bundle Fedora-readiness status in [`BUNDLED_LIBRARIES.md`](BUNDLED_LIBRARIES.md).
+
 ---
 
 ## Security posture
@@ -219,7 +223,7 @@ CI (`.github/workflows/lint.yml`) runs spec-parse + rpmlint + desktop-file-valid
 | Tampered snapshot | `make-snapshot-tarball.sh` is reproducible (sorted, fixed mtime, numeric owner) — re-running for the same commit produces a byte-identical tarball. The committed sha256 is the binding root of trust. |
 | World-writable files under `/usr` | Removed. `/opt/o3de` is fully read-only after install; all writable state is per-user under `~/.o3de/`. |
 | Network during build | LFS objects are bundled into the source tarball before build; no `git lfs pull` runs in `%build`. O3DE's own `LY_PACKAGE_SERVER_URLS` 3rdParty fetcher still runs at cmake configure unless every needed package is pre-bundled — see "3rdParty packages" above. |
-| **⚠ Bundled OpenSSL 1.1.1t (EOL since 2023-09-11)** | Not our packaging defect — upstream O3DE pins it. Surfaced here so consumers see it clearly. Migration to system OpenSSL 3.x is non-trivial (1.1 → 3.x is a major API break across multiple O3DE Gems). |
+| **⚠ Bundled OpenSSL 1.1.1t (EOL since 2023-09-11)** | Not our packaging defect — upstream O3DE pins it. Tracked as a hard blocker for Fedora inclusion in [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) (stage 4). Surfaced here so consumers see it clearly. |
 | Hardening flags (RELRO / BIND_NOW / stack-protector / `_FORTIFY_SOURCE`) | Restored explicitly via `CMAKE_*_LINKER_FLAGS_INIT` after unsetting Fedora's CFLAGS/CXXFLAGS/LDFLAGS bundle (the bundle's annobin specs file breaks clang feature tests). O3DE's `Configurations_clang.cmake` already supplies stack-protector and `_FORTIFY_SOURCE`. |
 | Runtime escalation paths | Launcher wrapper is `/usr/bin/o3de`, mode 0755, no setuid. All `mkdir -p` targets are under `$HOME`. |
 | Patch reviewability | Real `.patch` files with `From:`/`Subject:` rationales — reviewable with `git log` or `interdiff`. |
@@ -268,10 +272,10 @@ Each patch carries a `From:`/`Subject:` header with the rationale.
 
 ## Known limitations
 
-- O3DE's 3rdParty package fetcher still runs at cmake configure unless every package is pre-bundled. Fully hermetic offline builds (mock without network) require staging every package the engine pulls.
-- Four upstream-bundled packages (`DirectXShaderCompilerDxc`, `NvCloth`, `poly2tri`, `squish-ccr`) cannot be hosted in Fedora or COPR for licensing reasons. They continue to be fetched from O3DE's package CDN at build time.
-- Bundled OpenSSL 1.1.1t is end-of-life. Migration to system OpenSSL 3.x is a major engineering effort.
-- `debuginfo` / `debugsource` subpackages are suppressed (`%global debug_package %{nil}`). Debug symbols are present in the binaries but not extracted into a separate package.
+- O3DE's 3rdParty package fetcher still runs at cmake configure unless every package is pre-bundled. Fully hermetic offline builds (mock without `--enable-net`) require staging every package the engine pulls — see [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md).
+- Four upstream-bundled packages (`DirectXShaderCompilerDxc`, `NvCloth`, `poly2tri`, `squish-ccr`) cannot be hosted in Fedora or COPR for licensing reasons. The Fedora-shippable variant will need either a runtime-fetcher script or feature-gated builds — see [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) § "Restricted bundles".
+- Bundled OpenSSL 1.1.1t is end-of-life. Tracked for migration to system OpenSSL 3.x in [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) (stage 4); likely upstream-blocked.
+- `debuginfo` / `debugsource` subpackages are suppressed (`%global debug_package %{nil}`). Debug symbols are present in the binaries but not extracted into a separate package. Unblocking this is on the Fedora roadmap (stage 5).
 
 ## License
 
