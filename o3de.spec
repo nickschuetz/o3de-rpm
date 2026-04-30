@@ -113,6 +113,8 @@ Source11:       o3de.desktop
 Source12:       make-snapshot-tarball.sh
 Source13:       o3de.cdx.json
 Source14:       o3de.metainfo.xml
+# NoDisplay association entry: maps the Editor's WM_CLASS to o3de icon.
+Source15:       o3de-editor.desktop
 
 # App icons in hicolor sizes. Extracted from upstream's
 # cmake/Platform/Windows/Packaging/product_icon.ico (256x256 master,
@@ -246,6 +248,7 @@ cmake \
     -DLY_3RDPARTY_PATH=%{_builddir}/%{o3de_source_dir}/3rdParty \
     -DO3DE_INSTALL_ENGINE_NAME=o3de \
     -DO3DE_INSTALL_VERSION_STRING=%{engine_cmake_version} \
+    -DO3DE_INSTALL_DISPLAY_VERSION_STRING=%{engine_cmake_version} \
     -DLY_DISABLE_TEST_MODULES=ON \
     -DLY_STRIP_DEBUG_SYMBOLS=OFF \
     -DTHREADS_PREFER_PTHREAD_FLAG=ON \
@@ -320,9 +323,15 @@ find %{buildroot}/opt/o3de -type f -name '*.py' \
 ln -s ../../../../python      %{buildroot}/opt/o3de/bin/Linux/%{_installed_config}/Default/python
 ln -s ../../../../engine.json %{buildroot}/opt/o3de/bin/Linux/%{_installed_config}/Default/engine.json
 
-# Launcher wrapper + desktop entry from real Source files.
+# Launcher wrapper + desktop entries from real Source files. The
+# o3de.desktop entry (Source11) is the user-visible menu launcher
+# (Project Manager). The o3de-editor.desktop entry (Source15) is
+# NoDisplay=true and exists only so GNOME/KDE can match the Editor's
+# running window to our installed o3de icon — without it, the dock
+# falls through to Qt's internal icon for the Editor.
 install -D -m 0755 %{SOURCE10} %{buildroot}%{_bindir}/o3de
 desktop-file-install --dir=%{buildroot}%{_datadir}/applications %{SOURCE11}
+desktop-file-install --dir=%{buildroot}%{_datadir}/applications %{SOURCE15}
 
 # AppStream metainfo for GNOME Software / KDE Discover. Required for
 # Fedora-distributed GUI applications.
@@ -346,6 +355,7 @@ install -D -m 0644 %{SOURCE13} %{buildroot}%{_datadir}/o3de/sbom/o3de.cdx.json
 # ── CHECK ────────────────────────────────────────────────────────────────────
 %check
 desktop-file-validate %{buildroot}%{_datadir}/applications/o3de.desktop
+desktop-file-validate %{buildroot}%{_datadir}/applications/o3de-editor.desktop
 appstream-util validate-relax --nonet \
     %{buildroot}%{_metainfodir}/o3de.metainfo.xml
 
@@ -356,6 +366,7 @@ appstream-util validate-relax --nonet \
 /opt/o3de
 %{_bindir}/o3de
 %{_datadir}/applications/o3de.desktop
+%{_datadir}/applications/o3de-editor.desktop
 %{_metainfodir}/o3de.metainfo.xml
 %{_datadir}/icons/hicolor/16x16/apps/o3de.png
 %{_datadir}/icons/hicolor/32x32/apps/o3de.png
@@ -396,6 +407,19 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Thu Apr 30 2026 Nicholas Schuetz <nschuetz@redhat.com> - 2605.0-5
+- Set O3DE_INSTALL_DISPLAY_VERSION_STRING=26.05.0 (was 00.00 placeholder
+  inherited from upstream's engine.json), so the editor splash and
+  window title show 26.05.0 instead of "Development Build". The string
+  is compiled into the binary at build time, so this only takes effect
+  in a fresh build.
+- Add second .desktop entry (o3de-editor.desktop, NoDisplay=true,
+  StartupWMClass=O3DE Editor) so GNOME/KDE associate the Editor's
+  running window to our installed o3de icon. The Editor is launched
+  from inside Project Manager, not the menu, so NoDisplay=true keeps
+  it from cluttering the app menu while still being indexed for
+  window-class matching.
+
 * Thu Apr 30 2026 Nicholas Schuetz <nschuetz@redhat.com> - 2605.0-4
 - Fix user-project cmake configure failures against installed engine:
   - Pass 3-component version (26.05.0) via new %%{engine_cmake_version}

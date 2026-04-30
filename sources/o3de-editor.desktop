@@ -1,0 +1,20 @@
+[Desktop Entry]
+# This entry is NOT shown in the application menu. It exists solely so
+# GNOME / KDE can match the Editor's running window (WM_CLASS=Editor)
+# to the o3de icon in /usr/share/icons/hicolor/. Without this entry,
+# the dock falls through to whatever icon Qt sets internally.
+#
+# The Editor is launched from inside Project Manager (which IS the
+# user-visible o3de.desktop entry), not directly from the menu.
+Type=Application
+Version=1.0
+Name=O3DE Editor
+GenericName=Game Engine Editor
+Comment=Open 3D Engine Editor (launched from inside Project Manager)
+Exec=/opt/o3de/bin/Linux/profile/Default/Editor
+Icon=o3de
+Terminal=false
+NoDisplay=true
+StartupNotify=true
+StartupWMClass=O3DE Editor
+Categories=Development;3DGraphics;Game;
