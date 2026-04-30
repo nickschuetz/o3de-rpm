@@ -43,11 +43,11 @@ jobs:
       - name: rpmlint
         run: rpmlint o3de.spec
 
-      - name: Desktop entry validates
-        run: desktop-file-validate sources/o3de-editor.desktop
+      - name: Desktop entries validate
+        run: desktop-file-validate sources/o3de.desktop sources/o3de-editor.desktop
 
       - name: AppStream metainfo validates
-        run: appstream-util validate-relax --nonet sources/o3de-editor.metainfo.xml
+        run: appstream-util validate-relax --nonet sources/o3de.metainfo.xml
 
       - name: Shell sources have valid syntax
         run: |
