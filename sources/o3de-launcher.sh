@@ -99,6 +99,12 @@ for path in sys.argv[2:]:
 fi
 
 exec "$BIN_DIR/o3de" \
+    -name O3DE \
     --project-user-path="$HOME/.o3de/user" \
     --project-log-path="$HOME/.o3de/Logs" \
     "$@"
+# `-name O3DE` is the standard X11 toolkit argument (consumed by Qt
+# before the engine's argparser sees it). Sets WM_CLASS to "O3DE" so
+# GNOME/Plasma matches the running window to o3de-editor.desktop's
+# StartupWMClass=O3DE and shows our installed icon in the dock,
+# instead of the engine's internal Qt-set icon.

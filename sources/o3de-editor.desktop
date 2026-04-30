@@ -8,5 +8,6 @@ Exec=/usr/bin/o3de %F
 Icon=o3de
 Terminal=false
 StartupNotify=true
+StartupWMClass=O3DE
 Categories=Development;3DGraphics;Game;
 Keywords=game;engine;3d;development;rendering;
