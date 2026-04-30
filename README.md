@@ -20,7 +20,6 @@ o3de-rpm/
 └── sources/                                           # rpm SOURCES dir (sources + patches)
     ├── o3de-launcher.sh                               # /usr/bin/o3de wrapper
     ├── o3de-editor.desktop                            # .desktop entry
-    ├── o3de-gem-reorg.tsv                             # gem hierarchy fixup
     ├── o3de.cdx.json                                  # CycloneDX SBOM
     ├── make-snapshot-tarball.sh                       # snapshot builder
     ├── 0001-clang21-warning-suppressions.patch
@@ -49,7 +48,7 @@ flowchart TB
         AUTO["%autosetup -p1<br/>+ Patch0001..0003"]
         TP["%bcond_with thirdparty_*<br/>extract bundles to LY_3RDPARTY_PATH"]
         BUILD["cmake Ninja Multi-Config<br/>debug + (profile)"]
-        INST["cmake --install<br/>+ gem-reorg from TSV<br/>+ %py3_shebang_fix"]
+        INST["cmake --install<br/>+ shebang normalization"]
         BC -->|no| S1
         BC -->|yes| SNAP
         S1 --> SHA

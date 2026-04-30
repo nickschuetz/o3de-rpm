@@ -83,9 +83,8 @@ Source0:        https://github.com/o3de/o3de/releases/download/%{stable_tag}/o3d
 # Auxiliary sources kept alongside the spec.
 Source10:       o3de-launcher.sh
 Source11:       o3de-editor.desktop
-Source12:       o3de-gem-reorg.tsv
-Source13:       make-snapshot-tarball.sh
-Source14:       o3de.cdx.json
+Source12:       make-snapshot-tarball.sh
+Source13:       o3de.cdx.json
 
 # Patches against the upstream tree (apply with -p1).
 Patch0001:      0001-clang21-warning-suppressions.patch
@@ -100,24 +99,19 @@ Patch0003:      0003-get-python-sh-rpm-venv-fixes.patch
 ExclusiveArch:  x86_64 aarch64
 
 # ── Build dependencies ───────────────────────────────────────────────────────
-BuildRequires:  cmake >= 3.24
+# O3DE bundles its own Qt 5.15-rev9, OpenSSL, zlib, freetype, OpenEXR,
+# Python 3.10, etc. from its package CDN — those are NOT system BRs even
+# though the engine's auto-Requires picks up the bundled libQt5*.so.5,
+# libpython3.10.so.1.0, etc. (resolved internally via Provides:).
+BuildRequires:  cmake
 BuildRequires:  ninja-build
 BuildRequires:  gcc-c++
 BuildRequires:  git
-BuildRequires:  git-lfs
 BuildRequires:  python3-devel
 BuildRequires:  desktop-file-utils
 
-# Qt5
-BuildRequires:  pkgconfig(Qt5Core)
-BuildRequires:  pkgconfig(Qt5Gui)
-BuildRequires:  pkgconfig(Qt5Widgets)
-BuildRequires:  pkgconfig(Qt5Quick)
-BuildRequires:  pkgconfig(Qt5Svg)
-BuildRequires:  qt5-qttools-devel
-BuildRequires:  qt5-qtx11extras-devel
-
-# Graphics / windowing
+# Graphics / windowing — system OpenGL + X11/XCB stack the bundled Qt
+# links against at runtime.
 BuildRequires:  pkgconfig(gl)
 BuildRequires:  pkgconfig(glu)
 BuildRequires:  pkgconfig(x11)
@@ -134,45 +128,29 @@ BuildRequires:  xcb-util-wm-devel
 BuildRequires:  libxkbcommon-devel
 BuildRequires:  libxkbcommon-x11-devel
 
-# System libs
-BuildRequires:  pkgconfig(zlib)
-BuildRequires:  pkgconfig(libcurl)
-BuildRequires:  pkgconfig(openssl)
+# System libs — validated against auto-Requires from the built binaries.
 BuildRequires:  pkgconfig(fontconfig)
-BuildRequires:  pkgconfig(freetype2)
 BuildRequires:  pkgconfig(libunwind)
 BuildRequires:  pkgconfig(libzstd)
-BuildRequires:  pkgconfig(libpcre2-8)
 
-# Vulkan
+# Vulkan — engine dlopen()s the loader, but headers/loader-devel are
+# needed at configure time for find_package(Vulkan).
 BuildRequires:  vulkan-headers
 BuildRequires:  vulkan-loader-devel
-BuildRequires:  spirv-tools-devel
 
 # ── Runtime dependencies ─────────────────────────────────────────────────────
-Requires:       qt5-qtbase
-Requires:       qt5-qtdeclarative
-Requires:       qt5-qtsvg
+# RPM auto-Requires picks up every actual link target by walking the
+# binaries with ldd. Only declare what auto-Requires can't see:
+#   - mesa-libGL provides libGL.so.1 / libGLX.so.0 / libOpenGL.so.0 (auto-detected)
+#     but we list it explicitly so plain `dnf install o3de` resolves cleanly.
+#   - cmake is invoked by /usr/bin/o3de (the launcher wrapper) for engine-id
+#     calculation; it's a shell-script dep that auto-Requires won't see.
+# Everything else (Qt5*, libxcb-*, libxkbcommon, fontconfig, freetype,
+# libunwind, libzstd, libatomic, libpython3.10, libpyside2, …) comes
+# from auto-Requires walking /opt/o3de/.
 Requires:       mesa-libGL
-Requires:       mesa-libGLU
-Requires:       libX11
-Requires:       libXcursor
-Requires:       libXi
-Requires:       libXinerama
-Requires:       libXrandr
-Requires:       libxcb
-Requires:       libxkbcommon
-Requires:       libxkbcommon-x11
-Requires:       zlib
-Requires:       libcurl
-Requires:       openssl
-Requires:       fontconfig
-Requires:       freetype
-Requires:       libunwind
-Requires:       libzstd
-Requires:       vulkan-loader
-Requires:       cmake >= 3.24
-Requires:       python3 >= 3.10
+Requires:       cmake
+Requires:       python3
 
 %description
 The Open 3D Engine (O3DE) is an Apache-licensed, real-time, multi-platform
@@ -280,20 +258,6 @@ DESTDIR=%{buildroot} cmake --install build --config debug --component DEFAULT_DE
 DESTDIR=%{buildroot} cmake --install build --config profile --component DEFAULT_PROFILE
 %endif
 
-# Restore O3DE's hierarchical gem layout that CMake's install flattens.
-# Mapping driven by the TSV in Source12 — add a row instead of editing the spec.
-ext=%{buildroot}/opt/o3de/External
-while IFS=$'\t' read -r flat nested; do
-    case "$flat" in ''|'#'*) continue ;; esac
-    [ -d "$ext/$flat" ] || continue
-    mkdir -p "$ext/$nested"
-    cp -a "$ext/$flat/." "$ext/$nested/"
-    rm -rf "$ext/$flat"
-done < %{SOURCE12}
-
-# Strip duplicate hash-suffixed gem dirs CMake may emit alongside the moves.
-find "$ext" -maxdepth 1 -type d -name '*-[a-f0-9]*' -exec rm -rf {} + 2>/dev/null || :
-
 # Normalize ambiguous '#!/usr/bin/env python' shebangs to 'python3' across
 # the entire engine tree so brp-mangle-shebangs accepts them. We deliberately
 # keep '/usr/bin/env' (not a hardcoded /usr/bin/python3) so the bundled
@@ -316,7 +280,7 @@ install -D -m 0755 %{SOURCE10} %{buildroot}%{_bindir}/o3de
 desktop-file-install --dir=%{buildroot}%{_datadir}/applications %{SOURCE11}
 
 # Ship the SBOM next to the license/docs so it's discoverable post-install.
-install -D -m 0644 %{SOURCE14} %{buildroot}%{_datadir}/o3de/sbom/o3de.cdx.json
+install -D -m 0644 %{SOURCE13} %{buildroot}%{_datadir}/o3de/sbom/o3de.cdx.json
 
 install -d %{buildroot}%{_datadir}/icons/hicolor/256x256/apps
 install -d %{buildroot}%{_datadir}/pixmaps
@@ -363,6 +327,24 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Wed Apr 29 2026 Nicholas Schuetz <nschuetz@redhat.com> - 2605.0-1
+- Validated end-to-end on stabilization/26050 (commit 246b46f)
+- Drop obsolete gem-reorg machinery (Source12 + %%install loop + TSV file);
+  gems now install hierarchically under /opt/o3de/Gems/ directly
+- Drop confirmed-cruft BuildRequires now that auto-Requires has been
+  validated against the built binaries: pkgconfig(Qt5*), qt5-qttools-devel,
+  qt5-qtx11extras-devel, pkgconfig(zlib), pkgconfig(openssl),
+  pkgconfig(libcurl), pkgconfig(freetype2), pkgconfig(libpcre2-8),
+  spirv-tools-devel, git-lfs, python3-pip, python3-rpm-macros
+- Replace hand-curated Requires with the minimal set rpm auto-Requires
+  cannot derive: mesa-libGL, cmake (for the launcher's engine-id calc),
+  python3 (no version floor)
+- Drop the cmake>=3.24 floor (F44 ships 4.x) and python3>=3.10 floor
+- Launcher: add idempotent first-run migration that rewrites
+  <project>/user/project.json engine_path overrides from /usr/o3de or
+  legacy /opt/o3de paths to the active install prefix; gated by a
+  per-prefix marker file under ~/.o3de/
+
 * Wed Apr 29 2026 Nicholas Schuetz <nschuetz@redhat.com> - 2510.2-1
 - Major spec refactor for Fedora 44 / rpm 4.20+:
 - Add %%bcond_with snapshot for development-branch builds (sources/make-snapshot-tarball.sh)

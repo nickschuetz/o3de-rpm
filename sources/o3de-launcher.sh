@@ -57,6 +57,21 @@ export PYTHONPATH LD_LIBRARY_PATH
 # All writable state lives under ~/.o3de. Engine root stays read-only.
 mkdir -p "$HOME/.o3de/user" "$HOME/.o3de/Logs"
 
+# First-run migration: rewrite legacy engine_path overrides in
+# <project>/user/project.json. Idempotent — gated by a per-prefix
+# marker file. Only touches user/project.json (the override layer),
+# never the project.json under VCS. Silently skips on any error so
+# a malformed home dir can't block the editor from launching.
+migration_marker="$HOME/.o3de/.engine-path-migrated-${ENGINE_PATH//\//_}"
+if [ ! -f "$migration_marker" ] && [ -d "$HOME/O3DE/Projects" ]; then
+    find "$HOME/O3DE/Projects" -maxdepth 3 -path '*/user/project.json' \
+        -exec sed -i \
+            -e "s|\"engine_path\":[[:space:]]*\"/usr/o3de\"|\"engine_path\": \"$ENGINE_PATH\"|g" \
+            -e "s|\"engine_path\":[[:space:]]*\"/opt/o3de\"|\"engine_path\": \"$ENGINE_PATH\"|g" \
+            {} + 2>/dev/null || :
+    touch "$migration_marker" 2>/dev/null || :
+fi
+
 exec "$BIN_DIR/o3de" \
     --project-user-path="$HOME/.o3de/user" \
     --project-log-path="$HOME/.o3de/Logs" \
