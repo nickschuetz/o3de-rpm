@@ -46,9 +46,9 @@ lint: spec-parse spec-parse-snapshot
 	@echo ">> rpmlint o3de.spec"
 	@rpmlint o3de.spec
 	@echo ">> desktop-file-validate"
-	@desktop-file-validate sources/o3de-editor.desktop
+	@desktop-file-validate sources/o3de.desktop
 	@echo ">> appstream-util validate"
-	@appstream-util validate-relax --nonet sources/o3de-editor.metainfo.xml
+	@appstream-util validate-relax --nonet sources/o3de.metainfo.xml
 	@echo ">> bash -n on shell sources"
 	@for f in sources/*.sh; do bash -n "$$f" && echo "    $$f OK"; done
 	@echo "All lints passed."
