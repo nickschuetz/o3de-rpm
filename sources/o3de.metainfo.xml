@@ -4,7 +4,7 @@
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>Apache-2.0 OR MIT</project_license>
 
-  <name>O3DE Editor</name>
+  <name>O3DE</name>
   <summary>Real-time 3D engine and editor for games and simulations</summary>
 
   <description>
@@ -26,9 +26,9 @@
     </ul>
   </description>
 
-  <launchable type="desktop-id">o3de-editor.desktop</launchable>
+  <launchable type="desktop-id">o3de.desktop</launchable>
   <provides>
-    <id>o3de-editor.desktop</id>
+    <id>o3de.desktop</id>
     <binary>o3de</binary>
   </provides>
 

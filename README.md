@@ -23,14 +23,15 @@ o3de-rpm/
 ├── .github/workflows/lint.yml                         # CI: spec parse, rpmlint, validators
 └── sources/                                           # rpm SOURCES dir (sources + patches)
     ├── o3de-launcher.sh                               # /usr/bin/o3de wrapper
-    ├── o3de-editor.desktop                            # .desktop entry
-    ├── o3de-editor.metainfo.xml                       # AppStream metainfo
+    ├── o3de.desktop                                   # .desktop entry (Project Manager)
+    ├── o3de.metainfo.xml                              # AppStream metainfo
     ├── o3de.cdx.json                                  # CycloneDX SBOM
     ├── make-snapshot-tarball.sh                       # snapshot builder
     ├── o3de-{16,32,48,64,128,256}x*.png               # hicolor app icons
     ├── 0001-clang21-warning-suppressions.patch
     ├── 0002-manifest-py-engine-path-detection.patch
-    └── 0003-get-python-sh-rpm-venv-fixes.patch
+    ├── 0003-get-python-sh-rpm-venv-fixes.patch
+    └── 0004-lypython-non-editable-pip-for-installed-engine.patch
 ```
 
 `rpmbuild` reads sources from `_sourcedir`, so build invocations point both `_sourcedir` and `_specdir` at this checkout — no copying into `~/rpmbuild/SOURCES`.
@@ -65,8 +66,8 @@ flowchart TB
     subgraph INSTALL["Installed layout"]
         OPT["/opt/o3de/<br/>(read-only engine root)"]
         BIN["/usr/bin/o3de<br/>(launcher wrapper)"]
-        DT["/usr/share/applications/<br/>o3de-editor.desktop"]
-        MI["/usr/share/metainfo/<br/>o3de-editor.metainfo.xml"]
+        DT["/usr/share/applications/<br/>o3de.desktop"]
+        MI["/usr/share/metainfo/<br/>o3de.metainfo.xml"]
         ICN["/usr/share/icons/hicolor/&lt;size&gt;/apps/o3de.png<br/>(16,32,48,64,128,256)"]
         SBOM["/usr/share/o3de/sbom/<br/>o3de.cdx.json"]
         INST --> OPT

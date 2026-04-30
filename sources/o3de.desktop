@@ -1,13 +1,13 @@
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=O3DE Editor
+Name=O3DE
 GenericName=Game Engine
-Comment=Open 3D Engine Editor
+Comment=Open 3D Engine — Project Manager (Editor launches from inside a project)
 Exec=/usr/bin/o3de %F
 Icon=o3de
 Terminal=false
 StartupNotify=true
 StartupWMClass=O3DE
 Categories=Development;3DGraphics;Game;
-Keywords=game;engine;3d;development;rendering;
+Keywords=game;engine;3d;development;rendering;project;manager;editor;

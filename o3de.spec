@@ -109,10 +109,10 @@ Source0:        https://github.com/o3de/o3de/releases/download/%{stable_tag}/o3d
 
 # Auxiliary sources kept alongside the spec.
 Source10:       o3de-launcher.sh
-Source11:       o3de-editor.desktop
+Source11:       o3de.desktop
 Source12:       make-snapshot-tarball.sh
 Source13:       o3de.cdx.json
-Source14:       o3de-editor.metainfo.xml
+Source14:       o3de.metainfo.xml
 
 # App icons in hicolor sizes. Extracted from upstream's
 # cmake/Platform/Windows/Packaging/product_icon.ico (256x256 master,
@@ -279,9 +279,14 @@ cmake --build build --config debug --parallel %{_smp_build_ncpus}
 cmake --build build --config profile --parallel %{_smp_build_ncpus}
 %endif
 
-# Build sdist for the o3de Python module so get_python.sh installs it
-# non-editably into per-user venvs (no write-back to /opt/o3de needed).
-( cd scripts/o3de && %{__python3} setup.py sdist )
+# Build sdists for the Python packages O3DE's LYPython.cmake would
+# otherwise try to `pip install -e` from inside the read-only engine
+# tree. Patch0004 makes the cmake function prefer dist/<name>-X.Y.Z.tar.gz
+# over the source dir when it exists. This avoids pip writing
+# .egg-info/ into /opt/o3de/Tools/... at user-project-configure time.
+for pkg in scripts/o3de Tools/LyTestTools Tools/RemoteConsole/ly_remote_console; do
+    ( cd "$pkg" && %{__python3} setup.py sdist )
+done
 
 # ── INSTALL ──────────────────────────────────────────────────────────────────
 %install
@@ -322,7 +327,7 @@ desktop-file-install --dir=%{buildroot}%{_datadir}/applications %{SOURCE11}
 # AppStream metainfo for GNOME Software / KDE Discover. Required for
 # Fedora-distributed GUI applications.
 install -D -m 0644 %{SOURCE14} \
-    %{buildroot}%{_metainfodir}/o3de-editor.metainfo.xml
+    %{buildroot}%{_metainfodir}/o3de.metainfo.xml
 
 # Hicolor icon theme — six standard sizes from the upstream master ICO.
 for SZ in 16 32 48 64 128 256; do
@@ -340,9 +345,9 @@ install -D -m 0644 %{SOURCE13} %{buildroot}%{_datadir}/o3de/sbom/o3de.cdx.json
 
 # ── CHECK ────────────────────────────────────────────────────────────────────
 %check
-desktop-file-validate %{buildroot}%{_datadir}/applications/o3de-editor.desktop
+desktop-file-validate %{buildroot}%{_datadir}/applications/o3de.desktop
 appstream-util validate-relax --nonet \
-    %{buildroot}%{_metainfodir}/o3de-editor.metainfo.xml
+    %{buildroot}%{_metainfodir}/o3de.metainfo.xml
 
 # ── FILES ────────────────────────────────────────────────────────────────────
 %files
@@ -350,8 +355,8 @@ appstream-util validate-relax --nonet \
 %doc README.md CODE_OF_CONDUCT.md CONTRIBUTING.md
 /opt/o3de
 %{_bindir}/o3de
-%{_datadir}/applications/o3de-editor.desktop
-%{_metainfodir}/o3de-editor.metainfo.xml
+%{_datadir}/applications/o3de.desktop
+%{_metainfodir}/o3de.metainfo.xml
 %{_datadir}/icons/hicolor/16x16/apps/o3de.png
 %{_datadir}/icons/hicolor/32x32/apps/o3de.png
 %{_datadir}/icons/hicolor/48x48/apps/o3de.png

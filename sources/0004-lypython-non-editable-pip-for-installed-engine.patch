@@ -1,38 +1,55 @@
 From: Nick Schuetz <nschuetz@redhat.com>
-Subject: [PATCH] LYPython: drop pip's -e flag when INSTALLED_ENGINE is true
+Subject: [PATCH] LYPython: install from sdist when engine is installed (read-only)
 
 When a user project's `cmake configure` runs against a system-installed
 engine at /opt/o3de, the engine source directory is read-only. O3DE's
-ly_pip_install_local_package_editable function does `pip install -e` on
-several Tools/* and scripts/o3de packages, and editable installs write
-.egg-info directories next to the package's setup.py. That fails on a
-read-only engine root with `Permission denied`.
+`ly_pip_install_local_package_editable` function does
+`pip install -e <package_folder_path>` on several Tools/* and
+scripts/o3de packages. Editable installs (and even non-editable
+installs of legacy setup.py packages) write .egg-info into the source
+directory, which fails on a read-only engine root.
 
-Drop the `-e` flag when INSTALLED_ENGINE is set. Plain `pip install
-<dir>` builds in a temp directory, so no source modifications are
-needed. The semantic difference (editable vs pinned) doesn't matter
-for an installed engine because the engine source can't change anyway.
+The patch adds an INSTALLED_ENGINE branch that:
 
-This patch goes away on the day O3DE upstream adopts the same gate.
+  1. Drops the `-e` flag (editable doesn't make sense for a read-only
+     engine source anyway).
+  2. Prefers a pre-built sdist under <package>/dist/*.tar.gz if one
+     exists. pip then runs entirely from the sdist tarball and never
+     touches the source directory. Our spec builds these sdists in
+     %build for scripts/o3de, Tools/LyTestTools, and
+     Tools/RemoteConsole/ly_remote_console — see o3de.spec %build.
+  3. Falls back to plain (non-editable) install of the source dir if
+     no sdist is shipped, for forward-compatibility with packages we
+     haven't pre-built.
+
+Development builds (engine source tree, NOT installed) keep the
+original editable behavior unchanged.
 ---
---- a/cmake/LYPython.cmake	2026-04-30 00:50:55.719478155 -0500
-+++ b/cmake/LYPython.cmake	2026-04-30 00:50:44.729859260 -0500
-@@ -267,8 +267,17 @@
+--- a/cmake/LYPython.cmake	2026-04-30 01:00:47.928319587 -0500
++++ b/cmake/LYPython.cmake	2026-04-30 01:00:13.673053287 -0500
+@@ -267,8 +267,24 @@
  
      # now install the new one:
  
-+    # When running against an installed (read-only) engine, drop the -e flag
-+    # because editable installs write .egg-info into the source directory and
-+    # /opt/o3de is read-only. Plain pip install builds in a temp dir.
++    # Pick the install target. For an installed (read-only) engine, prefer
++    # a pre-built sdist under <package>/dist/ if one exists; pip then runs
++    # entirely from the sdist tarball and doesn't try to write .egg-info
++    # into the read-only source. Falls back to plain (non-editable) install
++    # of the source dir if no sdist is shipped. For development builds
++    # (engine source tree, NOT installed), use the original editable mode.
++    set(_pip_install_target ${package_folder_path})
++    set(_pip_install_mode_args "-e")
 +    if (INSTALLED_ENGINE)
 +        set(_pip_install_mode_args "")
-+    else()
-+        set(_pip_install_mode_args "-e")
++        file(GLOB _pip_sdist_candidates "${package_folder_path}/dist/*.tar.gz")
++        if (_pip_sdist_candidates)
++            list(GET _pip_sdist_candidates 0 _pip_install_target)
++        endif()
 +    endif()
 +
      execute_process(COMMAND 
 -        ${LY_PYTHON_CMD} -m pip install -e ${package_folder_path} --no-deps --disable-pip-version-check  --no-warn-script-location 
-+        ${LY_PYTHON_CMD} -m pip install ${_pip_install_mode_args} ${package_folder_path} --no-deps --disable-pip-version-check  --no-warn-script-location 
++        ${LY_PYTHON_CMD} -m pip install ${_pip_install_mode_args} ${_pip_install_target} --no-deps --disable-pip-version-check  --no-warn-script-location 
          WORKING_DIRECTORY ${LY_ROOT_FOLDER}/python
          RESULT_VARIABLE PIP_RESULT
          OUTPUT_VARIABLE PIP_OUT 
