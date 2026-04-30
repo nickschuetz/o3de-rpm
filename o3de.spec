@@ -277,9 +277,21 @@ EOF
     cmake -S . -B build
 fi
 
-cmake --build build --config debug --parallel %{_smp_build_ncpus}
+# Cap compile parallelism to avoid OOM. Unity TUs at -O2 can consume
+# ~4-6 GB of RAM per concurrent clang process; 16-way parallel on a
+# 32 GB RAM box busts memory budget on profile-config compile of
+# heavy AZStd-template-laden gems. Heuristic: 1 job per 4 GB of RAM,
+# clamped to ncpus. Override on a different host with --define.
+%global o3de_build_jobs %(\\
+    mem_gb=$(awk '/MemTotal/{printf "%d", $2/1024/1024}' /proc/meminfo); \\
+    cpus=%{_smp_build_ncpus}; \\
+    by_mem=$((mem_gb / 4)); \\
+    [ $by_mem -lt 1 ] && by_mem=1; \\
+    [ $by_mem -lt $cpus ] && echo $by_mem || echo $cpus)
+
+cmake --build build --config debug --parallel %{o3de_build_jobs}
 %if %{without debug_only}
-cmake --build build --config profile --parallel %{_smp_build_ncpus}
+cmake --build build --config profile --parallel %{o3de_build_jobs}
 %endif
 
 # Build sdists for the Python packages O3DE's LYPython.cmake would
