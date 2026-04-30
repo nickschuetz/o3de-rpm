@@ -17,7 +17,7 @@ This document is the staged plan, dependency map, and decision log. It lives in 
 - `hellaenergy/o3de` (stable) and `hellaenergy/o3de-snapshot` (development branch) — built with `enable_net=true` so O3DE's `LY_PACKAGE_SERVER_URLS` fetcher can pull the four restricted bundles from `packages.o3de.org` (see "Restricted bundles" below).
 - Spec validated end-to-end on F44 / commit `246b46f` from `stabilization/26050`.
 
-**Gating sub-task:** the 9 SRPMs already uploaded to `hellaenergy/o3de-dependencies` have **no successful builds yet**. Bootstrapping them is a separate workstream — same approach (improvements + CI + roadmap) but tracked in a sibling repo.
+**Status of `hellaenergy/o3de-dependencies`:** all 9 SRPMs have **succeeded builds** in COPR (verified via `copr-cli list-builds hellaenergy/o3de-dependencies`). Some required iteration — `o3de-qt5` took ten attempts before landing — but the repo is consumable today via `dnf copr enable hellaenergy/o3de-dependencies`. The remaining work for *integrating* those packages with the o3de spec (so cmake consumes them via `BuildRequires:` instead of fetching from `packages.o3de.org`) is Stage 1 below.
 
 ---
 

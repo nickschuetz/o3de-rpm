@@ -23,7 +23,7 @@ These four are omitted from `hellaenergy/o3de-dependencies` and remain fetched f
 
 ## In the dependencies COPR (`hellaenergy/o3de-dependencies`)
 
-Already SRPM'd and uploaded; builds pending. These exist because they're not in Fedora proper but their licenses are clean.
+SRPM'd, uploaded, and **all 9 have at least one succeeded build** (per the COPR build history at `copr-cli list-builds hellaenergy/o3de-dependencies`). Some packages required several iterations before succeeding — `o3de-qt5` took ten attempts, `aws-gamelift-server-sdk` and `PhysX` each took several. Build artifacts live at `https://download.copr.fedorainfracloud.org/results/hellaenergy/o3de-dependencies/fedora-44-x86_64/` and are consumable by enabling the COPR repo on a target system. These exist because they're not in Fedora proper but their licenses are clean.
 
 | Package | O3DE version | hellaenergy SRPM | License | Status |
 |---|---|---|---|---|
@@ -38,6 +38,24 @@ Already SRPM'd and uploaded; builds pending. These exist because they're not in 
 | mikkelsen | 1.0.0.4 | `mikkelsen-1.0` | Public domain | Tangent-space generator (Morten Mikkelsen). |
 
 ---
+
+## Version cross-reference: COPR vs upstream-expected
+
+The COPR `o3de-dependencies` repo packages have specific versions; O3DE's `stabilization/26050` source expects specific versions. They don't all line up. Documented here so Stage 1 PRs know what to bump.
+
+| Package | O3DE expects (stabilization/26050) | COPR has | Δ |
+|---|---|---|---|
+| AWSNativeSDK | 1.11.288-rev1 | 1.11.361 | patch-level mismatch (~70 patches) |
+| qt | 5.15.2-rev9 | 5.15.1 | patch-level + verify rev9 patches present |
+| astc-encoder | 3.2-rev2 | 5.3.0 | **major version mismatch (API change)** |
+| PhysX 5 | 5.1.1-rev4 | 5.1.2 | patch-level mismatch |
+| PhysX 4 | 4.1.2.29882248-rev8 | not packaged | **missing** — PhysX gem expects both 4 and 5 |
+| AwsIotDeviceSdkCpp | 1.15.2-rev1 | 1.15.2 | matches |
+| mikkelsen | 1.0.0.4 | 1.0 | matches |
+| azslc | 1.8.22-rev1 | 1.8.22 | matches |
+| ISPCTexComp | 36b80aa-rev1 | 0-0.4.20230807git691513b | same git ref |
+
+Current state: irrelevant — we use `enable_net=true` and `LY_PACKAGE_SERVER_URLS` fetches the upstream-expected versions from `packages.o3de.org` regardless. Stage 1 is when each PR will need to (a) rebuild the COPR SRPM to the matching version OR (b) patch O3DE to accept the COPR version OR (c) configure O3DE to drop the legacy path entirely (PhysX 4 likely option). Each is a per-package decision.
 
 ## Migrate to system Fedora libs (Stage 1 — the long tail)
 
