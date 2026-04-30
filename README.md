@@ -88,13 +88,25 @@ flowchart TB
         WRAP --> PY
         WRAP --> UD
     end
+
+    subgraph DIST["Distribution channels"]
+        DC1["COPR<br/>hellaenergy/o3de<br/>(today)"]
+        DC2["o3debinaries.org<br/>(upstream to O3DE CI)"]
+        DC3["Fedora repo<br/>(see FEDORA_ROADMAP.md)"]
+        DC4["Flathub<br/>(future, separate repo)"]
+        INST -.-> DC1
+        INST -.-> DC2
+        INST -.-> DC3
+        INST -.-> DC4
+    end
 ```
 
-Three separations to notice:
+Four separations to notice:
 
 1. **Source-mode toggle** decides between a stable tarball and a reproducible snapshot tarball, but the rest of the spec is identical for both.
 2. **3rdParty toggles** are independent of source mode — each `--with thirdparty_<pkg>` extracts its `Source10x` tarball into `LY_3RDPARTY_PATH` before configure.
 3. **Read-only engine + writable user state** — `/opt/o3de` is owned by root, all writable state lives in `~/.o3de/`. The launcher wrapper is the only piece that bridges them.
+4. **One spec, four distribution channels** — the same spec produces the binary for COPR, the upstream submission to o3debinaries.org, and (eventually) Fedora; the future Flatpak shares ~80% of the source tree (patches, launcher, snapshot helper) but uses its own manifest.
 
 ---
 
@@ -180,10 +192,28 @@ Skips the `profile` configuration entirely — both build and install steps.
 
 ## Distribution
 
-This repo ships RPMs through two COPR projects under the same owner:
+The o3de RPM has four distribution targets, in order of how soon each is reachable:
+
+### 1. COPR — `hellaenergy/o3de` (today, ongoing)
+
+The interim distribution channel. Two COPR projects under the same owner:
 
 - **[`hellaenergy/o3de-dependencies`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-dependencies/)** — Fedora-clean SRPMs for O3DE 3rdParty packages that aren't in Fedora proper (custom Qt 5.15-rev9, PhysX, AWSNativeSDK, azslc, …). `enable_net=false`. Built first — depended on by the next one.
 - **[`hellaenergy/o3de`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de/)** *(stable)* and **[`hellaenergy/o3de-snapshot`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-snapshot/)** *(development branch)* — the engine itself. `enable_net=true` so cmake can still fetch the four restricted bundles from `packages.o3de.org` (DXC, NvCloth, poly2tri, squish-ccr) — those four cannot be redistributed via Fedora/COPR for licensing reasons.
+
+### 2. o3debinaries.org (eventual upstream)
+
+The official O3DE binary distribution. The eventual goal is to upstream this spec into the O3DE source tree (likely under `cmake/Platform/Linux/Packaging/`) so O3DE's own CI can build the RPM and host it at o3debinaries.org alongside the .deb / snap / Windows packages. This reaches a much larger audience than COPR.
+
+What needs to happen: align the spec with O3DE's existing packaging conventions, drop `hellaenergy/`-specific assumptions (the spec itself stays distribution-agnostic; `Makefile` targets stay local), get the spec accepted by O3DE upstream's release engineering team. Some of the prep work for Fedora inclusion (system-lib migration, license-clean DXC) carries over directly.
+
+### 3. Fedora repo proper (long-term)
+
+See [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) for the staged plan. Six stages from system-lib migration through OpenSSL 3.x port, license-clean DXC rebuild, debuginfo subpackages, and Bundling Library Exception filing, before the package review submission.
+
+### 4. Flathub (when the Flatpak ships)
+
+A separate effort tracked in a sibling Flatpak repo. Reuses ~80% of this repo's `sources/` and `patches/` directly. See `FLATPAK_NOTES.md` (working notes, not committed) for carryover.
 
 To consume:
 

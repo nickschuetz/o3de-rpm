@@ -2,6 +2,8 @@
 
 The goal: get the stable `o3de` package into the **Fedora repository proper**. Until that's reached, COPR (`hellaenergy/o3de` + `hellaenergy/o3de-snapshot`) is the interim distribution channel.
 
+Fedora is one of **four** distribution targets the project is working toward — see the README's Distribution section for the full picture (COPR today, o3debinaries.org as the eventual upstream channel, Fedora long-term, Flathub when the Flatpak ships). Most of the work in this roadmap is shared infrastructure: the system-lib migration, OpenSSL port, and license-clean DXC rebuild all benefit the o3debinaries.org submission too. Fedora is the strictest target; if we satisfy Fedora, we satisfy everything.
+
 This document is the staged plan, dependency map, and decision log. It lives in the repo so contributors can see the state of each blocker without spelunking through commit history.
 
 ---
@@ -202,6 +204,28 @@ These four upstream-bundled packages **cannot** be hosted in COPR or Fedora beca
 | C. License-clean DXC rebuild | Build DXC from upstream NCSA/Apache-2.0 sources, configured Vulkan-only / SPIR-V-output (no Windows DXIL signing). Combined with A or B for the others. | best license posture | most engineering effort |
 
 **Current preference:** **B** for short-term Fedora viability + **C as a follow-up** to reduce the runtime-fetch surface to just NvCloth/poly2tri/squish (all optional/feature-gated). DXC is the load-bearing one — making it license-clean is the hardest single win.
+
+---
+
+---
+
+## Parallel goal — o3debinaries.org upstreaming
+
+Independent track from Fedora-inclusion but **uses much of the same prep work**. The aim is to get the spec accepted into the upstream O3DE source tree so O3DE's own CI builds the RPM and hosts it at o3debinaries.org alongside the .deb / snap / Windows packages.
+
+What's tractable today:
+- The spec is already distribution-agnostic at the rpmbuild level. `hellaenergy/`-specific bits live in the Makefile (`copr-stable`/`copr-snapshot` targets), not in the spec or sources/. Upstream can adopt the spec verbatim.
+- `make-snapshot-tarball.sh` and the patch files are similarly portable.
+- The `--with snapshot` mode is what their CI would use for nightly builds; the default-mode is for tagged releases.
+
+What's gated:
+- O3DE's `cmake/Platform/Linux/Packaging/` directory may already have RPM packaging or .deb packaging conventions to align with. Need to study before submitting.
+- The hellaenergy/o3de-dependencies COPR repo needs an upstream equivalent — those SRPMs (custom Qt 5.15-rev9, PhysX, AWSNativeSDK, …) need to either land at packages.o3de.org alongside the existing pre-built tarballs, or be packaged inline in the upstream spec via the `%bcond_with thirdparty_*` machinery.
+- O3DE upstream's release engineering team needs to be in the loop. A pre-submission discussion in the O3DE community channel is the right starting point.
+
+Stages 1–4 of the Fedora roadmap (system-lib migration, big-media bundles, Python migration, OpenSSL port) **all directly benefit upstreaming** — they reduce the bundled surface area, which makes the spec more maintainable upstream too. Stage 5's license-clean DXC rebuild also benefits upstream.
+
+The submission process is much shorter than Fedora's: open a PR against the O3DE repo with the spec + sources/, get review from O3DE maintainers, iterate, merge. No FAS account, no sponsor, no Bugzilla bug — just a regular GitHub PR. Realistic timeline once Stages 1–3 are done: **2–4 months** for upstream PR review.
 
 ---
 
