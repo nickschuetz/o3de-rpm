@@ -35,7 +35,8 @@ RPMBUILD_DEFINES = \
 
 .PHONY: help lint spec-parse spec-parse-snapshot \
         snapshot srpm srpm-snapshot rpm rpm-snapshot rpm-full \
-        copr-stable copr-snapshot copr-init clean
+        copr-stable copr-snapshot copr-init \
+        test test-setup test-full test-branch clean
 
 help:
 	@awk '/^# / { sub(/^# /,"",$$0); print } /^[a-z][a-z0-9_-]*:/ && $$0 !~ /^\./' Makefile | head -40
@@ -110,6 +111,25 @@ copr-stable: srpm
 copr-snapshot: srpm-snapshot
 	copr-cli build $(COPR_OWNER)/$(COPR_PROJECT_SNAPSHOT) \
 		~/rpmbuild/SRPMS/o3de-*.src.rpm
+
+# ── Tests against an installed RPM ──────────────────────────────────────────
+# Tier 1+2+4: read-only checks. Tier 3 (--setup) modifies ~/.o3de.
+# Tier 5 (--with-project) builds a sample project. See tests/README.md.
+
+test:
+	tests/integration-test.sh
+
+test-setup:
+	tests/integration-test.sh --setup
+
+test-full:
+	tests/integration-test.sh --setup --with-project
+
+# End-to-end driver: build a snapshot RPM from <REF> and test it.
+# Usage: make test-branch REF=stabilization/26050
+test-branch:
+	@[ -n "$(REF)" ] || { echo "usage: make test-branch REF=<git-ref>"; exit 2; }
+	tests/test-branch.sh $(REF)
 
 # ── Clean ───────────────────────────────────────────────────────────────────
 

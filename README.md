@@ -17,10 +17,16 @@ It also provides an extension point for bundling pre-built **O3DE 3rdParty packa
 o3de-rpm/
 ├── o3de.spec                                          # the spec
 ├── README.md                                          # this file
-├── Makefile                                           # lint / srpm / copr targets
+├── Makefile                                           # lint / srpm / copr / test targets
 ├── FEDORA_ROADMAP.md                                  # path to Fedora inclusion
 ├── BUNDLED_LIBRARIES.md                               # per-bundle license + migration status
-├── .github/workflows/lint.yml                         # CI: spec parse, rpmlint, validators
+├── .github/workflows/                                 # CI
+│   ├── lint.yml                                       #   spec parse, rpmlint, validators
+│   └── test-installed.yml                             #   integration tests against RPM URL
+├── tests/                                             # post-install test suite
+│   ├── README.md                                      #   tier breakdown + community usage
+│   ├── integration-test.sh                            #   tiers 1–5 against installed RPM
+│   └── test-branch.sh                                 #   build + install + test from git ref
 └── sources/                                           # rpm SOURCES dir (sources + patches)
     ├── o3de-launcher.sh                               # /usr/bin/o3de wrapper
     ├── o3de.desktop                                   # .desktop entry (Project Manager)
@@ -99,6 +105,13 @@ flowchart TB
         INST -.-> DC2
         INST -.-> DC3
         INST -.-> DC4
+    end
+
+    subgraph TEST["Test gate (community-shared)"]
+        T1["tests/integration-test.sh<br/>Tiers 1–5 against installed RPM"]
+        T2[".github/workflows/test-installed.yml<br/>matrix: F44, rawhide, F45+, …"]
+        DC1 -.-> T1
+        DC1 -.-> T2
     end
 ```
 
@@ -242,6 +255,53 @@ A `make copr-init` target prints the one-time setup commands for the COPR projec
 CI (`.github/workflows/lint.yml`) runs spec-parse + rpmlint + desktop-file-validate + appstream-util validate on every push, against a Fedora 44 container. The full RPM build is too heavy for free runners (>2 hours, 14 GB output) — the COPR projects do that.
 
 The longer-term goal is **inclusion in Fedora proper**. The roadmap lives in [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) and the per-bundle Fedora-readiness status in [`BUNDLED_LIBRARIES.md`](BUNDLED_LIBRARIES.md).
+
+---
+
+## Testing
+
+A tiered post-install test suite lives in [`tests/`](tests/). It exists for three audiences:
+
+- **This repo's maintainer** — catch regressions between spec changes
+- **O3DE engine contributors** — validate that your branch builds and runs as a Fedora RPM before merging
+- **O3DE release engineering** — gate releases on "does this work as a packaged engine on Fedora?"
+
+The same suite serves all three. Differences are only in *which* git ref produced the RPM under test.
+
+### Run the suite against an installed RPM
+
+```bash
+sudo dnf install -y ./o3de-*.rpm
+
+# Quick pass (rpm-level + install integrity + engine smoke, no state changes)
+make test
+
+# Add per-user setup (downloads the bundled-Python venv, registers the engine)
+make test-setup
+
+# Full end-to-end (also creates a project + cmake-configures it)
+make test-full
+```
+
+### Validate an arbitrary O3DE git ref end-to-end
+
+For O3DE engine contributors who want to know "does my branch work as a Fedora RPM":
+
+```bash
+git clone https://github.com/nickschuetz/o3de-rpm
+cd o3de-rpm
+make test-branch REF=stabilization/26050   # or any git ref / release tag
+```
+
+This builds the snapshot tarball, patches the spec with the right pin values, runs `rpmbuild`, installs the resulting RPM, then runs the full test suite. Plan ~3–4 hours per run, ~70 GB free disk space.
+
+### CI for community use
+
+`.github/workflows/test-installed.yml` runs the test suite in clean Fedora containers (matrix: `fedora-44`, `fedora-rawhide`, extending to `fedora-45+` as releases ship) against an RPM URL — typically a COPR build artifact. Trigger via GitHub UI with an `rpm_url` input.
+
+For automated COPR → CI integration, configure a COPR webhook to fire this workflow on every successful build, giving any branch a "healthy on Fedora" signal.
+
+See [`tests/README.md`](tests/README.md) for the full tier breakdown and contribution guide.
 
 ---
 

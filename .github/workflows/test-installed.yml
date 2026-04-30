@@ -1,0 +1,75 @@
+name: test-installed
+
+# Test an already-built o3de RPM by installing it in a Fedora container
+# and running tests/integration-test.sh against the result. The RPM
+# itself is too big (~14-28 GB) to build on free GitHub runners — this
+# workflow consumes a pre-built RPM URL (from COPR or anywhere else).
+#
+# Trigger via the GitHub UI ("Run workflow") with an RPM URL, or
+# automatically from a COPR webhook. Fork this repo to run against
+# your own COPR builds.
+
+on:
+  workflow_dispatch:
+    inputs:
+      rpm_url:
+        description: 'URL of the o3de RPM to test (e.g. a COPR build artifact)'
+        required: true
+        type: string
+      run_setup:
+        description: 'Run Tier 3 (per-user venv setup, downloads ~200MB)'
+        required: false
+        default: true
+        type: boolean
+      run_project:
+        description: 'Run Tier 5 (create + cmake-configure a sample project)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        # Add more chroots as Fedora releases. Each runs the same test
+        # suite against the same RPM.
+        chroot: [fedora-44, fedora-rawhide]
+
+    runs-on: ubuntu-latest
+    container:
+      image: registry.fedoraproject.org/${{ matrix.chroot }}:latest
+      options: --privileged   # needed for desktop-file-validate's permission probes
+
+    steps:
+      - name: Install test prerequisites
+        run: |
+          dnf install -y --setopt=install_weak_deps=False \
+            sudo curl rpm \
+            desktop-file-utils libappstream-glib appstream \
+            python3 cmake ninja-build vulkan-loader \
+            findutils diffutils
+          # The integration tests need a regular user (not root) for Tiers 3-5.
+          useradd -m runner
+
+      - uses: actions/checkout@v4
+
+      - name: Download RPM
+        run: curl -fsSL -o /tmp/o3de.rpm "${{ inputs.rpm_url }}"
+
+      - name: Install
+        run: dnf install -y --skip-broken /tmp/o3de.rpm
+
+      - name: Tier 1 + 2 (RPM-level + install integrity)
+        run: tests/integration-test.sh
+
+      - name: Tier 3 (user-side setup)
+        if: ${{ inputs.run_setup }}
+        run: |
+          chown -R runner:runner /home/runner $GITHUB_WORKSPACE
+          su -l runner -c "$GITHUB_WORKSPACE/tests/integration-test.sh --setup"
+
+      - name: Tier 5 (project end-to-end)
+        if: ${{ inputs.run_project }}
+        run: |
+          su -l runner -c "$GITHUB_WORKSPACE/tests/integration-test.sh --setup --with-project"
