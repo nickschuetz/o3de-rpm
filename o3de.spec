@@ -183,8 +183,13 @@ BuildRequires:  python3-devel
 # `python3 setup.py sdist` (used in %build to pre-build the three Python
 # packages O3DE would otherwise pip-install editable into the read-only
 # engine root — see Patch0004) requires setuptools at host build time.
-# Local Fedora pulls it in transitively; COPR mock chroots are minimal.
+# Local Fedora pulls it transitively via the workstation Python stack;
+# COPR mock chroots are minimal and only install explicit BuildRequires.
+# pip + wheel are defensive — newer setuptools sometimes invokes them
+# via the PEP 517 build path even for `setup.py sdist`.
 BuildRequires:  python3-setuptools
+BuildRequires:  python3-pip
+BuildRequires:  python3-wheel
 BuildRequires:  desktop-file-utils
 BuildRequires:  libappstream-glib
 
@@ -501,6 +506,16 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Fri May 01 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-13
+- Defensive: also BR python3-pip and python3-wheel. Newer setuptools
+  versions sometimes invoke pip + wheel through the PEP 517 build
+  path even for plain `setup.py sdist`, and COPR mock chroots only
+  install explicit BuildRequires. Cheap insurance against another
+  4-hour-build-then-fail iteration.
+- Bump per-build COPR timeout to 25200 s (7 hr) via `make copr-*`.
+  F44 chroot took 4 hr in 10414894 (2173/2173 compile steps);
+  rawhide would risk hitting the default 5 hr timeout.
+
 * Fri May 01 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-12
 - Add `BuildRequires: python3-setuptools`. The %build sdist-builder
   step (introduced for Patch0004) runs `python3 setup.py sdist` for

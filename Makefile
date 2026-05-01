@@ -112,12 +112,16 @@ copr-init:
 	@echo "      --repos 'copr://$(COPR_OWNER)/o3de-dependencies'"
 
 copr-stable: srpm
-	copr-cli build $(COPR_OWNER)/$(COPR_PROJECT_STABLE) \
+	copr-cli build --timeout 25200 $(COPR_OWNER)/$(COPR_PROJECT_STABLE) \
 		~/rpmbuild/SRPMS/o3de-*.src.rpm
 
 copr-snapshot: srpm-snapshot
-	copr-cli build $(COPR_OWNER)/$(COPR_PROJECT_SNAPSHOT) \
+	copr-cli build --timeout 25200 $(COPR_OWNER)/$(COPR_PROJECT_SNAPSHOT) \
 		~/rpmbuild/SRPMS/o3de-*.src.rpm
+
+# 25200s = 7 hr. Default COPR project timeout is 5 hr; F44 chroot ate
+# ~4 hr in build 10414894 (which completed all 2173 compile steps), so
+# rawhide — typically 10-30% slower than F44 — would risk timeout.
 
 # ── Tests against an installed RPM ──────────────────────────────────────────
 # Tier 1+2+4: read-only checks. Tier 3 (--setup) modifies ~/.o3de.
