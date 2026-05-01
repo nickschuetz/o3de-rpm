@@ -59,30 +59,25 @@ flowchart TB
     subgraph SPEC["o3de.spec"]
         BC{"--with snapshot ?"}
         SHA["sha256sum -c verify"]
-        AUTO["%autosetup -p1<br/>+ Patch0001..0003"]
+        AUTO["%autosetup -p1<br/>+ Patch0001..0004"]
         TP["%bcond_with thirdparty_*<br/>extract bundles to LY_3RDPARTY_PATH"]
-        BUILD["cmake Ninja Multi-Config<br/>debug + (profile)"]
+        BUILD["cmake Ninja Multi-Config<br/>profile + (debug if --with debug)"]
         INST["cmake --install<br/>+ shebang normalization"]
+        DBG{"--with debug ?"}
         BC -->|no| S1
         BC -->|yes| SNAP
         S1 --> SHA
         SNAP --> SHA
         SHA --> AUTO --> TP --> BUILD --> INST
+        INST --> DBG
     end
 
-    subgraph INSTALL["Installed layout"]
-        OPT["/opt/o3de/<br/>(read-only engine root)"]
-        BIN["/usr/bin/o3de<br/>(launcher wrapper)"]
-        DT["/usr/share/applications/<br/>o3de.desktop"]
-        MI["/usr/share/metainfo/<br/>o3de.metainfo.xml"]
-        ICN["/usr/share/icons/hicolor/&lt;size&gt;/apps/o3de.png<br/>(16,32,48,64,128,256)"]
-        SBOM["/usr/share/o3de/sbom/<br/>o3de.cdx.json"]
-        INST --> OPT
-        INST --> BIN
-        INST --> DT
-        INST --> MI
-        INST --> ICN
-        INST --> SBOM
+    subgraph INSTALL["Installed layout (RPMs produced)"]
+        MAIN["o3de package<br/>/opt/o3de/ (CORE + DEFAULT + profile binaries)<br/>/usr/bin/o3de + .desktop + metainfo + icons + SBOM"]
+        DBGPKG["o3de-debug subpackage<br/>(only when --with debug)<br/>/opt/o3de/bin/Linux/debug/"]
+        DBG -->|no| MAIN
+        DBG -->|yes| MAIN
+        DBG -->|yes| DBGPKG
     end
 
     subgraph RT["Runtime (per-user)"]
@@ -195,15 +190,15 @@ The full list of approved package names and revisions lives in O3DE's `cmake/3rd
 
 ---
 
-## Build the debug-only configuration
+## Build with the debug subpackage
 
-For faster iteration during development:
+The default build ships only the profile-config binaries (sufficient for end-user game development). To also build debug-config binaries and ship them as the `o3de-debug` subpackage:
 
 ```bash
-rpmbuild -bb --with debug_only ...
+rpmbuild -bb --with debug ...
 ```
 
-Skips the `profile` configuration entirely — both build and install steps.
+This roughly doubles build time (debug compiles all the same TUs at `-O0` with full symbols). End users install both with `dnf install o3de o3de-debug` to step through engine internals; `o3de-debug` requires the same exact NVR of `o3de` so they always upgrade in lockstep. Switching the launcher between configs is a runtime concern: `O3DE_BUILD_CONFIG=debug o3de`.
 
 ---
 

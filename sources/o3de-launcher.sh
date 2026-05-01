@@ -3,9 +3,10 @@
 #
 # Configuration via environment:
 #   O3DE_BUILD_CONFIG  debug | profile
-#                      Default: prefer profile, fall back to debug. Builds
-#                      packaged with rpmbuild --with debug_only ship only
-#                      debug, so the fallback is what matters there.
+#                      Default: prefer profile, fall back to debug.
+#                      The o3de RPM ships profile binaries; the optional
+#                      o3de-debug subpackage adds debug binaries. With
+#                      only one installed, auto-detect picks it.
 #   O3DE_ENGINE_PATH   override engine root (default: /opt/o3de)
 #   O3DE_PYTHON_VERSION  bundled-Python series (default: 3.10)
 #                        Comes from O3DE's package CDN's python-X.Y.Z-revN-linux

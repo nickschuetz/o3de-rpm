@@ -2,12 +2,13 @@
 #
 # Common targets:
 #   make lint                         rpmlint + desktop + metainfo + spec parse
-#   make srpm                         build SRPM (stable mode, expects o3de_<TAG>_lfs.tar.gz in sources/)
+#   make srpm                         build SRPM (stable mode)
 #   make srpm-snapshot                build SRPM (snapshot mode)
 #   make snapshot REF=<git-ref>       fetch+build snapshot tarball, paste pins yourself
-#   make rpm                          full -bb (stable), debug_only (skips profile config)
-#   make rpm-snapshot                 full -bb (snapshot), debug_only
-#   make rpm-full                     full -bb (stable), debug+profile (the default ship config)
+#   make rpm                          full -bb (stable, profile only — main package)
+#   make rpm-snapshot                 full -bb (snapshot, profile only)
+#   make rpm-debug                    full -bb (stable) + o3de-debug subpackage
+#   make rpm-snapshot-debug           full -bb (snapshot) + o3de-debug subpackage
 #   make copr-snapshot                upload current snapshot SRPM to hellaenergy/o3de-snapshot
 #   make copr-stable                  upload current stable SRPM to hellaenergy/o3de
 #   make clean                        rm -rf rpmbuild/{BUILD,BUILDROOT,RPMS,SRPMS} (NOT SOURCES)
@@ -34,7 +35,7 @@ RPMBUILD_DEFINES = \
 	--define "_specdir   $(PWD)"
 
 .PHONY: help lint spec-parse spec-parse-snapshot \
-        snapshot srpm srpm-snapshot rpm rpm-snapshot rpm-full \
+        snapshot srpm srpm-snapshot rpm rpm-snapshot rpm-debug rpm-snapshot-debug \
         copr-stable copr-snapshot copr-init \
         test test-setup test-full test-ui test-ui-full test-branch clean
 
@@ -77,15 +78,21 @@ srpm-snapshot:
 	rpmbuild -bs --with snapshot $(RPMBUILD_DEFINES) o3de.spec
 
 # ── RPM builds ──────────────────────────────────────────────────────────────
+# Default: profile-config only (one RPM, ~70 min on a 32GB workstation).
+# `*-debug` variants additionally build the debug-config binaries and emit
+# the o3de-debug subpackage — roughly doubles build time and disk.
 
 rpm:
-	rpmbuild -bb --with debug_only $(RPMBUILD_DEFINES) o3de.spec
+	rpmbuild -bb $(RPMBUILD_DEFINES) o3de.spec
 
 rpm-snapshot:
-	rpmbuild -bb --with snapshot --with debug_only $(RPMBUILD_DEFINES) o3de.spec
+	rpmbuild -bb --with snapshot $(RPMBUILD_DEFINES) o3de.spec
 
-rpm-full:
-	rpmbuild -bb $(RPMBUILD_DEFINES) o3de.spec
+rpm-debug:
+	rpmbuild -bb --with debug $(RPMBUILD_DEFINES) o3de.spec
+
+rpm-snapshot-debug:
+	rpmbuild -bb --with snapshot --with debug $(RPMBUILD_DEFINES) o3de.spec
 
 # ── COPR upload ─────────────────────────────────────────────────────────────
 # Requires `copr-cli` configured (~/.config/copr) with API token.

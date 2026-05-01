@@ -44,7 +44,7 @@ Two files **deliberately excluded from git** as working notes (see `.git/info/ex
 
 Read `o3de.spec` top-to-bottom. The shape is:
 
-1. **Build-mode toggles** (`%bcond_with`) — `snapshot`, `debug_only`, `thirdparty_*`
+1. **Build-mode toggles** (`%bcond_with`) — `snapshot`, `debug`, `thirdparty_*`
 2. **Version pinning** — `stable_tag`, `engine_cmake_version` (derived 3-component for cmake), snapshot pins
 3. **rpm build behavior** — `debug_package`, payload compression, `__requires_exclude` (load-bearing for DXC's bundled libclang/libtinfo — see in-spec comment + `MEMORY.md` if applicable)
 4. **Name / Version / Release** with conditional logic for snapshot mode
@@ -86,8 +86,8 @@ Four patches in `sources/`. Each carries a `From: Nick Schuetz <nschuetz@redhat.
 ```bash
 make snapshot REF=<git-ref>      # produce sources/o3de-<commit>.tar.gz, print pin values
 $EDITOR o3de.spec                # paste snapshot_commit / snapshot_date / snapshot_sha256
-make rpm-snapshot                # full -bb (debug + profile, ~2-3 hours)
-make rpm-snapshot                # for --with debug_only, edit Makefile or invoke rpmbuild directly
+make rpm-snapshot                # full -bb (profile only, ~70 min on a 32GB workstation)
+make rpm-snapshot-debug          # full -bb + o3de-debug subpackage (~2x build time)
 ```
 
 Or run the test harness end-to-end:

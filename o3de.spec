@@ -1,8 +1,14 @@
 ################################################################################
 # O3DE (Open 3D Engine) RPM spec — Fedora 44 / rpm 4.20+
 #
-# Build the stable release:
+# Build the stable release (profile binaries only):
 #     rpmbuild -bb \
+#         --define "_sourcedir $PWD/sources" \
+#         --define "_specdir   $PWD" \
+#         o3de.spec
+#
+# Build with the debug subpackage too (opt-in, ~2x build time):
+#     rpmbuild -bb --with debug \
 #         --define "_sourcedir $PWD/sources" \
 #         --define "_specdir   $PWD" \
 #         o3de.spec
@@ -24,7 +30,12 @@
 
 # ── Build-mode toggles ───────────────────────────────────────────────────────
 %bcond_with snapshot
-%bcond_with debug_only
+# `--with debug` additionally builds the debug-config engine binaries and
+# ships them as the `o3de-debug` subpackage. End-user game development
+# only needs the profile config (the default), so building debug is opt-in
+# to avoid roughly doubling build time and disk usage. Install both with
+# `dnf install o3de o3de-debug` if you need to step through engine code.
+%bcond_with debug
 
 # Per-3rdParty-package toggles. Add more as you add Source10x lines below.
 %bcond_with thirdparty_physx
@@ -202,8 +213,29 @@ The Open 3D Engine (O3DE) is an Apache-licensed, real-time, multi-platform
 3D engine for building AAA games, cinema-quality 3D worlds, and
 high-fidelity simulations.
 
+This package ships the profile-config engine binaries, which is what
+end-user game development needs. To step through engine code in a
+debugger, additionally install %{name}-debug.
+
 %if %{with snapshot}
 This build is a development snapshot at commit %{shortcommit} (%{snapshot_date}).
+%endif
+
+%if %{with debug}
+%package debug
+Summary:        Open 3D Engine — debug-config binaries
+Requires:       %{name}%{?_isa} = %{version}-%{release}
+
+%description debug
+Debug-config (-O0 + full debug symbols) binaries for the Open 3D Engine.
+
+These binaries live alongside the profile binaries shipped by the main
+%{name} package, under /opt/o3de/bin/Linux/debug/. Install this package
+when you need to step through engine internals in a debugger; for plain
+game development the profile build in %{name} is sufficient.
+
+Set O3DE_BUILD_CONFIG=debug in the environment, or pass `--build-config
+debug` to /usr/bin/o3de, to launch the debug engine in place of profile.
 %endif
 
 # ── PREP ─────────────────────────────────────────────────────────────────────
@@ -234,10 +266,10 @@ mkdir -p build
 # stack-protector, _FORTIFY_SOURCE).
 unset CFLAGS CXXFLAGS LDFLAGS
 
-%if %{with debug_only}
-%global _o3de_configs debug
+%if %{with debug}
+%global _o3de_configs profile;debug
 %else
-%global _o3de_configs debug;profile
+%global _o3de_configs profile
 %endif
 
 # FindThreads' compiler feature-tests false-fail when O3DE's bundled qt5
@@ -292,9 +324,9 @@ fi
     [ $by_mem -lt 1 ] && by_mem=1; \\
     [ $by_mem -lt $cpus ] && echo $by_mem || echo $cpus)
 
-cmake --build build --config debug --parallel %{o3de_build_jobs}
-%if %{without debug_only}
 cmake --build build --config profile --parallel %{o3de_build_jobs}
+%if %{with debug}
+cmake --build build --config debug --parallel %{o3de_build_jobs}
 %endif
 
 # Build sdists for the Python packages O3DE's LYPython.cmake would
@@ -311,14 +343,15 @@ done
 # O3DE's install components split by config:
 #   CORE             cmake config files / engine.json (config-independent)
 #   DEFAULT          scripts / Tools / python (config-independent)
-#   DEFAULT_DEBUG    debug-config binaries
-#   DEFAULT_PROFILE  profile-config binaries (default ship config)
-DESTDIR=%{buildroot} cmake --install build --config debug --component CORE
-DESTDIR=%{buildroot} cmake --install build --config debug --component DEFAULT
-%if %{with debug_only}
-DESTDIR=%{buildroot} cmake --install build --config debug --component DEFAULT_DEBUG
-%else
+#   DEFAULT_PROFILE  profile-config binaries (always shipped → main package)
+#   DEFAULT_DEBUG    debug-config binaries (opt-in → o3de-debug subpackage)
+# Config-independent components are invoked with --config profile (the
+# config that's always built) so the install target is guaranteed to exist.
+DESTDIR=%{buildroot} cmake --install build --config profile --component CORE
+DESTDIR=%{buildroot} cmake --install build --config profile --component DEFAULT
 DESTDIR=%{buildroot} cmake --install build --config profile --component DEFAULT_PROFILE
+%if %{with debug}
+DESTDIR=%{buildroot} cmake --install build --config debug --component DEFAULT_DEBUG
 %endif
 
 # Normalize ambiguous '#!/usr/bin/env python' shebangs to 'python3' across
@@ -329,14 +362,13 @@ find %{buildroot}/opt/o3de -type f -name '*.py' \
     -exec sed -i '1s|^#!/usr/bin/env python$|#!/usr/bin/env python3|' {} +
 
 # Editor expects engine.json + python relative to the binary's location.
-# Only create symlinks for the config we actually installed.
-%if %{with debug_only}
-%global _installed_config debug
-%else
-%global _installed_config profile
+# Profile binaries are always present; debug only when --with debug.
+ln -s ../../../../python      %{buildroot}/opt/o3de/bin/Linux/profile/Default/python
+ln -s ../../../../engine.json %{buildroot}/opt/o3de/bin/Linux/profile/Default/engine.json
+%if %{with debug}
+ln -s ../../../../python      %{buildroot}/opt/o3de/bin/Linux/debug/Default/python
+ln -s ../../../../engine.json %{buildroot}/opt/o3de/bin/Linux/debug/Default/engine.json
 %endif
-ln -s ../../../../python      %{buildroot}/opt/o3de/bin/Linux/%{_installed_config}/Default/python
-ln -s ../../../../engine.json %{buildroot}/opt/o3de/bin/Linux/%{_installed_config}/Default/engine.json
 
 # Launcher wrapper + desktop entries from real Source files. The
 # o3de.desktop entry (Source11) is the user-visible menu launcher
@@ -379,6 +411,9 @@ appstream-util validate-relax --nonet \
 %license LICENSE.txt LICENSE_APACHE2.TXT LICENSE_MIT.TXT
 %doc README.md CODE_OF_CONDUCT.md CONTRIBUTING.md
 /opt/o3de
+%if %{with debug}
+%exclude /opt/o3de/bin/Linux/debug
+%endif
 %{_bindir}/o3de
 %{_datadir}/applications/o3de.desktop
 %{_datadir}/applications/o3de-editor.desktop
@@ -391,6 +426,11 @@ appstream-util validate-relax --nonet \
 %{_datadir}/icons/hicolor/256x256/apps/o3de.png
 %{_datadir}/o3de/sbom/o3de.cdx.json
 
+%if %{with debug}
+%files debug
+/opt/o3de/bin/Linux/debug
+%endif
+
 # ── Scriptlets ───────────────────────────────────────────────────────────────
 %post
 if [ -x /opt/o3de/scripts/o3de.sh ]; then
@@ -402,16 +442,22 @@ fi
 
 cat <<'EOF'
 
-O3DE installed at /opt/o3de.
+O3DE installed at /opt/o3de (profile-config binaries).
 
-Finalize the per-user Python venv before first launch:
+To step through engine code in a debugger, also install the debug
+subpackage if available:
+
+    sudo dnf install o3de-debug
+
+The per-user Python venv bootstraps on first launch automatically;
+to pre-bootstrap it manually run:
 
     /opt/o3de/python/get_python.sh
 
-Then run the editor:
+Launch the editor:
 
     o3de                              # profile build (default)
-    O3DE_BUILD_CONFIG=debug o3de      # debug build
+    O3DE_BUILD_CONFIG=debug o3de      # debug build (requires o3de-debug)
 
 EOF
 
@@ -422,6 +468,14 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Thu Apr 30 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-8
+- Split debug-config binaries into a separate `o3de-debug` subpackage,
+  produced opt-in via `rpmbuild --with debug`. The default build now
+  ships only the profile-config binaries (the practical config for
+  end-user game development), roughly halving build time and the
+  installed footprint for the common case. Drop the obsolete
+  `--with debug_only` toggle; the subpackage model replaces it.
+
 * Thu Apr 30 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-7
 - Pass --engine-path=$ENGINE_PATH to the engine binary from the launcher.
   Without it the engine's C++ scan-up resolved engine root to a path
@@ -433,13 +487,13 @@ EOF
   fallback also runs the right /opt/o3de/python/get_python.sh on first
   launch.
 
-* Thu Apr 30 2026 Nicholas Schuetz <nschuetz@redhat.com> - 2605.0-6
+* Thu Apr 30 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-6
 - Re-enable cmake's Unity build. The clang 22.1.2 codegen bug (Greedy
   Register Allocator SIGSEGV on heavily-templated AZStd containers at
   -O2) is fixed in clang 22.1.4 (Fedora 44 update on 2026-04-30).
   Verified via stress-test compile of representative templates.
 
-* Thu Apr 30 2026 Nicholas Schuetz <nschuetz@redhat.com> - 2605.0-5
+* Thu Apr 30 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-5
 - Set O3DE_INSTALL_DISPLAY_VERSION_STRING=26.05.0 (was 00.00 placeholder
   inherited from upstream's engine.json), so the editor splash and
   window title show 26.05.0 instead of "Development Build". The string
@@ -452,7 +506,7 @@ EOF
   it from cluttering the app menu while still being indexed for
   window-class matching.
 
-* Thu Apr 30 2026 Nicholas Schuetz <nschuetz@redhat.com> - 2605.0-4
+* Thu Apr 30 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-4
 - Fix user-project cmake configure failures against installed engine:
   - Pass 3-component version (26.05.0) via new %%{engine_cmake_version}
     macro derived from %%{stable_tag}; previously baked stable_tag's
@@ -465,12 +519,12 @@ EOF
   the launcher so the dock icon links to the installed hicolor icon
   instead of the engine's internal Qt fallback.
 
-* Thu Apr 30 2026 Nicholas Schuetz <nschuetz@redhat.com> - 2605.0-3
+* Thu Apr 30 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-3
 - Restore %%__requires_exclude for libclang-12 / libtinfo.so.6 — required
   by O3DE's bundled DirectXShaderCompiler (RPATH-resolved internally).
   Without it, dnf install fails with "nothing provides libclang-12.so.1".
 
-* Wed Apr 29 2026 Nicholas Schuetz <nschuetz@redhat.com> - 2605.0-2
+* Wed Apr 29 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-2
 - Ship app icons in six hicolor sizes (16, 32, 48, 64, 128, 256), extracted
   from upstream's product_icon.ico master and downsampled with imagemagick
 - Add AppStream metainfo (org.o3de.O3DE) for GNOME Software / KDE Discover
@@ -487,7 +541,7 @@ EOF
   proper -debuginfo subpackage work
 - Add gtk-update-icon-cache calls in %%post / %%postun for the new icon set
 
-* Wed Apr 29 2026 Nicholas Schuetz <nschuetz@redhat.com> - 2605.0-1
+* Wed Apr 29 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-1
 - Validated end-to-end on stabilization/26050 (commit 246b46f)
 - Drop obsolete gem-reorg machinery (Source12 + %%install loop + TSV file);
   gems now install hierarchically under /opt/o3de/Gems/ directly
@@ -505,7 +559,7 @@ EOF
   legacy /opt/o3de paths to the active install prefix; gated by a
   per-prefix marker file under ~/.o3de/
 
-* Wed Apr 29 2026 Nicholas Schuetz <nschuetz@redhat.com> - 2510.2-1
+* Wed Apr 29 2026 Nick Schuetz <nschuetz@redhat.com> - 2510.2-1
 - Major spec refactor for Fedora 44 / rpm 4.20+:
 - Add %%bcond_with snapshot for development-branch builds (sources/make-snapshot-tarball.sh)
 - Extract embedded heredocs to Source files (launcher, desktop entry, gem reorg manifest)
@@ -518,13 +572,13 @@ EOF
 - Add %%bcond_with thirdparty_* hooks for opt-in 3rdParty package bundling
 - Ship CycloneDX SBOM under %%{_datadir}/o3de/sbom/
 
-* Tue Jan 27 2026 Nicholas Schuetz <nschuetz@redhat.com> - 2510.2-0
+* Tue Jan 27 2026 Nick Schuetz <nschuetz@redhat.com> - 2510.2-0
 - New point release build for 25.10.2
 
-* Wed Dec 10 2025 Nicholas Schuetz <nschuetz@redhat.com> - 2510.1-1
+* Wed Dec 10 2025 Nick Schuetz <nschuetz@redhat.com> - 2510.1-1
 - New point release build for 25.10.1
 
-* Sat Nov 22 2025 Nicholas Schuetz <nschuetz@redhat.com> - 2510.0-1
+* Sat Nov 22 2025 Nick Schuetz <nschuetz@redhat.com> - 2510.0-1
 - Rewritten RPM package for O3DE v25.10.0
 
 * Thu Aug 24 2023 Roddie Kieley <roddie@kieley.ca> - 2305.1-1
