@@ -59,7 +59,7 @@ flowchart TB
     subgraph SPEC["o3de.spec"]
         BC{"--with snapshot ?"}
         SHA["sha256sum -c verify"]
-        AUTO["%autosetup -p1<br/>+ Patch0001..0004"]
+        AUTO["%autosetup -p1<br/>+ Patch0001..0005"]
         TP["%bcond_with thirdparty_*<br/>extract bundles to LY_3RDPARTY_PATH"]
         BUILD["cmake Ninja Multi-Config<br/>profile + (debug if --with debug)"]
         INST["cmake --install<br/>+ shebang normalization"]

@@ -142,6 +142,7 @@ Patch0001:      0001-clang21-warning-suppressions.patch
 Patch0002:      0002-manifest-py-engine-path-detection.patch
 Patch0003:      0003-get-python-sh-rpm-venv-fixes.patch
 Patch0004:      0004-lypython-non-editable-pip-for-installed-engine.patch
+Patch0005:      0005-windowdecorationwrapper-propagate-initial-title.patch
 
 # Pre-built O3DE 3rdParty bundles — declare a Source10x and a matching
 # bcond above, then add an extract line in %%prep. Templates:
@@ -284,6 +285,7 @@ cmake \
     -DO3DE_INSTALL_ENGINE_NAME=o3de \
     -DO3DE_INSTALL_VERSION_STRING=%{engine_cmake_version} \
     -DO3DE_INSTALL_DISPLAY_VERSION_STRING=%{engine_cmake_version} \
+    -DO3DE_INSTALL_BUILD_VERSION='"%{stable_tag}"' \
     -DLY_DISABLE_TEST_MODULES=ON \
     -DLY_STRIP_DEBUG_SYMBOLS=OFF \
     -DTHREADS_PREFER_PTHREAD_FLAG=ON \
@@ -468,6 +470,26 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Fri May 01 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-9
+- Pass O3DE_INSTALL_BUILD_VERSION="<stable_tag>" to cmake so the Editor's
+  splash, About dialog, and main-window title render "Version 2605.0"
+  instead of the hardcoded "Development Build" placeholder. Matches the
+  format on the Windows O3DE-SDK distribution, which displays the
+  compact stable-tag string in the Editor while the Project Manager
+  title bar continues to use the dotted display_version (26.05.0).
+  Engine.json's "build" field consequently emits as a JSON string
+  ("build": "2605.0") rather than the upstream-default integer 0.
+- Add Patch0005 so Project Manager's titlebar shows the engine version
+  on Linux. AzQtComponents::WindowDecorationWrapper::setGuest() in
+  OptionDisabled mode (Linux/Mac, WM-drawn titlebar) connects the
+  guest's windowTitleChanged signal but doesn't copy the guest's
+  *current* title. ProjectManagerWindow sets its title in its
+  constructor — before Application.cpp's setGuest() call — so the
+  initial title was being lost and the WM ended up displaying the
+  QApplication name "O3DE" alone. The patch adds the same one-line
+  copy that the non-disabled (Windows custom-titlebar) branch already
+  performs.
+
 * Thu Apr 30 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-8
 - Split debug-config binaries into a separate `o3de-debug` subpackage,
   produced opt-in via `rpmbuild --with debug`. The default build now

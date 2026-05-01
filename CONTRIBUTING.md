@@ -50,7 +50,7 @@ Read `o3de.spec` top-to-bottom. The shape is:
 4. **Name / Version / Release** with conditional logic for snapshot mode
 5. **Source0** (the upstream tarball — release URL or local snapshot)
 6. **Source10–25** (auxiliary files: launcher, desktops, metainfo, icons, SBOM, snapshot helper)
-7. **Patch0001–0004** applied via `%autosetup -p1`
+7. **Patch0001–0005** applied via `%autosetup -p1`
 8. **BuildRequires / Requires** — minimal, validated against auto-Requires
 9. **`%prep`, `%build`, `%install`, `%check`, `%files`** — standard rpm sections
 10. **Scriptlets** (`%post`, `%postun`)
@@ -62,7 +62,7 @@ If you change *anything* in the spec or sources/, **update the README's layout b
 
 ## Patches
 
-Four patches in `sources/`. Each carries a `From: Nick Schuetz <nschuetz@redhat.com>` and `Subject:` header explaining why the patch exists.
+Five patches in `sources/`. Each carries a `From: Nick Schuetz <nschuetz@redhat.com>` and `Subject:` header explaining why the patch exists.
 
 | # | Target | Purpose |
 |---|---|---|
@@ -70,6 +70,7 @@ Four patches in `sources/`. Each carries a `From: Nick Schuetz <nschuetz@redhat.
 | 0002 | `scripts/o3de/o3de/manifest.py` | honor `O3DE_ENGINE_PATH` env var for engine-root detection in venv-installed setups |
 | 0003 | `python/get_python.sh` | per-engine venv linkage + engine-id reconciliation + manifest.py refresh |
 | 0004 | `cmake/LYPython.cmake` | install Python packages from sdists (not editable) when `INSTALLED_ENGINE` |
+| 0005 | `Code/Framework/AzQtComponents/.../WindowDecorationWrapper.cpp` | propagate guest's initial title to wrapper in `OptionDisabled` mode (Linux/Mac) so Project Manager's WM-drawn titlebar shows the engine version |
 
 **Regeneration** when an upstream change makes a patch fail to apply (we hit this once on patch 0001):
 

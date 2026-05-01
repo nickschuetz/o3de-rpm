@@ -1,0 +1,36 @@
+From: Nick Schuetz <nschuetz@redhat.com>
+Subject: [PATCH] AzQtComponents: propagate guest initial title in OptionDisabled mode
+
+WindowDecorationWrapper::setGuest() connects the guest's
+windowTitleChanged signal so subsequent title changes propagate to the
+wrapper, but the OptionDisabled branch (Linux + Mac, where the WM draws
+the titlebar instead of a Qt-rendered custom titlebar) returns early
+WITHOUT copying the guest's *current* title.  The non-disabled branch
+just below handles this for the custom titlebar:
+
+    m_titleBar->setWindowTitleOverride(guest->windowTitle());
+
+Project Manager's title is set by ProjectManagerWindow's constructor —
+which runs before Application.cpp wires up the wrapper via setGuest —
+so on Linux the WM titlebar ends up showing the QApplication name
+("O3DE") instead of the guest's "O3DE 26.05.0 Project Manager"
+(or the failure-path "O3DE Project Manager").
+
+Add the equivalent setWindowTitle() call in the OptionDisabled branch
+so the WM-rendered titlebar shows the same string the custom titlebar
+would on Windows.
+
+---
+ .../AzQtComponents/Components/WindowDecorationWrapper.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+--- a/Code/Framework/AzQtComponents/AzQtComponents/Components/WindowDecorationWrapper.cpp
++++ b/Code/Framework/AzQtComponents/AzQtComponents/Components/WindowDecorationWrapper.cpp
+@@ -192,6 +192,7 @@
+ 
+         if (m_options & OptionDisabled)
+         {
++            setWindowTitle(guest->windowTitle());
+             return;
+         }
+ 
