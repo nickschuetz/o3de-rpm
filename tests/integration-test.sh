@@ -51,7 +51,7 @@ nope_v(){ # capture stderr/stdout into the failure msg
 skipped(){ printf '  '"$SKIP"' %s — %s\n' "$1" "$2"; skip+=1; }
 
 require() { command -v "$1" >/dev/null 2>&1 || { printf 'prerequisite missing: %s\n' "$1" >&2; exit 2; }; }
-for cmd in rpm desktop-file-validate appstreamcli; do require "$cmd"; done
+for cmd in rpm desktop-file-validate appstream-util; do require "$cmd"; done
 
 # ── Tier 1: RPM-level integrity ──────────────────────────────────────────────
 printf "$HEADER" "Tier 1 — package metadata"
@@ -95,20 +95,24 @@ done
 
 # Launcher is executable, valid shell, has correct shebang
 [ -x /usr/bin/o3de ] && ok "/usr/bin/o3de is executable" || nope "/usr/bin/o3de executable" "not +x"
-head -1 /usr/bin/o3de | grep -qE '^#!/(usr/bin/)?bash' && \
-    ok "launcher shebang is bash" || nope "launcher shebang" "unexpected"
+head -1 /usr/bin/o3de | grep -qE '^#!/(usr/)?bin/bash([[:space:]]|$)|^#!/usr/bin/env[[:space:]]+bash' && \
+    ok "launcher shebang is bash" || nope "launcher shebang" "got '$(head -1 /usr/bin/o3de)'"
 nope_v "launcher syntax (bash -n)" bash -n /usr/bin/o3de
 
 # Desktop file + metainfo validation
 nope_v "o3de.desktop validates" desktop-file-validate /usr/share/applications/o3de.desktop
 nope_v "o3de-editor.desktop validates" desktop-file-validate /usr/share/applications/o3de-editor.desktop
-nope_v "metainfo validates" appstreamcli validate-relax --no-net /usr/share/metainfo/o3de.metainfo.xml
+nope_v "metainfo validates" appstream-util validate-relax --nonet /usr/share/metainfo/o3de.metainfo.xml
 
-# AppStream sees the package
-if appstreamcli search org.o3de.O3DE 2>/dev/null | grep -q '^Identifier: org.o3de.O3DE'; then
-    ok "AppStream registers org.o3de.O3DE"
+# AppStream sees the package (appstreamcli is optional — only if installed)
+if command -v appstreamcli >/dev/null 2>&1; then
+    if appstreamcli search org.o3de.O3DE 2>/dev/null | grep -q '^Identifier: org.o3de.O3DE'; then
+        ok "AppStream registers org.o3de.O3DE"
+    else
+        nope "AppStream search" "GNOME Software / KDE Discover won't find this package"
+    fi
 else
-    nope "AppStream search" "GNOME Software / KDE Discover won't find this package"
+    skipped "AppStream search" "appstreamcli not installed"
 fi
 
 # StartupWMClass values (for dock icon matching)
@@ -217,11 +221,33 @@ else
     fi
 fi
 
-# Vulkan loader links work (engine uses Vulkan via dlopen)
-if ldconfig -p 2>/dev/null | grep -q 'libvulkan.so.1'; then
-    ok "system libvulkan.so.1 present (engine will dlopen)"
+# Vulkan loader present (engine dlopens libvulkan.so.1; auto-Requires misses dlopen)
+if rpm -q vulkan-loader >/dev/null 2>&1 && [ -e /usr/lib64/libvulkan.so.1 ]; then
+    ok "vulkan-loader installed (engine will dlopen libvulkan.so.1)"
 else
-    nope "vulkan-loader" "libvulkan.so.1 not in ldconfig — install vulkan-loader"
+    nope "vulkan-loader" "vulkan-loader package or /usr/lib64/libvulkan.so.1 missing"
+fi
+
+# Regression guard for the engine-path / venv-id mismatch (build #5/#6):
+# Without --engine-path passed by the launcher, Project Manager hashes the
+# scan-up-discovered engine root to a different SHA1 than get_python.sh
+# uses, then raises "Failed to start Python". This check runs the launcher
+# headlessly for ~6 seconds, captures stderr, and fails if the dialog text
+# is present. The engine's normal logging on a healthy launch does not
+# include this string. We don't need a display server because the error
+# is logged to stderr before Qt tries to show the modal.
+if [ "$RUN_SETUP" -eq 1 ] || [ -d "$HOME/.o3de/Python/venv/" ] && \
+   ls "$HOME/.o3de/Python/venv/"*/lib/python*/site-packages/o3de >/dev/null 2>&1; then
+    LAUNCH_LOG=$(mktemp)
+    QT_QPA_PLATFORM=offscreen timeout 8 /usr/bin/o3de </dev/null >"$LAUNCH_LOG" 2>&1 || :
+    if grep -q "Missing python venv file at\|Python home path does not exist" "$LAUNCH_LOG"; then
+        nope "engine-path / venv-id sync" "launcher didn't pass --engine-path; engine looks for venv at wrong ID. Log: $LAUNCH_LOG"
+    else
+        ok "engine-path / venv-id sync (Project Manager Python init reaches engine root)"
+        rm -f "$LAUNCH_LOG"
+    fi
+else
+    skipped "engine-path / venv-id sync" "no per-user venv; pass --setup or run get_python.sh first"
 fi
 
 # ── Tier 5: end-to-end project (opt-in) ──────────────────────────────────────

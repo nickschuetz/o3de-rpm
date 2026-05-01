@@ -187,10 +187,13 @@ BuildRequires:  vulkan-loader-devel
 #     but we list it explicitly so plain `dnf install o3de` resolves cleanly.
 #   - cmake is invoked by /usr/bin/o3de (the launcher wrapper) for engine-id
 #     calculation; it's a shell-script dep that auto-Requires won't see.
+#   - vulkan-loader provides libvulkan.so.1; the engine dlopen()s it at runtime,
+#     so auto-Requires (which scans dynamic linker tables) misses it.
 # Everything else (Qt5*, libxcb-*, libxkbcommon, fontconfig, freetype,
 # libunwind, libzstd, libatomic, libpython3.10, libpyside2, …) comes
 # from auto-Requires walking /opt/o3de/.
 Requires:       mesa-libGL
+Requires:       vulkan-loader
 Requires:       cmake
 Requires:       python3
 
@@ -419,6 +422,17 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Thu Apr 30 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-7
+- Pass --engine-path=$ENGINE_PATH to the engine binary from the launcher.
+  Without it the engine's C++ scan-up resolved engine root to a path
+  that hashed to a different SHA1 first-32-bits than what get_python.sh
+  computes (which hashes /opt/o3de/), so Project Manager looked for the
+  per-user venv at the wrong ~/.o3de/Python/venv/<id>/ and raised
+  "Failed to start Python" on every launch. With --engine-path passed,
+  both sides agree on the engine ID and the engine's own RunGetPythonScript
+  fallback also runs the right /opt/o3de/python/get_python.sh on first
+  launch.
+
 * Thu Apr 30 2026 Nicholas Schuetz <nschuetz@redhat.com> - 2605.0-6
 - Re-enable cmake's Unity build. The clang 22.1.2 codegen bug (Greedy
   Register Allocator SIGSEGV on heavily-templated AZStd containers at

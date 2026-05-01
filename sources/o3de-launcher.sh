@@ -100,9 +100,16 @@ fi
 
 exec "$BIN_DIR/o3de" \
     -name O3DE \
+    --engine-path="$ENGINE_PATH" \
     --project-user-path="$HOME/.o3de/user" \
     --project-log-path="$HOME/.o3de/Logs" \
     "$@"
+# `--engine-path` is required: the engine's C++ scan-up engine-root logic
+# resolves the shipped /opt/o3de/bin/Linux/profile/Default/engine.json
+# symlink to a path whose SHA1 doesn't match the venv ID computed by
+# get_python.sh (which hashes /opt/o3de/). Passing the engine root
+# explicitly bypasses that scan-up and keeps both sides in sync.
+#
 # `-name O3DE` is the standard X11 toolkit argument (consumed by Qt
 # before the engine's argparser sees it). Sets WM_CLASS to "O3DE" so
 # GNOME/Plasma matches the running window to o3de-editor.desktop's
