@@ -11,6 +11,8 @@
 #   make rpm-snapshot-debug           full -bb (snapshot) + o3de-debug subpackage
 #   make copr-snapshot                upload current snapshot SRPM to hellaenergy/o3de-snapshot
 #   make copr-stable                  upload current stable SRPM to hellaenergy/o3de
+#   make copr-snapshot-and-test       copr-snapshot + watch-build + trigger CI tests on success
+#   make trigger-tests BUILD_ID=N     fire test-installed.yml against an existing COPR build
 #   make clean                        rm -rf rpmbuild/{BUILD,BUILDROOT,RPMS,SRPMS} (NOT SOURCES)
 #
 # Variables:
@@ -36,7 +38,7 @@ RPMBUILD_DEFINES = \
 
 .PHONY: help lint spec-parse spec-parse-snapshot \
         snapshot srpm srpm-snapshot rpm rpm-snapshot rpm-debug rpm-snapshot-debug \
-        copr-stable copr-snapshot copr-init \
+        copr-stable copr-snapshot copr-snapshot-and-test trigger-tests copr-init \
         test test-setup test-full test-ui test-ui-full test-branch clean
 
 help:
@@ -122,6 +124,44 @@ copr-snapshot: srpm-snapshot
 # 25200s = 7 hr. Default COPR project timeout is 5 hr; F44 chroot ate
 # ~4 hr in build 10414894 (which completed all 2173 compile steps), so
 # rawhide — typically 10-30% slower than F44 — would risk timeout.
+
+# Submit to COPR, watch until completion, fire a repository_dispatch
+# event at the GitHub Actions test-installed.yml workflow on success.
+# Requires `gh` CLI authenticated for repo write access. The workflow
+# resolves the F44 RPM URL from the build_id by listing the COPR
+# results directory, so we only need to pass the build_id along.
+copr-snapshot-and-test: srpm-snapshot
+	@set -e ; \
+	build_output=$$(copr-cli build --timeout 25200 \
+	    $(COPR_OWNER)/$(COPR_PROJECT_SNAPSHOT) \
+	    ~/rpmbuild/SRPMS/o3de-*.src.rpm) ; \
+	echo "$$build_output" ; \
+	build_id=$$(echo "$$build_output" | grep -oE 'Created builds: [0-9]+' \
+	    | tail -1 | awk '{print $$3}') ; \
+	if [ -z "$$build_id" ]; then \
+	    echo "ERROR: could not parse build_id from copr-cli output" ; exit 1 ; \
+	fi ; \
+	echo ">> Watching COPR build $$build_id (likely 4-5 hours)" ; \
+	copr-cli watch-build "$$build_id" ; \
+	$(MAKE) trigger-tests BUILD_ID=$$build_id
+
+# Fire the repository_dispatch event for an already-completed COPR
+# build. Useful for retroactively kicking off tests against an older
+# successful build, e.g.  `make trigger-tests BUILD_ID=10415468`.
+GITHUB_REPO ?= nickschuetz/o3de-rpm
+trigger-tests:
+	@[ -n "$(BUILD_ID)" ] || { echo "usage: make trigger-tests BUILD_ID=<copr-build-id>"; exit 2; }
+	@dir="https://download.copr.fedorainfracloud.org/results/$(COPR_OWNER)/$(COPR_PROJECT_SNAPSHOT)/fedora-44-x86_64/$(BUILD_ID)-o3de/" ; \
+	rpm_name=$$(curl -fsSL "$$dir" | grep -oE 'href="o3de-[^"]+\.fc44\.x86_64\.rpm"' | grep -v -- '-debug-' | head -1 | sed 's/^href="//; s/"$$//') ; \
+	if [ -z "$$rpm_name" ]; then \
+	    echo "ERROR: no F44 o3de RPM found at $$dir" ; exit 1 ; \
+	fi ; \
+	rpm_url="$${dir}$${rpm_name}" ; \
+	echo ">> Triggering test-installed.yml for $$rpm_url" ; \
+	gh api -X POST repos/$(GITHUB_REPO)/dispatches \
+	    -f event_type=copr-build-succeeded \
+	    -F client_payload[rpm_url]="$$rpm_url" \
+	    -F client_payload[build_id]="$(BUILD_ID)"
 
 # ── Tests against an installed RPM ──────────────────────────────────────────
 # Tier 1+2+4: read-only checks. Tier 3 (--setup) modifies ~/.o3de.

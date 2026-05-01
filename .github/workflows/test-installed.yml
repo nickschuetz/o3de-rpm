@@ -5,9 +5,16 @@ name: test-installed
 # itself is too big (~14-28 GB) to build on free GitHub runners — this
 # workflow consumes a pre-built RPM URL (from COPR or anywhere else).
 #
-# Trigger via the GitHub UI ("Run workflow") with an RPM URL, or
-# automatically from a COPR webhook. Fork this repo to run against
-# your own COPR builds.
+# Three triggers:
+#   workflow_dispatch     manual via the GitHub UI (paste an RPM URL)
+#   repository_dispatch   programmatic; fired by `make trigger-tests`
+#                         after a `make copr-snapshot` succeeds.
+#                         event_type: copr-build-succeeded
+#                         client_payload: { rpm_url, build_id }
+#   schedule              cron-poll COPR every 4 hours; on a new
+#                         succeeded build that's never been tested,
+#                         run automatically. Dedup via actions/cache
+#                         keyed on the COPR build_id.
 
 on:
   workflow_dispatch:
@@ -36,9 +43,128 @@ on:
         required: false
         default: false
         type: boolean
+  repository_dispatch:
+    types: [copr-build-succeeded]
+  schedule:
+    # Every 4 hours, offset to avoid the top-of-hour rush. COPR builds
+    # of o3de typically take 4-5 h, so on a daily build cadence this
+    # picks up new builds within ~4 h of completion.
+    - cron: '17 */4 * * *'
+
+env:
+  COPR_OWNER: hellaenergy
+  COPR_PROJECT: o3de-snapshot
 
 jobs:
+  detect:
+    # Resolve the RPM URL + COPR build_id according to the trigger that
+    # fired the workflow, and decide whether to actually run tests
+    # (a cron poll skips when the latest succeeded build has already
+    # been tested in a prior run).
+    runs-on: ubuntu-latest
+    outputs:
+      rpm_url:     ${{ steps.resolve.outputs.rpm_url }}
+      build_id:    ${{ steps.resolve.outputs.build_id }}
+      should_test: ${{ steps.decide.outputs.should_test }}
+      run_setup:     ${{ steps.flags.outputs.run_setup }}
+      run_project:   ${{ steps.flags.outputs.run_project }}
+      run_ui:        ${{ steps.flags.outputs.run_ui }}
+      run_ui_editor: ${{ steps.flags.outputs.run_ui_editor }}
+    steps:
+      - name: Resolve trigger inputs
+        id: resolve
+        run: |
+          set -euo pipefail
+          case "${{ github.event_name }}" in
+            workflow_dispatch)
+              echo "rpm_url=${{ inputs.rpm_url }}" >> "$GITHUB_OUTPUT"
+              echo "build_id=manual-$(date -u +%Y%m%dT%H%M%SZ)" >> "$GITHUB_OUTPUT"
+              ;;
+            repository_dispatch)
+              echo "rpm_url=${{ github.event.client_payload.rpm_url }}" >> "$GITHUB_OUTPUT"
+              echo "build_id=${{ github.event.client_payload.build_id }}" >> "$GITHUB_OUTPUT"
+              ;;
+            schedule)
+              # Query COPR for the most recent succeeded build.
+              api="https://copr.fedorainfracloud.org/api_3/build/list/${COPR_OWNER}/${COPR_PROJECT}?limit=20"
+              build_id=$(curl -fsSL "$api" | jq -r '.items | map(select(.state == "succeeded")) | .[0].id // empty')
+              if [ -z "$build_id" ]; then
+                echo "no succeeded builds in ${COPR_OWNER}/${COPR_PROJECT} yet"
+                echo "rpm_url=" >> "$GITHUB_OUTPUT"
+                echo "build_id=" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+              # Find the F44 RPM filename via directory listing (the version
+              # string is in the filename and we'd rather not hard-code it).
+              dir="https://download.copr.fedorainfracloud.org/results/${COPR_OWNER}/${COPR_PROJECT}/fedora-44-x86_64/${build_id}-o3de/"
+              rpm_name=$(curl -fsSL "$dir" \
+                | grep -oE 'href="o3de-[^"]+\.fc44\.x86_64\.rpm"' \
+                | grep -v -- '-debug-' \
+                | head -1 \
+                | sed 's/^href="//; s/"$//')
+              if [ -z "$rpm_name" ]; then
+                echo "could not find o3de F44 RPM in $dir"
+                exit 1
+              fi
+              echo "rpm_url=${dir}${rpm_name}" >> "$GITHUB_OUTPUT"
+              echo "build_id=${build_id}" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      - name: Look up dedup marker for this build (schedule only)
+        id: cache
+        if: github.event_name == 'schedule' && steps.resolve.outputs.build_id != ''
+        uses: actions/cache/restore@v4
+        with:
+          path: /tmp/.copr-tested-marker
+          key: copr-build-tested-${{ steps.resolve.outputs.build_id }}
+          lookup-only: true
+
+      - name: Decide whether to run tests
+        id: decide
+        run: |
+          set -euo pipefail
+          case "${{ github.event_name }}" in
+            workflow_dispatch|repository_dispatch)
+              echo "should_test=true" >> "$GITHUB_OUTPUT"
+              ;;
+            schedule)
+              if [ -z "${{ steps.resolve.outputs.build_id }}" ]; then
+                echo "should_test=false" >> "$GITHUB_OUTPUT"
+              elif [ "${{ steps.cache.outputs.cache-hit }}" = "true" ]; then
+                echo "build ${{ steps.resolve.outputs.build_id }} already tested; skipping"
+                echo "should_test=false" >> "$GITHUB_OUTPUT"
+              else
+                echo "should_test=true" >> "$GITHUB_OUTPUT"
+              fi
+              ;;
+          esac
+
+      - name: Resolve tier flags
+        id: flags
+        run: |
+          set -euo pipefail
+          # workflow_dispatch carries explicit booleans; the other two
+          # triggers fall through to the defaults: setup + UI on,
+          # project + ui-editor off (heaviest tiers stay opt-in).
+          run_setup="${{ inputs.run_setup }}"
+          run_project="${{ inputs.run_project }}"
+          run_ui="${{ inputs.run_ui }}"
+          run_ui_editor="${{ inputs.run_ui_editor }}"
+          [ -z "$run_setup" ]     && run_setup=true
+          [ -z "$run_project" ]   && run_project=false
+          [ -z "$run_ui" ]        && run_ui=true
+          [ -z "$run_ui_editor" ] && run_ui_editor=false
+          {
+            echo "run_setup=$run_setup"
+            echo "run_project=$run_project"
+            echo "run_ui=$run_ui"
+            echo "run_ui_editor=$run_ui_editor"
+          } >> "$GITHUB_OUTPUT"
+
   test:
+    needs: detect
+    if: needs.detect.outputs.should_test == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -67,7 +193,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Download RPM
-        run: curl -fsSL -o /tmp/o3de.rpm "${{ inputs.rpm_url }}"
+        run: curl -fsSL -o /tmp/o3de.rpm "${{ needs.detect.outputs.rpm_url }}"
 
       - name: Install
         run: dnf install -y --skip-broken /tmp/o3de.rpm
@@ -76,33 +202,48 @@ jobs:
         run: tests/integration-test.sh
 
       - name: Tier 3 (user-side setup)
-        if: ${{ inputs.run_setup }}
+        if: ${{ needs.detect.outputs.run_setup == 'true' }}
         run: |
           chown -R runner:runner /home/runner $GITHUB_WORKSPACE
           su -l runner -c "$GITHUB_WORKSPACE/tests/integration-test.sh --setup"
 
       - name: Tier 5 (project end-to-end)
-        if: ${{ inputs.run_project }}
+        if: ${{ needs.detect.outputs.run_project == 'true' }}
         run: |
           su -l runner -c "$GITHUB_WORKSPACE/tests/integration-test.sh --setup --with-project"
 
       - name: Tier 6 (UI smoke under Xvfb)
-        if: ${{ inputs.run_ui }}
+        if: ${{ needs.detect.outputs.run_ui == 'true' }}
         env:
           # Force Mesa lavapipe (software Vulkan) — no GPU in CI containers.
           VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
         run: |
           chown -R runner:runner /home/runner $GITHUB_WORKSPACE
-          if [ "${{ inputs.run_ui_editor }}" = "true" ]; then
+          if [ "${{ needs.detect.outputs.run_ui_editor }}" = "true" ]; then
               su -l runner -c "$GITHUB_WORKSPACE/tests/ui-smoke-test.sh --editor --screenshot"
           else
               su -l runner -c "$GITHUB_WORKSPACE/tests/ui-smoke-test.sh --screenshot"
           fi
 
       - name: Upload screenshots
-        if: ${{ inputs.run_ui && always() }}
+        if: ${{ needs.detect.outputs.run_ui == 'true' && always() }}
         uses: actions/upload-artifact@v4
         with:
           name: ui-screenshots-${{ matrix.chroot }}
           path: /tmp/o3de-*.png
           if-no-files-found: ignore
+
+  record:
+    # Only persist the dedup marker when scheduled tests succeeded
+    # cleanly across all chroots. Failed builds remain testable on
+    # the next cron tick (in case the failure was a flake).
+    needs: [detect, test]
+    if: needs.detect.outputs.should_test == 'true' && needs.test.result == 'success' && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark this build as tested
+        run: mkdir -p /tmp/.copr-tested-marker && touch /tmp/.copr-tested-marker/done
+      - uses: actions/cache/save@v4
+        with:
+          path: /tmp/.copr-tested-marker
+          key: copr-build-tested-${{ needs.detect.outputs.build_id }}

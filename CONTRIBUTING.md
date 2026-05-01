@@ -142,7 +142,11 @@ When you add new behavior, **add a corresponding test in the right tier**. Tier 
 - `bash -n` on every shell source
 - best-effort `patch --dry-run` against the pinned snapshot commit
 
-`.github/workflows/test-installed.yml` runs the integration test suite in clean Fedora containers (matrix: `fedora-44`, `fedora-rawhide`, extending as Fedora releases ship) against an RPM URL — typically a COPR build artifact. Triggered manually via the GitHub UI with an `rpm_url` input, or wireable to a COPR webhook for automatic post-build verification.
+`.github/workflows/test-installed.yml` runs the integration test suite in clean Fedora containers (matrix: `fedora-44`, `fedora-rawhide`, extending as Fedora releases ship) against an RPM URL — typically a COPR build artifact. Three triggers:
+
+- **Manual** (`workflow_dispatch`) — paste an RPM URL into the GitHub UI's "Run workflow" form.
+- **Programmatic** (`repository_dispatch`, `event_type: copr-build-succeeded`) — fired by `make trigger-tests BUILD_ID=<copr-build-id>` after a COPR build succeeds, or end-to-end via `make copr-snapshot-and-test` (which submits, watches, then fires). Requires `gh` authenticated.
+- **Cron** (every 4 hours, offset to `:17`) — polls COPR for the latest succeeded build in `hellaenergy/o3de-snapshot`. Dedup via `actions/cache` keyed on the COPR build ID, so the same build is never tested twice.
 
 The full RPM build itself is too heavy for free GitHub runners (~25 GB output, multi-hour compile). COPR does that.
 
