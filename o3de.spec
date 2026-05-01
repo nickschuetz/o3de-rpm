@@ -170,6 +170,13 @@ ExclusiveArch:  x86_64 aarch64
 # libpython3.10.so.1.0, etc. (resolved internally via Provides:).
 BuildRequires:  cmake
 BuildRequires:  ninja-build
+# Clang is the validated toolchain. Patch0001 specifically targets
+# clang 21+ warnings-as-errors, and the engine's bundled FetchContent
+# subprojects (libogg's CheckSizes etc.) have been observed to break
+# under GCC's stricter Fedora hardening defaults. CC/CXX are forced to
+# clang in %build below to match. gcc-c++ stays in BR because some
+# host-build tools (ispc, pre-built shaders) still expect a GCC stub.
+BuildRequires:  clang
 BuildRequires:  gcc-c++
 BuildRequires:  git
 BuildRequires:  python3-devel
@@ -291,6 +298,8 @@ unset CFLAGS CXXFLAGS LDFLAGS
 cmake \
     -S . -B build \
     -G "Ninja Multi-Config" \
+    -DCMAKE_C_COMPILER=clang \
+    -DCMAKE_CXX_COMPILER=clang++ \
     -DCMAKE_CONFIGURATION_TYPES="%{_o3de_configs}" \
     -DCMAKE_INSTALL_PREFIX=/opt/o3de \
     -DLY_3RDPARTY_PATH=%{_builddir}/%{o3de_source_dir}/3rdParty \
@@ -487,6 +496,19 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Fri May 01 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-11
+- Force the build to use clang. Local builds happened to pick clang 22
+  via cmake auto-detection because that's the default cc on the dev
+  workstation, but Fedora 44's mock chroots (and COPR) default to GCC
+  16, where the engine's FetchContent-pulled libogg fails CheckSizes
+  with "No 16 bit type found on this platform!" — a try_compile()
+  test that succeeds under clang and fails under GCC's stricter
+  hardening defaults. Pass -DCMAKE_C_COMPILER=clang and -DCMAKE_CXX_
+  COMPILER=clang++ to cmake, and add `BuildRequires: clang`. Patch0001
+  is already clang-targeted, so this just makes the implicit dependency
+  explicit. gcc-c++ stays in BR for host-build tooling that still
+  assumes it.
+
 * Fri May 01 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-10
 - Add /opt/o3de/lib/Linux/debug to the o3de-debug subpackage. Upstream's
   Install_common.cmake routes ARCHIVE (.a), LIBRARY (.so), and RUNTIME
