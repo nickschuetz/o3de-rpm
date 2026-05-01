@@ -180,6 +180,11 @@ BuildRequires:  clang
 BuildRequires:  gcc-c++
 BuildRequires:  git
 BuildRequires:  python3-devel
+# `python3 setup.py sdist` (used in %build to pre-build the three Python
+# packages O3DE would otherwise pip-install editable into the read-only
+# engine root — see Patch0004) requires setuptools at host build time.
+# Local Fedora pulls it in transitively; COPR mock chroots are minimal.
+BuildRequires:  python3-setuptools
 BuildRequires:  desktop-file-utils
 BuildRequires:  libappstream-glib
 
@@ -496,6 +501,15 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Fri May 01 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-12
+- Add `BuildRequires: python3-setuptools`. The %build sdist-builder
+  step (introduced for Patch0004) runs `python3 setup.py sdist` for
+  three engine-side Python packages, which requires setuptools at
+  build time. Local Fedora workstations pull it in transitively; COPR
+  mock chroots are minimal and don't, so build 10414933 failed in the
+  sdist step after a successful 4-hour compile of all 2173 profile
+  binaries.
+
 * Fri May 01 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-11
 - Force the build to use clang. Local builds happened to pick clang 22
   via cmake auto-detection because that's the default cc on the dev
