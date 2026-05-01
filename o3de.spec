@@ -414,7 +414,11 @@ appstream-util validate-relax --nonet \
 %doc README.md CODE_OF_CONDUCT.md CONTRIBUTING.md
 /opt/o3de
 %if %{with debug}
+# DEFAULT_DEBUG installs both runtime binaries (bin/Linux/debug/) and
+# debug-config archives + shared libs (lib/Linux/debug/) — both belong
+# in the o3de-debug subpackage, not the main one.
 %exclude /opt/o3de/bin/Linux/debug
+%exclude /opt/o3de/lib/Linux/debug
 %endif
 %{_bindir}/o3de
 %{_datadir}/applications/o3de.desktop
@@ -431,6 +435,7 @@ appstream-util validate-relax --nonet \
 %if %{with debug}
 %files debug
 /opt/o3de/bin/Linux/debug
+/opt/o3de/lib/Linux/debug
 %endif
 
 # ── Scriptlets ───────────────────────────────────────────────────────────────
@@ -470,6 +475,15 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Fri May 01 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-10
+- Add /opt/o3de/lib/Linux/debug to the o3de-debug subpackage. Upstream's
+  Install_common.cmake routes ARCHIVE (.a), LIBRARY (.so), and RUNTIME
+  files for each configuration into a single DEFAULT_<CONF> component,
+  so DEFAULT_DEBUG installs land in both bin/Linux/debug/ AND
+  lib/Linux/debug/. The previous %files split only excluded bin/, so
+  debug-config archives + shared libs were leaking into the main o3de
+  package. Move them to o3de-debug where they belong.
+
 * Fri May 01 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-9
 - Pass O3DE_INSTALL_BUILD_VERSION="<stable_tag>" to cmake so the Editor's
   splash, About dialog, and main-window title render "Version 2605.0"
