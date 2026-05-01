@@ -60,6 +60,18 @@
 %global snapshot_sha256 80142f1934c3938cf9422f8f4376426084a0443df3ed80c400ff1b0610c98718
 %global shortcommit %(c=%{snapshot_commit}; echo ${c:0:7})
 
+# Auto-detect snapshot mode when only the snapshot tarball is in _sourcedir.
+# COPR's pipeline rebuilds the SRPM with `rpmbuild -bs` after upload, which
+# evaluates the spec WITHOUT preserving the `--with snapshot` flag passed to
+# our local SRPM build, and would otherwise look for the (non-shipped) stable
+# tarball and fail. Skip the override if the user passed `--without snapshot`
+# explicitly (they want stable mode even if the tarball happens to be there).
+# Stable-mode SRPMs ship o3de_<tag>_lfs.tar.gz; snapshot-mode SRPMs ship
+# o3de-<commit>.tar.gz; never both — so the file check is unambiguous.
+%if %(test -f %{_sourcedir}/o3de-%{snapshot_commit}.tar.gz && echo 1 || echo 0)
+%{!?_without_snapshot:%{!?with_snapshot:%global with_snapshot 1}}
+%endif
+
 %if %{with snapshot}
 %global o3de_source_dir o3de-%{snapshot_commit}
 %global o3de_source_sha %{snapshot_sha256}
@@ -480,7 +492,7 @@ EOF
   Install_common.cmake routes ARCHIVE (.a), LIBRARY (.so), and RUNTIME
   files for each configuration into a single DEFAULT_<CONF> component,
   so DEFAULT_DEBUG installs land in both bin/Linux/debug/ AND
-  lib/Linux/debug/. The previous %files split only excluded bin/, so
+  lib/Linux/debug/. The previous %%files split only excluded bin/, so
   debug-config archives + shared libs were leaking into the main o3de
   package. Move them to o3de-debug where they belong.
 

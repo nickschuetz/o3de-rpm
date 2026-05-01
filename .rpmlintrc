@@ -1,0 +1,7 @@
+# o3de.spec uses %{_sourcedir} once, in a %if pre-evaluation that auto-
+# detects snapshot mode when the snapshot tarball is the only source
+# present. This is needed because COPR's pipeline rebuilds the SRPM
+# without preserving the `--with snapshot` flag, so the spec needs a
+# self-contained way to choose snapshot mode. Filter the rpmlint check
+# for that specific call.
+addFilter(r"use-of-RPM_SOURCE_DIR")
