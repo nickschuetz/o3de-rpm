@@ -74,10 +74,31 @@ These have direct Fedora equivalents. Migration is per-package, low risk per mig
 | lz4 | 1.9.4-rev2 | `lz4-devel` | 1.9.x | trivial flip |
 | libsamplerate | 0.2.1-rev2 | `libsamplerate-devel` | 0.2.2 | trivial flip |
 | mcpp | 2.7.2_az.2-rev1 | `mcpp` | 2.7.x | O3DE uses an `_az` patched fork — verify base mcpp suffices. |
+| **mikkelsen** | 1.0.0.4 | `mikkelsen-devel` (from `hellaenergy/o3de-dependencies` COPR) | 1.0+git3e895b4 | **starter PR drafted** — Patch0006 + sources/Findmikkelsen-system.cmake. Inactive in spec until COPR mikkelsen ships in O3DE-compatible layout (see "mikkelsen migration status" below). |
 | assimp | 5.4.3-rev3 | `assimp-devel` | 5.4.x | trivial flip |
 | SPIRVCross | 1.3.275.0-rev1 | `spirv-cross-devel` | 1.3.x | trivial flip |
 | vulkan-validationlayers | 1.2.198-rev1 | `vulkan-validation-layers-devel` | 1.3.x | newer in Fedora; verify O3DE's loader interaction |
 | googlebenchmark | 1.7.0-rev1 | `google-benchmark-devel` | 1.8.x | test-only; can drop entirely |
+
+### mikkelsen migration status
+
+**State:** scaffolding committed, **not yet activated** in `o3de.spec`.
+
+**What's in this repo:**
+- `sources/0006-builtinpackages-gate-mikkelsen-on-system.patch` — gates the `ly_associate_package(PACKAGE_NAME mikkelsen-1.0.0.4-linux ...)` line in `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` on a new cmake variable `LY_USE_SYSTEM_MIKKELSEN`. Default OFF preserves upstream behavior; `-DLY_USE_SYSTEM_MIKKELSEN=ON` opts out of the upstream fetcher and lets cmake's standard `find_package()` search take over.
+- `sources/Findmikkelsen-system.cmake` — the find module that satisfies the search. Locates `/usr/include/mikktspace.h` + `libmikktspace`/`libmikkelsen`, generates a one-line wrapper header at `${CMAKE_BINARY_DIR}/_system_mikkelsen/mikkelsen/mikktspace.h` so the consumer's `#include <mikkelsen/mikktspace.h>` resolves to the system header, and creates the `3rdParty::mikkelsen` INTERFACE target.
+
+**What's needed before activation:**
+1. The COPR mikkelsen package currently ships `/usr/include/mikktspace.h` (no subdir) and `libmikktspace.{so,a}`. Our `Findmikkelsen-system.cmake` already bridges this with a wrapper header + name-tolerant `find_library`, so activation is technically blocked only on:
+   - `BuildRequires: mikkelsen-devel` in `o3de.spec`
+   - `Patch0006:` declaration + apply line
+   - Source line for `Findmikkelsen-system.cmake` and a `%prep` step copying it to `cmake/3rdParty/`
+   - `-DLY_USE_SYSTEM_MIKKELSEN=ON` in the cmake invocation
+2. End-to-end verification on COPR (one full build cycle) before cutting over.
+
+**Why deferred:** the in-flight COPR snapshot build is the first ever to compile cleanly on chroot infrastructure (clang BR + python3-setuptools/pip/wheel BRs landed in -11/-12/-13). Activating the mikkelsen swap before that build succeeds would muddy the diagnostic trail if anything else fails. Once the baseline build is green, flip the activation in a single follow-up commit.
+
+**Pattern this scaffolding establishes:** every Stage 1 package gets its own `LY_USE_SYSTEM_<PACKAGE>` gate via the same patch shape, plus a `Findmikkelsen-system.cmake`-style find module. Future migrations (zlib, freetype, libpng, …) follow the same template — the diff for each is ~5 lines in `BuiltInPackages_linux_x86_64.cmake` plus one find module file.
 
 ---
 
