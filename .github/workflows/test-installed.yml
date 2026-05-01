@@ -85,8 +85,10 @@ jobs:
               echo "build_id=${{ github.event.client_payload.build_id }}" >> "$GITHUB_OUTPUT"
               ;;
             schedule)
-              # Query COPR for the most recent succeeded build.
-              api="https://copr.fedorainfracloud.org/api_3/build/list/${COPR_OWNER}/${COPR_PROJECT}?limit=20"
+              # Query COPR for the most recent succeeded build. The api_3
+              # build-list endpoint takes ownername+projectname as query
+              # params, not path components — the path form returns 404.
+              api="https://copr.fedorainfracloud.org/api_3/build/list/?ownername=${COPR_OWNER}&projectname=${COPR_PROJECT}&limit=20"
               build_id=$(curl -fsSL "$api" | jq -r '.items | map(select(.state == "succeeded")) | .[0].id // empty')
               if [ -z "$build_id" ]; then
                 echo "no succeeded builds in ${COPR_OWNER}/${COPR_PROJECT} yet"
