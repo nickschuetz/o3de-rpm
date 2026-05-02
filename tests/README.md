@@ -80,6 +80,8 @@ For automated COPR → CI integration, configure a COPR webhook that triggers th
 - No world-writable files in `/opt/o3de`
 - Pre-built sdists for `scripts/o3de`, `Tools/LyTestTools`, `Tools/RemoteConsole/ly_remote_console`
 - `ldd` clean on engine binaries
+- Stage 1 system-library swap consistency (when an `o3de` RPM declares e.g. `Requires: mikkelsen`, an engine .so under `bin/Linux/profile/Default/` must actually link to `libmikktspace.so.*` — catches regressions where the spec activates the swap but cmake silently falls back to bundling)
+- Project Manager window-title carries a version-shaped string (`\d+\.\d+\.\d+`) — Tier 6 regression guard for Patch0005's WindowDecorationWrapper title propagation
 - get_python.sh + o3de.sh register success
 - manifest.py patch active in venv
 - Engine registered in user manifest

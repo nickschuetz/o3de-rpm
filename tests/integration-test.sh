@@ -160,6 +160,33 @@ for cfg in profile debug; do
     fi
 done
 
+# Stage 1 system-library swap consistency. For each migration where the
+# RPM declares a system Requires:, verify some engine .so actually links
+# to the expected runtime library — catches the failure mode where the
+# spec activates the swap but cmake silently falls through to the
+# upstream bundle (which would link statically, leaving zero ldd evidence
+# of the swap on user machines).
+#
+# Add a row per activated migration. Format:
+#   "<rpm-package-name>:<expected-soname-substring>"
+# rpm-package: matches `rpm -q --requires o3de` to detect activation
+# soname: matches the ldd output of any .so in $LIB_DIR
+LIB_DIR="$ENGINE_PATH/bin/Linux/profile/Default"
+for swap in \
+    "mikkelsen:libmikktspace" \
+; do
+    pkg="${swap%%:*}"
+    soname="${swap#*:}"
+    if rpm -q --requires o3de 2>/dev/null | grep -qE "^${pkg}(\\s|\$|>|=)"; then
+        if [ -d "$LIB_DIR" ] && \
+           find "$LIB_DIR" -name "*.so" -exec ldd {} + 2>/dev/null | grep -q "$soname"; then
+            ok "system-lib swap took effect: o3de Requires:$pkg AND ldd shows $soname"
+        else
+            nope "system-lib swap: $pkg" "RPM declares Requires:$pkg but no engine .so links to $soname — likely the swap regressed and the bundle is still being statically linked"
+        fi
+    fi
+done
+
 # ── Tier 3: first-run user setup (opt-in) ────────────────────────────────────
 printf "$HEADER" "Tier 3 — user-side first-run setup"
 

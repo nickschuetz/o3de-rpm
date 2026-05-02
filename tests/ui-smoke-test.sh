@@ -96,6 +96,25 @@ printf "$PASS Project Manager survived 15s without crashing\n"
 if xdpyinfo -display "$DISPLAY" 2>/dev/null | grep -q 'root window id'; then
     if [ -n "$(xdotool search --name 'O3DE' 2>/dev/null)" ]; then
         printf "$PASS X window with title 'O3DE' is mapped\n"
+
+        # Patch0005 regression guard: WindowDecorationWrapper::setGuest in
+        # OptionDisabled mode (Linux) must propagate the guest's window
+        # title up to the wrapper, so the WM-drawn titlebar shows the
+        # full "O3DE <version> Project Manager" string and not just
+        # "O3DE". If the patch silently regresses upstream (the underlying
+        # WindowDecorationWrapper.cpp is touched and our patch hunk no
+        # longer applies cleanly), this catches it before users see
+        # version-less titlebars.
+        WIN_TITLE=$(xdotool search --name 'O3DE' 2>/dev/null \
+                    | head -1 \
+                    | xargs -I{} xdotool getwindowname {} 2>/dev/null)
+        if printf '%s' "$WIN_TITLE" | grep -qE '[0-9]+\.[0-9]+\.[0-9]+'; then
+            printf "$PASS Window title carries a version-shaped string: %s\n" "$WIN_TITLE"
+        else
+            # Don't fail the test (some xdotool/Xvfb combos return only
+            # the WM_NAME, which can lag the ATSPI-set title); just log.
+            printf "  (note: window title '%s' has no \\d+.\\d+.\\d+ — verify Patch0005 still applies if this is the WM-side title)\n" "$WIN_TITLE"
+        fi
     elif command -v wmctrl >/dev/null && wmctrl -lx | grep -qi o3de; then
         printf "$PASS Window manager sees an O3DE window\n"
     else
