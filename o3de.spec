@@ -88,11 +88,14 @@
 %global _build_id_links none
 %global __jar_repack 0
 
-# Uncompressed cpio at the spec level — final payload still gets the
-# rpm-config compression. Empirically faster builds on slow disks; size
-# tradeoff measured separately (see FEDORA_ROADMAP.md).
+# Source payload uncompressed: the SRPM mostly carries the already-gzipped
+# upstream o3de tarball, so re-compressing wastes CPU for ~zero size gain.
 %global _source_payload w0.ufdio
-%global _binary_payload w0.ufdio
+# Binary payload: keep Fedora's default zstd-19. Earlier revisions of this
+# spec set w0.ufdio here ("uncompressed, faster on slow disks") but that
+# made the binary RPM ~3-4x bigger than necessary — the static .a archives
+# and unstripped .so binaries that dominate the payload compress extremely
+# well. Trade ~5 minutes of rpmbuild CPU for ~5 GB less for every install.
 
 # Bundled Python series — comes from O3DE's package CDN's
 # python-X.Y.Z-revN-linux tarball. Used for venv site-packages
@@ -250,6 +253,14 @@ debugger, additionally install %{name}-debug.
 %if %{with snapshot}
 This build is a development snapshot at commit %{shortcommit} (%{snapshot_date}).
 %endif
+
+# TODO(devel-split): Split lib/Linux/profile/Default/*.a (~4 GB of static
+# archives) out into an o3de-devel subpackage. Those archives are only
+# needed by people C++-linking against the engine to write native gems —
+# Lua/ScriptCanvas project authors and runtime users never touch them.
+# Roughly halves the main package on top of the compression switch.
+# Care needed for which cmake/<...>Targets.cmake files travel with the
+# static libs vs. stay with the runtime cmake of the main package.
 
 %if %{with debug}
 %package debug

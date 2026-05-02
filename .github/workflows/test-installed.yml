@@ -168,19 +168,48 @@ jobs:
             echo "run_ui_editor=$run_ui_editor"
           } >> "$GITHUB_OUTPUT"
 
-  test:
+  prepare:
+    # Pull the COPR RPM exactly once and stash it as a workflow artifact
+    # so each chroot in the test matrix downloads it from GitHub-internal
+    # storage instead of re-fetching multi-GB from the COPR CDN.
     needs: detect
+    if: needs.detect.outputs.should_test == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download RPM from COPR
+        run: |
+          mkdir -p /tmp/o3de-rpm
+          curl -fsSL -o /tmp/o3de-rpm/o3de.rpm "${{ needs.detect.outputs.rpm_url }}"
+          ls -lh /tmp/o3de-rpm/o3de.rpm
+      - name: Stash RPM as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: o3de-rpm-${{ needs.detect.outputs.build_id }}
+          path: /tmp/o3de-rpm/o3de.rpm
+          retention-days: 1     # only needs to outlive this workflow run
+          compression-level: 0  # the rpm payload is already zstd-compressed
+
+  test:
+    needs: [detect, prepare]
     if: needs.detect.outputs.should_test == 'true'
     strategy:
       fail-fast: false
       matrix:
         # Add more chroots as Fedora releases. Each runs the same test
-        # suite against the same RPM.
-        chroot: [fedora-44, fedora-rawhide]
+        # suite against the same RPM. The chroot name doubles as the
+        # display label (used in artifact names below). The image is the
+        # actual container ref — registry.fedoraproject.org's `fedora`
+        # repo tags by version-or-stream (44, rawhide), not by COPR's
+        # chroot-style fedora-44 prefix.
+        include:
+          - chroot: fedora-44
+            image: registry.fedoraproject.org/fedora:44
+          - chroot: fedora-rawhide
+            image: registry.fedoraproject.org/fedora:rawhide
 
     runs-on: ubuntu-latest
     container:
-      image: registry.fedoraproject.org/${{ matrix.chroot }}:latest
+      image: ${{ matrix.image }}
       options: --privileged   # needed for desktop-file-validate's permission probes
 
     steps:
@@ -198,8 +227,11 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      - name: Download RPM
-        run: curl -fsSL -o /tmp/o3de.rpm "${{ needs.detect.outputs.rpm_url }}"
+      - name: Download RPM (from prepare-job artifact)
+        uses: actions/download-artifact@v4
+        with:
+          name: o3de-rpm-${{ needs.detect.outputs.build_id }}
+          path: /tmp
 
       - name: Install
         run: dnf install -y --skip-broken /tmp/o3de.rpm
