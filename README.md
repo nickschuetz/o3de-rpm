@@ -93,11 +93,15 @@ flowchart TB
     end
 
     subgraph DIST["Distribution channels"]
-        DC1["COPR<br/>hellaenergy/o3de<br/>(today)"]
+        DC1A["COPR<br/>hellaenergy/o3de<br/>(stable releases)"]
+        DC1B["COPR<br/>hellaenergy/o3de-snapshot<br/>(community testers)"]
+        DC1C["COPR<br/>hellaenergy/o3de-experimental<br/>(in-flight Stage 1 migrations)"]
         DC2["o3debinaries.org<br/>(upstream to O3DE CI)"]
         DC3["Fedora repo<br/>(see FEDORA_ROADMAP.md)"]
         DC4["Flathub<br/>(future, separate repo)"]
-        INST -.-> DC1
+        INST -.-> DC1A
+        INST -.-> DC1B
+        INST -.-> DC1C
         INST -.-> DC2
         INST -.-> DC3
         INST -.-> DC4
@@ -107,18 +111,22 @@ flowchart TB
         T1["tests/integration-test.sh<br/>Tiers 1–5 (rpm / install / setup /<br/>engine smoke / project end-to-end)"]
         T2["tests/ui-smoke-test.sh<br/>Tier 6: Project Manager + Editor<br/>under Xvfb"]
         T3[".github/workflows/test-installed.yml<br/>matrix: F44, rawhide, F45+, …"]
-        DC1 -.-> T1
-        DC1 -.-> T2
-        DC1 -.-> T3
+        DC1B -.-> T1
+        DC1B -.-> T2
+        DC1B -.-> T3
+        DC1C -.-> T1
+        DC1C -.-> T2
+        DC1C -.-> T3
     end
 ```
 
-Four separations to notice:
+Five separations to notice:
 
 1. **Source-mode toggle** decides between a stable tarball and a reproducible snapshot tarball, but the rest of the spec is identical for both.
-2. **3rdParty toggles** are independent of source mode — each `--with thirdparty_<pkg>` extracts its `Source10x` tarball into `LY_3RDPARTY_PATH` before configure.
-3. **Read-only engine + writable user state** — `/opt/o3de` is owned by root, all writable state lives in `~/.o3de/`. The launcher wrapper is the only piece that bridges them.
-4. **One spec, four distribution channels** — the same spec produces the binary for COPR, the upstream submission to o3debinaries.org, and (eventually) Fedora; the future Flatpak shares ~80% of the source tree (patches, launcher, snapshot helper) but uses its own manifest.
+2. **3rdParty bundle toggles** are independent of source mode — each `--with thirdparty_<pkg>` extracts its `Source10x` tarball into `LY_3RDPARTY_PATH` before configure.
+3. **System-library swap toggles** (Stage 1, Fedora-inclusion track) — each `--with system_<lib>` activates a Patch000N gate plus a `Find<lib>-system.cmake` stub, replacing one bundled 3rdParty package with its system equivalent. Independent of all other toggles. See `BUNDLED_LIBRARIES.md` for status.
+4. **Read-only engine + writable user state** — `/opt/o3de` is owned by root, all writable state lives in `~/.o3de/`. The launcher wrapper is the only piece that bridges them.
+5. **One spec, multiple distribution channels** — the same spec produces the binary for three COPR projects (`o3de` stable / `o3de-snapshot` community-tester / `o3de-experimental` in-flight migration), the upstream submission to o3debinaries.org, and (eventually) Fedora; the future Flatpak shares ~80% of the source tree (patches, launcher, snapshot helper) but uses its own manifest.
 
 ---
 

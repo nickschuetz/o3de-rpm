@@ -46,8 +46,9 @@ RPMBUILD_DEFINES = \
 	--define "_sourcedir $(PWD)/sources" \
 	--define "_specdir   $(PWD)"
 
-.PHONY: help lint spec-parse spec-parse-snapshot \
-        snapshot srpm srpm-snapshot rpm rpm-snapshot rpm-debug rpm-snapshot-debug \
+.PHONY: help lint spec-parse spec-parse-snapshot spec-parse-experimental \
+        snapshot srpm srpm-snapshot srpm-experimental \
+        rpm rpm-snapshot rpm-debug rpm-snapshot-debug \
         copr-stable copr-snapshot copr-experimental \
         copr-snapshot-and-test copr-experimental-and-test _copr-and-test \
         trigger-tests copr-init \
@@ -58,7 +59,7 @@ help:
 
 # ── Lint / parse ────────────────────────────────────────────────────────────
 
-lint: spec-parse spec-parse-snapshot
+lint: spec-parse spec-parse-snapshot spec-parse-experimental
 	@echo ">> rpmlint o3de.spec"
 	@rpmlint o3de.spec
 	@echo ">> desktop-file-validate"
@@ -75,6 +76,10 @@ spec-parse:
 spec-parse-snapshot:
 	@rpmspec $(RPMBUILD_DEFINES) --define "_with_snapshot 1" -q o3de.spec
 
+spec-parse-experimental:
+	@rpmspec $(RPMBUILD_DEFINES) --define "_with_snapshot 1" \
+	    --define "_with_system_mikkelsen 1" -q o3de.spec
+
 # ── Snapshot tarball ────────────────────────────────────────────────────────
 
 snapshot:
@@ -90,6 +95,14 @@ srpm:
 
 srpm-snapshot:
 	rpmbuild -bs --with snapshot $(RPMBUILD_DEFINES) o3de.spec
+
+# srpm-experimental: snapshot + every active Stage 1 system-library
+# swap. Add new --with flags here as each migration is activated. The
+# experimental COPR project consumes these SRPMs.
+SRPM_EXPERIMENTAL_FLAGS = --with snapshot --with system_mikkelsen
+
+srpm-experimental:
+	rpmbuild -bs $(SRPM_EXPERIMENTAL_FLAGS) $(RPMBUILD_DEFINES) o3de.spec
 
 # ── RPM builds ──────────────────────────────────────────────────────────────
 # Default: profile-config only (one RPM, ~70 min on a 32GB workstation).
@@ -137,7 +150,7 @@ copr-snapshot: srpm-snapshot
 # ready to expose to o3de-snapshot's community testers. Same chroots and
 # same enable_net + o3de-dependencies repo wiring as the snapshot project,
 # different audience: only us until a change is validated.
-copr-experimental: srpm-snapshot
+copr-experimental: srpm-experimental
 	copr-cli build --timeout 25200 $(COPR_OWNER)/$(COPR_PROJECT_EXPERIMENTAL) \
 		~/rpmbuild/SRPMS/o3de-*.src.rpm
 
@@ -156,7 +169,7 @@ copr-experimental: srpm-snapshot
 copr-snapshot-and-test: srpm-snapshot
 	@$(MAKE) _copr-and-test COPR_TARGET=$(COPR_PROJECT_SNAPSHOT)
 
-copr-experimental-and-test: srpm-snapshot
+copr-experimental-and-test: srpm-experimental
 	@$(MAKE) _copr-and-test COPR_TARGET=$(COPR_PROJECT_EXPERIMENTAL)
 
 # Internal helper: parameterized build-then-watch-then-trigger-tests.

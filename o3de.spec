@@ -41,6 +41,13 @@
 %bcond_with thirdparty_physx
 %bcond_with thirdparty_openexr
 
+# Stage 1 system-library swaps. Each `system_<lib>` toggle replaces an
+# upstream-bundled 3rdParty package with its system equivalent (provided
+# by hellaenergy/o3de-dependencies on COPR, ultimately destined for
+# Fedora proper). All default-off until validated; enable per-build via
+# `--with system_<lib>` on the rpmbuild / mock / copr command line.
+%bcond_with system_mikkelsen
+
 # ── Version pinning ──────────────────────────────────────────────────────────
 %global stable_tag      2605.0
 # Compute with: sha256sum o3de_<tag>_lfs.tar.gz
@@ -159,6 +166,15 @@ Patch0003:      0003-get-python-sh-rpm-venv-fixes.patch
 Patch0004:      0004-lypython-non-editable-pip-for-installed-engine.patch
 Patch0005:      0005-windowdecorationwrapper-propagate-initial-title.patch
 
+# Stage 1 system-library swap patches — each gates one upstream
+# ly_associate_package(...) line on a new LY_USE_SYSTEM_<X> cmake var,
+# and pairs with a corresponding system Find<X>.cmake (Source30+ below).
+Patch0006:      0006-builtinpackages-gate-mikkelsen-on-system.patch
+
+# Stage 1 system-library find modules. Copied into cmake/3rdParty/
+# during %%prep when the matching `--with system_<lib>` is enabled.
+Source30:       Findmikkelsen-system.cmake
+
 # Pre-built O3DE 3rdParty bundles — declare a Source10x and a matching
 # bcond above, then add an extract line in %%prep. Templates:
 #Source101:      physx-5.1.1-rev1-linux.tar.xz
@@ -224,6 +240,14 @@ BuildRequires:  pkgconfig(libzstd)
 BuildRequires:  vulkan-headers
 BuildRequires:  vulkan-loader-devel
 
+# Stage 1 system-library swaps — only pulled in when the matching
+# bcond is enabled (--with system_<lib>). The packages live in
+# hellaenergy/o3de-dependencies on COPR until they're accepted into
+# Fedora proper.
+%if %{with system_mikkelsen}
+BuildRequires:  mikkelsen-devel
+%endif
+
 # ── Runtime dependencies ─────────────────────────────────────────────────────
 # RPM auto-Requires picks up every actual link target by walking the
 # binaries with ldd. Only declare what auto-Requires can't see:
@@ -240,6 +264,15 @@ Requires:       mesa-libGL
 Requires:       vulkan-loader
 Requires:       cmake
 Requires:       python3
+
+# Stage 1 system-library runtime side. RPM auto-Requires picks up
+# libmikktspace.so.0 by ldd-walking the engine binaries when system
+# mikkelsen is in play, but listing the package name explicitly is
+# clearer for reviewers (and survives if a future build statically
+# links and the auto-dep disappears).
+%if %{with system_mikkelsen}
+Requires:       mikkelsen
+%endif
 
 %description
 The Open 3D Engine (O3DE) is an Apache-licensed, real-time, multi-platform
@@ -293,6 +326,15 @@ mkdir -p %{_builddir}/%{o3de_source_dir}/3rdParty
 %{?with_thirdparty_physx:tar -xf %{SOURCE101} -C %{_builddir}/%{o3de_source_dir}/3rdParty}
 %{?with_thirdparty_openexr:tar -xf %{SOURCE102} -C %{_builddir}/%{o3de_source_dir}/3rdParty}
 
+# Stage 1 system-library find modules. Patch0006 already gates the
+# upstream ly_associate_package(...) line on LY_USE_SYSTEM_<X>; we
+# additionally drop a Find<X>.cmake into cmake/3rdParty/ so that when
+# the gate flips, cmake's standard find_package() pathway resolves the
+# 3rdParty::<X> target from the system library.
+%if %{with system_mikkelsen}
+cp %{SOURCE30} cmake/3rdParty/Findmikkelsen.cmake
+%endif
+
 # ── BUILD ────────────────────────────────────────────────────────────────────
 %build
 mkdir -p build
@@ -335,7 +377,8 @@ cmake \
     -DCMAKE_HAVE_THREADS_LIBRARY=1 \
     -DCMAKE_USE_PTHREADS_INIT=1 \
     -DCMAKE_EXE_LINKER_FLAGS_INIT="-Wl,-z,relro -Wl,-z,now" \
-    -DCMAKE_SHARED_LINKER_FLAGS_INIT="-Wl,-z,relro -Wl,-z,now"
+    -DCMAKE_SHARED_LINKER_FLAGS_INIT="-Wl,-z,relro -Wl,-z,now" \
+    %{?with_system_mikkelsen:-DLY_USE_SYSTEM_MIKKELSEN=ON}
 
 # googletest is fetched via FetchContent during cmake configure and so
 # can't be patched in %%prep. Append our warning suppressions afterwards
