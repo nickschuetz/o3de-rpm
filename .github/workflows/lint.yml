@@ -51,7 +51,12 @@ jobs:
 
       - name: Shell sources have valid syntax
         run: |
-          for f in sources/*.sh; do
+          # Cover *.sh AND extensionless wrappers (e.g. o3de-cli) by
+          # treating any file in sources/ whose first line is a bash/sh
+          # shebang as a shell source.
+          for f in sources/*; do
+            [ -f "$f" ] || continue
+            head -1 "$f" 2>/dev/null | grep -qE '^#!.*\b(bash|sh)\b' || continue
             bash -n "$f" && echo "    $f OK"
           done
 

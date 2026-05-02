@@ -78,6 +78,7 @@ printf "$HEADER" "Tier 2 — installed file integrity"
 # Required entry points
 for path in \
     /usr/bin/o3de \
+    /usr/bin/o3de-cli \
     /usr/share/applications/o3de.desktop \
     /usr/share/applications/o3de-editor.desktop \
     /usr/share/metainfo/o3de.metainfo.xml \
@@ -97,6 +98,17 @@ done
 [ -x /usr/bin/o3de ] && ok "/usr/bin/o3de is executable" || nope "/usr/bin/o3de executable" "not +x"
 head -1 /usr/bin/o3de | grep -qE '^#!/(usr/)?bin/bash([[:space:]]|$)|^#!/usr/bin/env[[:space:]]+bash' && \
     ok "launcher shebang is bash" || nope "launcher shebang" "got '$(head -1 /usr/bin/o3de)'"
+
+# CLI wrapper exists, executable, and reaches the upstream Python CLI
+# (a no-arg invocation prints `usage: o3de.py ...` because the upstream
+# argparse requires a sub-command — that's the success signal).
+[ -x /usr/bin/o3de-cli ] && ok "/usr/bin/o3de-cli is executable" || \
+    nope "/usr/bin/o3de-cli executable" "not +x or missing"
+if /usr/bin/o3de-cli --help </dev/null 2>&1 | grep -qE 'usage: o3de\.py|Sub-Commands'; then
+    ok "/usr/bin/o3de-cli --help reaches the upstream o3de.py argparse"
+else
+    nope "/usr/bin/o3de-cli reachable" "no upstream argparse output — wrapper or o3de.sh path broken"
+fi
 nope_v "launcher syntax (bash -n)" bash -n /usr/bin/o3de
 
 # Desktop file + metainfo validation

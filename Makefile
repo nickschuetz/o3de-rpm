@@ -67,7 +67,12 @@ lint: spec-parse spec-parse-snapshot spec-parse-experimental
 	@echo ">> appstream-util validate"
 	@appstream-util validate-relax --nonet sources/o3de.metainfo.xml
 	@echo ">> bash -n on shell sources"
-	@for f in sources/*.sh; do bash -n "$$f" && echo "    $$f OK"; done
+	@# Pick up *.sh + extensionless scripts (e.g. /usr/bin/o3de-cli).
+	@for f in sources/*.sh $$(file sources/* 2>/dev/null | grep -l 'shell script' 2>/dev/null; \
+	                          for x in sources/*; do [ -f "$$x" ] && head -1 "$$x" 2>/dev/null \
+	                                | grep -q '^#!.*\(bash\|sh\)' && [ "$${x%.sh}" = "$$x" ] && echo "$$x"; done); do \
+	    [ -f "$$f" ] && bash -n "$$f" && echo "    $$f OK"; \
+	done | sort -u
 	@echo "All lints passed."
 
 spec-parse:

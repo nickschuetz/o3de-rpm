@@ -1,0 +1,24 @@
+#!/usr/bin/bash
+#
+# o3de-cli — Open 3D Engine command-line tool
+#
+# Thin wrapper that forwards to /opt/o3de/scripts/o3de.sh, exposing the
+# upstream O3DE Python CLI on $PATH so users don't need to type the full
+# /opt/o3de/scripts/ prefix. All sub-commands and arguments pass through
+# unchanged.
+#
+# To see what's available:
+#     o3de-cli --help
+#
+# Common operations:
+#     o3de-cli register --this-engine            # one-time per-user setup
+#     o3de-cli get-registered                    # list registered engines/projects/gems
+#     o3de-cli create-project --project-path ~/MyGame --project-name MyGame
+#     o3de-cli create-gem    --gem-path ~/MyGem --gem-name MyGem
+#     o3de-cli enable-gem  --project-path ~/MyGame --gem-name Atom
+#     o3de-cli edit-engine-properties --display-name "My Engine"
+#
+# This wrapper is part of the o3de RPM. The Project Manager / Editor GUI
+# launcher is /usr/bin/o3de (separate command).
+
+exec /opt/o3de/scripts/o3de.sh "$@"

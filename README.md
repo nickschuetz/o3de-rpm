@@ -30,7 +30,8 @@ o3de-rpm/
 │   ├── ui-smoke-test.sh                               #   tier 6: Project Manager + Editor smoke under Xvfb
 │   └── test-branch.sh                                 #   build + install + test from git ref
 └── sources/                                           # rpm SOURCES dir (sources + patches)
-    ├── o3de-launcher.sh                               # /usr/bin/o3de wrapper
+    ├── o3de-launcher.sh                               # /usr/bin/o3de wrapper (Project Manager / Editor GUI)
+    ├── o3de-cli                                       # /usr/bin/o3de-cli wrapper (project / gem / engine management)
     ├── o3de.desktop                                   # .desktop entry (Project Manager)
     ├── o3de.metainfo.xml                              # AppStream metainfo
     ├── o3de.cdx.json                                  # CycloneDX SBOM
@@ -132,6 +133,35 @@ rpmbuild -bb --with debug ...
 ```
 
 This roughly doubles build time (debug compiles all the same TUs at `-O0` with full symbols). End users install both with `dnf install o3de o3de-debug` to step through engine internals; `o3de-debug` requires the same exact NVR of `o3de` so they always upgrade in lockstep. Switching the launcher between configs is a runtime concern: `O3DE_BUILD_CONFIG=debug o3de`.
+
+---
+
+## Using the installed RPM
+
+Two PATH-installed entry points:
+
+| Command | Purpose |
+|---|---|
+| `o3de` | Launches the GUI (Project Manager by default). Set `O3DE_BUILD_CONFIG=debug` for the debug-config engine if `o3de-debug` is also installed. |
+| `o3de-cli` | Forwards to the upstream Python CLI at `/opt/o3de/scripts/o3de.sh` for project / gem / engine management. |
+
+The CLI covers ~25 sub-commands. Common ones:
+
+```bash
+o3de-cli --help                                # list sub-commands
+o3de-cli register --this-engine                # one-time per-user setup (also runs from %post)
+o3de-cli get-registered -df engines            # list registered engines (or projects/gems/templates)
+o3de-cli create-project --project-path ~/MyGame --project-name MyGame
+o3de-cli create-gem    --gem-path ~/MyGem --gem-name MyGem
+o3de-cli enable-gem    --project-path ~/MyGame --gem-name Atom
+o3de-cli edit-engine-properties --display-name "My Engine"
+o3de-cli export-project   --project-path ~/MyGame   # bundle a runtime build
+o3de-cli sha256 <file>                         # compute the hash O3DE expects in package manifests
+```
+
+State written by either command lives under `~/.o3de/` (engine registration manifest, per-user Python venv, project user data). The engine root at `/opt/o3de/` is read-only.
+
+The first launch of `o3de` (or first run of `o3de-cli`) bootstraps the per-user Python venv automatically — see `python/get_python.sh` in the engine root if you want to pre-bootstrap or inspect.
 
 ---
 
@@ -255,7 +285,7 @@ See [`tests/README.md`](tests/README.md) for the full tier breakdown and contrib
 | Network during build | LFS objects are bundled into the source tarball before build; no `git lfs pull` runs in `%build`. O3DE's own `LY_PACKAGE_SERVER_URLS` 3rdParty fetcher still runs at cmake configure unless every needed package is pre-bundled — see "3rdParty packages" above. |
 | **⚠ Bundled OpenSSL 1.1.1t (EOL since 2023-09-11)** | Not our packaging defect — upstream O3DE pins it. Tracked as a hard blocker for Fedora inclusion in [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) (stage 4). Surfaced here so consumers see it clearly. |
 | Hardening flags (RELRO / BIND_NOW / stack-protector / `_FORTIFY_SOURCE`) | Restored explicitly via `CMAKE_*_LINKER_FLAGS_INIT` after unsetting Fedora's CFLAGS/CXXFLAGS/LDFLAGS bundle (the bundle's annobin specs file breaks clang feature tests). O3DE's `Configurations_clang.cmake` already supplies stack-protector and `_FORTIFY_SOURCE`. |
-| Runtime escalation paths | Launcher wrapper is `/usr/bin/o3de`, mode 0755, no setuid. All `mkdir -p` targets are under `$HOME`. |
+| Runtime escalation paths | Launcher wrapper is `/usr/bin/o3de` and CLI wrapper is `/usr/bin/o3de-cli`, both mode 0755, no setuid. All `mkdir -p` targets are under `$HOME`. |
 | Patch reviewability | Real `.patch` files with `From:`/`Subject:` rationales — reviewable with `git log` or `interdiff`. |
 | Source provenance auditability | CycloneDX 1.6 SBOM at `/usr/share/o3de/sbom/o3de.cdx.json` documents every bundled component, with purl, license expression, and EOL flags where applicable. |
 | First-run state migration | Launcher's `<project>/user/project.json` rewrite is JSON-aware (`python3 -c json.load/dump`), only mutates known legacy prefixes, and is gated by a per-prefix marker file. Failures are silenced so a malformed home dir can't block the editor. |

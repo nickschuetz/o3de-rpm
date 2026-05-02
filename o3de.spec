@@ -148,6 +148,8 @@ Source13:       o3de.cdx.json
 Source14:       o3de.metainfo.xml
 # NoDisplay association entry: maps the Editor's WM_CLASS to o3de icon.
 Source15:       o3de-editor.desktop
+# Thin wrapper exposing /opt/o3de/scripts/o3de.sh on $PATH as o3de-cli.
+Source16:       o3de-cli
 
 # App icons in hicolor sizes. Extracted from upstream's
 # cmake/Platform/Windows/Packaging/product_icon.ico (256x256 master,
@@ -464,6 +466,7 @@ ln -s ../../../../engine.json %{buildroot}/opt/o3de/bin/Linux/debug/Default/engi
 # running window to our installed o3de icon — without it, the dock
 # falls through to Qt's internal icon for the Editor.
 install -D -m 0755 %{SOURCE10} %{buildroot}%{_bindir}/o3de
+install -D -m 0755 %{SOURCE16} %{buildroot}%{_bindir}/o3de-cli
 desktop-file-install --dir=%{buildroot}%{_datadir}/applications %{SOURCE11}
 desktop-file-install --dir=%{buildroot}%{_datadir}/applications %{SOURCE15}
 
@@ -506,6 +509,7 @@ appstream-util validate-relax --nonet \
 %exclude /opt/o3de/lib/Linux/debug
 %endif
 %{_bindir}/o3de
+%{_bindir}/o3de-cli
 %{_datadir}/applications/o3de.desktop
 %{_datadir}/applications/o3de-editor.desktop
 %{_metainfodir}/o3de.metainfo.xml
@@ -546,10 +550,16 @@ to pre-bootstrap it manually run:
 
     /opt/o3de/python/get_python.sh
 
-Launch the editor:
+Launch the editor (Project Manager GUI):
 
     o3de                              # profile build (default)
     O3DE_BUILD_CONFIG=debug o3de      # debug build (requires o3de-debug)
+
+Use the command-line tool for project / gem / engine management:
+
+    o3de-cli --help                   # list sub-commands
+    o3de-cli register --this-engine   # one-time per-user setup
+    o3de-cli create-project --project-path ~/MyGame --project-name MyGame
 
 EOF
 
