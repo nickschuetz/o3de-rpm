@@ -37,7 +37,7 @@ tests/integration-test.sh --setup                  # also tier 3
 tests/integration-test.sh --setup --with-project   # also tier 5
 
 # UI smoke (tier 6) — Project Manager + (optional) Editor
-sudo dnf install -y xorg-x11-server-Xvfb scrot xorg-x11-utils
+sudo dnf install -y xorg-x11-server-Xvfb scrot xdpyinfo
 tests/ui-smoke-test.sh                             # Project Manager smoke
 tests/ui-smoke-test.sh --editor                    # also Editor scripted run
 tests/ui-smoke-test.sh --editor --screenshot      # with screenshots

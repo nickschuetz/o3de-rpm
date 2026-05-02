@@ -45,7 +45,7 @@ require() {
     }
 }
 require Xvfb 'dnf install xorg-x11-server-Xvfb'
-require xdpyinfo 'dnf install xorg-x11-utils'
+require xdpyinfo 'dnf install xdpyinfo'
 [ "$DO_SCREENSHOT" -eq 1 ] && require scrot 'dnf install scrot'
 require o3de 'install the o3de RPM first'
 

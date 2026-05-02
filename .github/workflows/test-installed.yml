@@ -220,7 +220,7 @@ jobs:
             desktop-file-utils libappstream-glib appstream \
             python3 cmake ninja-build vulkan-loader \
             findutils diffutils \
-            xorg-x11-server-Xvfb xorg-x11-utils scrot xdotool wmctrl \
+            xorg-x11-server-Xvfb xdpyinfo scrot xdotool wmctrl \
             mesa-vulkan-drivers
           # The integration tests need a regular user (not root) for Tiers 3-6.
           useradd -m runner
