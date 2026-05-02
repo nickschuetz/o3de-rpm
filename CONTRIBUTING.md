@@ -51,7 +51,7 @@ Read `o3de.spec` top-to-bottom. The shape is:
 4. **Name / Version / Release** with conditional logic for snapshot mode
 5. **Source0** (the upstream tarball — release URL or local snapshot)
 6. **Source10–25** (auxiliary files: launcher, desktops, metainfo, icons, SBOM, snapshot helper)
-7. **Patch0001–0005** applied via `%autosetup -p1`
+7. **Patch0001–0006** applied via `%autosetup -p1`
 8. **BuildRequires / Requires** — minimal, validated against auto-Requires
 9. **`%prep`, `%build`, `%install`, `%check`, `%files`** — standard rpm sections
 10. **Scriptlets** (`%post`, `%postun`)
@@ -63,15 +63,24 @@ If you change *anything* in the spec or sources/, **update the README's layout b
 
 ## Patches
 
-Five patches in `sources/`. Each carries a `From: Nick Schuetz <nschuetz@redhat.com>` and `Subject:` header explaining why the patch exists.
+Six patches in `sources/`. Each carries a `From: Nick Schuetz <nschuetz@redhat.com>` and `Subject:` header explaining why the patch exists.
 
-| # | Target | Purpose |
-|---|---|---|
-| 0001 | `cmake/Platform/Common/Clang/Configurations_clang.cmake` | suppress clang 21+ warnings-as-errors that O3DE's `-Werror` would otherwise fail on |
-| 0002 | `scripts/o3de/o3de/manifest.py` | honor `O3DE_ENGINE_PATH` env var for engine-root detection in venv-installed setups |
-| 0003 | `python/get_python.sh` | per-engine venv linkage + engine-id reconciliation + manifest.py refresh |
-| 0004 | `cmake/LYPython.cmake` | install Python packages from sdists (not editable) when `INSTALLED_ENGINE` |
-| 0005 | `Code/Framework/AzQtComponents/.../WindowDecorationWrapper.cpp` | propagate guest's initial title to wrapper in `OptionDisabled` mode (Linux/Mac) so Project Manager's WM-drawn titlebar shows the engine version |
+| # | Target | Purpose | Upstream-worthy? |
+|---|---|---|---|
+| 0001 | `cmake/Platform/Common/Clang/Configurations_clang.cmake` | suppress clang 21+ warnings-as-errors that O3DE's `-Werror` would otherwise fail on | **yes** — affects every Linux user on a recent distro; conservative (specific `-Wno-error=` only, doesn't disable warnings) |
+| 0002 | `scripts/o3de/o3de/manifest.py` | honor `O3DE_ENGINE_PATH` env var for engine-root detection in venv-installed setups | **yes** — clean addition for any package-based install (deb/rpm/snap/flatpak); upstream code currently assumes git-checkout layout |
+| 0003 | `python/get_python.sh` | per-engine venv linkage + engine-id reconciliation + manifest.py refresh | **probably** — helps multi-engine and read-only-engine installs; more involved than 0001/0002, more rebase-fragile |
+| 0004 | `cmake/LYPython.cmake` | install Python packages from sdists (not editable) when `INSTALLED_ENGINE` | **yes** — `pip install -e` against a read-only directory is straightforwardly broken; this is the right fix |
+| 0005 | `Code/Framework/AzQtComponents/.../WindowDecorationWrapper.cpp` | propagate guest's initial title to wrapper in `OptionDisabled` mode (Linux/Mac) so Project Manager's WM-drawn titlebar shows the engine version | **yes** — one-line fix to a real bug; clear test case (titlebar shows full version string vs. just "O3DE") |
+| 0006 | `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` | gate the upstream `ly_associate_package(... mikkelsen-1.0.0.4-linux ...)` line on a new `LY_USE_SYSTEM_MIKKELSEN` cmake variable, so distro packagers can opt out of the upstream fetcher in favor of a system mikktspace. First Stage 1 system-library swap. | **as part of an umbrella PR** — see backlog note below |
+
+### Upstream PR backlog
+
+Submission stays parked until Nick signals the project is past the experimental stage (see `MEMORY.md`), but the candidates above are pre-vetted. When Nick is ready:
+
+- **0001, 0002, 0004, 0005** are ready to submit as individual PRs. Each is small, has clear motivation, and a maintainer can review it in 10 minutes. Recommend submitting these *first* — they have the least carrying cost for the upstream maintainers and unlock the most "we can stop carrying this" wins for o3de-rpm.
+- **0003** would benefit from a maintainer conversation first — the patch touches the bundled-Python lifecycle which is sensitive territory. Pitch it as an issue ("here's the read-only-engine venv problem, here's our solution shape") before the PR.
+- **0006** should *not* go upstream as a one-package change. Instead, when the next several Stage 1 migrations have been activated and validated, propose a single "Add `LY_USE_SYSTEM_<X>` opt-out convention for Linux distro packagers" PR that introduces the gating pattern across all the packages with system equivalents. That's a coherent design proposal upstream can evaluate; one-package gating is harder to motivate.
 
 **Regeneration** when an upstream change makes a patch fail to apply (we hit this once on patch 0001):
 

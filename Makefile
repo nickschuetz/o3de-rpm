@@ -128,15 +128,35 @@ rpm-snapshot-debug:
 # stays enable_net=false — Fedora-clean.
 
 copr-init:
-	@echo "Run these once per COPR project:"
+	@echo "Run these once per COPR project (note: copr-cli takes 'on'/'off',"
+	@echo "not 'true'/'false', for boolean flags as of copr-cli 2.x):"
 	@echo
+	@echo "# 1. Stable (tagged-release) project:"
 	@echo "  copr-cli create $(COPR_OWNER)/$(COPR_PROJECT_STABLE) \\"
 	@echo "      --chroot fedora-44-x86_64 --chroot fedora-rawhide-x86_64 \\"
 	@echo "      --chroot epel-10-x86_64 \\"
-	@echo "      --enable-net true --appstream true --description 'Open 3D Engine'"
+	@echo "      --enable-net on --appstream on \\"
+	@echo "      --description 'Open 3D Engine — tagged stable releases'"
 	@echo
-	@echo "  copr-cli edit-chroot $(COPR_OWNER)/$(COPR_PROJECT_STABLE)/fedora-44-x86_64 \\"
-	@echo "      --repos 'copr://$(COPR_OWNER)/o3de-dependencies'"
+	@echo "# 2. Snapshot (community-tester) project:"
+	@echo "  copr-cli create $(COPR_OWNER)/$(COPR_PROJECT_SNAPSHOT) \\"
+	@echo "      --chroot fedora-44-x86_64 --chroot fedora-rawhide-x86_64 \\"
+	@echo "      --enable-net on --appstream on \\"
+	@echo "      --description 'O3DE development snapshot for community testers'"
+	@echo
+	@echo "# 3. Experimental (in-flight migration) project:"
+	@echo "  copr-cli create $(COPR_OWNER)/$(COPR_PROJECT_EXPERIMENTAL) \\"
+	@echo "      --chroot fedora-44-x86_64 --chroot fedora-rawhide-x86_64 \\"
+	@echo "      --enable-net on \\"
+	@echo "      --description 'O3DE experimental builds — Stage 1 migration work'"
+	@echo
+	@echo "# Wire o3de-dependencies into each chroot for all three engine projects:"
+	@echo "  for proj in $(COPR_PROJECT_STABLE) $(COPR_PROJECT_SNAPSHOT) $(COPR_PROJECT_EXPERIMENTAL); do \\"
+	@echo "      for chroot in fedora-44-x86_64 fedora-rawhide-x86_64; do \\"
+	@echo "          copr-cli edit-chroot $(COPR_OWNER)/\$$proj/\$$chroot \\"
+	@echo "              --repos 'copr://$(COPR_OWNER)/o3de-dependencies'; \\"
+	@echo "      done; \\"
+	@echo "  done"
 
 copr-stable: srpm
 	copr-cli build --timeout 25200 $(COPR_OWNER)/$(COPR_PROJECT_STABLE) \
