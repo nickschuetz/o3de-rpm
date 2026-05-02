@@ -23,6 +23,7 @@ The longer-term goal is inclusion in Fedora proper. The roadmap to that lives in
 |---|---|
 | `o3de.spec` | the spec itself (single source of truth for the RPM) |
 | `README.md` | end-user / community-tester facing |
+| `ARCHITECTURE.md` | source-to-RPM flowchart + load-bearing design separations |
 | `CONTRIBUTING.md` | this file |
 | `Makefile` | `make help` lists the targets — lint, srpm, rpm, copr, test |
 | `FEDORA_ROADMAP.md` | staged plan for Fedora inclusion |
@@ -56,7 +57,7 @@ Read `o3de.spec` top-to-bottom. The shape is:
 10. **Scriptlets** (`%post`, `%postun`)
 11. **Changelog**
 
-If you change *anything* in the spec or sources/, **update the README's layout block, the Mermaid diagram, and any prose section that references the changed file** — in the same commit. This is a hard rule; doc drift is treated as a regression.
+If you change *anything* in the spec or sources/, **update the README's layout block, the `ARCHITECTURE.md` Mermaid diagram and prose, and any other doc section that references the changed file** — in the same commit. This is a hard rule; doc drift is treated as a regression.
 
 ---
 
