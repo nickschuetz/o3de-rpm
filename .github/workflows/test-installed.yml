@@ -96,19 +96,23 @@ jobs:
                 echo "build_id=" >> "$GITHUB_OUTPUT"
                 exit 0
               fi
-              # Find the F44 RPM filename via directory listing (the version
-              # string is in the filename and we'd rather not hard-code it).
-              dir="https://download.copr.fedorainfracloud.org/results/${COPR_OWNER}/${COPR_PROJECT}/fedora-44-x86_64/${build_id}-o3de/"
-              rpm_name=$(curl -fsSL "$dir" \
-                | grep -oE 'href="o3de-[^"]+\.fc44\.x86_64\.rpm"' \
+              # Resolve the F44 RPM URL via repo metadata. The per-build
+              # directory only hosts logs after rsync moves the artifacts
+              # into the createrepo-managed Packages/o/ tree at the repo
+              # root, so we have to look it up via repodata.
+              repo="https://download.copr.fedorainfracloud.org/results/${COPR_OWNER}/${COPR_PROJECT}/fedora-44-x86_64"
+              primary=$(curl -fsSL "${repo}/repodata/repomd.xml" \
+                | grep -oE 'repodata/[a-f0-9]+-primary\.xml\.gz' | head -1)
+              rpm_rel=$(curl -fsSL "${repo}/${primary}" | gunzip -c \
+                | grep -oE 'href="Packages/o/o3de-[^"]+\.x86_64\.rpm"' \
                 | grep -v -- '-debug-' \
                 | head -1 \
                 | sed 's/^href="//; s/"$//')
-              if [ -z "$rpm_name" ]; then
-                echo "could not find o3de F44 RPM in $dir"
+              if [ -z "$rpm_rel" ]; then
+                echo "could not find o3de F44 RPM in repodata at ${repo}"
                 exit 1
               fi
-              echo "rpm_url=${dir}${rpm_name}" >> "$GITHUB_OUTPUT"
+              echo "rpm_url=${repo}/${rpm_rel}" >> "$GITHUB_OUTPUT"
               echo "build_id=${build_id}" >> "$GITHUB_OUTPUT"
               ;;
           esac

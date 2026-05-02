@@ -145,18 +145,26 @@ copr-snapshot-and-test: srpm-snapshot
 	copr-cli watch-build "$$build_id" ; \
 	$(MAKE) trigger-tests BUILD_ID=$$build_id
 
-# Fire the repository_dispatch event for an already-completed COPR
-# build. Useful for retroactively kicking off tests against an older
-# successful build, e.g.  `make trigger-tests BUILD_ID=10415468`.
+# Fire the repository_dispatch event for the latest succeeded COPR
+# build. Useful for kicking off tests against the most recent build,
+# e.g.  `make trigger-tests BUILD_ID=10415468` (the BUILD_ID is just a
+# label for the dedup cache and run banner — the RPM URL is resolved
+# from repodata, which always points at the latest build).
+#
+# COPR no longer hosts the per-build directory's RPMs directly: that
+# dir holds logs only after rsync moves the artifacts into the
+# createrepo-managed Packages/o/ tree at the repo root. So we resolve
+# the RPM URL via the F44 repo metadata.
 GITHUB_REPO ?= nickschuetz/o3de-rpm
 trigger-tests:
 	@[ -n "$(BUILD_ID)" ] || { echo "usage: make trigger-tests BUILD_ID=<copr-build-id>"; exit 2; }
-	@dir="https://download.copr.fedorainfracloud.org/results/$(COPR_OWNER)/$(COPR_PROJECT_SNAPSHOT)/fedora-44-x86_64/$(BUILD_ID)-o3de/" ; \
-	rpm_name=$$(curl -fsSL "$$dir" | grep -oE 'href="o3de-[^"]+\.fc44\.x86_64\.rpm"' | grep -v -- '-debug-' | head -1 | sed 's/^href="//; s/"$$//') ; \
-	if [ -z "$$rpm_name" ]; then \
-	    echo "ERROR: no F44 o3de RPM found at $$dir" ; exit 1 ; \
+	@repo="https://download.copr.fedorainfracloud.org/results/$(COPR_OWNER)/$(COPR_PROJECT_SNAPSHOT)/fedora-44-x86_64" ; \
+	primary=$$(curl -fsSL "$$repo/repodata/repomd.xml" | grep -oE 'repodata/[a-f0-9]+-primary\.xml\.gz' | head -1) ; \
+	rpm_rel=$$(curl -fsSL "$$repo/$$primary" | gunzip -c | grep -oE 'href="Packages/o/o3de-[^"]+\.x86_64\.rpm"' | grep -v -- '-debug-' | head -1 | sed 's/^href="//; s/"$$//') ; \
+	if [ -z "$$rpm_rel" ]; then \
+	    echo "ERROR: no F44 o3de RPM in repodata at $$repo" ; exit 1 ; \
 	fi ; \
-	rpm_url="$${dir}$${rpm_name}" ; \
+	rpm_url="$${repo}/$${rpm_rel}" ; \
 	echo ">> Triggering test-installed.yml for $$rpm_url" ; \
 	gh api -X POST repos/$(GITHUB_REPO)/dispatches \
 	    -f event_type=copr-build-succeeded \
