@@ -14,8 +14,9 @@ This document is the staged plan, dependency map, and decision log. It lives in 
 
 **Deliverables:**
 - `hellaenergy/o3de-dependencies` — Fedora-clean SRPMs for O3DE 3rdParty packages not in Fedora.
-- `hellaenergy/o3de` (stable) and `hellaenergy/o3de-snapshot` (development branch) — built with `enable_net=true` so O3DE's `LY_PACKAGE_SERVER_URLS` fetcher can pull the four restricted bundles from `packages.o3de.org` (see "Restricted bundles" below).
-- Spec validated end-to-end on F44 / commit `246b46f` from `stabilization/26050`.
+- `hellaenergy/o3de` (tagged stable releases), `hellaenergy/o3de-snapshot` (development branch, community-tester channel), and `hellaenergy/o3de-experimental` (in-flight Stage 1 migrations) — all built with `enable_net=true` so O3DE's `LY_PACKAGE_SERVER_URLS` fetcher can pull the four restricted bundles from `packages.o3de.org` (see "Restricted bundles" below).
+- Spec validated end-to-end on F44 / commit `246b46f` from `stabilization/26050`. First public COPR build (10416727) was installed by Nick from `o3de-snapshot` on 2026-05-02 and confirmed working via Project Manager + Editor launch; community testers were invited that day.
+- Test infrastructure (test-installed.yml in clean F44 + rawhide containers) wired up: cron-polling of `o3de-snapshot` every 4 hours, repository_dispatch for explicit `make trigger-tests` runs, manual workflow_dispatch for ad-hoc URL-driven tests. The `o3de-experimental` channel is exercised explicitly by `make copr-experimental-and-test`.
 
 **Status of `hellaenergy/o3de-dependencies`:** all 9 SRPMs have **succeeded builds** in COPR (verified via `copr-cli list-builds hellaenergy/o3de-dependencies`). Some required iteration — `o3de-qt5` took ten attempts before landing — but the repo is consumable today via `dnf copr enable hellaenergy/o3de-dependencies`. The remaining work for *integrating* those packages with the o3de spec (so cmake consumes them via `BuildRequires:` instead of fetching from `packages.o3de.org`) is Stage 1 below.
 
@@ -23,40 +24,48 @@ This document is the staged plan, dependency map, and decision log. It lives in 
 
 ## Stage 1 — System library migration (the long tail)
 
-**Status:** unblocked, large effort.
+**Status:** **in-flight as of 2026-05-02.** Migration template proven on **mikkelsen** (the first activated swap, gated to `o3de-experimental`); the remaining ~19 packages follow the same pattern. See `BUNDLED_LIBRARIES.md` § "mikkelsen migration status" for the activated example.
 
 O3DE bundles ~30 3rdParty packages from its CDN at cmake configure time. Most of them have direct Fedora equivalents we can pivot to.
 
-| Bundled package | Fedora package | Effort |
+| Bundled package | Fedora package | Status / effort |
 |---|---|---|
-| zlib | `zlib-devel` | 1 cmake flag flip — `LY_BUILD_USE_SYSTEM_ZLIB=ON` (verify the var name in O3DE) |
-| freetype | `freetype-devel` | 1 cmake flag flip |
-| libcurl | `libcurl-devel` | 1 cmake flag flip |
-| libpng | `libpng-devel` | 1 cmake flag flip |
-| libtiff | `libtiff-devel` | 1 cmake flag flip |
-| expat | `expat-devel` | 1 cmake flag flip |
-| SQLite | `sqlite-devel` | 1 cmake flag flip |
-| pcre2 | `pcre2-devel` | 1 cmake flag flip |
-| Lua 5.4 | `lua-devel` | 1 cmake flag flip |
-| lz4 | `lz4-devel` | 1 cmake flag flip |
-| libsamplerate | `libsamplerate-devel` | 1 cmake flag flip |
-| mcpp | `mcpp` | 1 cmake flag flip |
-| OpenEXR | `openexr-devel` | 1 cmake flag flip; verify API version match |
-| OpenImageIO | `OpenImageIO-devel` | 1 cmake flag flip; verify API version match |
-| OpenColorIO | `OpenColorIO-devel` | 1 cmake flag flip |
-| assimp | `assimp-devel` | 1 cmake flag flip |
-| SPIRVCross | `spirv-cross-devel` | 1 cmake flag flip |
-| vulkan-validationlayers | `vulkan-validation-layers-devel` | 1 cmake flag flip |
-| googlebenchmark | `google-benchmark-devel` | test-only, can drop entirely |
+| **mikkelsen** | `mikkelsen-devel` (in `hellaenergy/o3de-dependencies` until Fedora-accepted) | **ACTIVATED in `o3de-experimental` channel** via `--with system_mikkelsen` (Patch0006 + Findmikkelsen-system.cmake) |
+| zlib | `zlib-devel` | follow-on (use mikkelsen template) |
+| freetype | `freetype-devel` | follow-on (use mikkelsen template) |
+| libcurl | `libcurl-devel` | follow-on (use mikkelsen template) |
+| libpng | `libpng-devel` | follow-on (use mikkelsen template) |
+| libtiff | `libtiff-devel` | follow-on (use mikkelsen template) |
+| expat | `expat-devel` | follow-on (use mikkelsen template) |
+| SQLite | `sqlite-devel` | follow-on (use mikkelsen template) |
+| pcre2 | `pcre2-devel` | follow-on (use mikkelsen template) |
+| Lua 5.4 | `lua-devel` | follow-on (use mikkelsen template) |
+| lz4 | `lz4-devel` | follow-on (use mikkelsen template) |
+| libsamplerate | `libsamplerate-devel` | follow-on (use mikkelsen template) |
+| mcpp | `mcpp` | follow-on; O3DE uses `_az`-patched fork — verify base mcpp suffices |
+| OpenEXR | `openexr-devel` | Stage 2 (version-pinning concerns) |
+| OpenImageIO | `OpenImageIO-devel` | Stage 2 (version-pinning concerns) |
+| OpenColorIO | `OpenColorIO-devel` | Stage 2 (version-pinning concerns) |
+| assimp | `assimp-devel` | follow-on (use mikkelsen template) |
+| SPIRVCross | `spirv-cross-devel` | follow-on (use mikkelsen template) |
+| vulkan-validationlayers | `vulkan-validation-layers-devel` | follow-on; F44 has 1.3.x vs O3DE's 1.2.198 — verify loader interaction |
+| googlebenchmark | `google-benchmark-devel` | test-only; can drop entirely |
 | pyside2 | `python3-pyside2` | needs Stage 3 (Python migration) first |
 
-Each migration is its own PR. The pattern:
+**The validated migration pattern, ~6 spec lines + 1 cmake stub + 1 patch + 1 Makefile line:**
 
-1. Confirm O3DE has a `LY_BUILD_USE_SYSTEM_<name>` cmake option (or add a patch upstream if not).
-2. Add the system `*-devel` to `BuildRequires`.
-3. Drop the package from `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` (patch in our spec, upstream-able).
-4. Build, verify auto-Requires now lists the system lib (`ldd` walks confirm the link target).
-5. SBOM update.
+1. Add `%bcond_with system_<lib>` to `o3de.spec` (default off).
+2. Carry a Patch000N that wraps the upstream `ly_associate_package(PACKAGE_NAME <lib>-X.Y.Z-linux ...)` line in `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` with `if(NOT LY_USE_SYSTEM_<LIB>) ... endif()`. Apply unconditionally — it's a no-op when the gate variable isn't set.
+3. Carry a `sources/Find<lib>-system.cmake` find-module stub that creates the `3rdParty::<lib>` INTERFACE target from the system library (using `find_path` / `find_library`, plus a wrapper header in `${CMAKE_BINARY_DIR}` if the consumer's `#include <X/Y.h>` syntax doesn't match the system layout). Reference `Findmikkelsen-system.cmake` as the template.
+4. Add `Source3X: Find<lib>-system.cmake` to the spec; conditionally `cp %{SOURCE3X} cmake/3rdParty/Find<lib>.cmake` in `%prep` when the bcond is on.
+5. Add conditional `BuildRequires: <lib>-devel` and (if not already auto-detected) `Requires: <lib>` blocks gated on `%if %{with system_<lib>}`.
+6. Add the conditional `-DLY_USE_SYSTEM_<LIB>=ON` to the cmake invocation in `%build` (use `%{?with_system_<lib>:-DLY_USE_SYSTEM_<LIB>=ON}` so the line vanishes when the bcond is off).
+7. In `Makefile`, append `--with system_<lib>` to `SRPM_EXPERIMENTAL_FLAGS`.
+8. Update `BUNDLED_LIBRARIES.md` (status table row + activation note) and the diagram in `ARCHITECTURE.md` if the change affects the displayed flow.
+
+**Why we don't use O3DE's built-in `LY_BUILD_USE_SYSTEM_*` options (where they exist):** O3DE has variable coverage — some bundles have a built-in opt-out, others don't. The patch-based pattern works uniformly across all of them and doesn't depend on each upstream package having pre-built migration support. Once the pattern is upstreamable as a single coherent change ("here's the LY_USE_SYSTEM_<X> convention for all migration-eligible bundles"), submit it as one PR rather than one per bundle.
+
+**Promotion to `o3de-snapshot`:** each migration that passes test-installed.yml end-to-end on the experimental channel is eligible for promotion to the snapshot channel — but only when Nick signals the testing window is open for new pushes. Until then, `o3de-experimental` accumulates the validated activations and `o3de-snapshot` stays stable.
 
 ---
 
@@ -121,7 +130,7 @@ Target: system OpenSSL 3.x.
 | Item | Description | Independent? |
 |---|---|---|
 | **License-clean DXC rebuild** | See dedicated section below. Highest-leverage Stage 5 task. | yes (mostly) |
-| Real `-debuginfo` subpackage | Drop `%global debug_package %{nil}`; figure out why O3DE's binary layout trips rpmbuild's debug-symbol extraction; likely a `BUILD_ID` ambiguity from the Ninja Multi-Config split. May need patches to O3DE's link rules. | yes |
+| Real `-debuginfo` subpackage | Distinct from the existing `o3de-debug` subpackage (which ships debug-config binaries alongside the profile build). Fedora's `-debuginfo` is the rpmbuild-extracted symbol files for stripped binaries — currently disabled via `%global debug_package %{nil}` because O3DE's binary layout trips rpmbuild's symbol extraction (likely a `BUILD_ID` ambiguity from the Ninja Multi-Config split). May need patches to O3DE's link rules. | yes |
 | `-debugsource` subpackage | Source code corresponding to each debuginfo line. Should fall out automatically once `debuginfo` works. | yes |
 | Bundled Library Exception filing | Required for the custom Qt 5.15-rev9 (load-bearing). Justification doc in `BUNDLED_LIBRARIES.md`. | yes |
 | Mock-clean SRPM build | `mock --rebuild o3de.src.rpm` must succeed with `--isolation=simple --no-network` enabled. | needs Stage 1 / 2 / 3 |
