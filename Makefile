@@ -10,16 +10,21 @@
 #   make rpm-debug                    full -bb (stable) + o3de-debug subpackage
 #   make rpm-snapshot-debug           full -bb (snapshot) + o3de-debug subpackage
 #   make copr-snapshot                upload current snapshot SRPM to hellaenergy/o3de-snapshot
+#   make copr-experimental            upload current snapshot SRPM to hellaenergy/o3de-experimental
 #   make copr-stable                  upload current stable SRPM to hellaenergy/o3de
 #   make copr-snapshot-and-test       copr-snapshot + watch-build + trigger CI tests on success
+#   make copr-experimental-and-test   copr-experimental + watch-build + trigger CI tests
 #   make trigger-tests BUILD_ID=N     fire test-installed.yml against an existing COPR build
+#                                     (override target with COPR_PROJECT=o3de-experimental)
 #   make clean                        rm -rf rpmbuild/{BUILD,BUILDROOT,RPMS,SRPMS} (NOT SOURCES)
 #
 # Variables:
-#   REF=stabilization/26050           git ref for `make snapshot`
-#   COPR_OWNER=hellaenergy             COPR owner
-#   COPR_PROJECT_STABLE=o3de           project name for stable builds
-#   COPR_PROJECT_SNAPSHOT=o3de-snapshot
+#   REF=stabilization/26050              git ref for `make snapshot`
+#   COPR_OWNER=hellaenergy                COPR owner
+#   COPR_PROJECT_STABLE=o3de              project for tagged stable builds
+#   COPR_PROJECT_SNAPSHOT=o3de-snapshot   community testers' channel — hands off mid-window
+#   COPR_PROJECT_EXPERIMENTAL=o3de-experimental    in-flight migration / structural work
+#   COPR_PROJECT=$(COPR_PROJECT_SNAPSHOT) which project trigger-tests targets
 #
 # All rpmbuild invocations point _sourcedir/_specdir at this checkout, so no
 # files get copied into ~/rpmbuild/SOURCES/.
@@ -27,10 +32,15 @@
 SHELL := /bin/bash
 PWD   := $(shell pwd)
 
-REF                   ?= development
-COPR_OWNER            ?= hellaenergy
-COPR_PROJECT_STABLE   ?= o3de
-COPR_PROJECT_SNAPSHOT ?= o3de-snapshot
+REF                       ?= development
+COPR_OWNER                ?= hellaenergy
+COPR_PROJECT_STABLE       ?= o3de
+COPR_PROJECT_SNAPSHOT     ?= o3de-snapshot
+COPR_PROJECT_EXPERIMENTAL ?= o3de-experimental
+# COPR_PROJECT picks which project trigger-tests targets (defaults to
+# the snapshot channel testers consume; override on the command line:
+#     make trigger-tests BUILD_ID=N COPR_PROJECT=o3de-experimental
+COPR_PROJECT              ?= $(COPR_PROJECT_SNAPSHOT)
 
 RPMBUILD_DEFINES = \
 	--define "_sourcedir $(PWD)/sources" \
@@ -38,7 +48,9 @@ RPMBUILD_DEFINES = \
 
 .PHONY: help lint spec-parse spec-parse-snapshot \
         snapshot srpm srpm-snapshot rpm rpm-snapshot rpm-debug rpm-snapshot-debug \
-        copr-stable copr-snapshot copr-snapshot-and-test trigger-tests copr-init \
+        copr-stable copr-snapshot copr-experimental \
+        copr-snapshot-and-test copr-experimental-and-test _copr-and-test \
+        trigger-tests copr-init \
         test test-setup test-full test-ui test-ui-full test-branch clean
 
 help:
@@ -121,6 +133,14 @@ copr-snapshot: srpm-snapshot
 	copr-cli build --timeout 25200 $(COPR_OWNER)/$(COPR_PROJECT_SNAPSHOT) \
 		~/rpmbuild/SRPMS/o3de-*.src.rpm
 
+# Parallel project for in-flight migration / structural work that isn't
+# ready to expose to o3de-snapshot's community testers. Same chroots and
+# same enable_net + o3de-dependencies repo wiring as the snapshot project,
+# different audience: only us until a change is validated.
+copr-experimental: srpm-snapshot
+	copr-cli build --timeout 25200 $(COPR_OWNER)/$(COPR_PROJECT_EXPERIMENTAL) \
+		~/rpmbuild/SRPMS/o3de-*.src.rpm
+
 # 25200s = 7 hr. Default COPR project timeout is 5 hr; F44 chroot ate
 # ~4 hr in build 10414894 (which completed all 2173 compile steps), so
 # rawhide — typically 10-30% slower than F44 — would risk timeout.
@@ -130,10 +150,22 @@ copr-snapshot: srpm-snapshot
 # Requires `gh` CLI authenticated for repo write access. The workflow
 # resolves the F44 RPM URL from the build_id by listing the COPR
 # results directory, so we only need to pass the build_id along.
+#
+# Default targets the snapshot project. To exercise the experimental
+# project end-to-end, use `make copr-experimental-and-test` instead.
 copr-snapshot-and-test: srpm-snapshot
+	@$(MAKE) _copr-and-test COPR_TARGET=$(COPR_PROJECT_SNAPSHOT)
+
+copr-experimental-and-test: srpm-snapshot
+	@$(MAKE) _copr-and-test COPR_TARGET=$(COPR_PROJECT_EXPERIMENTAL)
+
+# Internal helper: parameterized build-then-watch-then-trigger-tests.
+# Not a normal entry point; called from copr-{snapshot,experimental}-and-test.
+_copr-and-test:
+	@[ -n "$(COPR_TARGET)" ] || { echo "_copr-and-test requires COPR_TARGET="; exit 2; }
 	@set -e ; \
 	build_output=$$(copr-cli build --timeout 25200 \
-	    $(COPR_OWNER)/$(COPR_PROJECT_SNAPSHOT) \
+	    $(COPR_OWNER)/$(COPR_TARGET) \
 	    ~/rpmbuild/SRPMS/o3de-*.src.rpm) ; \
 	echo "$$build_output" ; \
 	build_id=$$(echo "$$build_output" | grep -oE 'Created builds: [0-9]+' \
@@ -143,7 +175,7 @@ copr-snapshot-and-test: srpm-snapshot
 	fi ; \
 	echo ">> Watching COPR build $$build_id (likely 4-5 hours)" ; \
 	copr-cli watch-build "$$build_id" ; \
-	$(MAKE) trigger-tests BUILD_ID=$$build_id
+	$(MAKE) trigger-tests BUILD_ID=$$build_id COPR_PROJECT=$(COPR_TARGET)
 
 # Fire the repository_dispatch event for the latest succeeded COPR
 # build. Useful for kicking off tests against the most recent build,
@@ -157,8 +189,8 @@ copr-snapshot-and-test: srpm-snapshot
 # the RPM URL via the F44 repo metadata.
 GITHUB_REPO ?= nickschuetz/o3de-rpm
 trigger-tests:
-	@[ -n "$(BUILD_ID)" ] || { echo "usage: make trigger-tests BUILD_ID=<copr-build-id>"; exit 2; }
-	@repo="https://download.copr.fedorainfracloud.org/results/$(COPR_OWNER)/$(COPR_PROJECT_SNAPSHOT)/fedora-44-x86_64" ; \
+	@[ -n "$(BUILD_ID)" ] || { echo "usage: make trigger-tests BUILD_ID=<copr-build-id> [COPR_PROJECT=<project>]"; exit 2; }
+	@repo="https://download.copr.fedorainfracloud.org/results/$(COPR_OWNER)/$(COPR_PROJECT)/fedora-44-x86_64" ; \
 	primary=$$(curl -fsSL "$$repo/repodata/repomd.xml" | grep -oE 'repodata/[a-f0-9]+-primary\.xml\.gz' | head -1) ; \
 	rpm_rel=$$(curl -fsSL "$$repo/$$primary" | gunzip -c | grep -oE 'href="Packages/o/o3de-[^"]+\.x86_64\.rpm"' | grep -v -- '-debug-' | head -1 | sed 's/^href="//; s/"$$//') ; \
 	if [ -z "$$rpm_rel" ]; then \
