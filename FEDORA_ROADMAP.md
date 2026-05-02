@@ -61,7 +61,8 @@ O3DE bundles ~30 3rdParty packages from its CDN at cmake configure time. Most of
 5. Add conditional `BuildRequires: <lib>-devel` and (if not already auto-detected) `Requires: <lib>` blocks gated on `%if %{with system_<lib>}`.
 6. Add the conditional `-DLY_USE_SYSTEM_<LIB>=ON` to the cmake invocation in `%build` (use `%{?with_system_<lib>:-DLY_USE_SYSTEM_<LIB>=ON}` so the line vanishes when the bcond is off).
 7. In `Makefile`, append `--with system_<lib>` to `SRPM_EXPERIMENTAL_FLAGS`.
-8. Update `BUNDLED_LIBRARIES.md` (status table row + activation note) and the diagram in `ARCHITECTURE.md` if the change affects the displayed flow.
+8. **Activate the bcond on the COPR experimental chroots** with `copr-cli edit-chroot hellaenergy/o3de-experimental/<chroot> --rpmbuild-with system_<lib>` for both `fedora-44-x86_64` and `fedora-rawhide-x86_64`. **This step is load-bearing** — `--with` flags passed to `rpmbuild -bs` (the local SRPM build) do *not* propagate into COPR's binary `rpmbuild -bb` invocation, so the bcond conditionals would silently default off in the binary RPM otherwise. (Discovered the hard way on build 10417928.) `make copr-init` prints the exact command sequence.
+9. Update `BUNDLED_LIBRARIES.md` (status table row + activation note) and the diagram in `ARCHITECTURE.md` if the change affects the displayed flow.
 
 **Why we don't use O3DE's built-in `LY_BUILD_USE_SYSTEM_*` options (where they exist):** O3DE has variable coverage — some bundles have a built-in opt-out, others don't. The patch-based pattern works uniformly across all of them and doesn't depend on each upstream package having pre-built migration support. Once the pattern is upstreamable as a single coherent change ("here's the LY_USE_SYSTEM_<X> convention for all migration-eligible bundles"), submit it as one PR rather than one per bundle.
 

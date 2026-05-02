@@ -102,8 +102,17 @@ srpm-snapshot:
 	rpmbuild -bs --with snapshot $(RPMBUILD_DEFINES) o3de.spec
 
 # srpm-experimental: snapshot + every active Stage 1 system-library
-# swap. Add new --with flags here as each migration is activated. The
-# experimental COPR project consumes these SRPMs.
+# swap. Add new --with flags here as each migration is activated.
+#
+# IMPORTANT — the --with flags here only affect SRPM-build evaluation
+# (which Sources/Patches make it into the .src.rpm); they do NOT
+# propagate to COPR's binary build. For the bcond-gated BR/Requires/
+# %prep/%build content to fire on COPR, the experimental project's
+# chroots also need `--rpmbuild-with system_<lib>` set via
+# `copr-cli edit-chroot`. See `make copr-init` for the one-time
+# command. Keep the SRPM flags in sync with the chroot config so the
+# SRPM faithfully shows what activations are intended even if a
+# reviewer downloads the SRPM directly.
 SRPM_EXPERIMENTAL_FLAGS = --with snapshot --with system_mikkelsen
 
 srpm-experimental:
@@ -161,6 +170,16 @@ copr-init:
 	@echo "          copr-cli edit-chroot $(COPR_OWNER)/\$$proj/\$$chroot \\"
 	@echo "              --repos 'copr://$(COPR_OWNER)/o3de-dependencies'; \\"
 	@echo "      done; \\"
+	@echo "  done"
+	@echo
+	@echo "# 4. Activate Stage 1 system-library swaps in the experimental project."
+	@echo "# COPR-CLI's --with at SRPM-build time does NOT propagate to its"
+	@echo "# binary-build (which is where bcond_with conditionals fire), so we"
+	@echo "# configure --rpmbuild-with at the chroot level instead. Add a new"
+	@echo "# line per activated system_<lib> bcond as the migration list grows:"
+	@echo "  for chroot in fedora-44-x86_64 fedora-rawhide-x86_64; do \\"
+	@echo "      copr-cli edit-chroot $(COPR_OWNER)/$(COPR_PROJECT_EXPERIMENTAL)/\$$chroot \\"
+	@echo "          --rpmbuild-with system_mikkelsen; \\"
 	@echo "  done"
 
 copr-stable: srpm
