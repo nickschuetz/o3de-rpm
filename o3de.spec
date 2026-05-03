@@ -254,15 +254,16 @@ Patch0003:      0003-get-python-sh-rpm-venv-fixes.patch
 Patch0004:      0004-lypython-non-editable-pip-for-installed-engine.patch
 Patch0005:      0005-windowdecorationwrapper-propagate-initial-title.patch
 
-# Migrate TIFFLoader.cpp's nine remaining legacy `uint32` typedef uses
-# to the standard C99 `uint32_t`. libtiff 4.5+ marks the legacy typedef
-# as __attribute__((deprecated)); combined with O3DE's -Werror, every
-# stale use becomes a hard build failure. Mechanical type rename;
-# behavior unchanged. Required for any build against modern libtiff
-# regardless of distro packaging — applies unconditionally so the source
-# tree stays consistent whether libtiff resolves from the upstream
-# CDN bundle or from system tiff-devel.
-Patch0007:      0007-tiffloader-c99-typedefs.patch
+# Migrate every remaining legacy libtiff typedef use (uint8/uint16/uint32)
+# to the standard C99 (`*_t`) names across O3DE's two <tiffio.h> consumers:
+#   - Gems/Atom/Asset/ImageProcessingAtom/.../TIFFLoader.cpp (modern Atom)
+#   - Code/Editor/Util/ImageTIF.cpp (legacy Editor)
+# libtiff 4.5+ marks the legacy typedef as __attribute__((deprecated));
+# combined with O3DE's -Werror, every stale use becomes a hard build
+# failure. Mechanical type rename; behavior unchanged. Applies
+# unconditionally so the source tree stays consistent whether libtiff
+# resolves from the upstream CDN bundle or from system tiff-devel.
+Patch0007:      0007-libtiff-c99-typedefs.patch
 
 # Stage 1 system-library swap patches — each gates one upstream
 # ly_associate_package(...) line on a new LY_USE_SYSTEM_<X> cmake var,
@@ -818,6 +819,16 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Sun May 03 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-16
+- Patch0007 (broader scope): also patches Code/Editor/Util/ImageTIF.cpp
+  in addition to TIFFLoader.cpp. Build 10420621 surfaced the second
+  consumer at compile-step ~2.5h (uint8/uint16/uint32 in Editor's
+  legacy TIF path). Finished the libtiff legacy-typedef migration
+  across both <tiffio.h>-using files; the third upstream tiffio.h
+  consumer (FrameCaptureSystemComponent.cpp) was already on C99 types.
+  Patch file renamed sources/0007-tiffloader-c99-typedefs.patch →
+  0007-libtiff-c99-typedefs.patch.
+
 * Sun May 03 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-15
 - Patch0007: migrate TIFFLoader.cpp's nine remaining legacy libtiff
   `uint32` typedefs to standard C99 `uint32_t`. libtiff 4.5+ marks the

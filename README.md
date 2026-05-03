@@ -46,7 +46,7 @@ o3de-rpm/
     ├── 0004-lypython-non-editable-pip-for-installed-engine.patch
     ├── 0005-windowdecorationwrapper-propagate-initial-title.patch
     ├── 0006-builtinpackages-gate-mikkelsen-on-system.patch     # Stage 1 LY_USE_SYSTEM_<X> gates
-    ├── 0007-tiffloader-c99-typedefs.patch                       # libtiff 4.5+ compat (deprecation)
+    ├── 0007-libtiff-c99-typedefs.patch                          # libtiff 4.5+ compat (deprecation)
     ├── Findmikkelsen-system.cmake                              # Stage 1 system-* find shims
     ├── Findexpat-system.cmake                                  #   (copied to cmake/3rdParty/
     ├── FindZLIB-system.cmake                                   #    during %prep when the matching
@@ -371,7 +371,7 @@ Seven patches applied via `%autosetup -p1`. See [`CONTRIBUTING.md`](CONTRIBUTING
 | 0004 | `cmake/LYPython.cmake` | Non-editable pip install for read-only engine roots |
 | 0005 | `Code/Framework/AzQtComponents/.../WindowDecorationWrapper.cpp` | Propagate guest title to WM-drawn titlebar in `OptionDisabled` mode |
 | 0006 | `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` | Establish the `LY_USE_SYSTEM_<X>` gating convention used by Stage 1 system-library swaps |
-| 0007 | `Gems/Atom/Asset/ImageProcessingAtom/.../TIFFLoader.cpp` | Migrate legacy libtiff `uint32` typedef uses to standard C99 `uint32_t` (libtiff 4.5+ deprecates the legacy name) |
+| 0007 | `.../TIFFLoader.cpp` + `Code/Editor/Util/ImageTIF.cpp` | Migrate legacy libtiff `uint8`/`uint16`/`uint32` typedefs to standard C99 (libtiff 4.5+ deprecates the legacy names) |
 
 Each patch carries a `From:`/`Subject:` header with the rationale. Stage 1 system-library swaps additionally ship companion `Find<X>-system.cmake` shims in `sources/` (`Findmikkelsen-system.cmake`, `Findexpat-system.cmake`, `FindZLIB-system.cmake`, etc.) — installed into `cmake/3rdParty/Find<X>.cmake` during `%prep` when the matching `--with system_<lib>` is enabled.
 

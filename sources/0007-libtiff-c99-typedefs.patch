@@ -1,0 +1,332 @@
+From: Nick Schuetz <nschuetz@redhat.com>
+Subject: [PATCH] libtiff: migrate legacy typedefs to C99 standard types
+
+libtiff 4.5+ explicitly marks its legacy `uint8` / `uint16` / `uint32`
+typedefs as `__attribute__((deprecated))` (see /usr/include/tiff.h
+in Fedora 44+). Combined with O3DE's `-Werror`, every use of those
+typedefs becomes a hard build failure:
+
+    error: 'uint32' is deprecated [-Werror,-Wdeprecated-declarations]
+    error: 'uint8' is deprecated [-Werror,-Wdeprecated-declarations]
+
+O3DE has two consumers of `<tiffio.h>` that use the legacy names
+(a third — `Gems/Atom/Feature/Common/.../FrameCaptureSystemComponent.cpp`
+— is already on the standard `uint32_t` family and needs no change):
+
+  1. `Gems/Atom/Asset/ImageProcessingAtom/.../TIFFLoader.cpp` —
+     the modern Atom-pipeline TIFF loader. 9 legacy `uint32` uses.
+     Adjacent code in the same file already uses `uint32_t` (line 371's
+     outer imageY loop) — partial migration upstream; this finishes it.
+  2. `Code/Editor/Util/ImageTIF.cpp` — the legacy Editor TIFF loader.
+     35 legacy uses across `uint32`, `uint16`, `uint8`. All in
+     local-variable declarations, casts, and template arguments.
+
+Mechanical replacement: every `uint8`/`uint16`/`uint32` token (NOT
+already `_t`-suffixed) becomes its standard C99 equivalent. Same
+underlying types on all platforms; behavior unchanged.
+
+Apply unconditionally — works against both the bundled libtiff
+(older revision, still defines both names) and Fedora's libtiff 4.5+.
+The patch keeps the source tree consistent regardless of whether
+libtiff resolves from the upstream CDN bundle or from system
+tiff-devel.
+
+Required to unblock the `--with system_tiff` Stage 1 swap; also
+benefits bundled-libtiff builds as the bundle ages and starts
+shipping the C99 names.
+
+Upstream-worthy: yes, as a standalone PR. The migration is required
+for any build against modern libtiff regardless of distro packaging
+(Fedora 44+, Ubuntu 24.04+, Arch, etc.) and the change is
+conservative (mechanical rename to standard types). Same file
+already started the migration — this finishes it.
+
+Path-anchored at the two specific files so future upstream rebases
+that move adjacent code (different line numbers) but keep the files
+in place still apply.
+
+Signed-off-by: Nick Schuetz <nschuetz@redhat.com>
+---
+ .../Code/Source/ImageLoader/TIFFLoader.cpp    | 14 ++--
+ Code/Editor/Util/ImageTIF.cpp                 | 70 +++++++++----------
+ 2 files changed, 42 insertions(+), 42 deletions(-)
+
+diff -urN abuild/Code/Editor/Util/ImageTIF.cpp bbuild/Code/Editor/Util/ImageTIF.cpp
+--- a/Code/Editor/Util/ImageTIF.cpp	2026-05-03 14:36:37.166696668 -0500
++++ b/Code/Editor/Util/ImageTIF.cpp	2026-05-03 14:36:37.169520426 -0500
+@@ -24,9 +24,9 @@
+ // Structure used to pass state to our in-memory TIFF file callbacks
+ struct MemImage
+ {
+-    uint8 *buffer;
+-    uint32 offset;
+-    uint32 size;
++    uint8_t *buffer;
++    uint32_t offset;
++    uint32_t size;
+ };
+ 
+ 
+@@ -60,7 +60,7 @@
+ 
+     memcpy(buf, &memImage->buffer[memImage->offset], size);
+ 
+-    memImage->offset += static_cast<uint32>(size);
++    memImage->offset += static_cast<uint32_t>(size);
+ 
+     // Return the amount of data read
+     return size;
+@@ -79,19 +79,19 @@
+     switch (i)
+     {
+     case SEEK_SET:
+-        memImage->offset = static_cast<uint32>(off);
++        memImage->offset = static_cast<uint32_t>(off);
+         break;
+ 
+     case SEEK_CUR:
+-        memImage->offset += static_cast<uint32>(off);
++        memImage->offset += static_cast<uint32_t>(off);
+         break;
+ 
+     case SEEK_END:
+-        memImage->offset = static_cast<uint32>(memImage->size - off);
++        memImage->offset = static_cast<uint32_t>(memImage->size - off);
+         break;
+ 
+     default:
+-        memImage->offset = static_cast<uint32>(off);
++        memImage->offset = static_cast<uint32_t>(off);
+         break;
+     }
+ 
+@@ -117,9 +117,9 @@
+ 
+     MemImage memImage;
+ 
+-    std::vector<uint8> data;
++    std::vector<uint8_t> data;
+ 
+-    memImage.size = static_cast<uint32>(file.GetLength());
++    memImage.size = static_cast<uint32_t>(file.GetLength());
+ 
+     data.resize(memImage.size);
+     memImage.buffer = &data[0];
+@@ -139,9 +139,9 @@
+ 
+     if (tif)
+     {
+-        uint32 dwWidth, dwHeight;
++        uint32_t dwWidth, dwHeight;
+         size_t npixels;
+-        uint32* raster;
++        uint32_t* raster;
+         char* dccfilename = nullptr;
+ 
+         TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &dwWidth);
+@@ -150,7 +150,7 @@
+ 
+         npixels = dwWidth * dwHeight;
+ 
+-        raster = (uint32*)_TIFFmalloc((tsize_t)(npixels * sizeof(uint32)));
++        raster = (uint32_t*)_TIFFmalloc((tsize_t)(npixels * sizeof(uint32_t)));
+ 
+         if (raster)
+         {
+@@ -159,9 +159,9 @@
+                 if (outImage.Allocate(dwWidth, dwHeight))
+                 {
+                     char* dest = (char*)outImage.GetData();
+-                    uint32 dwPitch = dwWidth * 4;
++                    uint32_t dwPitch = dwWidth * 4;
+ 
+-                    for (uint32 dwY = 0; dwY < dwHeight; ++dwY)
++                    for (uint32_t dwY = 0; dwY < dwHeight; ++dwY)
+                     {
+                         char* src2 = (char*)&raster[(dwHeight - 1 - dwY) * dwWidth];
+                         char* dest2 = &dest[dwPitch * dwY];
+@@ -208,7 +208,7 @@
+ 
+     MemImage memImage;
+ 
+-    std::vector<uint8> data;
++    std::vector<uint8_t> data;
+ 
+     memImage.size = static_cast<int>(file.GetLength());
+ 
+@@ -230,8 +230,8 @@
+ 
+     if (tif)
+     {
+-        uint32 width = 0, height = 0;
+-        uint16 spp = 0, bpp = 0, format = 0;
++        uint32_t width = 0, height = 0;
++        uint16_t spp = 0, bpp = 0, format = 0;
+         char* dccfilename = nullptr;
+ 
+         TIFFGetField(tif, TIFFTAG_IMAGEDESCRIPTION, &dccfilename);
+@@ -251,7 +251,7 @@
+         float pixelValueScale = 1.0f;
+ 
+         // Check to see if it's a GeoTIFF, and if so, whether or not it has the ZScale parameter.
+-        uint32 tagCount = 0;
++        uint32_t tagCount = 0;
+         double *pixelScales = nullptr;
+         if (TIFFGetField(tif, GEOTIFF_MODELPIXELSCALE_TAG, &tagCount, &pixelScales) == 1)
+         {
+@@ -262,15 +262,15 @@
+             }
+         }
+ 
+-        uint32 linesize = static_cast<uint32>(TIFFScanlineSize(tif));
+-        uint8* linebuf = static_cast<uint8*>(_TIFFmalloc(linesize));
++        uint32_t linesize = static_cast<uint32_t>(TIFFScanlineSize(tif));
++        uint8_t* linebuf = static_cast<uint8_t*>(_TIFFmalloc(linesize));
+ 
+         // We assume that a scanline has all of the samples in it.  Validate the assumption.
+         assert(linesize == (width * (bpp / 8) * spp));
+ 
+         // Aliases for linebuf to make it easier to pull different types out of the scanline.
+-        uint16* linebufUint16 = reinterpret_cast<uint16*>(linebuf);
+-        uint32* linebufUint32 = reinterpret_cast<uint32*>(linebuf);
++        uint16_t* linebufUint16 = reinterpret_cast<uint16_t*>(linebuf);
++        uint32_t* linebufUint32 = reinterpret_cast<uint32_t*>(linebuf);
+         float* linebufFloat = reinterpret_cast<float*>(linebuf);
+ 
+         if (linebuf)
+@@ -282,7 +282,7 @@
+ 
+                 float maxPixelValue = 0.0f;
+ 
+-                for (uint32 y = 0; y < height; y++)
++                for (uint32_t y = 0; y < height; y++)
+                 {
+                     TIFFReadScanline(tif, linebuf, y);
+ 
+@@ -292,30 +292,30 @@
+                     // 32-bit values may or may not need to scale down, depending on the intended authoring range.  Our assumption
+                     // is that they were most likely authored with the intent of 1:1 value translations.
+ 
+-                    for (uint32 x = 0; x < width; x++)
++                    for (uint32_t x = 0; x < width; x++)
+                     {
+                         switch (bpp)
+                         {
+                             case 8:
+                                 // Scale 0-255 to 0.0 - 1.0
+-                                dest[(y * width) + x] = static_cast<float>(linebuf[x * spp]) / static_cast<float>(std::numeric_limits<uint8>::max());
++                                dest[(y * width) + x] = static_cast<float>(linebuf[x * spp]) / static_cast<float>(std::numeric_limits<uint8_t>::max());
+                                 break;
+                             case 16:
+                                 // Scale 0-65535 to 0.0 - 1.0
+-                                dest[(y * width) + x] = static_cast<float>(linebufUint16[x * spp]) / static_cast<float>(std::numeric_limits<uint16>::max());
++                                dest[(y * width) + x] = static_cast<float>(linebufUint16[x * spp]) / static_cast<float>(std::numeric_limits<uint16_t>::max());
+                                 break;
+                             case 32:
+                                 // 32-bit values could be ints or floats.
+ 
+                                 if (format == SAMPLEFORMAT_INT)
+                                 {
+-                                    // Scale 0-max int32 to 0.0 - 1.0
+-                                    dest[(y * width) + x] = clamp_tpl(static_cast<float>(linebufUint32[x * spp]) / static_cast<float>(std::numeric_limits<int32>::max()), 0.0f, 1.0f);
++                                    // Scale 0-max int32_t to 0.0 - 1.0
++                                    dest[(y * width) + x] = clamp_tpl(static_cast<float>(linebufUint32[x * spp]) / static_cast<float>(std::numeric_limits<int32_t>::max()), 0.0f, 1.0f);
+                                 }
+                                 else if (format == SAMPLEFORMAT_UINT)
+                                 {
+-                                    // Scale 0-max uint32 to 0.0 - 1.0
+-                                    dest[(y * width) + x] = clamp_tpl(static_cast<float>(linebufUint32[x * spp]) / static_cast<float>(std::numeric_limits<uint32>::max()), 0.0f, 1.0f);
++                                    // Scale 0-max uint32_t to 0.0 - 1.0
++                                    dest[(y * width) + x] = clamp_tpl(static_cast<float>(linebufUint32[x * spp]) / static_cast<float>(std::numeric_limits<uint32_t>::max()), 0.0f, 1.0f);
+                                 }
+                                 else if (format == SAMPLEFORMAT_IEEEFP)
+                                 {
+@@ -345,9 +345,9 @@
+                 // If this is a GeoTIFF using 32-bit floats, we will end up outside the 0.0 - 1.0 range.  Let's scale it back down to 0.0 - 1.0.
+                 if (maxPixelValue > 1.0f)
+                 {
+-                    for (uint32 y = 0; y < height; y++)
++                    for (uint32_t y = 0; y < height; y++)
+                     {
+-                        for (uint32 x = 0; x < width; x++)
++                        for (uint32_t x = 0; x < width; x++)
+                         {
+                             dest[(y * width) + x] = dest[(y * width) + x] / maxPixelValue;
+                         }
+@@ -450,7 +450,7 @@
+ 
+ const char* CImageTIF::GetPreset(const QString& fileName)
+ {
+-    std::vector<uint8> data;
++    std::vector<uint8_t> data;
+     CCryFile file;
+     if (!file.Open(fileName.toUtf8().data(), "rb"))
+     {
+@@ -460,7 +460,7 @@
+ 
+     MemImage memImage;
+ 
+-    memImage.size = static_cast<uint32>(file.GetLength());
++    memImage.size = static_cast<uint32_t>(file.GetLength());
+ 
+     data.resize(memImage.size);
+     memImage.buffer = &data[0];
+diff -urN abuild/Gems/Atom/Asset/ImageProcessingAtom/Code/Source/ImageLoader/TIFFLoader.cpp bbuild/Gems/Atom/Asset/ImageProcessingAtom/Code/Source/ImageLoader/TIFFLoader.cpp
+--- a/Gems/Atom/Asset/ImageProcessingAtom/Code/Source/ImageLoader/TIFFLoader.cpp	2026-05-03 14:36:37.165816704 -0500
++++ b/Gems/Atom/Asset/ImageProcessingAtom/Code/Source/ImageLoader/TIFFLoader.cpp	2026-05-03 14:36:37.168735454 -0500
+@@ -291,7 +291,7 @@
+             // Used to get the X, Y, Z scales from a GeoTIFF file
+             bool isGeoTIFF = false;
+             {
+-                uint32 tagCount = 0;
++                uint32_t tagCount = 0;
+                 double* pixelScales = NULL;
+                 static constexpr int GEOTIFF_MODELPIXELSCALE_TAG = 33550;
+                 if (TIFFGetField(tif, GEOTIFF_MODELPIXELSCALE_TAG, &tagCount, &pixelScales) == 1)
+@@ -371,7 +371,7 @@
+             for (uint32_t imageY = 0; imageY < inputImageHeight; imageY += tileHeight)
+             {
+                 // Loop across the image width, one tile at a time
+-                for (uint32 imageX = 0; imageX < inputImageWidth; imageX += tileWidth)
++                for (uint32_t imageX = 0; imageX < inputImageWidth; imageX += tileWidth)
+                 {
+                     // Either read in a tile or a scanline
+                     [[maybe_unused]] auto result = isTiled?
+@@ -384,9 +384,9 @@
+ 
+                     // Convert each pixel in the scanline / tile buffer.
+                     // The image might not be evenly divisible by tile height/width, so don't process any pixels outside those bounds.
+-                    for (uint32 tileY = 0; (tileY < tileHeight) && ((imageY + tileY) < inputImageHeight); tileY++)
++                    for (uint32_t tileY = 0; (tileY < tileHeight) && ((imageY + tileY) < inputImageHeight); tileY++)
+                     {
+-                        for (uint32 tileX = 0; (tileX < tileWidth) && ((imageX + tileX) < inputImageWidth); tileX++)
++                        for (uint32_t tileX = 0; (tileX < tileWidth) && ((imageX + tileX) < inputImageWidth); tileX++)
+                         {
+                             // Calculate the buffer start index for the source and destination pixels.
+                             // These indices are by channel, not by byte, so for example a 2x2 R16G16B16A16 image will have
+@@ -394,8 +394,8 @@
+                             // Also, note that the destination image provides a "pitch" value that's the number of bytes per row,
+                             // which could include padding. Since that value is in bytes, we divide by bytes per channel so that
+                             // our index is back in channel range, not byte range.
+-                            uint32 srcPixelChannelIndex = ((tileY * tileWidth) + tileX) * numChannels;
+-                            uint32 destPixelChannelIndex =
++                            uint32_t srcPixelChannelIndex = ((tileY * tileWidth) + tileX) * numChannels;
++                            uint32_t destPixelChannelIndex =
+                                 ((imageY + tileY) * (dwPitch / (bitsPerChannel / 8))) +
+                                 ((imageX + tileX) * dstChannels);
+ 
+@@ -451,11 +451,11 @@
+             {
+                 float* dst32 = reinterpret_cast<float*>(dst);
+ 
+-                for (uint32 imageY = 0; imageY < inputImageHeight; imageY++)
++                for (uint32_t imageY = 0; imageY < inputImageHeight; imageY++)
+                 {
+-                    for (uint32 imageX = 0; imageX < inputImageWidth; imageX++)
++                    for (uint32_t imageX = 0; imageX < inputImageWidth; imageX++)
+                     {
+-                        uint32 pixelChannelIndex = (imageY * (dwPitch / (bitsPerChannel / 8))) + (imageX * dstChannels);
++                        uint32_t pixelChannelIndex = (imageY * (dwPitch / (bitsPerChannel / 8))) + (imageX * dstChannels);
+                         dst32[pixelChannelIndex] =
+                             AZStd::clamp((dst32[pixelChannelIndex] - minChannelValue) / (maxChannelValue - minChannelValue), 0.0f, 1.0f);
+                     }
