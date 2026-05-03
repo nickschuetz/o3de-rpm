@@ -2,7 +2,7 @@
 
 The goal: get the stable `o3de` package into the **Fedora repository proper**. Until that's reached, COPR (`hellaenergy/o3de` + `hellaenergy/o3de-snapshot`) is the interim distribution channel.
 
-Fedora is one of **four** distribution targets the project is working toward — see the README's Distribution section for the full picture (COPR today, o3debinaries.org as the eventual upstream channel, Fedora long-term, Flathub when the Flatpak ships). Most of the work in this roadmap is shared infrastructure: the system-lib migration, OpenSSL port, and license-clean DXC rebuild all benefit the o3debinaries.org submission too. Fedora is the strictest target; if we satisfy Fedora, we satisfy everything.
+Fedora is one of **three** distribution targets named in the README (COPR today, o3debinaries.org as the eventual upstream channel, Fedora long-term). A future Flathub release tracked in `FLATPAK_NOTES.md` and surfaced in `ARCHITECTURE.md` is *not* in the README — it would confuse RPM-focused readers — but most of the work here is shared infrastructure regardless: the system-lib migration, OpenSSL port, and license-clean DXC rebuild all benefit the o3debinaries.org submission and the eventual Flatpak too. Fedora is the strictest target; if we satisfy Fedora, we satisfy everything.
 
 This document is the staged plan, dependency map, and decision log. It lives in the repo so contributors can see the state of each blocker without spelunking through commit history.
 

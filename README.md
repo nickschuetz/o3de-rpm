@@ -200,7 +200,7 @@ Project Manager auto-routes a project to the right engine via the project's `eng
 
 ## Distribution
 
-The o3de RPM has four distribution targets, in order of how soon each is reachable:
+The o3de RPM has three distribution targets, in order of how soon each is reachable:
 
 ### 1. COPR — `hellaenergy/o3de*` (today, ongoing)
 
@@ -223,10 +223,6 @@ What needs to happen: align the spec with O3DE's existing packaging conventions,
 ### 3. Fedora repo proper (long-term)
 
 See [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) for the staged plan. Six stages from system-lib migration through OpenSSL 3.x port, license-clean DXC rebuild, debuginfo subpackages, and Bundling Library Exception filing, before the package review submission.
-
-### 4. Flathub (when the Flatpak ships)
-
-A separate effort tracked in a sibling Flatpak repo. Reuses ~80% of this repo's `sources/` and `patches/` directly. See `FLATPAK_NOTES.md` (working notes, not committed) for carryover.
 
 To consume (end users):
 
