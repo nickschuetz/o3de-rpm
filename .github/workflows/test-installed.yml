@@ -1,12 +1,19 @@
 name: test-installed
 
-# Test an already-built o3de RPM by installing it in a Fedora container
-# and running tests/integration-test.sh against the result. The RPM
-# itself is too big (~14-28 GB) to build on free GitHub runners — this
-# workflow consumes a pre-built RPM URL (from COPR or anywhere else).
+# Test an already-built versioned O3DE RPM (o3de2605, o3de2610, ...) by
+# installing it in a Fedora container and running tests/integration-test.sh
+# against the result. The RPM itself is too big (~14-28 GB) to build on
+# free GitHub runners — this workflow consumes a pre-built RPM URL (from
+# COPR or anywhere else).
+#
+# The package name (and the test-script's $O3DE_PKGNAME) is auto-derived
+# from the RPM filename (o3de[0-9]+-...rpm); workflow_dispatch can override
+# it explicitly via the o3de_pkgname input when COPR hosts multiple majors
+# in the same project.
 #
 # Three triggers:
-#   workflow_dispatch     manual via the GitHub UI (paste an RPM URL)
+#   workflow_dispatch     manual via the GitHub UI (paste an RPM URL,
+#                         optionally an explicit o3de_pkgname)
 #   repository_dispatch   programmatic; fired by `make trigger-tests`
 #                         after a `make copr-stabilization-and-test`
 #                         (or `make copr-experimental-and-test`, etc.)
@@ -47,6 +54,11 @@ on:
         required: false
         default: false
         type: boolean
+      o3de_pkgname:
+        description: 'Explicit package name override (e.g. o3de2605). Leave blank to auto-detect from the RPM URL.'
+        required: false
+        default: ''
+        type: string
   repository_dispatch:
     types: [copr-build-succeeded]
   schedule:
@@ -78,9 +90,10 @@ jobs:
     # been tested in a prior run).
     runs-on: ubuntu-latest
     outputs:
-      rpm_url:     ${{ steps.resolve.outputs.rpm_url }}
-      build_id:    ${{ steps.resolve.outputs.build_id }}
-      should_test: ${{ steps.decide.outputs.should_test }}
+      rpm_url:       ${{ steps.resolve.outputs.rpm_url }}
+      build_id:      ${{ steps.resolve.outputs.build_id }}
+      pkgname:       ${{ steps.resolve.outputs.pkgname }}
+      should_test:   ${{ steps.decide.outputs.should_test }}
       run_setup:     ${{ steps.flags.outputs.run_setup }}
       run_project:   ${{ steps.flags.outputs.run_project }}
       run_ui:        ${{ steps.flags.outputs.run_ui }}
@@ -118,19 +131,43 @@ jobs:
               repo="https://download.copr.fedorainfracloud.org/results/${COPR_OWNER}/${COPR_PROJECT}/fedora-44-x86_64"
               primary=$(curl -fsSL "${repo}/repodata/repomd.xml" \
                 | grep -oE 'repodata/[a-f0-9]+-primary\.xml\.gz' | head -1)
+              # Match versioned package names (o3de2605, o3de2610, ...).
+              # When a project hosts multiple majors simultaneously, this
+              # picks the alphabetically-first match in repodata order;
+              # for now, that's whatever the latest succeeded build wrote.
+              # Future enhancement: prefer the highest-NNNN match.
               rpm_rel=$(curl -fsSL "${repo}/${primary}" | gunzip -c \
-                | grep -oE 'href="Packages/o/o3de-[^"]+\.x86_64\.rpm"' \
+                | grep -oE 'href="Packages/o/o3de[0-9]+-[^"]+\.x86_64\.rpm"' \
                 | grep -v -- '-debug-' \
                 | head -1 \
                 | sed 's/^href="//; s/"$//')
               if [ -z "$rpm_rel" ]; then
-                echo "could not find o3de F44 RPM in repodata at ${repo}"
+                echo "could not find o3deNNNN F44 RPM in repodata at ${repo}"
                 exit 1
               fi
               echo "rpm_url=${repo}/${rpm_rel}" >> "$GITHUB_OUTPUT"
               echo "build_id=${build_id}" >> "$GITHUB_OUTPUT"
               ;;
           esac
+
+          # Resolve the versioned package name (e.g. o3de2605). Drives
+          # which o3deNNNN the test scripts query post-install. Manual
+          # override (workflow_dispatch input) wins; otherwise extract
+          # from the RPM URL's basename — strip the leading o3deNNNN-
+          # prefix from the filename, fall back to "o3de" for legacy
+          # unversioned packages still floating around in COPR.
+          override='${{ inputs.o3de_pkgname }}'
+          rpm_url=$(grep '^rpm_url=' "$GITHUB_OUTPUT" | tail -1 | cut -d= -f2-)
+          if [ -n "$override" ]; then
+              pkgname="$override"
+          elif [ -n "$rpm_url" ]; then
+              base=$(basename "$rpm_url")
+              pkgname=$(printf '%s' "$base" | sed -nE 's|^(o3de[0-9]+)-.*$|\1|p')
+              [ -n "$pkgname" ] || pkgname=o3de
+          else
+              pkgname=o3de
+          fi
+          echo "pkgname=${pkgname}" >> "$GITHUB_OUTPUT"
 
       - name: Look up dedup marker for this build (schedule only)
         id: cache
@@ -262,30 +299,37 @@ jobs:
         run: dnf install -y /tmp/o3de.rpm
 
       - name: Tier 1 + 2 (RPM-level + install integrity)
+        env:
+          O3DE_PKGNAME: ${{ needs.detect.outputs.pkgname }}
         run: tests/integration-test.sh
 
       - name: Tier 3 (user-side setup)
         if: ${{ needs.detect.outputs.run_setup == 'true' }}
+        env:
+          O3DE_PKGNAME: ${{ needs.detect.outputs.pkgname }}
         run: |
           chown -R runner:runner /home/runner $GITHUB_WORKSPACE
-          su -l runner -c "$GITHUB_WORKSPACE/tests/integration-test.sh --setup"
+          su -l runner -c "O3DE_PKGNAME='${{ needs.detect.outputs.pkgname }}' $GITHUB_WORKSPACE/tests/integration-test.sh --setup"
 
       - name: Tier 5 (project end-to-end)
         if: ${{ needs.detect.outputs.run_project == 'true' }}
+        env:
+          O3DE_PKGNAME: ${{ needs.detect.outputs.pkgname }}
         run: |
-          su -l runner -c "$GITHUB_WORKSPACE/tests/integration-test.sh --setup --with-project"
+          su -l runner -c "O3DE_PKGNAME='${{ needs.detect.outputs.pkgname }}' $GITHUB_WORKSPACE/tests/integration-test.sh --setup --with-project"
 
       - name: Tier 6 (UI smoke under Xvfb)
         if: ${{ needs.detect.outputs.run_ui == 'true' }}
         env:
           # Force Mesa lavapipe (software Vulkan) — no GPU in CI containers.
           VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
+          O3DE_PKGNAME: ${{ needs.detect.outputs.pkgname }}
         run: |
           chown -R runner:runner /home/runner $GITHUB_WORKSPACE
           if [ "${{ needs.detect.outputs.run_ui_editor }}" = "true" ]; then
-              su -l runner -c "$GITHUB_WORKSPACE/tests/ui-smoke-test.sh --editor --screenshot"
+              su -l runner -c "O3DE_PKGNAME='${{ needs.detect.outputs.pkgname }}' $GITHUB_WORKSPACE/tests/ui-smoke-test.sh --editor --screenshot"
           else
-              su -l runner -c "$GITHUB_WORKSPACE/tests/ui-smoke-test.sh --screenshot"
+              su -l runner -c "O3DE_PKGNAME='${{ needs.detect.outputs.pkgname }}' $GITHUB_WORKSPACE/tests/ui-smoke-test.sh --screenshot"
           fi
 
       - name: Upload screenshots
