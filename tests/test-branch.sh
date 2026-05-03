@@ -82,13 +82,20 @@ rpmbuild -bb $BUILD_FLAGS \
     --define "_specdir   $REPO_DIR" \
     o3de.spec
 
-RPM=$(ls -t ~/rpmbuild/RPMS/x86_64/o3de-*.rpm | head -1)
+# Match versioned package names (o3de2605, o3de2610, ...) plus the
+# legacy unversioned `o3de` form for back-compat during the rename
+# transition.
+RPM=$(ls -t ~/rpmbuild/RPMS/x86_64/o3de[0-9]*-*.rpm ~/rpmbuild/RPMS/x86_64/o3de-*.rpm 2>/dev/null | head -1)
 [ -f "$RPM" ] || { echo "no RPM produced" >&2; exit 1; }
 echo "Built: $RPM"
 
 echo
 echo "=== Installing ==="
-sudo dnf remove -y o3de 2>/dev/null || true
+# Remove any previously-installed o3de* package(s) — covers both the
+# legacy `o3de` and the versioned `o3de2605` / `o3de2610` forms.
+INSTALLED=$(rpm -qa --qf '%{NAME}\n' 2>/dev/null \
+    | grep -E '^(o3de[0-9]*)(-debug|-devel)?$' || true)
+[ -n "$INSTALLED" ] && sudo dnf remove -y $INSTALLED 2>/dev/null || true
 sudo dnf install -y "$RPM"
 
 echo

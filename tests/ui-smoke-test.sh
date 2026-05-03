@@ -25,7 +25,20 @@ set -uo pipefail
 
 DO_EDITOR=0
 DO_SCREENSHOT=0
-ENGINE_PATH="${O3DE_ENGINE_PATH:-/opt/o3de}"
+
+# Auto-detect installed versioned package; same pattern as integration-test.sh.
+: "${O3DE_PKGNAME:=$(rpm -qa --qf '%{NAME}\n' 2>/dev/null | grep -E '^o3de[0-9]+$' | head -1)}"
+: "${O3DE_PKGNAME:=o3de}"
+
+if [ -n "${O3DE_ENGINE_PATH:-}" ]; then
+    ENGINE_PATH="$O3DE_ENGINE_PATH"
+else
+    ENGINE_PATH=$(rpm -ql "$O3DE_PKGNAME" 2>/dev/null \
+        | grep -m1 '/engine\.json$' \
+        | xargs -r dirname 2>/dev/null)
+    : "${ENGINE_PATH:=/opt/O3DE/26.05.0}"
+fi
+
 PASS='\033[1;32m✓\033[0m'
 FAIL='\033[1;31m✗\033[0m'
 
@@ -47,7 +60,7 @@ require() {
 require Xvfb 'dnf install xorg-x11-server-Xvfb'
 require xdpyinfo 'dnf install xdpyinfo'
 [ "$DO_SCREENSHOT" -eq 1 ] && require scrot 'dnf install scrot'
-require o3de 'install the o3de RPM first'
+require "$O3DE_PKGNAME" "install the $O3DE_PKGNAME RPM first"
 
 # ── Xvfb setup ───────────────────────────────────────────────────────────────
 DISPLAY_NUM=99
@@ -75,7 +88,7 @@ echo
 echo "▶▶▶ Project Manager smoke test"
 
 PM_LOG=$(mktemp)
-o3de >"$PM_LOG" 2>&1 &
+"$O3DE_PKGNAME" >"$PM_LOG" 2>&1 &
 PM_PID=$!
 
 # Give it 15 seconds to either crash or settle

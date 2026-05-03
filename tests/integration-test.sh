@@ -17,7 +17,27 @@ set -uo pipefail
 
 RUN_SETUP=0
 RUN_PROJECT=0
-ENGINE_PATH="${O3DE_ENGINE_PATH:-/opt/o3de}"
+
+# Auto-detect the installed versioned package (o3de2605, o3de2610, ...).
+# Override via O3DE_PKGNAME env var when multiple are installed and you
+# want to test a specific one. Falls back to legacy "o3de" so tests still
+# run during the transition window after the 2026-05-03 rename.
+: "${O3DE_PKGNAME:=$(rpm -qa --qf '%{NAME}\n' 2>/dev/null | grep -E '^o3de[0-9]+$' | head -1)}"
+: "${O3DE_PKGNAME:=o3de}"
+
+# Engine path defaults from O3DE_ENGINE_PATH (legacy name preserved), or
+# auto-detect from the package's installed engine.json, or last-resort
+# default. Prefer the actual install when O3DE_PKGNAME resolves to a
+# real package — handles both /opt/o3de (legacy) and /opt/O3DE/<v>/
+# (post-rename) layouts transparently.
+if [ -n "${O3DE_ENGINE_PATH:-}" ]; then
+    ENGINE_PATH="$O3DE_ENGINE_PATH"
+else
+    ENGINE_PATH=$(rpm -ql "$O3DE_PKGNAME" 2>/dev/null \
+        | grep -m1 '/engine\.json$' \
+        | xargs -r dirname 2>/dev/null)
+    : "${ENGINE_PATH:=/opt/O3DE/26.05.0}"
+fi
 HEADER='\n\033[1;36m▶▶▶ %s\033[0m\n'
 PASS='\033[1;32m✓\033[0m'
 FAIL='\033[1;31m✗\033[0m'
@@ -56,34 +76,42 @@ for cmd in rpm desktop-file-validate appstream-util; do require "$cmd"; done
 # ── Tier 1: RPM-level integrity ──────────────────────────────────────────────
 printf "$HEADER" "Tier 1 — package metadata"
 
-rpm -q o3de >/dev/null && ok "o3de package is installed" || {
-    nope "o3de package installed" "(rpm -q o3de failed; install the RPM first)"
+# Derive the version-suffix that's appended to several installed names
+# (e.g., AppStream component ID `org.o3de.O3DE2605`, WM_CLASS `O3DE-2605`).
+# For a legacy `o3de` package (no digit suffix), MAJOR_TAG is empty —
+# tests fall back to the un-versioned identifiers.
+MAJOR_TAG="${O3DE_PKGNAME#o3de}"
+APPSTREAM_ID="org.o3de.O3DE${MAJOR_TAG}"
+WMCLASS="O3DE${MAJOR_TAG:+-$MAJOR_TAG}"
+
+rpm -q "$O3DE_PKGNAME" >/dev/null && ok "$O3DE_PKGNAME package is installed" || {
+    nope "$O3DE_PKGNAME package installed" "(rpm -q $O3DE_PKGNAME failed; install the RPM first)"
     exit 1
 }
 
-VERSION=$(rpm -q --qf '%{VERSION}' o3de)
+VERSION=$(rpm -q --qf '%{VERSION}' "$O3DE_PKGNAME")
 ok "rpm version: $VERSION"
 
-rpm -V o3de --nofiles >/dev/null 2>&1 && \
+rpm -V "$O3DE_PKGNAME" --nofiles >/dev/null 2>&1 && \
     ok "rpm -V: header consistent" || \
     nope "rpm -V" "header verification reported issues"
 
 # License + provides + auto-Requires resolve cleanly
-LIC=$(rpm -q --qf '%{LICENSE}' o3de)
+LIC=$(rpm -q --qf '%{LICENSE}' "$O3DE_PKGNAME")
 [ "$LIC" = "Apache-2.0 OR MIT" ] && ok "license: $LIC" || nope "license" "expected 'Apache-2.0 OR MIT', got '$LIC'"
 
 # ── Tier 2: install integrity ────────────────────────────────────────────────
 printf "$HEADER" "Tier 2 — installed file integrity"
 
-# Required entry points (always required)
+# Required entry points (always required) — all derived from $O3DE_PKGNAME.
 for path in \
-    /usr/bin/o3de \
-    /usr/share/applications/o3de.desktop \
-    /usr/share/applications/o3de-editor.desktop \
-    /usr/share/metainfo/o3de.metainfo.xml \
-    /usr/share/icons/hicolor/256x256/apps/o3de.png \
-    /usr/share/icons/hicolor/16x16/apps/o3de.png \
-    /usr/share/o3de/sbom/o3de.cdx.json \
+    "/usr/bin/$O3DE_PKGNAME" \
+    "/usr/share/applications/$O3DE_PKGNAME.desktop" \
+    "/usr/share/applications/$O3DE_PKGNAME-editor.desktop" \
+    "/usr/share/metainfo/$O3DE_PKGNAME.metainfo.xml" \
+    "/usr/share/icons/hicolor/256x256/apps/$O3DE_PKGNAME.png" \
+    "/usr/share/icons/hicolor/16x16/apps/$O3DE_PKGNAME.png" \
+    "/usr/share/$O3DE_PKGNAME/sbom/$O3DE_PKGNAME.cdx.json" \
     "$ENGINE_PATH/engine.json" \
     "$ENGINE_PATH/python/get_python.sh" \
     "$ENGINE_PATH/scripts/o3de.sh" \
@@ -94,60 +122,61 @@ do
 done
 
 # Launcher is executable, valid shell, has correct shebang
-[ -x /usr/bin/o3de ] && ok "/usr/bin/o3de is executable" || nope "/usr/bin/o3de executable" "not +x"
-head -1 /usr/bin/o3de | grep -qE '^#!/(usr/)?bin/bash([[:space:]]|$)|^#!/usr/bin/env[[:space:]]+bash' && \
-    ok "launcher shebang is bash" || nope "launcher shebang" "got '$(head -1 /usr/bin/o3de)'"
+[ -x "/usr/bin/$O3DE_PKGNAME" ] && ok "/usr/bin/$O3DE_PKGNAME is executable" \
+    || nope "/usr/bin/$O3DE_PKGNAME executable" "not +x"
+head -1 "/usr/bin/$O3DE_PKGNAME" | grep -qE '^#!/(usr/)?bin/bash([[:space:]]|$)|^#!/usr/bin/env[[:space:]]+bash' && \
+    ok "launcher shebang is bash" || nope "launcher shebang" "got '$(head -1 /usr/bin/$O3DE_PKGNAME)'"
 
 # CLI wrapper. Detect whether the installed RPM is supposed to ship it
 # (older snapshot RPMs predate the wrapper); only enforce when the RPM
-# manifest declares it. Once o3de-cli has graduated to o3de-snapshot
-# (and eventually stable), every relevant build will have it and the
-# detection just becomes a no-op gate.
-if rpm -ql o3de 2>/dev/null | grep -qx '/usr/bin/o3de-cli'; then
-    [ -x /usr/bin/o3de-cli ] && ok "/usr/bin/o3de-cli is executable" || \
-        nope "/usr/bin/o3de-cli executable" "RPM declares it but not +x or missing"
+# manifest declares it.
+if rpm -ql "$O3DE_PKGNAME" 2>/dev/null | grep -qx "/usr/bin/${O3DE_PKGNAME}-cli"; then
+    [ -x "/usr/bin/${O3DE_PKGNAME}-cli" ] && ok "/usr/bin/${O3DE_PKGNAME}-cli is executable" || \
+        nope "/usr/bin/${O3DE_PKGNAME}-cli executable" "RPM declares it but not +x or missing"
     # Reachability check needs the bundled-Python venv set up — o3de.sh
-    # invokes /opt/o3de/python/python.sh which fails on a fresh install
-    # before get_python.sh has run. Skip the deeper check when the venv
-    # isn't ready; Tier 3 (--setup) covers it via o3de-cli register.
+    # invokes the bundled python.sh which fails on a fresh install
+    # before get_python.sh has run. Skip when the venv isn't ready;
+    # Tier 3 (--setup) covers it via the register step.
     if [ -d "$HOME/.o3de/Python/venv/" ] && \
        ls "$HOME/.o3de/Python/venv/"*/lib/python*/site-packages/o3de >/dev/null 2>&1; then
-        if /usr/bin/o3de-cli --help </dev/null 2>&1 | grep -qE 'usage: o3de\.py|Sub-Commands'; then
-            ok "/usr/bin/o3de-cli --help reaches the upstream o3de.py argparse"
+        if "/usr/bin/${O3DE_PKGNAME}-cli" --help </dev/null 2>&1 | grep -qE 'usage: o3de\.py|Sub-Commands'; then
+            ok "/usr/bin/${O3DE_PKGNAME}-cli --help reaches the upstream o3de.py argparse"
         else
-            nope "/usr/bin/o3de-cli reachable" "venv ready, but no upstream argparse output — wrapper or o3de.sh path broken"
+            nope "/usr/bin/${O3DE_PKGNAME}-cli reachable" "venv ready, but no upstream argparse output — wrapper or o3de.sh path broken"
         fi
     else
-        skipped "/usr/bin/o3de-cli reachable" "no per-user venv yet; pass --setup or run get_python.sh first"
+        skipped "/usr/bin/${O3DE_PKGNAME}-cli reachable" "no per-user venv yet; pass --setup or run get_python.sh first"
     fi
 else
-    skipped "/usr/bin/o3de-cli checks" "RPM doesn't declare it (pre-CLI build); skipping"
+    skipped "/usr/bin/${O3DE_PKGNAME}-cli checks" "RPM doesn't declare it (pre-CLI build); skipping"
 fi
-nope_v "launcher syntax (bash -n)" bash -n /usr/bin/o3de
+nope_v "launcher syntax (bash -n)" bash -n "/usr/bin/$O3DE_PKGNAME"
 
 # Desktop file + metainfo validation
-nope_v "o3de.desktop validates" desktop-file-validate /usr/share/applications/o3de.desktop
-nope_v "o3de-editor.desktop validates" desktop-file-validate /usr/share/applications/o3de-editor.desktop
-nope_v "metainfo validates" appstream-util validate-relax --nonet /usr/share/metainfo/o3de.metainfo.xml
+nope_v "$O3DE_PKGNAME.desktop validates" desktop-file-validate "/usr/share/applications/$O3DE_PKGNAME.desktop"
+nope_v "$O3DE_PKGNAME-editor.desktop validates" desktop-file-validate "/usr/share/applications/$O3DE_PKGNAME-editor.desktop"
+nope_v "metainfo validates" appstream-util validate-relax --nonet "/usr/share/metainfo/$O3DE_PKGNAME.metainfo.xml"
 
 # AppStream sees the package (appstreamcli is optional — only if installed)
 if command -v appstreamcli >/dev/null 2>&1; then
-    if appstreamcli search org.o3de.O3DE 2>/dev/null | grep -q '^Identifier: org.o3de.O3DE'; then
-        ok "AppStream registers org.o3de.O3DE"
+    if appstreamcli search "$APPSTREAM_ID" 2>/dev/null | grep -qE "^Identifier: ${APPSTREAM_ID}"; then
+        ok "AppStream registers $APPSTREAM_ID"
     else
-        nope "AppStream search" "GNOME Software / KDE Discover won't find this package"
+        nope "AppStream search" "GNOME Software / KDE Discover won't find this package (looking for $APPSTREAM_ID)"
     fi
 else
     skipped "AppStream search" "appstreamcli not installed"
 fi
 
-# StartupWMClass values (for dock icon matching)
-grep -q '^StartupWMClass=O3DE$' /usr/share/applications/o3de.desktop && \
-    ok "Project Manager StartupWMClass=O3DE" || \
-    nope "ProjectManager StartupWMClass" "missing or wrong"
-grep -q '^StartupWMClass=O3DE Editor$' /usr/share/applications/o3de-editor.desktop && \
-    ok "Editor StartupWMClass=O3DE Editor" || \
-    nope "Editor StartupWMClass" "missing or wrong"
+# StartupWMClass values (for dock icon matching). Versioned to match
+# what the launcher's Qt -name arg sets at runtime — multiple installed
+# majors get distinct dock identities.
+grep -q "^StartupWMClass=${WMCLASS}\$" "/usr/share/applications/$O3DE_PKGNAME.desktop" && \
+    ok "Project Manager StartupWMClass=$WMCLASS" || \
+    nope "ProjectManager StartupWMClass" "missing or wrong (looking for $WMCLASS)"
+grep -q "^StartupWMClass=${WMCLASS} Editor\$" "/usr/share/applications/$O3DE_PKGNAME-editor.desktop" && \
+    ok "Editor StartupWMClass=$WMCLASS Editor" || \
+    nope "Editor StartupWMClass" "missing or wrong (looking for $WMCLASS Editor)"
 
 # Engine.json carries a 3-component MAJOR.MINOR.PATCH version
 EJ_VERSION=$(grep '"version"' "$ENGINE_PATH/engine.json" | awk -F'"' '{print $4}')
@@ -216,9 +245,9 @@ for swap in \
     # lua-libs row deferred — see Makefile SRPM_EXPERIMENTAL_FLAGS for why.
     pkg="${swap%%:*}"
     soname="${swap#*:}"
-    if rpm -q --requires o3de 2>/dev/null | grep -qE "^${pkg}(\\s|\$|>|=)"; then
-        if rpm -q --requires o3de 2>/dev/null | grep -qF "${soname}("; then
-            ok "system-lib swap took effect: o3de Requires:$pkg AND $soname appears in auto-Requires"
+    if rpm -q --requires "$O3DE_PKGNAME" 2>/dev/null | grep -qE "^${pkg}(\\s|\$|>|=)"; then
+        if rpm -q --requires "$O3DE_PKGNAME" 2>/dev/null | grep -qF "${soname}("; then
+            ok "system-lib swap took effect: $O3DE_PKGNAME Requires:$pkg AND $soname appears in auto-Requires"
         else
             nope "system-lib swap: $pkg" "RPM declares Requires:$pkg but $soname is missing from auto-Requires — likely the swap regressed and the bundle is still being statically linked"
         fi
@@ -249,13 +278,13 @@ if [ "$RUN_SETUP" -eq 1 ]; then
         nope "manifest.py patch" "venv copy missing the env-var branch — engine path resolution will misbehave"
     fi
 
-    # Engine registration. Prefer the PATH-installed o3de-cli wrapper
-    # (which forwards to /opt/o3de/scripts/o3de.sh) when available — this
-    # double-duties as an end-to-end reachability test of the wrapper now
-    # that the per-user venv is set up. Fall back to the absolute path
-    # for older RPMs that don't ship the wrapper.
-    if rpm -ql o3de 2>/dev/null | grep -qx '/usr/bin/o3de-cli'; then
-        register_cmd=/usr/bin/o3de-cli
+    # Engine registration. Prefer the PATH-installed CLI wrapper (which
+    # forwards to <engine>/scripts/o3de.sh) when available — this double-
+    # duties as an end-to-end reachability test of the wrapper now that
+    # the per-user venv is set up. Fall back to the absolute path for
+    # older RPMs that don't ship the wrapper.
+    if rpm -ql "$O3DE_PKGNAME" 2>/dev/null | grep -qx "/usr/bin/${O3DE_PKGNAME}-cli"; then
+        register_cmd="/usr/bin/${O3DE_PKGNAME}-cli"
     else
         register_cmd="$ENGINE_PATH/scripts/o3de.sh"
     fi
@@ -280,11 +309,11 @@ fi
 printf "$HEADER" "Tier 4 — engine binary smoke"
 
 # Launcher resolves to *some* config (auto-detection works)
-if env -u O3DE_HOME bash -c '
+if env -u O3DE_HOME bash -c "
     set -e
-    source <(awk "/^ENGINE_PATH=/,/^fi$/" /usr/bin/o3de | sed "/^exec/q;/^if/,/^fi$/!d")
-    [ -n "${BIN_DIR:-}" ] && [ -x "$BIN_DIR/o3de" ]
-' 2>/dev/null; then
+    source <(awk \"/^ENGINE_PATH=/,/^fi\\\$/\" /usr/bin/$O3DE_PKGNAME | sed \"/^exec/q;/^if/,/^fi\\\$/!d\")
+    [ -n \"\${BIN_DIR:-}\" ] && [ -x \"\$BIN_DIR/o3de\" ]
+" 2>/dev/null; then
     ok "launcher auto-detects an installed config"
 else
     # Fallback: just check that one of the known paths is present
@@ -313,7 +342,7 @@ fi
 if [ "$RUN_SETUP" -eq 1 ] || [ -d "$HOME/.o3de/Python/venv/" ] && \
    ls "$HOME/.o3de/Python/venv/"*/lib/python*/site-packages/o3de >/dev/null 2>&1; then
     LAUNCH_LOG=$(mktemp)
-    QT_QPA_PLATFORM=offscreen timeout 8 /usr/bin/o3de </dev/null >"$LAUNCH_LOG" 2>&1 || :
+    QT_QPA_PLATFORM=offscreen timeout 8 "/usr/bin/$O3DE_PKGNAME" </dev/null >"$LAUNCH_LOG" 2>&1 || :
     if grep -q "Missing python venv file at\|Python home path does not exist" "$LAUNCH_LOG"; then
         nope "engine-path / venv-id sync" "launcher didn't pass --engine-path; engine looks for venv at wrong ID. Log: $LAUNCH_LOG"
     else

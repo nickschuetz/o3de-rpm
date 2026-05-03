@@ -29,7 +29,7 @@ Tiers 1, 2, 4 are read-only and safe on a developer machine. Tier 3 modifies `~/
 
 ### Against an existing install
 ```bash
-sudo dnf install -y ./o3de-*.rpm
+sudo dnf install -y ./o3de2605-*.rpm        # or whichever o3deNNNN.rpm
 
 # Non-UI tiers
 tests/integration-test.sh                          # tiers 1, 2, 4
@@ -44,6 +44,15 @@ tests/ui-smoke-test.sh --editor --screenshot      # with screenshots
 ```
 
 `make test`, `make test-setup`, `make test-full`, `make test-ui`, `make test-ui-full` are shortcuts for the above.
+
+The test scripts auto-detect which versioned package is installed (matching `^o3de[0-9]+$` from `rpm -qa`) and derive `$ENGINE_PATH` from its installed `engine.json`. To force a specific package when multiple majors are installed (e.g., both `o3de2605` and `o3de2610`):
+
+```bash
+O3DE_PKGNAME=o3de2605 tests/integration-test.sh
+O3DE_PKGNAME=o3de2610 tests/integration-test.sh
+```
+
+`O3DE_ENGINE_PATH` is also still honored for explicit engine-root overrides (legacy variable name preserved).
 
 ### End-to-end from a git ref
 ```bash
@@ -77,7 +86,7 @@ For automated COPR → CI integration, configure a COPR webhook that triggers th
 - AppStream registration (`appstreamcli search org.o3de.O3DE`)
 - StartupWMClass values (Project Manager + Editor)
 - 3-component engine.json version + non-placeholder display_version
-- No world-writable files in `/opt/o3de`
+- No world-writable files in the install prefix (`/opt/O3DE/<version>/`)
 - Pre-built sdists for `scripts/o3de`, `Tools/LyTestTools`, `Tools/RemoteConsole/ly_remote_console`
 - `ldd` clean on engine binaries
 - Stage 1 system-library swap consistency (when an `o3de` RPM declares e.g. `Requires: mikkelsen`, an engine .so under `bin/Linux/profile/Default/` must actually link to `libmikktspace.so.*` — catches regressions where the spec activates the swap but cmake silently falls back to bundling)
