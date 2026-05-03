@@ -37,6 +37,13 @@
 SHELL := /bin/bash
 PWD   := $(shell pwd)
 
+# Derive the RPM package name from the spec — single source of truth.
+# Today this resolves to `o3de2605` (from `%global stable_tag 2605.0`);
+# bump stable_tag to 2610.0 in the future and the same Make targets
+# automatically build/test/upload `o3de2610` instead. Keeps SRPM/RPM
+# glob patterns in sync with whatever the spec is currently pinned to.
+PKGNAME := $(shell rpmspec --define "_sourcedir $(PWD)/sources" --define "_specdir $(PWD)" -q --qf '%{NAME}\n' o3de.spec 2>/dev/null | head -1)
+
 # Default REF for `make snapshot` is the current next-release stabilization
 # branch — that's what o3de-snapshot ships to community testers. Pass
 # REF=development for the bleeding-edge integration branch, or any other
@@ -58,6 +65,7 @@ RPMBUILD_DEFINES = \
 	--define "_specdir   $(PWD)"
 
 .PHONY: help lint spec-parse spec-parse-snapshot spec-parse-stabilization spec-parse-experimental \
+        print-pkgname \
         snapshot srpm srpm-snapshot srpm-stabilization srpm-experimental \
         rpm rpm-snapshot rpm-debug rpm-snapshot-debug \
         copr-stable copr-snapshot copr-stabilization copr-experimental \
@@ -85,6 +93,9 @@ lint: spec-parse spec-parse-snapshot spec-parse-stabilization spec-parse-experim
 	    [ -f "$$f" ] && bash -n "$$f" && echo "    $$f OK"; \
 	done | sort -u
 	@echo "All lints passed."
+
+print-pkgname:
+	@echo "$(PKGNAME)"
 
 spec-parse:
 	@rpmspec $(RPMBUILD_DEFINES) -q o3de.spec
@@ -293,17 +304,17 @@ copr-init:
 
 copr-stable: srpm
 	copr-cli build --timeout 25200 $(COPR_OWNER)/$(COPR_PROJECT_STABLE) \
-		~/rpmbuild/SRPMS/o3de-*.src.rpm
+		~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
 
 copr-snapshot: srpm-snapshot
 	copr-cli build --timeout 25200 $(COPR_OWNER)/$(COPR_PROJECT_SNAPSHOT) \
-		~/rpmbuild/SRPMS/o3de-*.src.rpm
+		~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
 
 # copr-stabilization: the regular community-tester channel. This is the
 # project the test-installed.yml cron polls for new builds.
 copr-stabilization: srpm-stabilization
 	copr-cli build --timeout 25200 $(COPR_OWNER)/$(COPR_PROJECT_STABILIZATION) \
-		~/rpmbuild/SRPMS/o3de-*.src.rpm
+		~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
 
 # Parallel project for in-flight migration / structural work that isn't
 # ready to expose to o3de-stabilization's community testers. Same chroots
@@ -311,7 +322,7 @@ copr-stabilization: srpm-stabilization
 # project; different audience: only us until a change is validated.
 copr-experimental: srpm-experimental
 	copr-cli build --timeout 25200 $(COPR_OWNER)/$(COPR_PROJECT_EXPERIMENTAL) \
-		~/rpmbuild/SRPMS/o3de-*.src.rpm
+		~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
 
 # 25200s = 7 hr. Default COPR project timeout is 5 hr; F44 chroot ate
 # ~4 hr in build 10414894 (which completed all 2173 compile steps), so
@@ -341,7 +352,7 @@ _copr-and-test:
 	@set -e ; \
 	build_output=$$(copr-cli build --timeout 25200 \
 	    $(COPR_OWNER)/$(COPR_TARGET) \
-	    ~/rpmbuild/SRPMS/o3de-*.src.rpm) ; \
+	    ~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm) ; \
 	echo "$$build_output" ; \
 	build_id=$$(echo "$$build_output" | grep -oE 'Created builds: [0-9]+' \
 	    | tail -1 | awk '{print $$3}') ; \
@@ -367,7 +378,7 @@ trigger-tests:
 	@[ -n "$(BUILD_ID)" ] || { echo "usage: make trigger-tests BUILD_ID=<copr-build-id> [COPR_PROJECT=<project>]"; exit 2; }
 	@repo="https://download.copr.fedorainfracloud.org/results/$(COPR_OWNER)/$(COPR_PROJECT)/fedora-44-x86_64" ; \
 	primary=$$(curl -fsSL "$$repo/repodata/repomd.xml" | grep -oE 'repodata/[a-f0-9]+-primary\.xml\.gz' | head -1) ; \
-	rpm_rel=$$(curl -fsSL "$$repo/$$primary" | gunzip -c | grep -oE 'href="Packages/o/o3de-[^"]+\.x86_64\.rpm"' | grep -v -- '-debug-' | head -1 | sed 's/^href="//; s/"$$//') ; \
+	rpm_rel=$$(curl -fsSL "$$repo/$$primary" | gunzip -c | grep -oE 'href="Packages/o/o3de[0-9]+-[^"]+\.x86_64\.rpm"' | grep -v -- '-debug-' | head -1 | sed 's/^href="//; s/"$$//') ; \
 	if [ -z "$$rpm_rel" ]; then \
 	    echo "ERROR: no F44 o3de RPM in repodata at $$repo" ; exit 1 ; \
 	fi ; \
@@ -408,4 +419,4 @@ test-branch:
 # ── Clean ───────────────────────────────────────────────────────────────────
 
 clean:
-	rm -rf ~/rpmbuild/BUILD ~/rpmbuild/BUILDROOT ~/rpmbuild/RPMS/x86_64/o3de-* ~/rpmbuild/SRPMS/o3de-*
+	rm -rf ~/rpmbuild/BUILD ~/rpmbuild/BUILDROOT ~/rpmbuild/RPMS/x86_64/$(PKGNAME)-* ~/rpmbuild/SRPMS/$(PKGNAME)-*
