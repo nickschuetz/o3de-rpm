@@ -66,7 +66,8 @@ See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the source-to-RPM flowchart and the
 
 ```bash
 # 1. Compute the upstream tarball SHA256 (one-time per release).
-TAG=2510.2
+#    TAG must match `%global stable_tag` in o3de.spec — currently 2605.0.
+TAG=2605.0
 curl -fLO "https://github.com/o3de/o3de/releases/download/${TAG}/o3de_${TAG}_lfs.tar.gz"
 sha256sum "o3de_${TAG}_lfs.tar.gz"
 # Paste the hex into o3de.spec under %global stable_sha256.
@@ -99,7 +100,7 @@ rpmbuild -bb --with snapshot \
     o3de.spec
 ```
 
-The snapshot version string is `<stable_tag>^<YYYYMMDD>git<shortsha>` (e.g. `2510.2^20260427gitabc1234`). The `^` separator tells `dnf` this is a *pre-release* of the next release, so upgrading `snapshot → next-stable` works correctly.
+The snapshot version string is `<stable_tag>^<YYYYMMDD>git<shortsha>` (e.g. `2605.0^20260427gitabc1234`). The `^` separator tells `dnf` this is a *pre-release* of the next release, so upgrading `snapshot → next-stable` works correctly.
 
 ---
 
