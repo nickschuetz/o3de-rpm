@@ -74,7 +74,13 @@ These have direct Fedora equivalents. Migration is per-package, low risk per mig
 | lz4 | 1.9.4-rev2 | `lz4-devel` | 1.9.x | trivial flip |
 | libsamplerate | 0.2.1-rev2 | `libsamplerate-devel` | 0.2.2 | trivial flip |
 | mcpp | 2.7.2_az.2-rev1 | `mcpp` | 2.7.x | O3DE uses an `_az` patched fork — verify base mcpp suffices. |
-| **mikkelsen** | 1.0.0.4 | `mikkelsen-devel` (from `hellaenergy/o3de-dependencies` COPR) | 1.0+git3e895b4 | **VALIDATED in experimental channel** (build 10419014, 2026-05-03) — `--with system_mikkelsen` flips Patch0006 + Findmikkelsen-system.cmake on; engine binaries auto-Require `libmikktspace.so.0()(64bit)`. Default-off in `o3de-snapshot` (community testers' channel) until Nick promotes; awaiting his testing-window-closes signal. |
+| **expat** | 2.4.2-rev2 | `expat-devel` | 2.6+ | **ACTIVATED in experimental** — Patch0006 gate + cmake stock FindEXPAT (alias `3rdParty::expat ← EXPAT::EXPAT`). Awaiting first all-7 batch validation. |
+| **freetype** | 2.11.1-rev1 | `freetype-devel` | 2.14+ | **ACTIVATED in experimental** — Patch0006 gate + cmake stock FindFreetype (alias `3rdParty::Freetype ← Freetype::Freetype`). |
+| **Lua** | 5.4.4-rev1 | `lua-devel` | 5.4.8+ | **ACTIVATED in experimental** — Patch0006 gate + cmake stock FindLua (alias `3rdParty::Lua ← Lua::Lua`). |
+| **mikkelsen** | 1.0.0.4 | `mikkelsen-devel` (from `hellaenergy/o3de-dependencies` COPR) | 1.0+git3e895b4 | **VALIDATED in experimental** (build 10419014, 2026-05-03) — `--with system_mikkelsen` flips Patch0006 + Findmikkelsen-system.cmake on; engine binaries auto-Require `libmikktspace.so.0()(64bit)`. Default-off in `o3de-snapshot` until Nick promotes the all-7 batch. |
+| **libpng** | 1.6.37-rev2 | `libpng-devel` | 1.6.56+ | **ACTIVATED in experimental** — Patch0006 gate + cmake stock FindPNG (alias `3rdParty::PNG ← PNG::PNG`). |
+| **libtiff** | 4.2.0.15-rev3 | `libtiff-devel` | 4.6+ | **ACTIVATED in experimental** — Patch0006 gate + cmake stock FindTIFF (alias `3rdParty::TIFF ← TIFF::TIFF`). |
+| **zlib** | 1.2.11-rev5 | `zlib-devel` (resolved via Provides chain to `zlib-ng-compat` on F44+) | 2.3+ | **ACTIVATED in experimental** — Patch0006 gate + cmake stock FindZLIB (alias `3rdParty::ZLIB ← ZLIB::ZLIB`). |
 | assimp | 5.4.3-rev3 | `assimp-devel` | 5.4.x | trivial flip |
 | SPIRVCross | 1.3.275.0-rev1 | `spirv-cross-devel` | 1.3.x | trivial flip |
 | vulkan-validationlayers | 1.2.198-rev1 | `vulkan-validation-layers-devel` | 1.3.x | newer in Fedora; verify O3DE's loader interaction |

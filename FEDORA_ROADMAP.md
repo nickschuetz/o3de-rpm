@@ -24,7 +24,7 @@ This document is the staged plan, dependency map, and decision log. It lives in 
 
 ## Stage 1 — System library migration (the long tail)
 
-**Status:** **template validated end-to-end as of 2026-05-03.** **mikkelsen** is the first activated + validated swap (gated to `o3de-experimental`, COPR build 10419014, test-installed.yml run 25277223923 — F44 + rawhide both green; Tier 2 swap-consistency test confirmed `libmikktspace.so.0` is in the binary RPM's auto-Requires). The remaining ~19 packages follow the same pattern. See `BUNDLED_LIBRARIES.md` § "mikkelsen migration status" for the validated example.
+**Status:** **first batch in flight (2026-05-03).** Seven migrations are activated in `o3de-experimental` simultaneously: `expat`, `freetype`, `Lua`, `mikkelsen` (validated independently 2026-05-03), `libpng`, `libtiff`, `zlib`. The plan, per Nick's tester-pacing decision: prove the whole batch at once in experimental, then promote the validated SRPM to `o3de-snapshot` as one push so testers see one coherent migration moment. mikkelsen's solo validation (build 10419014, run 25277223923) proved the migration template; this batch tests scale + interaction. Remaining unmigrated bundles (mcpp, vulkan-validationlayers, googlebenchmark, assimp, SPIRVCross/lz4/libsamplerate, libcurl/pcre2/SQLite, OpenEXR/OIIO/OCIO, pyside2) are deferred — see notes by each in the table.
 
 O3DE bundles ~30 3rdParty packages from its CDN at cmake configure time. Most of them have direct Fedora equivalents we can pivot to.
 
