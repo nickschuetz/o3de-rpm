@@ -75,10 +75,9 @@ LIC=$(rpm -q --qf '%{LICENSE}' o3de)
 # ── Tier 2: install integrity ────────────────────────────────────────────────
 printf "$HEADER" "Tier 2 — installed file integrity"
 
-# Required entry points
+# Required entry points (always required)
 for path in \
     /usr/bin/o3de \
-    /usr/bin/o3de-cli \
     /usr/share/applications/o3de.desktop \
     /usr/share/applications/o3de-editor.desktop \
     /usr/share/metainfo/o3de.metainfo.xml \
@@ -99,15 +98,21 @@ done
 head -1 /usr/bin/o3de | grep -qE '^#!/(usr/)?bin/bash([[:space:]]|$)|^#!/usr/bin/env[[:space:]]+bash' && \
     ok "launcher shebang is bash" || nope "launcher shebang" "got '$(head -1 /usr/bin/o3de)'"
 
-# CLI wrapper exists, executable, and reaches the upstream Python CLI
-# (a no-arg invocation prints `usage: o3de.py ...` because the upstream
-# argparse requires a sub-command — that's the success signal).
-[ -x /usr/bin/o3de-cli ] && ok "/usr/bin/o3de-cli is executable" || \
-    nope "/usr/bin/o3de-cli executable" "not +x or missing"
-if /usr/bin/o3de-cli --help </dev/null 2>&1 | grep -qE 'usage: o3de\.py|Sub-Commands'; then
-    ok "/usr/bin/o3de-cli --help reaches the upstream o3de.py argparse"
+# CLI wrapper. Detect whether the installed RPM is supposed to ship it
+# (older snapshot RPMs predate the wrapper); only enforce when the RPM
+# manifest declares it. Once o3de-cli has graduated to o3de-snapshot
+# (and eventually stable), every relevant build will have it and the
+# detection just becomes a no-op gate.
+if rpm -ql o3de 2>/dev/null | grep -qx '/usr/bin/o3de-cli'; then
+    [ -x /usr/bin/o3de-cli ] && ok "/usr/bin/o3de-cli is executable" || \
+        nope "/usr/bin/o3de-cli executable" "RPM declares it but not +x or missing"
+    if /usr/bin/o3de-cli --help </dev/null 2>&1 | grep -qE 'usage: o3de\.py|Sub-Commands'; then
+        ok "/usr/bin/o3de-cli --help reaches the upstream o3de.py argparse"
+    else
+        nope "/usr/bin/o3de-cli reachable" "no upstream argparse output — wrapper or o3de.sh path broken"
+    fi
 else
-    nope "/usr/bin/o3de-cli reachable" "no upstream argparse output — wrapper or o3de.sh path broken"
+    skipped "/usr/bin/o3de-cli checks" "RPM doesn't declare it (pre-CLI build); skipping"
 fi
 nope_v "launcher syntax (bash -n)" bash -n /usr/bin/o3de
 
