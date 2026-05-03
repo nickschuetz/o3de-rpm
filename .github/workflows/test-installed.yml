@@ -8,13 +8,17 @@ name: test-installed
 # Three triggers:
 #   workflow_dispatch     manual via the GitHub UI (paste an RPM URL)
 #   repository_dispatch   programmatic; fired by `make trigger-tests`
-#                         after a `make copr-snapshot` succeeds.
-#                         event_type: copr-build-succeeded
+#                         after a `make copr-stabilization-and-test`
+#                         (or `make copr-experimental-and-test`, etc.)
+#                         succeeds. event_type: copr-build-succeeded
 #                         client_payload: { rpm_url, build_id }
 #   schedule              cron-poll COPR every 4 hours; on a new
 #                         succeeded build that's never been tested,
-#                         run automatically. Dedup via actions/cache
-#                         keyed on the COPR build_id.
+#                         run automatically. Polls o3de-stabilization
+#                         (the community-tester channel) by default;
+#                         o3de-snapshot is for one-off dev builds and
+#                         doesn't need cron-driven testing. Dedup via
+#                         actions/cache keyed on the COPR build_id.
 
 on:
   workflow_dispatch:
