@@ -187,28 +187,34 @@ for cfg in profile debug; do
 done
 
 # Stage 1 system-library swap consistency. For each migration where the
-# RPM declares a system Requires:, verify some engine .so actually links
-# to the expected runtime library — catches the failure mode where the
-# spec activates the swap but cmake silently falls through to the
-# upstream bundle (which would link statically, leaving zero ldd evidence
-# of the swap on user machines).
+# RPM declares a system Requires:, verify the package's auto-Requires
+# (computed by RPM walking ldd of every .so it ships) includes the
+# expected soname — catches the failure mode where the spec activates
+# the swap but cmake silently falls through to the upstream bundle
+# (which would link statically, leaving the soname missing from auto-
+# Requires entirely).
+#
+# Use rpm's own auto-Requires output rather than re-walking the install
+# tree with ldd: rpm walks every shipped binary anyway, and auto-
+# detected .so dependencies appear as `libfoo.so.N()(64bit)` lines in
+# `rpm -q --requires`. That's a single source of truth and doesn't
+# depend on us guessing where the consuming binary lives in the install
+# layout (which can vary across gem/component structure changes).
 #
 # Add a row per activated migration. Format:
-#   "<rpm-package-name>:<expected-soname-substring>"
-# rpm-package: matches `rpm -q --requires o3de` to detect activation
-# soname: matches the ldd output of any .so in $LIB_DIR
-LIB_DIR="$ENGINE_PATH/bin/Linux/profile/Default"
+#   "<rpm-package-name>:<expected-soname>"
+#   rpm-package — matches `rpm -q --requires o3de` to detect activation
+#   soname      — looked for in `rpm -q --requires` as `<soname>(...)`
 for swap in \
-    "mikkelsen:libmikktspace" \
+    "mikkelsen:libmikktspace.so.0" \
 ; do
     pkg="${swap%%:*}"
     soname="${swap#*:}"
     if rpm -q --requires o3de 2>/dev/null | grep -qE "^${pkg}(\\s|\$|>|=)"; then
-        if [ -d "$LIB_DIR" ] && \
-           find "$LIB_DIR" -name "*.so" -exec ldd {} + 2>/dev/null | grep -q "$soname"; then
-            ok "system-lib swap took effect: o3de Requires:$pkg AND ldd shows $soname"
+        if rpm -q --requires o3de 2>/dev/null | grep -qF "${soname}("; then
+            ok "system-lib swap took effect: o3de Requires:$pkg AND $soname appears in auto-Requires"
         else
-            nope "system-lib swap: $pkg" "RPM declares Requires:$pkg but no engine .so links to $soname — likely the swap regressed and the bundle is still being statically linked"
+            nope "system-lib swap: $pkg" "RPM declares Requires:$pkg but $soname is missing from auto-Requires — likely the swap regressed and the bundle is still being statically linked"
         fi
     fi
 done
