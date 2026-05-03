@@ -1,17 +1,26 @@
 #!/bin/bash
 # Build a reproducible source tarball from a git ref of o3de/o3de.
-# Used for development-branch (snapshot) RPM builds.
+# Used for snapshot RPM builds.
+#
+# Two upstream branches are common targets and they're NOT the same:
+#   stabilization/<release>  pre-release stabilization branch — becomes
+#                            the next tagged release; ships to community
+#                            testers via hellaenergy/o3de-snapshot
+#   development              bleeding-edge integration branch — daily
+#                            new-feature merges; for engine-contributor
+#                            testing of in-progress work
 #
 # Usage:
-#   make-snapshot-tarball.sh [ref]                 # ref defaults to development
-#   make-snapshot-tarball.sh development           # latest development HEAD
+#   make-snapshot-tarball.sh [ref]                 # ref defaults to stabilization/26050
+#   make-snapshot-tarball.sh stabilization/26050   # next-release branch (recommended)
+#   make-snapshot-tarball.sh development           # bleeding-edge HEAD
 #   make-snapshot-tarball.sh <commit-sha>          # pinned commit
 #
 # Output: o3de-<full-commit-sha>.tar.gz in $PWD, plus prints the values to
 # paste into o3de.spec (snapshot_commit / snapshot_date / sha256).
 set -euo pipefail
 
-REF="${1:-development}"
+REF="${1:-stabilization/26050}"
 REPO_URL="${O3DE_REPO_URL:-https://github.com/o3de/o3de.git}"
 OUT_DIR="${OUT_DIR:-$PWD}"
 

@@ -13,9 +13,13 @@
 #         --define "_specdir   $PWD" \
 #         o3de.spec
 #
-# Build a development-branch snapshot:
-#     ./sources/make-snapshot-tarball.sh development
+# Build a snapshot from upstream's next-release stabilization branch
+# (recommended for community-tester builds — what o3de-snapshot ships):
+#     ./sources/make-snapshot-tarball.sh stabilization/26050
 #     # paste the printed snapshot_commit / snapshot_date / snapshot_sha256
+# Build a snapshot from upstream's bleeding-edge `development` branch
+# (engine-contributor testing of in-progress work, NOT for testers):
+#     ./sources/make-snapshot-tarball.sh development
 #     # into the macros below, copy the tarball to $PWD/sources, then:
 #     rpmbuild -bb --with snapshot \
 #         --define "_sourcedir $PWD/sources" \

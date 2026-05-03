@@ -32,7 +32,12 @@
 SHELL := /bin/bash
 PWD   := $(shell pwd)
 
-REF                       ?= development
+# Default REF for `make snapshot` is the current next-release stabilization
+# branch — that's what o3de-snapshot ships to community testers. Pass
+# REF=development for the bleeding-edge integration branch, or any other
+# git ref. Bump this default when O3DE moves to the next release branch
+# (the spec's stable_tag value tells you the upcoming release version).
+REF                       ?= stabilization/26050
 COPR_OWNER                ?= hellaenergy
 COPR_PROJECT_STABLE       ?= o3de
 COPR_PROJECT_SNAPSHOT     ?= o3de-snapshot

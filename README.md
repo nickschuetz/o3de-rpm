@@ -5,7 +5,10 @@ RPM packaging for the [Open 3D Engine](https://o3de.org), targeting **Fedora 44*
 The same spec produces:
 
 - **Stable release builds** — from upstream's tagged release tarball (`o3de_<tag>_lfs.tar.gz`).
-- **Development snapshot builds** — from any git ref of `o3de/o3de`, for testing the `development` branch or arbitrary pre-release commits.
+- **Snapshot builds** — from any git ref of `o3de/o3de`. Two upstream branches are common targets for this and they're *not* the same thing:
+  - **`stabilization/<X>`** (e.g. `stabilization/26050`) — the pre-release stabilization branch for the next tagged release (in this case 26.05). This is what `o3de-snapshot` currently ships from. When O3DE upstream tags `2605.0`, this branch's tip *is* the release — so snapshots from here are functionally release candidates.
+  - **`development`** — the bleeding-edge integration branch where new features land daily. Less stable than a stabilization branch; useful for engine contributors testing in-progress work, less appropriate for community testers expecting near-release quality.
+  - Or any other ref — feature branches, specific commits, tags.
 
 It also provides an extension point for bundling pre-built **O3DE 3rdParty packages** into the RPM, gated by per-package `--with` flags so you only pay for what you use.
 
@@ -82,12 +85,16 @@ rpmbuild -bb \
 
 ---
 
-## Build a development snapshot
+## Build a snapshot
+
+Most snapshot builds target the current stabilization branch (the next-release branch — currently `stabilization/26050`). That's what the community testers' channel ships from. Engine contributors working on bleeding-edge `development` can pass `development` instead. See the bullets at the top of this README for the distinction.
 
 ```bash
 # 1. Generate a reproducible snapshot tarball + checksum.
 cd sources
-./make-snapshot-tarball.sh development      # or any git ref / commit sha
+./make-snapshot-tarball.sh stabilization/26050   # next-release branch (recommended)
+# ./make-snapshot-tarball.sh development          # bleeding-edge alternative
+# ./make-snapshot-tarball.sh <commit-sha>         # any specific ref
 cd ..
 
 # 2. Paste the printed snapshot_commit / snapshot_date / snapshot_sha256
