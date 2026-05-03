@@ -199,6 +199,11 @@ Patch0006:      0006-builtinpackages-gate-mikkelsen-on-system.patch
 #     shim is named Findexpat.cmake and delegates to FindEXPAT.
 Source30:       Findmikkelsen-system.cmake
 Source31:       Findexpat-system.cmake
+Source32:       FindZLIB-system.cmake
+Source33:       FindFreetype-system.cmake
+Source34:       FindPNG-system.cmake
+Source35:       FindTIFF-system.cmake
+Source36:       FindLua-system.cmake
 
 # Pre-built O3DE 3rdParty bundles — declare a Source10x and a matching
 # bcond above, then add an extract line in %%prep. Templates:
@@ -397,6 +402,21 @@ cp %{SOURCE30} cmake/3rdParty/Findmikkelsen.cmake
 %endif
 %if %{with system_expat}
 cp %{SOURCE31} cmake/3rdParty/Findexpat.cmake
+%endif
+%if %{with system_zlib}
+cp %{SOURCE32} cmake/3rdParty/FindZLIB.cmake
+%endif
+%if %{with system_freetype}
+cp %{SOURCE33} cmake/3rdParty/FindFreetype.cmake
+%endif
+%if %{with system_png}
+cp %{SOURCE34} cmake/3rdParty/FindPNG.cmake
+%endif
+%if %{with system_tiff}
+cp %{SOURCE35} cmake/3rdParty/FindTIFF.cmake
+%endif
+%if %{with system_lua}
+cp %{SOURCE36} cmake/3rdParty/FindLua.cmake
 %endif
 
 # ── BUILD ────────────────────────────────────────────────────────────────────
