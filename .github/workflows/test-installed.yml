@@ -53,7 +53,11 @@ on:
 
 env:
   COPR_OWNER: hellaenergy
-  COPR_PROJECT: o3de-snapshot
+  # The cron path polls this project for new builds. Defaults to
+  # o3de-stabilization since that's the regular community-tester
+  # channel; o3de-snapshot is now used for ad-hoc development-branch
+  # builds and doesn't need cron-driven testing.
+  COPR_PROJECT: o3de-stabilization
   # Opt JS-based actions (checkout, upload/download-artifact, cache) into
   # Node 24 ahead of GitHub's forced cutover on 2026-06-02. Surfaces any
   # Node 24 incompatibility now, on our schedule, instead of auto-flipping

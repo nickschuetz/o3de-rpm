@@ -87,7 +87,7 @@ rpmbuild -bb \
 
 ## Build a snapshot
 
-Most snapshot builds target the current stabilization branch (the next-release branch — currently `stabilization/26050`). That's what the community testers' channel ships from. Engine contributors working on bleeding-edge `development` can pass `development` instead. See the bullets at the top of this README for the distinction.
+Most snapshot builds target the current stabilization branch (the next-release branch — currently `stabilization/26050`). That's what `hellaenergy/o3de-stabilization` (the testers' channel) ships from — invoke with `make srpm-stabilization` / `make copr-stabilization`. For one-off builds from `development` or a specific commit, use `make srpm-snapshot` / `make copr-snapshot` (uploads to `hellaenergy/o3de-snapshot`). See the bullets at the top of this README for the distinction.
 
 ```bash
 # 1. Generate a reproducible snapshot tarball + checksum.
@@ -189,7 +189,8 @@ The interim distribution channel. Four COPR projects under the same owner, each 
 
 - **[`hellaenergy/o3de-dependencies`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-dependencies/)** — Fedora-clean SRPMs for O3DE 3rdParty packages that aren't in Fedora proper (custom Qt 5.15-rev9, PhysX, AWSNativeSDK, azslc, mikkelsen, …). `enable_net=false`. Built first — depended on by the engine projects via `additional_repos` at build time and `runtime_dependencies` at consume time (so users get it auto-enabled when they enable any engine project).
 - **[`hellaenergy/o3de`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de/)** — tagged stable releases. Currently a placeholder; populated when O3DE upstream ships a release tag we package.
-- **[`hellaenergy/o3de-snapshot`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-snapshot/)** — development snapshots from upstream's `stabilization/*` or `development` branch. The community testers' channel.
+- **[`hellaenergy/o3de-stabilization`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-stabilization/)** — pre-release validation builds from upstream's `stabilization/<release>` branch (currently `stabilization/26050`). The community testers' channel. Becomes the next tagged release when O3DE upstream tags it.
+- **[`hellaenergy/o3de-snapshot`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-snapshot/)** — one-off / ad-hoc builds from upstream's `development` branch or any specific commit. Used when someone wants to test a non-stabilization ref without disrupting the regular tester channel.
 - **[`hellaenergy/o3de-experimental`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-experimental/)** — in-flight Stage 1 system-library migration validation (see [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) Stage 1). Not for end-user testing; internal to the packaging effort.
 
 All three engine projects use `enable_net=true` so cmake can still fetch the four restricted bundles from `packages.o3de.org` (DXC, NvCloth, poly2tri, squish-ccr) — those four cannot be redistributed via Fedora/COPR for licensing reasons.
@@ -211,23 +212,25 @@ A separate effort tracked in a sibling Flatpak repo. Reuses ~80% of this repo's 
 To consume (end users):
 
 ```bash
-sudo dnf copr enable hellaenergy/o3de-snapshot   # development snapshots
-sudo dnf install o3de                             # ~2 GB download (compressed)
-o3de                                              # launch Project Manager (GUI)
-o3de-cli --help                                   # CLI for project / gem / engine management
+sudo dnf copr enable hellaenergy/o3de-stabilization   # pre-release tester channel
+sudo dnf install o3de                                  # ~2 GB download (compressed)
+o3de                                                   # launch Project Manager (GUI)
+o3de-cli --help                                        # CLI for project / gem / engine management
 ```
 
 `hellaenergy/o3de-dependencies` auto-enables alongside the engine project (via the engine project's `runtime_dependencies` setting) — no separate `dnf copr enable` needed. The per-user Python venv bootstraps on first launch automatically; pre-bootstrap manually with `/opt/o3de/python/get_python.sh` if preferred.
 
-When the stable project goes live for tagged O3DE releases, swap `o3de-snapshot` for `o3de` in the enable command. Skip `o3de-experimental` unless you're working on the packaging itself.
+When O3DE upstream tags a stable release, swap `o3de-stabilization` for `o3de`. Skip `o3de-snapshot` (one-off dev builds) and `o3de-experimental` (packaging work) unless you have a specific reason to test those.
 
 To publish from this checkout:
 
 ```bash
 make snapshot REF=stabilization/26050    # generate tarball + print pin values
 $EDITOR o3de.spec                        # paste the printed snapshot_* macros
-make copr-snapshot                       # SRPM → hellaenergy/o3de-snapshot
-make copr-snapshot-and-test              # same + watch build + fire CI tests on success
+make copr-stabilization                  # SRPM → hellaenergy/o3de-stabilization (testers)
+make copr-stabilization-and-test         # same + watch build + fire CI tests on success
+make copr-snapshot                       # SRPM → hellaenergy/o3de-snapshot (one-off dev builds)
+make copr-snapshot-and-test              # same + watch + fire CI tests
 make copr-experimental                   # SRPM → hellaenergy/o3de-experimental (Stage 1 batch)
 make copr-experimental-and-test          # same + watch + fire CI tests
 make copr-stable                         # SRPM → hellaenergy/o3de (when tagged)
@@ -236,7 +239,7 @@ make trigger-tests BUILD_ID=N            # fire CI tests against an existing COP
 
 A `make copr-init` target prints the one-time setup commands for all the COPR projects (chroot configs, runtime-repo-dependency, `--rpmbuild-with` flags for active Stage 1 migrations). Run `make help` for the full target list.
 
-CI (`.github/workflows/lint.yml`) runs spec-parse (stable + snapshot + experimental modes) + rpmlint + desktop-file-validate + appstream-util validate + shell-syntax checks on every push, against a Fedora 44 container. CI (`.github/workflows/test-installed.yml`) runs the integration test suite (Tiers 1–6) against an existing COPR RPM URL in clean F44 + rawhide containers — triggered manually, by `make trigger-tests`, or by a 4-hourly cron polling `o3de-snapshot` for new builds. The full RPM build itself is too heavy for free runners (>2 hours, 14 GB output) — the COPR projects do that.
+CI (`.github/workflows/lint.yml`) runs spec-parse (stable + snapshot + stabilization + experimental modes) + rpmlint + desktop-file-validate + appstream-util validate + shell-syntax checks on every push, against a Fedora 44 container. CI (`.github/workflows/test-installed.yml`) runs the integration test suite (Tiers 1–6) against an existing COPR RPM URL in clean F44 + rawhide containers — triggered manually, by `make trigger-tests`, or by a 4-hourly cron polling `o3de-stabilization` for new builds. The full RPM build itself is too heavy for free runners (>2 hours, 14 GB output) — the COPR projects do that.
 
 The longer-term goal is **inclusion in Fedora proper**. The roadmap lives in [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) and the per-bundle Fedora-readiness status in [`BUNDLED_LIBRARIES.md`](BUNDLED_LIBRARIES.md).
 

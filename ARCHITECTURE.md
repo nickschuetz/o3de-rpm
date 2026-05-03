@@ -51,13 +51,15 @@ flowchart TB
 
     subgraph DIST["Distribution channels"]
         DC1A["COPR<br/>hellaenergy/o3de<br/>(stable releases)"]
-        DC1B["COPR<br/>hellaenergy/o3de-snapshot<br/>(community testers)"]
+        DC1B["COPR<br/>hellaenergy/o3de-stabilization<br/>(community testers — pre-release)"]
+        DC1S["COPR<br/>hellaenergy/o3de-snapshot<br/>(one-off development builds)"]
         DC1C["COPR<br/>hellaenergy/o3de-experimental<br/>(in-flight Stage 1 migrations)"]
         DC2["o3debinaries.org<br/>(upstream to O3DE CI)"]
         DC3["Fedora repo<br/>(see FEDORA_ROADMAP.md)"]
         DC4["Flathub<br/>(future, separate repo)"]
         INST -.-> DC1A
         INST -.-> DC1B
+        INST -.-> DC1S
         INST -.-> DC1C
         INST -.-> DC2
         INST -.-> DC3
@@ -83,4 +85,4 @@ flowchart TB
 2. **3rdParty bundle toggles** are independent of source mode — each `--with thirdparty_<pkg>` extracts its `Source10x` tarball into `LY_3RDPARTY_PATH` before configure.
 3. **System-library swap toggles** (Stage 1, Fedora-inclusion track) — each `--with system_<lib>` activates a Patch000N gate plus a `Find<lib>-system.cmake` stub, replacing one bundled 3rdParty package with its system equivalent. Independent of all other toggles. See [`BUNDLED_LIBRARIES.md`](BUNDLED_LIBRARIES.md) for status.
 4. **Read-only engine + writable user state** — `/opt/o3de` is owned by root, all writable state lives in `~/.o3de/`. The launcher wrapper is the only piece that bridges them.
-5. **One spec, multiple distribution channels** — the same spec produces the binary for three COPR projects (`o3de` stable / `o3de-snapshot` community-tester / `o3de-experimental` in-flight migration), the upstream submission to o3debinaries.org, and (eventually) Fedora; the future Flatpak shares ~80% of the source tree (patches, launcher, snapshot helper) but uses its own manifest.
+5. **One spec, multiple distribution channels** — the same spec produces the binary for four COPR projects (`o3de` stable / `o3de-stabilization` community-tester / `o3de-snapshot` one-off dev builds / `o3de-experimental` in-flight migration), the upstream submission to o3debinaries.org, and (eventually) Fedora; the future Flatpak shares ~80% of the source tree (patches, launcher, snapshot helper) but uses its own manifest. The channel marker baked into the GUI version string (`-stabilization.<commit>`, `-snapshot.<commit>`, `-experimental.<commit>`, or none for stable) lets testers identify which channel a build came from at a glance.

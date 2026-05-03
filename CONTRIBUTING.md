@@ -111,26 +111,31 @@ make test-branch REF=<git-ref>   # snapshot + build + install + run integration 
 
 ## Build flow (COPR)
 
-Four related projects under the same owner (`hellaenergy`):
+Five related projects under the same owner (`hellaenergy`):
 
 | Project | Purpose | Audience | Mid-flight changes? |
 |---|---|---|---|
-| `hellaenergy/o3de-dependencies` | Fedora-clean SRPMs for non-Fedora deps (custom Qt, PhysX, AWSNativeSDK, mikkelsen, …) | Consumed by the three engine projects via `additional_repos` | Rare — these are vetted system-library replacements |
+| `hellaenergy/o3de-dependencies` | Fedora-clean SRPMs for non-Fedora deps (custom Qt, PhysX, AWSNativeSDK, mikkelsen, …) | Consumed by the four engine projects via `additional_repos` | Rare — these are vetted system-library replacements |
 | `hellaenergy/o3de` | Tagged-release engine builds | End users wanting a stable release | Only at upstream release cadence |
-| `hellaenergy/o3de-snapshot` | Development snapshot of the engine | Community testers Nick has invited to validate | **Hands off when testers are active** — see `MEMORY.md` |
-| `hellaenergy/o3de-experimental` | In-flight migration / structural work that isn't ready for testers (Stage 1 system-library swaps, `-devel` splits, etc.) | Just us, until validated | Push freely; promote to `-snapshot` when ready |
+| `hellaenergy/o3de-stabilization` | Pre-release validation builds from upstream `stabilization/<release>` | Community testers Nick has invited to validate | **Hands off when testers are active** — see `MEMORY.md` |
+| `hellaenergy/o3de-snapshot` | One-off / ad-hoc builds from `development` or any specific commit | When someone wants to test a non-stabilization ref without disrupting the regular tester channel | Push freely (no testers expecting regular cadence) |
+| `hellaenergy/o3de-experimental` | In-flight migration / structural work (Stage 1 system-library swaps, `-devel` splits, etc.) | Just us, until validated | Push freely; promote to `-stabilization` when validated |
 
-The three engine projects all set `enable_net=true` (so cmake can fetch the four restricted bundles — DXC, NvCloth, poly2tri, squish-ccr — from `packages.o3de.org` at build time) and pull `o3de-dependencies` via the chroot's `additional_repos`.
+The four engine projects all set `enable_net=true` (so cmake can fetch the four restricted bundles — DXC, NvCloth, poly2tri, squish-ccr — from `packages.o3de.org` at build time) and pull `o3de-dependencies` via the chroot's `additional_repos` (build-time) and `runtime_dependencies` (consume-time, for end users).
+
+Channel-marker bcond: `--with stabilization` is set on `o3de-stabilization` and `o3de-experimental` chroots (via `--rpmbuild-with stabilization`) so the spec tags those builds with `-stabilization.<commit>` in the GUI version string. `o3de-snapshot` builds use plain `--with snapshot` only and tag as `-snapshot.<commit>`. `o3de` (stable) builds carry no channel suffix.
 
 Workflow:
 
 ```bash
-make copr-init                   # prints one-time COPR setup commands (chroots, additional_repos)
-make copr-snapshot               # build SRPM, upload to hellaenergy/o3de-snapshot
-make copr-experimental           # same SRPM, uploads to hellaenergy/o3de-experimental
-make copr-stable                 # tagged release builds
-make copr-snapshot-and-test      # full pipeline: build + watch + fire CI tests
-make copr-experimental-and-test  # same, but against the experimental project
+make copr-init                       # prints one-time COPR setup commands (chroots, repos, etc.)
+make copr-stabilization              # build SRPM, upload to hellaenergy/o3de-stabilization
+make copr-snapshot                   # one-off, uploads to hellaenergy/o3de-snapshot
+make copr-experimental               # same SRPM, uploads to hellaenergy/o3de-experimental
+make copr-stable                     # tagged release builds
+make copr-stabilization-and-test     # full pipeline: build + watch + fire CI tests
+make copr-snapshot-and-test          # same, against the snapshot project
+make copr-experimental-and-test      # same, against the experimental project
 ```
 
 ---

@@ -13,13 +13,15 @@
 #         --define "_specdir   $PWD" \
 #         o3de.spec
 #
-# Build a snapshot from upstream's next-release stabilization branch
-# (recommended for community-tester builds — what o3de-snapshot ships):
+# Build for the community-tester channel (stabilization/<release> branch
+# — what o3de-stabilization on COPR ships):
 #     ./sources/make-snapshot-tarball.sh stabilization/26050
 #     # paste the printed snapshot_commit / snapshot_date / snapshot_sha256
-# Build a snapshot from upstream's bleeding-edge `development` branch
-# (engine-contributor testing of in-progress work, NOT for testers):
+#     rpmbuild -bb --with snapshot --with stabilization ...
+# Build a one-off from upstream's bleeding-edge `development` branch
+# (or any specific commit — uploaded to o3de-snapshot, ad-hoc cadence):
 #     ./sources/make-snapshot-tarball.sh development
+#     rpmbuild -bb --with snapshot ...                # no `--with stabilization`
 #     # into the macros below, copy the tarball to $PWD/sources, then:
 #     rpmbuild -bb --with snapshot \
 #         --define "_sourcedir $PWD/sources" \
@@ -34,6 +36,14 @@
 
 # ── Build-mode toggles ───────────────────────────────────────────────────────
 %bcond_with snapshot
+# Stabilization marks a snapshot as coming from upstream's stabilization/<X>
+# branch (the pre-release branch that becomes the next tagged release).
+# Set on the o3de-stabilization COPR project's chroots via --rpmbuild-with;
+# the spec uses it only for the GUI channel marker (see _o3de_channel
+# below) so testers can tell stabilization-channel builds apart from
+# one-off development-branch builds (which use plain --with snapshot
+# without --with stabilization, and ship to o3de-snapshot).
+%bcond_with stabilization
 # `--with debug` additionally builds the debug-config engine binaries and
 # ships them as the `o3de-debug` subpackage. End-user game development
 # only needs the profile config (the default), so building debug is opt-in
@@ -88,16 +98,25 @@
 # DISPLAY_VERSION_STRING (PM titlebar via Patch0005) and BUILD_VERSION
 # (Editor splash) so the two surfaces stay consistent.
 #
-# Channel marker (-experimental wins over -snapshot when both apply).
+# Channel marker, chosen in priority order:
+#   experimental   any Stage 1 system_<X> bcond active (chroot --rpmbuild-with)
+#   stabilization  --with stabilization (the pre-release tester channel)
+#   snapshot       --with snapshot only (one-off development-branch build)
+#   stable         neither (tagged release tarball)
 # `%%{with X}` is the canonical bcond-aware truthiness test — it returns
 # 1 when the bcond is on, 0 when off (NOT undefined). Add new
-# system_<X> bconds to this OR-chain as the Stage 1 migration list grows.
+# system_<X> bconds to the experimental OR-chain as the Stage 1
+# migration list grows.
 %global _o3de_channel %{nil}
 %if %{with system_expat} || %{with system_freetype} || %{with system_lua} || %{with system_mikkelsen} || %{with system_png} || %{with system_tiff} || %{with system_zlib}
 %global _o3de_channel -experimental
 %else
+%if %{with stabilization}
+%global _o3de_channel -stabilization
+%else
 %if %{with snapshot}
 %global _o3de_channel -snapshot
+%endif
 %endif
 %endif
 
