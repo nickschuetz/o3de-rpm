@@ -42,8 +42,14 @@ o3de-rpm/
     ├── 0003-get-python-sh-rpm-venv-fixes.patch
     ├── 0004-lypython-non-editable-pip-for-installed-engine.patch
     ├── 0005-windowdecorationwrapper-propagate-initial-title.patch
-    ├── 0006-builtinpackages-gate-mikkelsen-on-system.patch
-    └── Findmikkelsen-system.cmake                     # Stage 1 system-mikkelsen find module
+    ├── 0006-builtinpackages-gate-mikkelsen-on-system.patch     # Stage 1 LY_USE_SYSTEM_<X> gates
+    ├── Findmikkelsen-system.cmake                              # Stage 1 system-* find shims
+    ├── Findexpat-system.cmake                                  #   (copied to cmake/3rdParty/
+    ├── FindZLIB-system.cmake                                   #    during %prep when the matching
+    ├── FindFreetype-system.cmake                               #    --with system_<lib> bcond is on)
+    ├── FindPNG-system.cmake
+    ├── FindTIFF-system.cmake
+    └── FindLua-system.cmake
 ```
 
 `rpmbuild` reads sources from `_sourcedir`, so build invocations point both `_sourcedir` and `_specdir` at this checkout — no copying into `~/rpmbuild/SOURCES`.
@@ -169,12 +175,16 @@ The first launch of `o3de` (or first run of `o3de-cli`) bootstraps the per-user 
 
 The o3de RPM has four distribution targets, in order of how soon each is reachable:
 
-### 1. COPR — `hellaenergy/o3de` (today, ongoing)
+### 1. COPR — `hellaenergy/o3de*` (today, ongoing)
 
-The interim distribution channel. Two COPR projects under the same owner:
+The interim distribution channel. Four COPR projects under the same owner, each with a distinct purpose:
 
-- **[`hellaenergy/o3de-dependencies`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-dependencies/)** — Fedora-clean SRPMs for O3DE 3rdParty packages that aren't in Fedora proper (custom Qt 5.15-rev9, PhysX, AWSNativeSDK, azslc, …). `enable_net=false`. Built first — depended on by the next one.
-- **[`hellaenergy/o3de`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de/)** *(stable)* and **[`hellaenergy/o3de-snapshot`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-snapshot/)** *(development branch)* — the engine itself. `enable_net=true` so cmake can still fetch the four restricted bundles from `packages.o3de.org` (DXC, NvCloth, poly2tri, squish-ccr) — those four cannot be redistributed via Fedora/COPR for licensing reasons.
+- **[`hellaenergy/o3de-dependencies`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-dependencies/)** — Fedora-clean SRPMs for O3DE 3rdParty packages that aren't in Fedora proper (custom Qt 5.15-rev9, PhysX, AWSNativeSDK, azslc, mikkelsen, …). `enable_net=false`. Built first — depended on by the engine projects via `additional_repos` at build time and `runtime_dependencies` at consume time (so users get it auto-enabled when they enable any engine project).
+- **[`hellaenergy/o3de`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de/)** — tagged stable releases. Currently a placeholder; populated when O3DE upstream ships a release tag we package.
+- **[`hellaenergy/o3de-snapshot`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-snapshot/)** — development snapshots from upstream's `stabilization/*` or `development` branch. The community testers' channel.
+- **[`hellaenergy/o3de-experimental`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-experimental/)** — in-flight Stage 1 system-library migration validation (see [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) Stage 1). Not for end-user testing; internal to the packaging effort.
+
+All three engine projects use `enable_net=true` so cmake can still fetch the four restricted bundles from `packages.o3de.org` (DXC, NvCloth, poly2tri, squish-ccr) — those four cannot be redistributed via Fedora/COPR for licensing reasons.
 
 ### 2. o3debinaries.org (eventual upstream)
 
@@ -190,30 +200,35 @@ See [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) for the staged plan. Six stages fro
 
 A separate effort tracked in a sibling Flatpak repo. Reuses ~80% of this repo's `sources/` and `patches/` directly. See `FLATPAK_NOTES.md` (working notes, not committed) for carryover.
 
-To consume:
+To consume (end users):
 
 ```bash
-sudo dnf copr enable hellaenergy/o3de-dependencies
-sudo dnf copr enable hellaenergy/o3de            # stable
-# OR
-sudo dnf copr enable hellaenergy/o3de-snapshot   # development
-sudo dnf install o3de
-/opt/o3de/python/get_python.sh                   # one-time per-user venv setup
-o3de                                             # launch
+sudo dnf copr enable hellaenergy/o3de-snapshot   # development snapshots
+sudo dnf install o3de                             # ~2 GB download (compressed)
+o3de                                              # launch Project Manager (GUI)
+o3de-cli --help                                   # CLI for project / gem / engine management
 ```
+
+`hellaenergy/o3de-dependencies` auto-enables alongside the engine project (via the engine project's `runtime_dependencies` setting) — no separate `dnf copr enable` needed. The per-user Python venv bootstraps on first launch automatically; pre-bootstrap manually with `/opt/o3de/python/get_python.sh` if preferred.
+
+When the stable project goes live for tagged O3DE releases, swap `o3de-snapshot` for `o3de` in the enable command. Skip `o3de-experimental` unless you're working on the packaging itself.
 
 To publish from this checkout:
 
 ```bash
-make snapshot REF=stabilization/26050   # generate tarball + print pin values
-$EDITOR o3de.spec                       # paste the printed snapshot_* macros
-make copr-snapshot                      # builds SRPM, uploads to hellaenergy/o3de-snapshot
-make copr-stable                        # for stable releases
+make snapshot REF=stabilization/26050    # generate tarball + print pin values
+$EDITOR o3de.spec                        # paste the printed snapshot_* macros
+make copr-snapshot                       # SRPM → hellaenergy/o3de-snapshot
+make copr-snapshot-and-test              # same + watch build + fire CI tests on success
+make copr-experimental                   # SRPM → hellaenergy/o3de-experimental (Stage 1 batch)
+make copr-experimental-and-test          # same + watch + fire CI tests
+make copr-stable                         # SRPM → hellaenergy/o3de (when tagged)
+make trigger-tests BUILD_ID=N            # fire CI tests against an existing COPR build
 ```
 
-A `make copr-init` target prints the one-time setup commands for the COPR project. Run `make help` for the full target list.
+A `make copr-init` target prints the one-time setup commands for all the COPR projects (chroot configs, runtime-repo-dependency, `--rpmbuild-with` flags for active Stage 1 migrations). Run `make help` for the full target list.
 
-CI (`.github/workflows/lint.yml`) runs spec-parse + rpmlint + desktop-file-validate + appstream-util validate on every push, against a Fedora 44 container. The full RPM build is too heavy for free runners (>2 hours, 14 GB output) — the COPR projects do that.
+CI (`.github/workflows/lint.yml`) runs spec-parse (stable + snapshot + experimental modes) + rpmlint + desktop-file-validate + appstream-util validate + shell-syntax checks on every push, against a Fedora 44 container. CI (`.github/workflows/test-installed.yml`) runs the integration test suite (Tiers 1–6) against an existing COPR RPM URL in clean F44 + rawhide containers — triggered manually, by `make trigger-tests`, or by a 4-hourly cron polling `o3de-snapshot` for new builds. The full RPM build itself is too heavy for free runners (>2 hours, 14 GB output) — the COPR projects do that.
 
 The longer-term goal is **inclusion in Fedora proper**. The roadmap lives in [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) and the per-bundle Fedora-readiness status in [`BUNDLED_LIBRARIES.md`](BUNDLED_LIBRARIES.md).
 
@@ -318,15 +333,18 @@ Re-generate the static SBOM when bumping the version: edit `sources/o3de.cdx.jso
 
 ## Patches
 
-Applied via `%autosetup -p1`:
+Six patches applied via `%autosetup -p1`. See [`CONTRIBUTING.md`](CONTRIBUTING.md#patches) for the full table including each patch's upstream-worthy assessment. Quick summary:
 
-| # | File | Purpose |
+| # | Target | Purpose |
 |---|---|---|
-| 0001 | `cmake/Platform/Common/Clang/Configurations_clang.cmake` | Add `-Wno-error=deprecated-volatile` and `-Wno-error=character-conversion` so clang 21+ doesn't fail O3DE's `-Werror` build. |
-| 0002 | `scripts/o3de/o3de/manifest.py` | Honor `O3DE_ENGINE_PATH` env var for engine-root detection when the o3de Python package is installed inside a venv. |
-| 0003 | `python/get_python.sh` | After per-user venv creation, link `engine.json`/`o3de` site-packages into the venv, reconcile the engine-id mismatch between get_python.sh and the O3DE binary, and refresh the patched `manifest.py` into the venv. |
+| 0001 | `cmake/Platform/Common/Clang/Configurations_clang.cmake` | Suppress clang 21+ `-Werror` failures |
+| 0002 | `scripts/o3de/o3de/manifest.py` | Honor `O3DE_ENGINE_PATH` for engine-root detection |
+| 0003 | `python/get_python.sh` | Per-user venv linkage + engine-id reconciliation |
+| 0004 | `cmake/LYPython.cmake` | Non-editable pip install for read-only engine roots |
+| 0005 | `Code/Framework/AzQtComponents/.../WindowDecorationWrapper.cpp` | Propagate guest title to WM-drawn titlebar in `OptionDisabled` mode |
+| 0006 | `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` | Establish the `LY_USE_SYSTEM_<X>` gating convention used by Stage 1 system-library swaps |
 
-Each patch carries a `From:`/`Subject:` header with the rationale.
+Each patch carries a `From:`/`Subject:` header with the rationale. Stage 1 system-library swaps additionally ship companion `Find<X>-system.cmake` shims in `sources/` (`Findmikkelsen-system.cmake`, `Findexpat-system.cmake`, `FindZLIB-system.cmake`, etc.) — installed into `cmake/3rdParty/Find<X>.cmake` during `%prep` when the matching `--with system_<lib>` is enabled.
 
 ---
 
