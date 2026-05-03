@@ -33,11 +33,11 @@ o3de-rpm/
 │   ├── ui-smoke-test.sh                               #   tier 6: Project Manager + Editor smoke under Xvfb
 │   └── test-branch.sh                                 #   build + install + test from git ref
 └── sources/                                           # rpm SOURCES dir (sources + patches)
-    ├── o3de-launcher.sh                               # /usr/bin/o3de wrapper (Project Manager / Editor GUI)
-    ├── o3de-cli                                       # /usr/bin/o3de-cli wrapper (project / gem / engine management)
-    ├── o3de.desktop                                   # .desktop entry (Project Manager)
-    ├── o3de.metainfo.xml                              # AppStream metainfo
-    ├── o3de.cdx.json                                  # CycloneDX SBOM
+    ├── o3de-launcher.sh                               # /usr/bin/o3deNNNN wrapper (Project Manager / Editor GUI)
+    ├── o3de-cli                                       # /usr/bin/o3deNNNN-cli wrapper (project / gem / engine management)
+    ├── o3de.desktop                                   # .desktop entry (Project Manager) — mutated to <pkgname>.desktop at install
+    ├── o3de.metainfo.xml                              # AppStream metainfo — id mutated to org.o3de.O3DE<NNNN> at install
+    ├── o3de2605.cdx.json                              # CycloneDX SBOM (one file per major; copy + edit when 26.10 ships)
     ├── make-snapshot-tarball.sh                       # snapshot builder
     ├── o3de-{16,32,48,64,128,256}x*.png               # hicolor app icons
     ├── 0001-clang21-warning-suppressions.patch
@@ -140,42 +140,55 @@ The full list of approved package names and revisions lives in O3DE's `cmake/3rd
 
 ## Build with the debug subpackage
 
-The default build ships only the profile-config binaries (sufficient for end-user game development). To also build debug-config binaries and ship them as the `o3de-debug` subpackage:
+The default build ships only the profile-config binaries (sufficient for end-user game development). To also build debug-config binaries and ship them as the `o3deNNNN-debug` subpackage (e.g. `o3de2605-debug`):
 
 ```bash
 rpmbuild -bb --with debug ...
 ```
 
-This roughly doubles build time (debug compiles all the same TUs at `-O0` with full symbols). End users install both with `dnf install o3de o3de-debug` to step through engine internals; `o3de-debug` requires the same exact NVR of `o3de` so they always upgrade in lockstep. Switching the launcher between configs is a runtime concern: `O3DE_BUILD_CONFIG=debug o3de`.
+This roughly doubles build time (debug compiles all the same TUs at `-O0` with full symbols). End users install both with `dnf install o3de2605 o3de2605-debug` to step through engine internals; `o3de2605-debug` requires the same exact NVR of `o3de2605` so they always upgrade in lockstep. Switching the launcher between configs is a runtime concern: `O3DE_BUILD_CONFIG=debug o3de2605`.
 
 ---
 
 ## Using the installed RPM
 
-Two PATH-installed entry points:
+Each major release ships as its own versioned package (`o3de2605`, `o3de2610`, …) so multiple O3DE versions can coexist. Two PATH-installed entry points per package — the examples below use 26.05.0 (`o3de2605`):
 
 | Command | Purpose |
 |---|---|
-| `o3de` | Launches the GUI (Project Manager by default). Set `O3DE_BUILD_CONFIG=debug` for the debug-config engine if `o3de-debug` is also installed. |
-| `o3de-cli` | Forwards to the upstream Python CLI at `/opt/o3de/scripts/o3de.sh` for project / gem / engine management. |
+| `o3de2605` | Launches the GUI (Project Manager by default). Set `O3DE_BUILD_CONFIG=debug` for the debug-config engine if `o3de2605-debug` is also installed. |
+| `o3de2605-cli` | Forwards to the upstream Python CLI at `/opt/O3DE/26.05.0/scripts/o3de.sh` for project / gem / engine management. |
 
 The CLI covers ~25 sub-commands. Common ones:
 
 ```bash
-o3de-cli --help                                # list sub-commands
-o3de-cli register --this-engine                # one-time per-user setup (also runs from %post)
-o3de-cli get-registered -df engines            # list registered engines (or projects/gems/templates)
-o3de-cli create-project --project-path ~/MyGame --project-name MyGame
-o3de-cli create-gem    --gem-path ~/MyGem --gem-name MyGem
-o3de-cli enable-gem    --project-path ~/MyGame --gem-name Atom
-o3de-cli edit-engine-properties --display-name "My Engine"
-o3de-cli export-project   --project-path ~/MyGame   # bundle a runtime build
-o3de-cli sha256 <file>                         # compute the hash O3DE expects in package manifests
+o3de2605-cli --help                                # list sub-commands
+o3de2605-cli register --this-engine                # one-time per-user setup (also runs from %post)
+o3de2605-cli get-registered -df engines            # list registered engines (or projects/gems/templates)
+o3de2605-cli create-project --project-path ~/MyGame --project-name MyGame
+o3de2605-cli create-gem    --gem-path ~/MyGem --gem-name MyGem
+o3de2605-cli enable-gem    --project-path ~/MyGame --gem-name Atom
+o3de2605-cli edit-engine-properties --display-name "My Engine"
+o3de2605-cli export-project   --project-path ~/MyGame   # bundle a runtime build
+o3de2605-cli sha256 <file>                             # compute the hash O3DE expects in package manifests
 ```
 
-State written by either command lives under `~/.o3de/` (engine registration manifest, per-user Python venv, project user data). The engine root at `/opt/o3de/` is read-only.
+State written by either command lives under `~/.o3de/` (engine registration manifest, per-user Python venvs keyed by engine path, project user data). The engine root at `/opt/O3DE/26.05.0/` is read-only.
 
-The first launch of `o3de` (or first run of `o3de-cli`) bootstraps the per-user Python venv automatically — see `python/get_python.sh` in the engine root if you want to pre-bootstrap or inspect.
+The first launch of `o3de2605` (or first run of `o3de2605-cli`) bootstraps the per-user Python venv automatically — see `python/get_python.sh` in the engine root if you want to pre-bootstrap or inspect.
+
+### Multiple O3DE versions on one machine
+
+The `/opt/O3DE/<version>/` install layout matches upstream's `.deb` and Windows `.msi` exactly, so cross-platform users see the same path mental model on Fedora, Debian/Ubuntu, and Windows. dnf treats each major as an independent package:
+
+```bash
+sudo dnf install o3de2605 o3de2610            # both installed side-by-side
+o3de2605                                      # launches 26.05.0 Project Manager
+o3de2610                                      # launches 26.10.0 Project Manager
+ls /opt/O3DE/                                 # 26.05.0  26.10.0
+```
+
+Project Manager auto-routes a project to the right engine via the project's `engine:` field in `project.json`. Subpackages follow the same versioning — `o3de2605-debug` and `o3de2610-debug` are independent and co-installable. Cross-major dnf upgrades are intentionally NOT automatic: different majors are different engine lines and you opt in explicitly with `dnf install o3de2610` when ready.
 
 ---
 
@@ -213,14 +226,16 @@ To consume (end users):
 
 ```bash
 sudo dnf copr enable hellaenergy/o3de-stabilization   # pre-release tester channel
-sudo dnf install o3de                                  # ~2 GB download (compressed)
-o3de                                                   # launch Project Manager (GUI)
-o3de-cli --help                                        # CLI for project / gem / engine management
+sudo dnf install o3de2605                              # ~2 GB download (compressed)
+o3de2605                                               # launch Project Manager (GUI)
+o3de2605-cli --help                                    # CLI for project / gem / engine management
 ```
 
-`hellaenergy/o3de-dependencies` auto-enables alongside the engine project (via the engine project's `runtime_dependencies` setting) — no separate `dnf copr enable` needed. The per-user Python venv bootstraps on first launch automatically; pre-bootstrap manually with `/opt/o3de/python/get_python.sh` if preferred.
+The package name follows a `o3deNNNN` convention (postgresql-style): `NNNN` is the upstream major as `YYMM` (`2605` for 26.05.x, `2610` for the next major). The install path under `/opt/O3DE/<DISPLAY_VERSION>/` matches what the upstream `.deb` and Windows `.msi` installers ship — same path mental model across distros and OSes.
 
-When O3DE upstream tags a stable release, swap `o3de-stabilization` for `o3de`. Skip `o3de-snapshot` (one-off dev builds) and `o3de-experimental` (packaging work) unless you have a specific reason to test those.
+`hellaenergy/o3de-dependencies` auto-enables alongside the engine project (via the engine project's `runtime_dependencies` setting) — no separate `dnf copr enable` needed. The per-user Python venv bootstraps on first launch automatically; pre-bootstrap manually with `/opt/O3DE/26.05.0/python/get_python.sh` if preferred.
+
+When O3DE upstream tags a stable release, swap `o3de-stabilization` for `o3de` (the package name stays `o3de2605`; only the COPR project changes). Skip `o3de-snapshot` (one-off dev builds) and `o3de-experimental` (packaging work) unless you have a specific reason to test those.
 
 To publish from this checkout:
 
@@ -258,7 +273,7 @@ The same suite serves all three. Differences are only in *which* git ref produce
 ### Run the suite against an installed RPM
 
 ```bash
-sudo dnf install -y ./o3de-*.rpm
+sudo dnf install -y ./o3de2605-*.rpm                  # or whichever o3deNNNN.rpm
 
 # Quick pass (rpm-level + install integrity + engine smoke, no state changes)
 make test
@@ -307,22 +322,22 @@ See [`tests/README.md`](tests/README.md) for the full tier breakdown and contrib
 |---|---|
 | Tampered upstream tarball | `%prep` verifies `Source0` against `%global stable_sha256` (or `snapshot_sha256`) with `sha256sum -c` before extraction. |
 | Tampered snapshot | `make-snapshot-tarball.sh` is reproducible (sorted, fixed mtime, numeric owner) — re-running for the same commit produces a byte-identical tarball. The committed sha256 is the binding root of trust. |
-| World-writable files under `/usr` | Removed. `/opt/o3de` is fully read-only after install; all writable state is per-user under `~/.o3de/`. |
+| World-writable files under `/usr` | Removed. `/opt/O3DE/<version>/` is fully read-only after install; all writable state is per-user under `~/.o3de/`. |
 | Network during build | LFS objects are bundled into the source tarball before build; no `git lfs pull` runs in `%build`. O3DE's own `LY_PACKAGE_SERVER_URLS` 3rdParty fetcher still runs at cmake configure unless every needed package is pre-bundled — see "3rdParty packages" above. |
 | **⚠ Bundled OpenSSL 1.1.1t (EOL since 2023-09-11)** | Not our packaging defect — upstream O3DE pins it. Tracked as a hard blocker for Fedora inclusion in [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) (stage 4). Surfaced here so consumers see it clearly. |
 | Hardening flags (RELRO / BIND_NOW / stack-protector / `_FORTIFY_SOURCE`) | Restored explicitly via `CMAKE_*_LINKER_FLAGS_INIT` after unsetting Fedora's CFLAGS/CXXFLAGS/LDFLAGS bundle (the bundle's annobin specs file breaks clang feature tests). O3DE's `Configurations_clang.cmake` already supplies stack-protector and `_FORTIFY_SOURCE`. |
-| Runtime escalation paths | Launcher wrapper is `/usr/bin/o3de` and CLI wrapper is `/usr/bin/o3de-cli`, both mode 0755, no setuid. All `mkdir -p` targets are under `$HOME`. |
+| Runtime escalation paths | Launcher wrapper is `/usr/bin/o3deNNNN` and CLI wrapper is `/usr/bin/o3deNNNN-cli`, both mode 0755, no setuid. All `mkdir -p` targets are under `$HOME`. |
 | Patch reviewability | Real `.patch` files with `From:`/`Subject:` rationales — reviewable with `git log` or `interdiff`. |
-| Source provenance auditability | CycloneDX 1.6 SBOM at `/usr/share/o3de/sbom/o3de.cdx.json` documents every bundled component, with purl, license expression, and EOL flags where applicable. |
+| Source provenance auditability | CycloneDX 1.6 SBOM at `/usr/share/o3deNNNN/sbom/o3deNNNN.cdx.json` documents every bundled component, with purl, license expression, and EOL flags where applicable. |
 | First-run state migration | Launcher's `<project>/user/project.json` rewrite is JSON-aware (`python3 -c json.load/dump`), only mutates known legacy prefixes, and is gated by a per-prefix marker file. Failures are silenced so a malformed home dir can't block the editor. |
 
 ---
 
 ## SBOM
 
-A static CycloneDX 1.6 JSON SBOM is committed at `sources/o3de.cdx.json` and shipped as part of the RPM at `/usr/share/o3de/sbom/o3de.cdx.json`. It documents:
+A static CycloneDX 1.6 JSON SBOM is committed at `sources/o3de2605.cdx.json` (one file per major; `o3de2610.cdx.json` etc. ship alongside as future majors land) and installed at `/usr/share/o3deNNNN/sbom/o3deNNNN.cdx.json`. It documents:
 
-- The package itself (`pkg:rpm/fedora/o3de@<version>-<release>`) with its license expression and source URLs.
+- The package itself (`pkg:rpm/fedora/o3deNNNN@<version>-<release>`) with its license expression and source URLs.
 - Build dependencies (cmake, ninja-build, gcc-c++, python3-devel, git-lfs).
 - Direct runtime dependencies (Qt5, Vulkan, mesa, libcurl, openssl, …).
 - Bundled components (custom Qt 5.15-rev9, embedded clang toolchain, bundled Python — version follows the spec's `%global o3de_bundled_python` macro, currently 3.10, plus pyside2/shiboken2, OpenEXR, OpenImageIO, OpenColorIO, PhysX, etc.) — explicitly distinguished from system deps.
@@ -331,14 +346,14 @@ A static CycloneDX 1.6 JSON SBOM is committed at `sources/o3de.cdx.json` and shi
 To consume:
 
 ```bash
-# After install:
-cyclonedx validate --input-file /usr/share/o3de/sbom/o3de.cdx.json
+# After install (replace 2605 with whichever major is installed):
+cyclonedx validate --input-file /usr/share/o3de2605/sbom/o3de2605.cdx.json
 
 # Generate a runtime augmentation from the actual built RPM:
-syft /opt/o3de -o cyclonedx-json
+syft /opt/O3DE/26.05.0 -o cyclonedx-json
 ```
 
-Re-generate the static SBOM when bumping the version: edit `sources/o3de.cdx.json` to update `metadata.component.version`, the `version` field at the top level, and any external references.
+Re-generate the static SBOM when bumping the version: edit `sources/o3deNNNN.cdx.json` (or copy it to `sources/o3deMMMM.cdx.json` for a new major) to update `metadata.component.version`, the `version` field at the top level, the `name`/`purl`/`bom-ref` fields, and any external references.
 
 ---
 

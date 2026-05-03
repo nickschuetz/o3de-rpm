@@ -30,19 +30,19 @@ flowchart TB
     end
 
     subgraph INSTALL["Installed layout (RPMs produced)"]
-        MAIN["o3de package<br/>/opt/o3de/ (CORE + DEFAULT + profile binaries)<br/>/usr/bin/o3de + .desktop + metainfo + icons + SBOM"]
-        DBGPKG["o3de-debug subpackage<br/>(only when --with debug)<br/>/opt/o3de/bin/Linux/debug/"]
+        MAIN["o3deNNNN package (e.g. o3de2605)<br/>/opt/O3DE/&lt;DISPLAY_VERSION&gt;/ (CORE + DEFAULT + profile binaries)<br/>/usr/bin/o3deNNNN + per-major .desktop + metainfo + icons + SBOM"]
+        DBGPKG["o3deNNNN-debug subpackage<br/>(only when --with debug)<br/>/opt/O3DE/&lt;DISPLAY_VERSION&gt;/bin/Linux/debug/"]
         DBG -->|no| MAIN
         DBG -->|yes| MAIN
         DBG -->|yes| DBGPKG
     end
 
     subgraph RT["Runtime (per-user)"]
-        WRAP["o3de wrapper<br/>O3DE_ENGINE_PATH=/opt/o3de<br/>O3DE_PYTHON_VERSION=3.10"]
+        WRAP["o3deNNNN wrapper<br/>O3DE_ENGINE_PATH=/opt/O3DE/&lt;DISPLAY_VERSION&gt;<br/>O3DE_PYTHON_VERSION=3.10"]
         MIG["first-run migration<br/>JSON-aware engine_path rewrite<br/>in &lt;project&gt;/user/project.json"]
-        PY["~/.o3de/Python/venv/&lt;id&gt;/<br/>(get_python.sh, first run)"]
+        PY["~/.o3de/Python/venv/&lt;id&gt;/<br/>(get_python.sh, first run; one venv per engine path)"]
         UD["~/.o3de/user, ~/.o3de/Logs<br/>(writable state)"]
-        ENG["/opt/o3de/bin/Linux/<br/>$O3DE_BUILD_CONFIG/Default/o3de"]
+        ENG["/opt/O3DE/&lt;DISPLAY_VERSION&gt;/bin/Linux/<br/>$O3DE_BUILD_CONFIG/Default/o3de"]
         BIN --> WRAP --> ENG
         WRAP --> MIG
         WRAP --> PY
@@ -79,10 +79,11 @@ flowchart TB
     end
 ```
 
-## Five separations to notice
+## Six separations to notice
 
 1. **Source-mode toggle** decides between a stable tarball and a reproducible snapshot tarball, but the rest of the spec is identical for both.
 2. **3rdParty bundle toggles** are independent of source mode — each `--with thirdparty_<pkg>` extracts its `Source10x` tarball into `LY_3RDPARTY_PATH` before configure.
 3. **System-library swap toggles** (Stage 1, Fedora-inclusion track) — each `--with system_<lib>` activates a Patch000N gate plus a `Find<lib>-system.cmake` stub, replacing one bundled 3rdParty package with its system equivalent. Independent of all other toggles. See [`BUNDLED_LIBRARIES.md`](BUNDLED_LIBRARIES.md) for status.
-4. **Read-only engine + writable user state** — `/opt/o3de` is owned by root, all writable state lives in `~/.o3de/`. The launcher wrapper is the only piece that bridges them.
+4. **Read-only engine + writable user state** — `/opt/O3DE/<version>/` is owned by root, all writable state lives in `~/.o3de/`. The launcher wrapper is the only piece that bridges them.
 5. **One spec, multiple distribution channels** — the same spec produces the binary for four COPR projects (`o3de` stable / `o3de-stabilization` community-tester / `o3de-snapshot` one-off dev builds / `o3de-experimental` in-flight migration), the upstream submission to o3debinaries.org, and (eventually) Fedora; the future Flatpak shares ~80% of the source tree (patches, launcher, snapshot helper) but uses its own manifest. The channel marker baked into the GUI version string (`-stabilization.<commit>`, `-snapshot.<commit>`, `-experimental.<commit>`, or none for stable) lets testers identify which channel a build came from at a glance.
+6. **Versioned multi-install (postgresql-style)** — the spec parameterizes `Name:` as `o3deNNNN` (e.g. `o3de2605` for 26.05.x, `o3de2610` for the next major, derived from the spec's `stable_tag` macro) and the install prefix as `/opt/O3DE/<DISPLAY_VERSION>/` (matching upstream's `.deb` and Windows `.msi` exactly). Bumping `stable_tag` automatically produces the next major's package name and path with no other changes. Two majors install side-by-side: `dnf install o3de2605 o3de2610` lands at `/opt/O3DE/26.05.0/` and `/opt/O3DE/26.10.0/` with no overlap; per-engine venvs in `~/.o3de/Python/venv/<engine-id>/` stay isolated automatically because cmake's `CalculateEnginePathId` hashes the engine root path. Subpackages (`o3deNNNN-debug`, future `o3deNNNN-devel`) inherit the versioning via the standard `%{name}-debug` shorthand. Cross-major upgrades are NOT automatic — different majors are different engine lines; users opt in explicitly.

@@ -7,13 +7,21 @@
 #                      The o3de RPM ships profile binaries; the optional
 #                      o3de-debug subpackage adds debug binaries. With
 #                      only one installed, auto-detect picks it.
-#   O3DE_ENGINE_PATH   override engine root (default: /opt/o3de)
+#   O3DE_ENGINE_PATH   override engine root (default: @O3DE_INSTALL_PREFIX@,
+#                      substituted to the versioned install path at %install
+#                      time — e.g. /opt/O3DE/26.05.0)
 #   O3DE_PYTHON_VERSION  bundled-Python series (default: 3.10)
 #                        Comes from O3DE's package CDN's python-X.Y.Z-revN-linux
 #                        and matches the venv site-packages directory name.
 set -euo pipefail
 
-ENGINE_PATH="${O3DE_ENGINE_PATH:-/opt/o3de}"
+# @O3DE_INSTALL_PREFIX@ is the placeholder the spec's %install step
+# substitutes with the versioned install path (e.g. /opt/O3DE/26.05.0).
+# Using a placeholder rather than a literal /opt/o3de prevents the
+# substitution from also rewriting the legacy_prefixes list below
+# (which intentionally keeps /opt/o3de as a HISTORICAL prefix to
+# migrate user state from).
+ENGINE_PATH="${O3DE_ENGINE_PATH:-@O3DE_INSTALL_PREFIX@}"
 PYV="${O3DE_PYTHON_VERSION:-3.10}"
 
 if [ -n "${O3DE_BUILD_CONFIG:-}" ]; then

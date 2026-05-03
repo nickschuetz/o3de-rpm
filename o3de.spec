@@ -84,6 +84,20 @@
 #   2510.2  →  25.10.2
 %global engine_cmake_version %(awk -F. '{ printf "%%d.%%02d.%%d", int($1/100), $1%%100, $2 }' <<< "%{stable_tag}")
 
+# Versioned package layout (postgresql-style major-keyed naming + upstream-
+# aligned install path). Lets multiple O3DE major releases coexist on one
+# system: o3de2605 (26.05 line) at /opt/O3DE/26.05.0/, o3de2610 (26.10 line)
+# at /opt/O3DE/26.10.0/, etc. Different majors = different engine lines = not
+# auto-upgradable. The /opt/O3DE/<v>/ path matches upstream's .deb (Debian)
+# and .msi (Windows) install layout exactly — cross-platform consistency.
+#   stable_tag           2605.0  (or 2610.0, 2705.0, …)
+#   o3de_major_tag       2605
+#   o3de_pkgname         o3de2605
+#   o3de_install_prefix  /opt/O3DE/26.05.0
+%global o3de_major_tag      %(awk -F. '{ print $1 }' <<< "%{stable_tag}")
+%global o3de_pkgname        o3de%{o3de_major_tag}
+%global o3de_install_prefix /opt/O3DE/%{engine_cmake_version}
+
 # Snapshot pin — populated by sources/make-snapshot-tarball.sh.
 # Pinned to stabilization/26050 tip for end-to-end build test.
 %global snapshot_commit 246b46f500e06eb819421e12644745e95872bb28
@@ -192,7 +206,7 @@
 # without checking — most Requires we'd want to drop are real.
 %global __requires_exclude ^libclang-12\\.so.*|^libtinfo\\.so\\.6.*
 
-Name:           o3de
+Name:           %{o3de_pkgname}
 %if %{with snapshot}
 Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
@@ -214,11 +228,13 @@ Source0:        https://github.com/o3de/o3de/releases/download/%{stable_tag}/o3d
 Source10:       o3de-launcher.sh
 Source11:       o3de.desktop
 Source12:       make-snapshot-tarball.sh
-Source13:       o3de.cdx.json
+Source13:       %{o3de_pkgname}.cdx.json
 Source14:       o3de.metainfo.xml
 # NoDisplay association entry: maps the Editor's WM_CLASS to o3de icon.
 Source15:       o3de-editor.desktop
-# Thin wrapper exposing /opt/o3de/scripts/o3de.sh on $PATH as o3de-cli.
+# Thin wrapper exposing the engine's scripts/o3de.sh CLI on $PATH as
+# %%{o3de_pkgname}-cli (versioned binary name; multiple installed majors
+# get distinct PATH entries).
 Source16:       o3de-cli
 
 # App icons in hicolor sizes. Extracted from upstream's
@@ -400,6 +416,15 @@ Requires:       libtiff
 Requires:       zlib
 %endif
 
+# Provide the unversioned `o3de` capability so external packages with a
+# legacy `Requires: o3de` keep resolving against whichever versioned
+# package is installed (o3de2605, o3de2610, …). Each versioned package
+# Provides this; dnf's normal capability-resolution picks one. Note: this
+# is NOT a meta-package — there is no unversioned `o3de` package to
+# `dnf install o3de` against; users must explicitly type `dnf install
+# o3de2605` (or whatever major they want).
+Provides:       o3de = %{version}-%{release}
+
 %description
 The Open 3D Engine (O3DE) is an Apache-licensed, real-time, multi-platform
 3D engine for building AAA games, cinema-quality 3D worlds, and
@@ -414,12 +439,14 @@ This build is a development snapshot at commit %{shortcommit} (%{snapshot_date})
 %endif
 
 # TODO(devel-split): Split lib/Linux/profile/Default/*.a (~4 GB of static
-# archives) out into an o3de-devel subpackage. Those archives are only
-# needed by people C++-linking against the engine to write native gems —
-# Lua/ScriptCanvas project authors and runtime users never touch them.
-# Roughly halves the main package on top of the compression switch.
-# Care needed for which cmake/<...>Targets.cmake files travel with the
-# static libs vs. stay with the runtime cmake of the main package.
+# archives) out into a %%{name}-devel subpackage (resolves to o3de2605-devel,
+# o3de2610-devel, etc. — versioned automatically via %%package devel
+# inheriting %%{name}). Those archives are only needed by people
+# C++-linking against the engine to write native gems — Lua/ScriptCanvas
+# project authors and runtime users never touch them. Roughly halves the
+# main package on top of the compression switch. Care needed for which
+# cmake/<...>Targets.cmake files travel with the static libs vs. stay
+# with the runtime cmake of the main package.
 
 %if %{with debug}
 %package debug
@@ -430,12 +457,14 @@ Requires:       %{name}%{?_isa} = %{version}-%{release}
 Debug-config (-O0 + full debug symbols) binaries for the Open 3D Engine.
 
 These binaries live alongside the profile binaries shipped by the main
-%{name} package, under /opt/o3de/bin/Linux/debug/. Install this package
-when you need to step through engine internals in a debugger; for plain
-game development the profile build in %{name} is sufficient.
+%{name} package, under %{o3de_install_prefix}/bin/Linux/debug/. Install
+this package when you need to step through engine internals in a
+debugger; for plain game development the profile build in %{name} is
+sufficient.
 
 Set O3DE_BUILD_CONFIG=debug in the environment, or pass `--build-config
-debug` to /usr/bin/o3de, to launch the debug engine in place of profile.
+debug` to %{_bindir}/%{name}, to launch the debug engine in place of
+profile.
 %endif
 
 # ── PREP ─────────────────────────────────────────────────────────────────────
@@ -508,9 +537,9 @@ cmake \
     -DCMAKE_C_COMPILER=clang \
     -DCMAKE_CXX_COMPILER=clang++ \
     -DCMAKE_CONFIGURATION_TYPES="%{_o3de_configs}" \
-    -DCMAKE_INSTALL_PREFIX=/opt/o3de \
+    -DCMAKE_INSTALL_PREFIX=%{o3de_install_prefix} \
     -DLY_3RDPARTY_PATH=%{_builddir}/%{o3de_source_dir}/3rdParty \
-    -DO3DE_INSTALL_ENGINE_NAME=o3de \
+    -DO3DE_INSTALL_ENGINE_NAME=%{o3de_pkgname} \
     -DO3DE_INSTALL_VERSION_STRING=%{engine_cmake_version} \
     -DO3DE_INSTALL_DISPLAY_VERSION_STRING='"%{_o3de_display_version}"' \
     -DO3DE_INSTALL_BUILD_VERSION='"%{_o3de_build_version}"' \
@@ -595,35 +624,89 @@ DESTDIR=%{buildroot} cmake --install build --config debug --component DEFAULT_DE
 # the entire engine tree so brp-mangle-shebangs accepts them. We deliberately
 # keep '/usr/bin/env' (not a hardcoded /usr/bin/python3) so the bundled
 # Python venv is found via PATH when the launcher activates it.
-find %{buildroot}/opt/o3de -type f -name '*.py' \
+find %{buildroot}%{o3de_install_prefix} -type f -name '*.py' \
     -exec sed -i '1s|^#!/usr/bin/env python$|#!/usr/bin/env python3|' {} +
 
 # Editor expects engine.json + python relative to the binary's location.
 # Profile binaries are always present; debug only when --with debug.
-ln -s ../../../../python      %{buildroot}/opt/o3de/bin/Linux/profile/Default/python
-ln -s ../../../../engine.json %{buildroot}/opt/o3de/bin/Linux/profile/Default/engine.json
+ln -s ../../../../python      %{buildroot}%{o3de_install_prefix}/bin/Linux/profile/Default/python
+ln -s ../../../../engine.json %{buildroot}%{o3de_install_prefix}/bin/Linux/profile/Default/engine.json
 %if %{with debug}
-ln -s ../../../../python      %{buildroot}/opt/o3de/bin/Linux/debug/Default/python
-ln -s ../../../../engine.json %{buildroot}/opt/o3de/bin/Linux/debug/Default/engine.json
+ln -s ../../../../python      %{buildroot}%{o3de_install_prefix}/bin/Linux/debug/Default/python
+ln -s ../../../../engine.json %{buildroot}%{o3de_install_prefix}/bin/Linux/debug/Default/engine.json
 %endif
 
 # Launcher wrapper + desktop entries from real Source files. The
 # o3de.desktop entry (Source11) is the user-visible menu launcher
 # (Project Manager). The o3de-editor.desktop entry (Source15) is
 # NoDisplay=true and exists only so GNOME/KDE can match the Editor's
-# running window to our installed o3de icon — without it, the dock
-# falls through to Qt's internal icon for the Editor.
-install -D -m 0755 %{SOURCE10} %{buildroot}%{_bindir}/o3de
-install -D -m 0755 %{SOURCE16} %{buildroot}%{_bindir}/o3de-cli
-desktop-file-install --dir=%{buildroot}%{_datadir}/applications %{SOURCE11}
-desktop-file-install --dir=%{buildroot}%{_datadir}/applications %{SOURCE15}
+# running window to our installed icon — without it, the dock falls
+# through to Qt's internal icon for the Editor.
+#
+# Source files (sources/o3de-launcher.sh, sources/o3de-cli, sources/
+# o3de.desktop, sources/o3de-editor.desktop) stay statically named and
+# pass desktop-file-validate as-is. Per-version mutation lands here at
+# %install time:
+#   - launcher / o3de-cli paths → %{o3de_install_prefix} via sed
+#   - launcher Qt -name arg → "O3DE-%{o3de_major_tag}" (matches StartupWMClass)
+#   - desktop file Exec / Icon / Name / StartupWMClass keys overridden
+#     via desktop-file-install --set-key
+#   - file rename: o3de.desktop → %{o3de_pkgname}.desktop, etc.
+install -D -m 0755 %{SOURCE10} %{buildroot}%{_bindir}/%{o3de_pkgname}
+install -D -m 0755 %{SOURCE16} %{buildroot}%{_bindir}/%{o3de_pkgname}-cli
+# Substitute the @O3DE_INSTALL_PREFIX@ placeholder both source files
+# define for their default engine path, and version the launcher's Qt
+# `-name "O3DE"` arg so WM_CLASS matches the desktop file's
+# StartupWMClass=O3DE-<major>. Targeted substitution preserves
+# literal /opt/o3de occurrences in the launcher's legacy_prefixes
+# list (used for one-time user-state migration from pre-versioning
+# installs).
+sed -i \
+    -e 's|@O3DE_INSTALL_PREFIX@|%{o3de_install_prefix}|g' \
+    -e 's|-name "O3DE"|-name "O3DE-%{o3de_major_tag}"|g' \
+    %{buildroot}%{_bindir}/%{o3de_pkgname} \
+    %{buildroot}%{_bindir}/%{o3de_pkgname}-cli
+
+# Project Manager menu entry — mutate visible Name, Icon, Exec, and
+# StartupWMClass at install. Two installed versions need distinct
+# (Name, Icon, StartupWMClass, file path) tuples to avoid collision.
+desktop-file-install --dir=%{buildroot}%{_datadir}/applications \
+    --set-key=Exec --set-value=%{_bindir}/%{o3de_pkgname} \
+    --set-key=Icon --set-value=%{o3de_pkgname} \
+    --set-key=Name --set-value="O3DE %{engine_cmake_version}" \
+    --set-key=StartupWMClass --set-value="O3DE-%{o3de_major_tag}" \
+    %{SOURCE11}
+mv %{buildroot}%{_datadir}/applications/o3de.desktop \
+   %{buildroot}%{_datadir}/applications/%{o3de_pkgname}.desktop
+
+# Editor association entry — NoDisplay=true; exists only so dock-icon
+# attachment finds our icon when the Editor's Qt window class shows up.
+desktop-file-install --dir=%{buildroot}%{_datadir}/applications \
+    --set-key=Exec --set-value=%{o3de_install_prefix}/bin/Linux/profile/Default/Editor \
+    --set-key=Icon --set-value=%{o3de_pkgname} \
+    --set-key=Name --set-value="O3DE %{engine_cmake_version} Editor" \
+    --set-key=StartupWMClass --set-value="O3DE-%{o3de_major_tag} Editor" \
+    %{SOURCE15}
+mv %{buildroot}%{_datadir}/applications/o3de-editor.desktop \
+   %{buildroot}%{_datadir}/applications/%{o3de_pkgname}-editor.desktop
 
 # AppStream metainfo for GNOME Software / KDE Discover. Required for
-# Fedora-distributed GUI applications.
+# Fedora-distributed GUI applications. Mutate component ID + launchable
+# + binary + name to versioned forms so two installed majors appear as
+# separate apps in the GUI app store.
 install -D -m 0644 %{SOURCE14} \
     %{buildroot}%{_metainfodir}/o3de.metainfo.xml
+sed -i \
+    -e 's|<id>org.o3de.O3DE</id>|<id>org.o3de.O3DE%{o3de_major_tag}</id>|' \
+    -e 's|<launchable type="desktop-id">o3de.desktop</launchable>|<launchable type="desktop-id">%{o3de_pkgname}.desktop</launchable>|' \
+    -e 's|<binary>o3de</binary>|<binary>%{o3de_pkgname}</binary>|' \
+    -e 's|<name>O3DE</name>|<name>O3DE %{engine_cmake_version}</name>|' \
+    %{buildroot}%{_metainfodir}/o3de.metainfo.xml
+mv %{buildroot}%{_metainfodir}/o3de.metainfo.xml \
+   %{buildroot}%{_metainfodir}/%{o3de_pkgname}.metainfo.xml
 
 # Hicolor icon theme — six standard sizes from the upstream master ICO.
+# Versioned filenames so multiple majors don't clobber each other's icon.
 for SZ in 16 32 48 64 128 256; do
     case $SZ in
         16)  SRC=%{SOURCE20} ;; 32)  SRC=%{SOURCE21} ;;
@@ -631,83 +714,90 @@ for SZ in 16 32 48 64 128 256; do
         128) SRC=%{SOURCE24} ;; 256) SRC=%{SOURCE25} ;;
     esac
     install -D -m 0644 "$SRC" \
-        %{buildroot}%{_datadir}/icons/hicolor/${SZ}x${SZ}/apps/o3de.png
+        %{buildroot}%{_datadir}/icons/hicolor/${SZ}x${SZ}/apps/%{o3de_pkgname}.png
 done
 
 # Ship the SBOM next to the license/docs so it's discoverable post-install.
-install -D -m 0644 %{SOURCE13} %{buildroot}%{_datadir}/o3de/sbom/o3de.cdx.json
+install -D -m 0644 %{SOURCE13} \
+    %{buildroot}%{_datadir}/%{o3de_pkgname}/sbom/%{o3de_pkgname}.cdx.json
 
 # ── CHECK ────────────────────────────────────────────────────────────────────
 %check
-desktop-file-validate %{buildroot}%{_datadir}/applications/o3de.desktop
-desktop-file-validate %{buildroot}%{_datadir}/applications/o3de-editor.desktop
+desktop-file-validate %{buildroot}%{_datadir}/applications/%{o3de_pkgname}.desktop
+desktop-file-validate %{buildroot}%{_datadir}/applications/%{o3de_pkgname}-editor.desktop
 appstream-util validate-relax --nonet \
-    %{buildroot}%{_metainfodir}/o3de.metainfo.xml
+    %{buildroot}%{_metainfodir}/%{o3de_pkgname}.metainfo.xml
 
 # ── FILES ────────────────────────────────────────────────────────────────────
 %files
 %license LICENSE.txt LICENSE_APACHE2.TXT LICENSE_MIT.TXT
 %doc README.md CODE_OF_CONDUCT.md CONTRIBUTING.md
-/opt/o3de
+%{o3de_install_prefix}
 %if %{with debug}
 # DEFAULT_DEBUG installs both runtime binaries (bin/Linux/debug/) and
 # debug-config archives + shared libs (lib/Linux/debug/) — both belong
-# in the o3de-debug subpackage, not the main one.
-%exclude /opt/o3de/bin/Linux/debug
-%exclude /opt/o3de/lib/Linux/debug
+# in the %{name}-debug subpackage, not the main one.
+%exclude %{o3de_install_prefix}/bin/Linux/debug
+%exclude %{o3de_install_prefix}/lib/Linux/debug
 %endif
-%{_bindir}/o3de
-%{_bindir}/o3de-cli
-%{_datadir}/applications/o3de.desktop
-%{_datadir}/applications/o3de-editor.desktop
-%{_metainfodir}/o3de.metainfo.xml
-%{_datadir}/icons/hicolor/16x16/apps/o3de.png
-%{_datadir}/icons/hicolor/32x32/apps/o3de.png
-%{_datadir}/icons/hicolor/48x48/apps/o3de.png
-%{_datadir}/icons/hicolor/64x64/apps/o3de.png
-%{_datadir}/icons/hicolor/128x128/apps/o3de.png
-%{_datadir}/icons/hicolor/256x256/apps/o3de.png
-%{_datadir}/o3de/sbom/o3de.cdx.json
+%{_bindir}/%{o3de_pkgname}
+%{_bindir}/%{o3de_pkgname}-cli
+%{_datadir}/applications/%{o3de_pkgname}.desktop
+%{_datadir}/applications/%{o3de_pkgname}-editor.desktop
+%{_metainfodir}/%{o3de_pkgname}.metainfo.xml
+%{_datadir}/icons/hicolor/16x16/apps/%{o3de_pkgname}.png
+%{_datadir}/icons/hicolor/32x32/apps/%{o3de_pkgname}.png
+%{_datadir}/icons/hicolor/48x48/apps/%{o3de_pkgname}.png
+%{_datadir}/icons/hicolor/64x64/apps/%{o3de_pkgname}.png
+%{_datadir}/icons/hicolor/128x128/apps/%{o3de_pkgname}.png
+%{_datadir}/icons/hicolor/256x256/apps/%{o3de_pkgname}.png
+%{_datadir}/%{o3de_pkgname}/sbom/%{o3de_pkgname}.cdx.json
 
 %if %{with debug}
 %files debug
-/opt/o3de/bin/Linux/debug
-/opt/o3de/lib/Linux/debug
+%{o3de_install_prefix}/bin/Linux/debug
+%{o3de_install_prefix}/lib/Linux/debug
 %endif
 
 # ── Scriptlets ───────────────────────────────────────────────────────────────
 %post
-if [ -x /opt/o3de/scripts/o3de.sh ]; then
-    /opt/o3de/scripts/o3de.sh register --this-engine || :
+if [ -x %{o3de_install_prefix}/scripts/o3de.sh ]; then
+    %{o3de_install_prefix}/scripts/o3de.sh register --this-engine || :
 fi
 /usr/bin/update-desktop-database -q %{_datadir}/applications &>/dev/null || :
 /usr/bin/gtk-update-icon-cache --quiet --force \
     %{_datadir}/icons/hicolor &>/dev/null || :
 
-cat <<'EOF'
+cat <<EOF
 
-O3DE installed at /opt/o3de (profile-config binaries).
+O3DE %{engine_cmake_version} installed at %{o3de_install_prefix}
+(profile-config binaries).
+
+This package is %{name} — multiple O3DE majors can coexist on one
+system (e.g., o3de2605 alongside a future o3de2610), each at its
+own /opt/O3DE/<version>/ install root. Project Manager auto-routes
+each project to the engine version pinned in its project.json.
 
 To step through engine code in a debugger, also install the debug
 subpackage if available:
 
-    sudo dnf install o3de-debug
+    sudo dnf install %{name}-debug
 
 The per-user Python venv bootstraps on first launch automatically;
 to pre-bootstrap it manually run:
 
-    /opt/o3de/python/get_python.sh
+    %{o3de_install_prefix}/python/get_python.sh
 
 Launch the editor (Project Manager GUI):
 
-    o3de                              # profile build (default)
-    O3DE_BUILD_CONFIG=debug o3de      # debug build (requires o3de-debug)
+    %{name}                            # profile build (default)
+    O3DE_BUILD_CONFIG=debug %{name}    # debug build (requires %{name}-debug)
 
 Use the command-line tool for project / gem / engine management:
 
-    o3de-cli --help                   # list sub-commands
-    o3de-cli register --this-engine   # one-time per-user setup
-    o3de-cli create-project --project-path ~/MyGame --project-name MyGame
+    %{name}-cli --help                 # list sub-commands
+    %{name}-cli register --this-engine # one-time per-user setup
+    %{name}-cli create-project --project-path ~/MyGame --project-name MyGame
 
 EOF
 
@@ -718,6 +808,24 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Sun May 03 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-14
+- Rename package o3de → o3de2605 (postgresql-style major-keyed naming).
+  Multiple O3DE majors can now coexist on one system: o3de2605 (26.05
+  line) at /opt/O3DE/26.05.0/, future o3de2610 at /opt/O3DE/26.10.0/,
+  etc. Different majors are different engine lines, intentionally NOT
+  cross-major auto-upgradable. Path layout matches upstream's .deb and
+  Windows .msi install layout — cross-platform consistency. Subpackages
+  follow the same versioning automatically: o3de2605-debug today,
+  o3de2605-devel when the queued split lands. Single Provides: o3de
+  for any external Requires: o3de that needs to resolve. New macros:
+  o3de_major_tag, o3de_pkgname, o3de_install_prefix.
+- Per-version desktop entries: o3de2605.desktop with Name="O3DE 26.05.0",
+  Icon=o3de2605, StartupWMClass=O3DE-2605. Two installed majors appear
+  as separate menu entries with distinct dock identities.
+- AppStream component IDs versioned: org.o3de.O3DE2605, org.o3de.O3DE2610.
+  GNOME Software / KDE Discover treat each version as its own installable
+  app.
+
 * Fri May 01 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-13
 - Defensive: also BR python3-pip and python3-wheel. Newer setuptools
   versions sometimes invoke pip + wheel through the PEP 517 build

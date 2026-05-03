@@ -47,15 +47,16 @@ Read `o3de.spec` top-to-bottom. The shape is:
 
 1. **Build-mode toggles** (`%bcond_with`) — `snapshot`, `debug`, `thirdparty_*`
 2. **Version pinning** — `stable_tag`, `engine_cmake_version` (derived 3-component for cmake), snapshot pins
-3. **rpm build behavior** — `debug_package`, payload compression, `__requires_exclude` (load-bearing for DXC's bundled libclang/libtinfo — see in-spec comment + `MEMORY.md` if applicable)
-4. **Name / Version / Release** with conditional logic for snapshot mode
-5. **Source0** (the upstream tarball — release URL or local snapshot)
-6. **Source10–25** (auxiliary files: launcher, desktops, metainfo, icons, SBOM, snapshot helper)
-7. **Patch0001–0006** applied via `%autosetup -p1`
-8. **BuildRequires / Requires** — minimal, validated against auto-Requires
-9. **`%prep`, `%build`, `%install`, `%check`, `%files`** — standard rpm sections
-10. **Scriptlets** (`%post`, `%postun`)
-11. **Changelog**
+3. **Versioned-naming macros** (derived from `stable_tag`) — `o3de_major_tag` (e.g. `2605`), `o3de_pkgname` (e.g. `o3de2605`), `o3de_install_prefix` (e.g. `/opt/O3DE/26.05.0`). Bump `stable_tag` to `2610.0` and the spec automatically produces an `o3de2610` package at `/opt/O3DE/26.10.0/` — no other edits needed. Subpackages (`%{name}-debug`, future `%{name}-devel`) inherit the versioning automatically.
+4. **rpm build behavior** — `debug_package`, payload compression, `__requires_exclude` (load-bearing for DXC's bundled libclang/libtinfo — see in-spec comment + `MEMORY.md` if applicable)
+5. **Name / Version / Release** with conditional logic for snapshot mode (`Name: %{o3de_pkgname}`)
+6. **Source0** (the upstream tarball — release URL or local snapshot)
+7. **Source10–25** (auxiliary files: launcher, desktops, metainfo, icons, SBOM, snapshot helper)
+8. **Patch0001–0006** applied via `%autosetup -p1`
+9. **BuildRequires / Requires** — minimal, validated against auto-Requires
+10. **`%prep`, `%build`, `%install`, `%check`, `%files`** — standard rpm sections
+11. **Scriptlets** (`%post`, `%postun`)
+12. **Changelog**
 
 If you change *anything* in the spec or sources/, **update the README's layout block, the `ARCHITECTURE.md` Mermaid diagram and prose, and any other doc section that references the changed file** — in the same commit. This is a hard rule; doc drift is treated as a regression.
 
@@ -98,7 +99,7 @@ Submission stays parked until Nick signals the project is past the experimental 
 make snapshot REF=<git-ref>      # produce sources/o3de-<commit>.tar.gz, print pin values
 $EDITOR o3de.spec                # paste snapshot_commit / snapshot_date / snapshot_sha256
 make rpm-snapshot                # full -bb (profile only, ~70 min on a 32GB workstation)
-make rpm-snapshot-debug          # full -bb + o3de-debug subpackage (~2x build time)
+make rpm-snapshot-debug          # full -bb + o3deNNNN-debug subpackage (~2x build time)
 ```
 
 Or run the test harness end-to-end:
@@ -124,6 +125,8 @@ Five related projects under the same owner (`hellaenergy`):
 The four engine projects all set `enable_net=true` (so cmake can fetch the four restricted bundles — DXC, NvCloth, poly2tri, squish-ccr — from `packages.o3de.org` at build time) and pull `o3de-dependencies` via the chroot's `additional_repos` (build-time) and `runtime_dependencies` (consume-time, for end users).
 
 Channel-marker bcond: `--with stabilization` is set on `o3de-stabilization` and `o3de-experimental` chroots (via `--rpmbuild-with stabilization`) so the spec tags those builds with `-stabilization.<commit>` in the GUI version string. `o3de-snapshot` builds use plain `--with snapshot` only and tag as `-snapshot.<commit>`. `o3de` (stable) builds carry no channel suffix.
+
+Each engine project hosts the **versioned** package(s) that match whatever the spec's `stable_tag` resolves to at build time — currently `o3de2605` (for the 26.05.x line). When the spec rolls forward to `2610.0`, the same projects will start producing `o3de2610` packages alongside (until the older line is pruned). The COPR project name (`o3de`, `o3de-stabilization`, …) is the *channel*; the package name (`o3de2605`, `o3de2610`, …) is the *major*. They're orthogonal.
 
 Workflow:
 

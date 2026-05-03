@@ -1,30 +1,30 @@
 {
   "bomFormat": "CycloneDX",
   "specVersion": "1.6",
-  "serialNumber": "urn:uuid:o3de-rpm-2605.0-2",
+  "serialNumber": "urn:uuid:o3de2605-rpm-2605.0-14",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-04-29T00:00:00Z",
+    "timestamp": "2026-05-03T00:00:00Z",
     "tools": {
       "components": [
         {
           "type": "application",
           "name": "o3de-rpm",
-          "version": "2605.0-2",
-          "description": "O3DE RPM packaging spec"
+          "version": "2605.0-14",
+          "description": "O3DE RPM packaging spec (versioned package: o3de2605)"
         }
       ]
     },
     "component": {
-      "bom-ref": "pkg:rpm/fedora/o3de@2605.0-2",
+      "bom-ref": "pkg:rpm/fedora/o3de2605@2605.0-14",
       "type": "application",
-      "name": "o3de",
+      "name": "o3de2605",
       "version": "2605.0",
-      "description": "Open 3D Engine — real-time, multi-platform 3D engine",
+      "description": "Open 3D Engine 26.05 line — real-time, multi-platform 3D engine",
       "licenses": [
         { "expression": "Apache-2.0 OR MIT" }
       ],
-      "purl": "pkg:rpm/fedora/o3de@2605.0-2?arch=x86_64",
+      "purl": "pkg:rpm/fedora/o3de2605@2605.0-14?arch=x86_64",
       "externalReferences": [
         { "type": "website",          "url": "https://o3de.org" },
         { "type": "vcs",              "url": "https://github.com/o3de/o3de" },
