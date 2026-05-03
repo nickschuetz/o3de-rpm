@@ -42,8 +42,12 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      - name: Spec parses (stable + snapshot modes)
-        run: make spec-parse spec-parse-snapshot
+      - name: Spec parses (stable + snapshot + experimental modes)
+        # spec-parse-experimental defines all the active Stage 1
+        # system_<lib> bconds via --define _with_<X> 1, so a regression
+        # in any conditional BR/Requires/cmake block surfaces here
+        # before it reaches a 5-hour COPR build.
+        run: make spec-parse spec-parse-snapshot spec-parse-experimental
 
       - name: rpmlint
         run: rpmlint o3de.spec
