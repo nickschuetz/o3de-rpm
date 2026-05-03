@@ -819,6 +819,27 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Sun May 03 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-18
+- Stage 1 baseline reduced to mikkelsen-only. Build 10421133 (5-pack:
+  expat, freetype, libpng, mikkelsen, zlib — system_tiff already parked)
+  failed at cmake configure-time:
+    UNKNOWN_LIBRARY Library ZLIB::ZLIB specified
+      MAP_IMPORTED_CONFIG_DEBUG = DEBUG; but did not have any of
+      IMPORTED_LOCATION_xxxx set
+  Root cause: each of the four `Find<X>-system.cmake` shims for
+  expat/freetype/libpng/zlib delegates library/header lookup to
+  cmake's stock `FindZLIB.cmake`/`FindPNG.cmake`/etc. via include().
+  That stock include creates a side-effect target (e.g. ZLIB::ZLIB)
+  with MAP_IMPORTED_CONFIG_* set but no per-config IMPORTED_LOCATION,
+  which O3DE's runtime walker iterates and dies on. Mikkelsen alone
+  works because Findmikkelsen-system.cmake does its lookup directly
+  via find_path/find_library — no stock-module include, no
+  side-effect target. Parking the four ZLIB-class swaps; future Stage
+  1 PR will refactor each shim to the mikkelsen pattern. Bcond +
+  Source declarations stay in place for future activation. Patch0006's
+  gating in BuiltInPackages_linux_x86_64.cmake is already correct
+  for all of them.
+
 * Sun May 03 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-17
 - Park system_tiff Stage 1 swap. Build 10420962 (Patch0007 v2 in place)
   surfaced a deeper conflict: libtiff's <tiff.h> defines int64/uint64

@@ -156,11 +156,28 @@ srpm-stabilization:
 # reviewer downloads the SRPM directly.
 SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
                           --with stabilization \
-                          --with system_expat \
-                          --with system_freetype \
-                          --with system_mikkelsen \
-                          --with system_png \
-                          --with system_zlib
+                          --with system_mikkelsen
+# system_expat / system_freetype / system_png / system_zlib deferred:
+# their Find<X>-system.cmake shims `include()` cmake's stock find module
+# (FindZLIB.cmake, FindPNG.cmake, FindFreetype.cmake, FindEXPAT.cmake)
+# to avoid duplicating library/header lookup logic. That stock include
+# creates a side-effect target — e.g. ZLIB::ZLIB as UNKNOWN IMPORTED with
+# MAP_IMPORTED_CONFIG_DEBUG/RELEASE/PROFILE set but only the
+# unconfigured IMPORTED_LOCATION populated. O3DE's runtime-dependency
+# walker iterates every target in the project, sees those properties on
+# ZLIB::ZLIB, and dies with:
+#   "UNKNOWN_LIBRARY Library ZLIB::ZLIB specified MAP_IMPORTED_CONFIG_DEBUG
+#    = DEBUG; but did not have any of IMPORTED_LOCATION_xxxx set"
+# (build 10421133 confirmed this on the 5-pack of swaps; mikkelsen alone
+# is fine because Findmikkelsen-system.cmake doesn't have a stock cmake
+# find module to delegate to — it does the find_path/find_library lookup
+# directly, so mikkelsen::mikkelsen never exists.)
+# Real fix: refactor each of the 4 Find<X>-system.cmake shims to match
+# Findmikkelsen-system.cmake's pattern (direct find_path/find_library,
+# no stock-module include). Files in flight as a separate Stage 1 PR;
+# bcond + find shim + Source declaration stay in place for future
+# activation.
+#
 # system_tiff deferred: in addition to the deprecation-warning migration
 # Patch0007 already addresses, libtiff's <tiff.h> conflicts with
 # Code/Legacy/CryCommon/BaseTypes.h on the int64/uint64 typedef
