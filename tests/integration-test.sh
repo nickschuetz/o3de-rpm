@@ -208,12 +208,12 @@ done
 for swap in \
     "expat:libexpat.so.1" \
     "freetype:libfreetype.so.6" \
-    "lua-libs:liblua-5.4.so" \
     "mikkelsen:libmikktspace.so.0" \
     "libpng:libpng16.so.16" \
     "libtiff:libtiff.so.6" \
     "zlib:libz.so.1" \
 ; do
+    # lua-libs row deferred — see Makefile SRPM_EXPERIMENTAL_FLAGS for why.
     pkg="${swap%%:*}"
     soname="${swap#*:}"
     if rpm -q --requires o3de 2>/dev/null | grep -qE "^${pkg}(\\s|\$|>|=)"; then

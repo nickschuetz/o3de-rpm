@@ -85,11 +85,11 @@ spec-parse-experimental:
 	@rpmspec $(RPMBUILD_DEFINES) --define "_with_snapshot 1" \
 	    --define "_with_system_expat 1" \
 	    --define "_with_system_freetype 1" \
-	    --define "_with_system_lua 1" \
 	    --define "_with_system_mikkelsen 1" \
 	    --define "_with_system_png 1" \
 	    --define "_with_system_tiff 1" \
 	    --define "_with_system_zlib 1" -q o3de.spec
+# system_lua intentionally absent here — see SRPM_EXPERIMENTAL_FLAGS comment.
 
 # ── Snapshot tarball ────────────────────────────────────────────────────────
 
@@ -122,11 +122,16 @@ srpm-snapshot:
 SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
                           --with system_expat \
                           --with system_freetype \
-                          --with system_lua \
                           --with system_mikkelsen \
                           --with system_png \
                           --with system_tiff \
                           --with system_zlib
+# system_lua deferred: AzCore's ScriptContext.cpp #includes Lua's internal
+# <Lua/lobject.h> which Fedora's lua-devel doesn't ship (only public API:
+# lua.h, lauxlib.h, lualib.h, luaconf.h). Activating system_lua needs a
+# carry-patch that replaces lobject.h usage with the public API, or a
+# different way to expose Lua's internal type definitions. Bcond + find
+# shim + Source declaration stay in place for future activation.
 
 srpm-experimental:
 	rpmbuild -bs $(SRPM_EXPERIMENTAL_FLAGS) $(RPMBUILD_DEFINES) o3de.spec
@@ -195,12 +200,15 @@ copr-init:
 	@echo "      copr-cli edit-chroot $(COPR_OWNER)/$(COPR_PROJECT_EXPERIMENTAL)/\$$chroot \\"
 	@echo "          --rpmbuild-with system_expat \\"
 	@echo "          --rpmbuild-with system_freetype \\"
-	@echo "          --rpmbuild-with system_lua \\"
 	@echo "          --rpmbuild-with system_mikkelsen \\"
 	@echo "          --rpmbuild-with system_png \\"
 	@echo "          --rpmbuild-with system_tiff \\"
 	@echo "          --rpmbuild-with system_zlib; \\"
 	@echo "  done"
+	@echo "# system_lua deferred — depends on a carry-patch that replaces"
+	@echo "# AzCore ScriptContext.cpp's use of Lua internal headers"
+	@echo "# (<Lua/lobject.h>) with the public API. Add system_lua back to"
+	@echo "# the chroot edit and the SRPM flags once that patch lands."
 	@echo
 	@echo "# After a Stage 1 batch validates on experimental and is approved"
 	@echo "# to ship to testers, mirror the SAME --rpmbuild-with flags onto"
