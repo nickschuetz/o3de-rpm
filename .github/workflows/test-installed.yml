@@ -216,7 +216,7 @@ jobs:
       - name: Install test prerequisites
         run: |
           dnf install -y --setopt=install_weak_deps=False \
-            sudo curl rpm \
+            sudo curl rpm dnf-plugins-core \
             desktop-file-utils libappstream-glib appstream \
             python3 cmake ninja-build vulkan-loader \
             findutils diffutils \
@@ -224,6 +224,12 @@ jobs:
             mesa-vulkan-drivers
           # The integration tests need a regular user (not root) for Tiers 3-6.
           useradd -m runner
+
+      - name: Enable hellaenergy/o3de-dependencies COPR
+        # Provides the system-library packages our Stage 1 swaps depend on
+        # (mikkelsen, etc.) until those land in Fedora proper. Safe no-op
+        # for snapshot builds that haven't activated any swaps.
+        run: dnf copr enable -y hellaenergy/o3de-dependencies
 
       - uses: actions/checkout@v4
 
@@ -234,7 +240,11 @@ jobs:
           path: /tmp
 
       - name: Install
-        run: dnf install -y --skip-broken /tmp/o3de.rpm
+        # No --skip-broken: a missing dep should fail loudly here (where
+        # the diagnostic is "package X needed by o3de") rather than
+        # silently skip the install and surface as "rpm -q o3de failed"
+        # in Tier 1 of the integration tests.
+        run: dnf install -y /tmp/o3de.rpm
 
       - name: Tier 1 + 2 (RPM-level + install integrity)
         run: tests/integration-test.sh
