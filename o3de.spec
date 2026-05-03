@@ -254,6 +254,16 @@ Patch0003:      0003-get-python-sh-rpm-venv-fixes.patch
 Patch0004:      0004-lypython-non-editable-pip-for-installed-engine.patch
 Patch0005:      0005-windowdecorationwrapper-propagate-initial-title.patch
 
+# Migrate TIFFLoader.cpp's nine remaining legacy `uint32` typedef uses
+# to the standard C99 `uint32_t`. libtiff 4.5+ marks the legacy typedef
+# as __attribute__((deprecated)); combined with O3DE's -Werror, every
+# stale use becomes a hard build failure. Mechanical type rename;
+# behavior unchanged. Required for any build against modern libtiff
+# regardless of distro packaging — applies unconditionally so the source
+# tree stays consistent whether libtiff resolves from the upstream
+# CDN bundle or from system tiff-devel.
+Patch0007:      0007-tiffloader-c99-typedefs.patch
+
 # Stage 1 system-library swap patches — each gates one upstream
 # ly_associate_package(...) line on a new LY_USE_SYSTEM_<X> cmake var,
 # and pairs with a corresponding system Find<X>.cmake (Source30+ below).
@@ -808,6 +818,16 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Sun May 03 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-15
+- Patch0007: migrate TIFFLoader.cpp's nine remaining legacy libtiff
+  `uint32` typedefs to standard C99 `uint32_t`. libtiff 4.5+ marks the
+  legacy typedef __attribute__((deprecated)); combined with O3DE's
+  -Werror, every stale use is a hard build failure. Adjacent code in
+  the same file already uses uint32_t (partial migration upstream) —
+  this finishes it. Required for any build against modern libtiff,
+  unlocks the `--with system_tiff` Stage 1 swap (and benefits bundled-
+  libtiff builds too as the bundle ages).
+
 * Sun May 03 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-14
 - Rename package o3de → o3de2605 (postgresql-style major-keyed naming).
   Multiple O3DE majors can now coexist on one system: o3de2605 (26.05

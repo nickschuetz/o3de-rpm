@@ -1,0 +1,98 @@
+From: Nick Schuetz <nschuetz@redhat.com>
+Subject: [PATCH] TIFFLoader: migrate legacy libtiff typedefs to C99 standard types
+
+libtiff 4.5+ explicitly marks its legacy `uint32`, `uint16`, etc.
+typedefs as `__attribute__((deprecated))` (see /usr/include/tiff.h
+in Fedora 44+). With O3DE's `-Werror`, every use of those typedefs
+becomes a hard build failure:
+
+    error: 'uint32' is deprecated [-Werror,-Wdeprecated-declarations]
+
+`Gems/Atom/Asset/ImageProcessingAtom/Code/Source/ImageLoader/TIFFLoader.cpp`
+still uses the legacy `uint32` typedef in nine places — partial
+migration; the same file already uses the standard `uint32_t` type
+in adjacent code (see line 371). This patch finishes the migration
+by replacing the remaining legacy uses with the standard C99
+`uint32_t`. Mechanical change; `uint32_t` and the deprecated `uint32`
+typedef are the same underlying type on all supported platforms,
+so behavior is unchanged.
+
+Applies cleanly against both the bundled libtiff (older revision,
+which still defines both names) and Fedora's libtiff 4.5+ (which
+deprecates the legacy name); applying unconditionally — without
+gating on `--with system_tiff` — keeps the source tree consistent
+regardless of whether the build resolves libtiff from the upstream
+CDN bundle or from `tiff-devel`.
+
+Path-anchored at `Gems/Atom/Asset/ImageProcessingAtom/Code/Source/ImageLoader/TIFFLoader.cpp`
+so future upstream rebases that move adjacent code (different line
+numbers) but keep the file in place still apply.
+
+Upstream-worthy: yes. The migration is required for any build
+against modern libtiff regardless of distro packaging — Fedora,
+Ubuntu 24.04+, etc. — and the change is conservative (mechanical
+type rename, same semantics).
+
+Signed-off-by: Nick Schuetz <nschuetz@redhat.com>
+---
+ .../Code/Source/ImageLoader/TIFFLoader.cpp                  | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+--- a/Gems/Atom/Asset/ImageProcessingAtom/Code/Source/ImageLoader/TIFFLoader.cpp
++++ b/Gems/Atom/Asset/ImageProcessingAtom/Code/Source/ImageLoader/TIFFLoader.cpp
+@@ -291,7 +291,7 @@
+             // Used to get the X, Y, Z scales from a GeoTIFF file
+             bool isGeoTIFF = false;
+             {
+-                uint32 tagCount = 0;
++                uint32_t tagCount = 0;
+                 double* pixelScales = NULL;
+                 static constexpr int GEOTIFF_MODELPIXELSCALE_TAG = 33550;
+                 if (TIFFGetField(tif, GEOTIFF_MODELPIXELSCALE_TAG, &tagCount, &pixelScales) == 1)
+@@ -371,7 +371,7 @@
+             for (uint32_t imageY = 0; imageY < inputImageHeight; imageY += tileHeight)
+             {
+                 // Loop across the image width, one tile at a time
+-                for (uint32 imageX = 0; imageX < inputImageWidth; imageX += tileWidth)
++                for (uint32_t imageX = 0; imageX < inputImageWidth; imageX += tileWidth)
+                 {
+                     // Either read in a tile or a scanline
+                     [[maybe_unused]] auto result = isTiled?
+@@ -384,9 +384,9 @@
+
+                     // Convert each pixel in the scanline / tile buffer.
+                     // The image might not be evenly divisible by tile height/width, so don't process any pixels outside those bounds.
+-                    for (uint32 tileY = 0; (tileY < tileHeight) && ((imageY + tileY) < inputImageHeight); tileY++)
++                    for (uint32_t tileY = 0; (tileY < tileHeight) && ((imageY + tileY) < inputImageHeight); tileY++)
+                     {
+-                        for (uint32 tileX = 0; (tileX < tileWidth) && ((imageX + tileX) < inputImageWidth); tileX++)
++                        for (uint32_t tileX = 0; (tileX < tileWidth) && ((imageX + tileX) < inputImageWidth); tileX++)
+                         {
+                             // Calculate the buffer start index for the source and destination pixels.
+                             // These indices are by channel, not by byte, so for example a 2x2 R16G16B16A16 image will have
+@@ -394,8 +394,8 @@
+                             // Also, note that the destination image provides a "pitch" value that's the number of bytes per row,
+                             // which could include padding. Since that value is in bytes, we divide by bytes per channel so that
+                             // our index is back in channel range, not byte range.
+-                            uint32 srcPixelChannelIndex = ((tileY * tileWidth) + tileX) * numChannels;
+-                            uint32 destPixelChannelIndex =
++                            uint32_t srcPixelChannelIndex = ((tileY * tileWidth) + tileX) * numChannels;
++                            uint32_t destPixelChannelIndex =
+                                 ((imageY + tileY) * (dwPitch / (bitsPerChannel / 8))) +
+                                 ((imageX + tileX) * dstChannels);
+
+@@ -451,11 +451,11 @@
+             {
+                 float* dst32 = reinterpret_cast<float*>(dst);
+
+-                for (uint32 imageY = 0; imageY < inputImageHeight; imageY++)
++                for (uint32_t imageY = 0; imageY < inputImageHeight; imageY++)
+                 {
+-                    for (uint32 imageX = 0; imageX < inputImageWidth; imageX++)
++                    for (uint32_t imageX = 0; imageX < inputImageWidth; imageX++)
+                     {
+-                        uint32 pixelChannelIndex = (imageY * (dwPitch / (bitsPerChannel / 8))) + (imageX * dstChannels);
++                        uint32_t pixelChannelIndex = (imageY * (dwPitch / (bitsPerChannel / 8))) + (imageX * dstChannels);
+                         dst32[pixelChannelIndex] =
+                             AZStd::clamp((dst32[pixelChannelIndex] - minChannelValue) / (maxChannelValue - minChannelValue), 0.0f, 1.0f);
+                     }
