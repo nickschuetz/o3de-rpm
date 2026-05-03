@@ -110,6 +110,16 @@ if xdpyinfo -display "$DISPLAY" 2>/dev/null | grep -q 'root window id'; then
                     | xargs -I{} xdotool getwindowname {} 2>/dev/null)
         if printf '%s' "$WIN_TITLE" | grep -qE '[0-9]+\.[0-9]+\.[0-9]+'; then
             printf "$PASS Window title carries a version-shaped string: %s\n" "$WIN_TITLE"
+            # Surface the channel marker if present — testers reading
+            # the test output then see immediately which RPM channel
+            # the build came from without having to grep package metadata.
+            if printf '%s' "$WIN_TITLE" | grep -qE -- '-experimental\.[0-9a-f]{7,}'; then
+                printf "  (channel: experimental — Stage 1 system-library swaps active)\n"
+            elif printf '%s' "$WIN_TITLE" | grep -qE -- '-snapshot\.[0-9a-f]{7,}'; then
+                printf "  (channel: snapshot — pre-release build)\n"
+            else
+                printf "  (channel: stable — tagged release)\n"
+            fi
         else
             # Don't fail the test (some xdotool/Xvfb combos return only
             # the WM_NAME, which can lag the ATSPI-set title); just log.

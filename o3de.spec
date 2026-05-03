@@ -81,6 +81,43 @@
 %global snapshot_sha256 80142f1934c3938cf9422f8f4376426084a0443df3ed80c400ff1b0610c98718
 %global shortcommit %(c=%{snapshot_commit}; echo ${c:0:7})
 
+# Channel-identifying suffix for the version strings the GUI displays.
+# Without this, every build (stable / snapshot / experimental) shows
+# "26.05.0" / "Version 2605.0" — a tester can't tell from the GUI which
+# RPM they have. We compute one suffix here and apply it to BOTH
+# DISPLAY_VERSION_STRING (PM titlebar via Patch0005) and BUILD_VERSION
+# (Editor splash) so the two surfaces stay consistent.
+#
+# Channel marker (-experimental wins over -snapshot when both apply).
+# `%%{with X}` is the canonical bcond-aware truthiness test — it returns
+# 1 when the bcond is on, 0 when off (NOT undefined). Add new
+# system_<X> bconds to this OR-chain as the Stage 1 migration list grows.
+%global _o3de_channel %{nil}
+%if %{with system_expat} || %{with system_freetype} || %{with system_lua} || %{with system_mikkelsen} || %{with system_png} || %{with system_tiff} || %{with system_zlib}
+%global _o3de_channel -experimental
+%else
+%if %{with snapshot}
+%global _o3de_channel -snapshot
+%endif
+%endif
+
+# Commit marker (only meaningful in snapshot mode — stable mode pulls
+# from a tagged release tarball, no per-build commit identification).
+%if %{with snapshot}
+%global _o3de_commit_marker .%{shortcommit}
+%else
+%global _o3de_commit_marker %{nil}
+%endif
+
+# Final display values:
+#   _o3de_display_version  → PM titlebar      (e.g. "26.05.0-snapshot.246b46f")
+#   _o3de_build_version    → Editor splash    (e.g. "2605.0-snapshot.246b46f")
+# Both use the same channel + commit suffixes so testers see a coherent
+# story; the numeric prefix differs because that's the established
+# convention each surface uses (dotted vs compact 4-digit).
+%global _o3de_display_version %{engine_cmake_version}%{_o3de_channel}%{_o3de_commit_marker}
+%global _o3de_build_version   %{stable_tag}%{_o3de_channel}%{_o3de_commit_marker}
+
 # Auto-detect snapshot mode when only the snapshot tarball is in _sourcedir.
 # COPR's pipeline rebuilds the SRPM with `rpmbuild -bs` after upload, which
 # evaluates the spec WITHOUT preserving the `--with snapshot` flag passed to
@@ -456,8 +493,8 @@ cmake \
     -DLY_3RDPARTY_PATH=%{_builddir}/%{o3de_source_dir}/3rdParty \
     -DO3DE_INSTALL_ENGINE_NAME=o3de \
     -DO3DE_INSTALL_VERSION_STRING=%{engine_cmake_version} \
-    -DO3DE_INSTALL_DISPLAY_VERSION_STRING=%{engine_cmake_version} \
-    -DO3DE_INSTALL_BUILD_VERSION='"%{stable_tag}"' \
+    -DO3DE_INSTALL_DISPLAY_VERSION_STRING='"%{_o3de_display_version}"' \
+    -DO3DE_INSTALL_BUILD_VERSION='"%{_o3de_build_version}"' \
     -DLY_DISABLE_TEST_MODULES=ON \
     -DLY_STRIP_DEBUG_SYMBOLS=OFF \
     -DTHREADS_PREFER_PTHREAD_FLAG=ON \
