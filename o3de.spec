@@ -819,6 +819,19 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Sun May 03 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-17
+- Park system_tiff Stage 1 swap. Build 10420962 (Patch0007 v2 in place)
+  surfaced a deeper conflict: libtiff's <tiff.h> defines int64/uint64
+  as int64_t/uint64_t (long on LP64); CryCommon/BaseTypes.h defines
+  them as slonglong/ulonglong (long long). Same size, distinct C++
+  types → typedef redefinition error in any TU including both. Fix
+  needs CryCommon migration to C99 typedefs — foundational header,
+  out of scope for the current rename validation. Drop --with
+  system_tiff from SRPM_EXPERIMENTAL_FLAGS and from the experimental
+  chroot's --rpmbuild-with config. Patch0007 stays in place; it's
+  required for any modern-libtiff build (bundled or system) regardless
+  of whether the system_tiff bcond is activated.
+
 * Sun May 03 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-16
 - Patch0007 (broader scope): also patches Code/Editor/Util/ImageTIF.cpp
   in addition to TIFFLoader.cpp. Build 10420621 surfaced the second

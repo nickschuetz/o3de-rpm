@@ -25,7 +25,7 @@ This document is the staged plan, dependency map, and decision log. It lives in 
 
 ## Stage 1 — System library migration (the long tail)
 
-**Status:** **six-migration batch in flight (2026-05-03).** Activated together in `o3de-experimental`: `expat`, `freetype`, `mikkelsen` (validated independently 2026-05-03), `libpng`, `libtiff`, `zlib`. **Lua deferred** — needs a carry-patch to replace AzCore `ScriptContext.cpp`'s `<Lua/lobject.h>` (Lua internal header) with public API; Fedora's lua-devel doesn't ship internal headers. Remaining unmigrated bundles (mcpp, vulkan-validationlayers, googlebenchmark, assimp, SPIRVCross/lz4/libsamplerate, libcurl/pcre2/SQLite, OpenEXR/OIIO/OCIO, pyside2) are deferred — see notes by each in the table. Once the six-batch validates, the SRPM promotes to `o3de-stabilization` (the community-tester channel) as one push so testers see one coherent migration moment (per Nick's tester-pacing decision).
+**Status:** **five-migration batch in flight (2026-05-03).** Activated together in `o3de-experimental`: `expat`, `freetype`, `mikkelsen` (validated independently 2026-05-03), `libpng`, `zlib`. **Lua deferred** — needs a carry-patch to replace AzCore `ScriptContext.cpp`'s `<Lua/lobject.h>` (Lua internal header) with public API; Fedora's lua-devel doesn't ship internal headers. **libtiff deferred (2026-05-03)** — Patch0007 (which migrates the engine's two `<tiffio.h>`-using files from libtiff's deprecated `uint8`/`uint16`/`uint32` typedefs to C99) is in place and required regardless, but a deeper layer surfaced in build 10420962: libtiff 4.5+'s `<tiff.h>` defines `int64`/`uint64` as `int64_t`/`uint64_t` (`long` on LP64) while `Code/Legacy/CryCommon/BaseTypes.h` defines them as `slonglong`/`ulonglong` (`long long`). Same size, distinct C++ types → typedef redefinition error in any TU including both (Unity-build merging surfaces this widely). The fix needs a CryCommon migration to C99 typedefs — foundational header with audit cost across the engine (overload resolution, printf specifiers, template specializations). Parked as a separate Stage 1 item. Remaining unmigrated bundles (mcpp, vulkan-validationlayers, googlebenchmark, assimp, SPIRVCross/lz4/libsamplerate, libcurl/pcre2/SQLite, OpenEXR/OIIO/OCIO, pyside2) are deferred — see notes by each in the table. Once the five-batch validates, the SRPM promotes to `o3de-stabilization` (the community-tester channel) as one push so testers see one coherent migration moment (per Nick's tester-pacing decision).
 
 O3DE bundles ~30 3rdParty packages from its CDN at cmake configure time. Most of them have direct Fedora equivalents we can pivot to.
 
@@ -36,7 +36,7 @@ O3DE bundles ~30 3rdParty packages from its CDN at cmake configure time. Most of
 | freetype | `freetype-devel` | follow-on (use mikkelsen template) |
 | libcurl | `libcurl-devel` | follow-on (use mikkelsen template) |
 | libpng | `libpng-devel` | follow-on (use mikkelsen template) |
-| libtiff | `libtiff-devel` | follow-on (use mikkelsen template) |
+| libtiff | `libtiff-devel` | **deferred** — Patch0007 fixes the deprecation issues in `TIFFLoader.cpp` + `Code/Editor/Util/ImageTIF.cpp`, but `<tiff.h>`'s `int64`/`uint64` typedefs collide with CryCommon's; needs a CryCommon C99 migration (own Stage 1 item) |
 | expat | `expat-devel` | follow-on (use mikkelsen template) |
 | SQLite | `sqlite-devel` | follow-on (use mikkelsen template) |
 | pcre2 | `pcre2-devel` | follow-on (use mikkelsen template) |

@@ -160,8 +160,17 @@ SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
                           --with system_freetype \
                           --with system_mikkelsen \
                           --with system_png \
-                          --with system_tiff \
                           --with system_zlib
+# system_tiff deferred: in addition to the deprecation-warning migration
+# Patch0007 already addresses, libtiff's <tiff.h> conflicts with
+# Code/Legacy/CryCommon/BaseTypes.h on the int64/uint64 typedef
+# (libtiff: int64 → int64_t aka long; CryCommon: int64 → slonglong aka
+# long long — same size, distinct C++ types → typedef redefinition error
+# in any TU including both, surfaced by the Unity build merging multiple
+# .cpp files). Real fix is migrating CryCommon's typedefs to the C99
+# names, which is a foundational header change with audit cost across
+# the engine. Park as a separate Stage 1 item.
+#
 # system_lua deferred: AzCore's ScriptContext.cpp #includes Lua's internal
 # <Lua/lobject.h> which Fedora's lua-devel doesn't ship (only public API:
 # lua.h, lauxlib.h, lualib.h, luaconf.h). Activating system_lua needs a
