@@ -85,16 +85,21 @@ rpmbuild -bb \
 
 ---
 
-## Build a snapshot
+## Build from a git ref (`--with snapshot` mode)
 
-Most snapshot builds target the current stabilization branch (the next-release branch — currently `stabilization/26050`). That's what `hellaenergy/o3de-stabilization` (the testers' channel) ships from — invoke with `make srpm-stabilization` / `make copr-stabilization`. For one-off builds from `development` or a specific commit, use `make srpm-snapshot` / `make copr-snapshot` (uploads to `hellaenergy/o3de-snapshot`). See the bullets at the top of this README for the distinction.
+The spec's `--with snapshot` mode builds from any git ref of `o3de/o3de` instead of an upstream-tagged release tarball. **Which COPR project the resulting RPM lands in depends on the git ref**, not on the rpm mode:
+
+- **`stabilization/<release>`** (e.g. `stabilization/26050`, the next-release branch — currently the default `REF`) → `hellaenergy/o3de-stabilization` (the community testers' channel). Invoke with `make srpm-stabilization` / `make copr-stabilization`.
+- **`development`** or a specific commit/tag → `hellaenergy/o3de-snapshot` (one-off / ad-hoc builds, no continuous tester cadence). Invoke with `make srpm-snapshot` / `make copr-snapshot`.
+
+Both paths use `--with snapshot` under the hood; the project split is a publishing-channel choice, not a build-mode choice. See the bullets at the top of this README for the upstream-branch distinction.
 
 ```bash
 # 1. Generate a reproducible snapshot tarball + checksum.
 cd sources
-./make-snapshot-tarball.sh stabilization/26050   # next-release branch (recommended)
-# ./make-snapshot-tarball.sh development          # bleeding-edge alternative
-# ./make-snapshot-tarball.sh <commit-sha>         # any specific ref
+./make-snapshot-tarball.sh stabilization/26050   # next-release branch → o3de-stabilization
+# ./make-snapshot-tarball.sh development          # bleeding-edge          → o3de-snapshot
+# ./make-snapshot-tarball.sh <commit-sha>         # any specific ref       → o3de-snapshot
 cd ..
 
 # 2. Paste the printed snapshot_commit / snapshot_date / snapshot_sha256
@@ -107,7 +112,7 @@ rpmbuild -bb --with snapshot \
     o3de.spec
 ```
 
-The snapshot version string is `<stable_tag>^<YYYYMMDD>git<shortsha>` (e.g. `2605.0^20260427gitabc1234`). The `^` separator tells `dnf` this is a *pre-release* of the next release, so upgrading `snapshot → next-stable` works correctly.
+The resulting version string is `<stable_tag>^<YYYYMMDD>git<shortsha>` (e.g. `2605.0^20260427gitabc1234`). The `^` separator tells `dnf` this is a *pre-release* of the next release, so upgrading from a `--with snapshot` build to the next tagged release works correctly.
 
 ---
 
