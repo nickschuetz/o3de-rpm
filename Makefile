@@ -83,7 +83,13 @@ spec-parse-snapshot:
 
 spec-parse-experimental:
 	@rpmspec $(RPMBUILD_DEFINES) --define "_with_snapshot 1" \
-	    --define "_with_system_mikkelsen 1" -q o3de.spec
+	    --define "_with_system_expat 1" \
+	    --define "_with_system_freetype 1" \
+	    --define "_with_system_lua 1" \
+	    --define "_with_system_mikkelsen 1" \
+	    --define "_with_system_png 1" \
+	    --define "_with_system_tiff 1" \
+	    --define "_with_system_zlib 1" -q o3de.spec
 
 # ── Snapshot tarball ────────────────────────────────────────────────────────
 
@@ -113,7 +119,14 @@ srpm-snapshot:
 # command. Keep the SRPM flags in sync with the chroot config so the
 # SRPM faithfully shows what activations are intended even if a
 # reviewer downloads the SRPM directly.
-SRPM_EXPERIMENTAL_FLAGS = --with snapshot --with system_mikkelsen
+SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
+                          --with system_expat \
+                          --with system_freetype \
+                          --with system_lua \
+                          --with system_mikkelsen \
+                          --with system_png \
+                          --with system_tiff \
+                          --with system_zlib
 
 srpm-experimental:
 	rpmbuild -bs $(SRPM_EXPERIMENTAL_FLAGS) $(RPMBUILD_DEFINES) o3de.spec
@@ -173,14 +186,24 @@ copr-init:
 	@echo "  done"
 	@echo
 	@echo "# 4. Activate Stage 1 system-library swaps in the experimental project."
-	@echo "# COPR-CLI's --with at SRPM-build time does NOT propagate to its"
+	@echo "# copr-cli's --with at SRPM-build time does NOT propagate to its"
 	@echo "# binary-build (which is where bcond_with conditionals fire), so we"
-	@echo "# configure --rpmbuild-with at the chroot level instead. Add a new"
-	@echo "# line per activated system_<lib> bcond as the migration list grows:"
+	@echo "# configure --rpmbuild-with at the chroot level instead. Add new"
+	@echo "# --rpmbuild-with flags per activated system_<lib> bcond as the"
+	@echo "# migration list grows:"
 	@echo "  for chroot in fedora-44-x86_64 fedora-rawhide-x86_64; do \\"
 	@echo "      copr-cli edit-chroot $(COPR_OWNER)/$(COPR_PROJECT_EXPERIMENTAL)/\$$chroot \\"
-	@echo "          --rpmbuild-with system_mikkelsen; \\"
+	@echo "          --rpmbuild-with system_expat \\"
+	@echo "          --rpmbuild-with system_freetype \\"
+	@echo "          --rpmbuild-with system_lua \\"
+	@echo "          --rpmbuild-with system_mikkelsen \\"
+	@echo "          --rpmbuild-with system_png \\"
+	@echo "          --rpmbuild-with system_tiff \\"
+	@echo "          --rpmbuild-with system_zlib; \\"
 	@echo "  done"
+	@echo
+	@echo "# Same for o3de-snapshot once a Stage 1 batch is validated and ready"
+	@echo "# to ship to community testers (replace EXPERIMENTAL with SNAPSHOT)."
 
 copr-stable: srpm
 	copr-cli build --timeout 25200 $(COPR_OWNER)/$(COPR_PROJECT_STABLE) \

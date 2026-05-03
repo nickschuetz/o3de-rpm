@@ -43,10 +43,20 @@
 
 # Stage 1 system-library swaps. Each `system_<lib>` toggle replaces an
 # upstream-bundled 3rdParty package with its system equivalent (provided
-# by hellaenergy/o3de-dependencies on COPR, ultimately destined for
-# Fedora proper). All default-off until validated; enable per-build via
-# `--with system_<lib>` on the rpmbuild / mock / copr command line.
+# by Fedora's own repos, or by hellaenergy/o3de-dependencies on COPR for
+# packages not yet in Fedora). All default-off; enable per-build via
+# `--with system_<lib>` on the rpmbuild command line PLUS a matching
+# `--rpmbuild-with system_<lib>` on the COPR project's chroots (the
+# binary-build phase doesn't inherit `--with` from the SRPM build —
+# see CONTRIBUTING.md / FEDORA_ROADMAP.md for the gotcha and the
+# Makefile's `make copr-init` target for the chroot-config commands).
+%bcond_with system_expat
+%bcond_with system_freetype
+%bcond_with system_lua
 %bcond_with system_mikkelsen
+%bcond_with system_png
+%bcond_with system_tiff
+%bcond_with system_zlib
 
 # ── Version pinning ──────────────────────────────────────────────────────────
 %global stable_tag      2605.0
@@ -243,11 +253,30 @@ BuildRequires:  vulkan-headers
 BuildRequires:  vulkan-loader-devel
 
 # Stage 1 system-library swaps — only pulled in when the matching
-# bcond is enabled (--with system_<lib>). The packages live in
-# hellaenergy/o3de-dependencies on COPR until they're accepted into
-# Fedora proper.
+# bcond is enabled (--with system_<lib>). Most live in Fedora proper
+# already (zlib-devel, freetype-devel, libpng-devel, libtiff-devel,
+# expat-devel, lua-devel); mikkelsen lives in hellaenergy/o3de-dependencies
+# on COPR until it's accepted into Fedora.
+%if %{with system_expat}
+BuildRequires:  expat-devel
+%endif
+%if %{with system_freetype}
+BuildRequires:  freetype-devel
+%endif
+%if %{with system_lua}
+BuildRequires:  lua-devel
+%endif
 %if %{with system_mikkelsen}
 BuildRequires:  mikkelsen-devel
+%endif
+%if %{with system_png}
+BuildRequires:  libpng-devel
+%endif
+%if %{with system_tiff}
+BuildRequires:  libtiff-devel
+%endif
+%if %{with system_zlib}
+BuildRequires:  zlib-devel
 %endif
 
 # ── Runtime dependencies ─────────────────────────────────────────────────────
@@ -267,13 +296,30 @@ Requires:       vulkan-loader
 Requires:       cmake
 Requires:       python3
 
-# Stage 1 system-library runtime side. RPM auto-Requires picks up
-# libmikktspace.so.0 by ldd-walking the engine binaries when system
-# mikkelsen is in play, but listing the package name explicitly is
-# clearer for reviewers (and survives if a future build statically
-# links and the auto-dep disappears).
+# Stage 1 system-library runtime side. RPM auto-Requires picks up the
+# .so.N dependencies by ldd-walking engine binaries, but listing the
+# package names explicitly is clearer for reviewers (and survives if a
+# future build statically links and the auto-dep disappears).
+%if %{with system_expat}
+Requires:       expat
+%endif
+%if %{with system_freetype}
+Requires:       freetype
+%endif
+%if %{with system_lua}
+Requires:       lua-libs
+%endif
 %if %{with system_mikkelsen}
 Requires:       mikkelsen
+%endif
+%if %{with system_png}
+Requires:       libpng
+%endif
+%if %{with system_tiff}
+Requires:       libtiff
+%endif
+%if %{with system_zlib}
+Requires:       zlib
 %endif
 
 %description
@@ -380,7 +426,13 @@ cmake \
     -DCMAKE_USE_PTHREADS_INIT=1 \
     -DCMAKE_EXE_LINKER_FLAGS_INIT="-Wl,-z,relro -Wl,-z,now" \
     -DCMAKE_SHARED_LINKER_FLAGS_INIT="-Wl,-z,relro -Wl,-z,now" \
-    %{?with_system_mikkelsen:-DLY_USE_SYSTEM_MIKKELSEN=ON}
+    %{?with_system_expat:-DLY_USE_SYSTEM_EXPAT=ON} \
+    %{?with_system_freetype:-DLY_USE_SYSTEM_FREETYPE=ON} \
+    %{?with_system_lua:-DLY_USE_SYSTEM_LUA=ON} \
+    %{?with_system_mikkelsen:-DLY_USE_SYSTEM_MIKKELSEN=ON} \
+    %{?with_system_png:-DLY_USE_SYSTEM_PNG=ON} \
+    %{?with_system_tiff:-DLY_USE_SYSTEM_TIFF=ON} \
+    %{?with_system_zlib:-DLY_USE_SYSTEM_ZLIB=ON}
 
 # googletest is fetched via FetchContent during cmake configure and so
 # can't be patched in %%prep. Append our warning suppressions afterwards
