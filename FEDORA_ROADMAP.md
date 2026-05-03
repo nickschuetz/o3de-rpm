@@ -24,7 +24,7 @@ This document is the staged plan, dependency map, and decision log. It lives in 
 
 ## Stage 1 — System library migration (the long tail)
 
-**Status:** **in-flight as of 2026-05-02.** Migration template proven on **mikkelsen** (the first activated swap, gated to `o3de-experimental`); the remaining ~19 packages follow the same pattern. See `BUNDLED_LIBRARIES.md` § "mikkelsen migration status" for the activated example.
+**Status:** **template validated end-to-end as of 2026-05-03.** **mikkelsen** is the first activated + validated swap (gated to `o3de-experimental`, COPR build 10419014, test-installed.yml run 25277223923 — F44 + rawhide both green; Tier 2 swap-consistency test confirmed `libmikktspace.so.0` is in the binary RPM's auto-Requires). The remaining ~19 packages follow the same pattern. See `BUNDLED_LIBRARIES.md` § "mikkelsen migration status" for the validated example.
 
 O3DE bundles ~30 3rdParty packages from its CDN at cmake configure time. Most of them have direct Fedora equivalents we can pivot to.
 

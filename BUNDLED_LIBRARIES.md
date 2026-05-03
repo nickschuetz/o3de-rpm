@@ -74,7 +74,7 @@ These have direct Fedora equivalents. Migration is per-package, low risk per mig
 | lz4 | 1.9.4-rev2 | `lz4-devel` | 1.9.x | trivial flip |
 | libsamplerate | 0.2.1-rev2 | `libsamplerate-devel` | 0.2.2 | trivial flip |
 | mcpp | 2.7.2_az.2-rev1 | `mcpp` | 2.7.x | O3DE uses an `_az` patched fork — verify base mcpp suffices. |
-| **mikkelsen** | 1.0.0.4 | `mikkelsen-devel` (from `hellaenergy/o3de-dependencies` COPR) | 1.0+git3e895b4 | **ACTIVATED in experimental channel** — `--with system_mikkelsen` flips Patch0006 + Findmikkelsen-system.cmake on. Default-off in `o3de-snapshot` (community testers' channel) until validated end-to-end on `o3de-experimental`. |
+| **mikkelsen** | 1.0.0.4 | `mikkelsen-devel` (from `hellaenergy/o3de-dependencies` COPR) | 1.0+git3e895b4 | **VALIDATED in experimental channel** (build 10419014, 2026-05-03) — `--with system_mikkelsen` flips Patch0006 + Findmikkelsen-system.cmake on; engine binaries auto-Require `libmikktspace.so.0()(64bit)`. Default-off in `o3de-snapshot` (community testers' channel) until Nick promotes; awaiting his testing-window-closes signal. |
 | assimp | 5.4.3-rev3 | `assimp-devel` | 5.4.x | trivial flip |
 | SPIRVCross | 1.3.275.0-rev1 | `spirv-cross-devel` | 1.3.x | trivial flip |
 | vulkan-validationlayers | 1.2.198-rev1 | `vulkan-validation-layers-devel` | 1.3.x | newer in Fedora; verify O3DE's loader interaction |
@@ -82,7 +82,7 @@ These have direct Fedora equivalents. Migration is per-package, low risk per mig
 
 ### mikkelsen migration status
 
-**State:** **activated in experimental channel.** Default-off in `o3de.spec`'s base configuration (so `o3de-snapshot` testers continue to consume the upstream-fetched bundle). Default-on for the `srpm-experimental` Makefile target via `--with system_mikkelsen`, which is what `make copr-experimental` uploads to `hellaenergy/o3de-experimental`.
+**State:** **validated in experimental channel as of 2026-05-03.** End-to-end COPR build (10419014) + test-installed.yml CI run (25277223923) on F44 + rawhide both green. The Tier 2 swap-consistency check (added at the same time as this migration's activation) confirmed the binary RPM declares both `Requires: mikkelsen` AND `libmikktspace.so.0()(64bit)` in its auto-Requires — the latter being rpm's own ldd-walk evidence that some shipped engine binary actually links the system library. Default-off in `o3de.spec`'s base configuration (so `o3de-snapshot` testers continue to consume the upstream-fetched bundle); default-on for the `srpm-experimental` Makefile target via `--with system_mikkelsen` and the matching `--rpmbuild-with system_mikkelsen` chroot config on `hellaenergy/o3de-experimental`. **Awaiting Nick's testing-window-closes signal before promoting to o3de-snapshot.**
 
 **Activation summary (commit follows this doc update):**
 - `o3de.spec`: `%bcond_with system_mikkelsen` (default off), conditional `BuildRequires: mikkelsen-devel`, conditional `Requires: mikkelsen`, conditional `cp` of `Source30` (`Findmikkelsen-system.cmake`) into `cmake/3rdParty/Findmikkelsen.cmake` during `%prep`, and conditional `-DLY_USE_SYSTEM_MIKKELSEN=ON` in the `%build` cmake invocation. Patch0006 applies unconditionally (no-op without the cmake variable set).
