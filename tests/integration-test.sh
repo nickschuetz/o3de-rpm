@@ -106,10 +106,19 @@ head -1 /usr/bin/o3de | grep -qE '^#!/(usr/)?bin/bash([[:space:]]|$)|^#!/usr/bin
 if rpm -ql o3de 2>/dev/null | grep -qx '/usr/bin/o3de-cli'; then
     [ -x /usr/bin/o3de-cli ] && ok "/usr/bin/o3de-cli is executable" || \
         nope "/usr/bin/o3de-cli executable" "RPM declares it but not +x or missing"
-    if /usr/bin/o3de-cli --help </dev/null 2>&1 | grep -qE 'usage: o3de\.py|Sub-Commands'; then
-        ok "/usr/bin/o3de-cli --help reaches the upstream o3de.py argparse"
+    # Reachability check needs the bundled-Python venv set up — o3de.sh
+    # invokes /opt/o3de/python/python.sh which fails on a fresh install
+    # before get_python.sh has run. Skip the deeper check when the venv
+    # isn't ready; Tier 3 (--setup) covers it via o3de-cli register.
+    if [ -d "$HOME/.o3de/Python/venv/" ] && \
+       ls "$HOME/.o3de/Python/venv/"*/lib/python*/site-packages/o3de >/dev/null 2>&1; then
+        if /usr/bin/o3de-cli --help </dev/null 2>&1 | grep -qE 'usage: o3de\.py|Sub-Commands'; then
+            ok "/usr/bin/o3de-cli --help reaches the upstream o3de.py argparse"
+        else
+            nope "/usr/bin/o3de-cli reachable" "venv ready, but no upstream argparse output — wrapper or o3de.sh path broken"
+        fi
     else
-        nope "/usr/bin/o3de-cli reachable" "no upstream argparse output — wrapper or o3de.sh path broken"
+        skipped "/usr/bin/o3de-cli reachable" "no per-user venv yet; pass --setup or run get_python.sh first"
     fi
 else
     skipped "/usr/bin/o3de-cli checks" "RPM doesn't declare it (pre-CLI build); skipping"
@@ -228,11 +237,20 @@ if [ "$RUN_SETUP" -eq 1 ]; then
         nope "manifest.py patch" "venv copy missing the env-var branch — engine path resolution will misbehave"
     fi
 
-    # Engine registration
-    if env -u O3DE_HOME "$ENGINE_PATH/scripts/o3de.sh" register --this-engine >/tmp/o3de-test-register.log 2>&1; then
-        ok "o3de.sh register --this-engine succeeded"
+    # Engine registration. Prefer the PATH-installed o3de-cli wrapper
+    # (which forwards to /opt/o3de/scripts/o3de.sh) when available — this
+    # double-duties as an end-to-end reachability test of the wrapper now
+    # that the per-user venv is set up. Fall back to the absolute path
+    # for older RPMs that don't ship the wrapper.
+    if rpm -ql o3de 2>/dev/null | grep -qx '/usr/bin/o3de-cli'; then
+        register_cmd=/usr/bin/o3de-cli
     else
-        nope "o3de.sh register" "see /tmp/o3de-test-register.log"
+        register_cmd="$ENGINE_PATH/scripts/o3de.sh"
+    fi
+    if env -u O3DE_HOME "$register_cmd" register --this-engine >/tmp/o3de-test-register.log 2>&1; then
+        ok "$register_cmd register --this-engine succeeded"
+    else
+        nope "$(basename "$register_cmd") register" "see /tmp/o3de-test-register.log"
     fi
 
     # Manifest's engines list includes us

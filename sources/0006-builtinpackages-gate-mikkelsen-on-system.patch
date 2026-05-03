@@ -11,27 +11,41 @@ hellaenergy/o3de-dependencies on COPR.
 
 This patch wraps the mikkelsen entry in an opt-in cmake gate so the
 upstream behavior is preserved by default. Setting
-`-DLY_USE_SYSTEM_MIKKELSEN=ON` (which the o3de-rpm spec does in %build)
-skips the upstream fetcher; cmake then falls through to its standard
-find_package() search, which our companion sources/Findmikkelsen-system.cmake
-satisfies by locating the system mikktspace headers and library.
+`-DLY_USE_SYSTEM_MIKKELSEN=ON` (which the o3de-rpm spec does in %build
+when the `system_mikkelsen` bcond is enabled) skips the upstream
+fetcher and instead calls `find_package(mikkelsen REQUIRED)`, which
+cmake resolves against our companion sources/Findmikkelsen-system.cmake
+(installed into cmake/3rdParty/ during %prep — that directory is on
+CMAKE_MODULE_PATH, see cmake/3rdParty.cmake:435). The find module
+locates the system mikktspace headers and library and creates the
+`3rdParty::mikkelsen` INTERFACE target that engine code expects.
+
+The else-branch is load-bearing: gating out `ly_associate_package`
+without replacing it means nothing ever triggers `find_package`, the
+target never gets created, and consumers silently link nothing.
+Discovered the hard way on build 10418378 — the binary RPM correctly
+declared `Requires: mikkelsen` but no engine .so actually linked to
+libmikktspace, caught by the Tier 2 swap-consistency test.
 
 The pattern is intentional: each Stage 1 package gets its own
-`LY_USE_SYSTEM_<PACKAGE>` gate, so packagers can migrate one bundle at a
-time without touching the others.
+`LY_USE_SYSTEM_<PACKAGE>` gate (with a matching else-branch find_package
+call), so packagers can migrate one bundle at a time without touching
+the others.
 
 ---
- cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake | 2 ++
- 1 file changed, 2 insertions(+)
+ cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake | 4 ++++
+ 1 file changed, 4 insertions(+)
 
 --- a/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake
 +++ b/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake
-@@ -24,7 +24,9 @@
+@@ -24,7 +24,11 @@
  ly_associate_package(PACKAGE_NAME freetype-2.11.1-rev1-linux                        TARGETS Freetype                    PACKAGE_HASH 28bbb850590507eff85154604787881ead6780e6eeee9e71ed09cd1d48d85983)
  ly_associate_package(PACKAGE_NAME Lua-5.4.4-rev1-linux                              TARGETS Lua                         PACKAGE_HASH d582362c3ef90e1ef175a874abda2265839ffc2e40778fa293f10b443b4697ac)
  ly_associate_package(PACKAGE_NAME mcpp-2.7.2_az.2-rev1-linux                        TARGETS mcpp                        PACKAGE_HASH df7a998d0bc3fedf44b5bdebaf69ddad6033355b71a590e8642445ec77bc6c41)
 +if (NOT LY_USE_SYSTEM_MIKKELSEN)
  ly_associate_package(PACKAGE_NAME mikkelsen-1.0.0.4-linux                           TARGETS mikkelsen                   PACKAGE_HASH 5973b1e71a64633588eecdb5b5c06ca0081f7be97230f6ef64365cbda315b9c8)
++else()
++    find_package(mikkelsen REQUIRED)
 +endif()
  ly_associate_package(PACKAGE_NAME googlebenchmark-1.7.0-rev1-linux                  TARGETS GoogleBenchmark             PACKAGE_HASH 230e1881e31490820f0bd2059df4741455b52809ac73367e278e1e821ac89c9b)
  ly_associate_package(PACKAGE_NAME qt-5.15.2-rev9-linux                              TARGETS Qt                          PACKAGE_HASH db4bcd2003262f4d8c7d7da832758824fc24e53da5895edef743f67a64a5c734)
