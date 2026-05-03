@@ -185,7 +185,20 @@ Patch0006:      0006-builtinpackages-gate-mikkelsen-on-system.patch
 
 # Stage 1 system-library find modules. Copied into cmake/3rdParty/
 # during %%prep when the matching `--with system_<lib>` is enabled.
+# Most Stage 1 swaps don't need a custom find module (cmake ships
+# stock ones for ZLIB / Freetype / PNG / TIFF / Lua, so Patch0006's
+# else-branch directly calls find_package and aliases the result).
+# These two are exceptions:
+#   - Findmikkelsen-system.cmake — mikkelsen has no cmake-stock find
+#     module; the shim locates system mikktspace and bridges the
+#     <mikkelsen/mikktspace.h> include path.
+#   - Findexpat-system.cmake — case-bridging. Some bundled find files
+#     (notably openimageio-opencolorio's FindOpenColorIO.cmake) call
+#     find_package(expat) lowercase, which won't find cmake's stock
+#     uppercase FindEXPAT.cmake on a case-sensitive filesystem. The
+#     shim is named Findexpat.cmake and delegates to FindEXPAT.
 Source30:       Findmikkelsen-system.cmake
+Source31:       Findexpat-system.cmake
 
 # Pre-built O3DE 3rdParty bundles — declare a Source10x and a matching
 # bcond above, then add an extract line in %%prep. Templates:
@@ -381,6 +394,9 @@ mkdir -p %{_builddir}/%{o3de_source_dir}/3rdParty
 # 3rdParty::<X> target from the system library.
 %if %{with system_mikkelsen}
 cp %{SOURCE30} cmake/3rdParty/Findmikkelsen.cmake
+%endif
+%if %{with system_expat}
+cp %{SOURCE31} cmake/3rdParty/Findexpat.cmake
 %endif
 
 # ── BUILD ────────────────────────────────────────────────────────────────────
