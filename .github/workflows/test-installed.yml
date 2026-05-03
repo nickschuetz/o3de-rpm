@@ -54,6 +54,13 @@ on:
 env:
   COPR_OWNER: hellaenergy
   COPR_PROJECT: o3de-snapshot
+  # Opt JS-based actions (checkout, upload/download-artifact, cache) into
+  # Node 24 ahead of GitHub's forced cutover on 2026-06-02. Surfaces any
+  # Node 24 incompatibility now, on our schedule, instead of auto-flipping
+  # without warning. Once Node 24 is the default everywhere we can drop
+  # this; remove ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION at the same time
+  # if we ever need it for a temporary opt-out.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   detect:

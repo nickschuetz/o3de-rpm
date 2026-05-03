@@ -21,6 +21,11 @@ on:
       - '.github/workflows/lint.yml'
   workflow_dispatch:
 
+env:
+  # Opt JS-based actions into Node 24 ahead of GitHub's forced cutover
+  # on 2026-06-02. See test-installed.yml's matching block for context.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   lint:
     runs-on: ubuntu-latest
