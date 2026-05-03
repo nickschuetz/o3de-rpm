@@ -6,7 +6,7 @@ The same spec produces:
 
 - **Stable release builds** — from upstream's tagged release tarball (`o3de_<tag>_lfs.tar.gz`).
 - **Snapshot builds** — from any git ref of `o3de/o3de`. Two upstream branches are common targets for this and they're *not* the same thing:
-  - **`stabilization/<X>`** (e.g. `stabilization/26050`) — the pre-release stabilization branch for the next tagged release (in this case 26.05). This is what `o3de-snapshot` currently ships from. When O3DE upstream tags `2605.0`, this branch's tip *is* the release — so snapshots from here are functionally release candidates.
+  - **`stabilization/<X>`** (e.g. `stabilization/26050`) — the pre-release stabilization branch for the next tagged release (in this case 26.05). This is what `hellaenergy/o3de-stabilization` (the community testers' channel) ships from. When O3DE upstream tags `2605.0`, this branch's tip *is* the release — so snapshots from here are functionally release candidates.
   - **`development`** — the bleeding-edge integration branch where new features land daily. Less stable than a stabilization branch; useful for engine contributors testing in-progress work, less appropriate for community testers expecting near-release quality.
   - Or any other ref — feature branches, specific commits, tags.
 
