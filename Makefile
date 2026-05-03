@@ -67,7 +67,7 @@ RPMBUILD_DEFINES = \
 .PHONY: help lint spec-parse spec-parse-snapshot spec-parse-stabilization spec-parse-experimental \
         print-pkgname \
         snapshot srpm srpm-snapshot srpm-stabilization srpm-experimental \
-        rpm rpm-snapshot rpm-debug rpm-snapshot-debug \
+        rpm rpm-snapshot rpm-debug rpm-snapshot-debug rpm-experimental \
         copr-stable copr-snapshot copr-stabilization copr-experimental \
         copr-snapshot-and-test copr-stabilization-and-test copr-experimental-and-test _copr-and-test \
         trigger-tests copr-init \
@@ -197,6 +197,15 @@ rpm-debug:
 
 rpm-snapshot-debug:
 	rpmbuild -bb --with snapshot --with debug $(RPMBUILD_DEFINES) o3de.spec
+
+# Local mirror of `make srpm-experimental` — same Stage 1 swap activations
+# as the experimental COPR chroot, but built end-to-end on this host. Use
+# this to validate spec changes faster than the COPR round-trip (~70 min
+# locally on a 32 GB workstation vs ~5 hr on COPR). Doesn't exercise the
+# F44 + rawhide chroot matrix that COPR provides — that part still needs
+# the COPR build.
+rpm-experimental:
+	rpmbuild -bb $(SRPM_EXPERIMENTAL_FLAGS) $(RPMBUILD_DEFINES) o3de.spec
 
 # ── COPR upload ─────────────────────────────────────────────────────────────
 # Requires `copr-cli` configured (~/.config/copr) with API token.
