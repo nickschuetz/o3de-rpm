@@ -823,7 +823,7 @@ desktop-file-install --dir=%{buildroot}%{_datadir}/applications \
     --set-key=Exec --set-value=%{o3de_install_prefix}/bin/Linux/profile/Default/Editor \
     --set-key=Icon --set-value=%{o3de_pkgname} \
     --set-key=Name --set-value="O3DE %{engine_cmake_version} Editor" \
-    --set-key=StartupWMClass --set-value="O3DE-%{o3de_major_tag} Editor" \
+    --set-key=StartupWMClass --set-value="O3DE Editor" \
     %{SOURCE15}
 mv %{buildroot}%{_datadir}/applications/o3de-editor.desktop \
    %{buildroot}%{_datadir}/applications/%{o3de_pkgname}-editor.desktop
@@ -972,6 +972,25 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Mon May 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-26
+- Editor dock icon: drop version from o3de2605-editor.desktop's
+  StartupWMClass. Project Manager's launcher passes Qt -name
+  "O3DE-2605" so PM's WM_CLASS matches o3de2605.desktop's
+  StartupWMClass=O3DE-2605 cleanly (versioned dock icon for PM).
+  But the Editor is launched by PM via direct exec — bypasses our
+  launcher — so Editor's WM_CLASS comes from Qt's internal
+  setApplicationName("O3DE Editor") = "Editor", "O3DE Editor"
+  (no version). Verified live with xprop on a running Editor
+  window:
+    WM_CLASS(STRING) = "Editor", "O3DE Editor"
+  Setting o3de2605-editor.desktop's StartupWMClass to versioned
+  "O3DE-2605 Editor" doesn't match, so the WM falls back to a
+  generic Qt icon in the dock when Editor launches. Drop the
+  version: StartupWMClass="O3DE Editor". Two installed majors'
+  Editors share the same dock icon (same engine, same class
+  string upstream) but Project Manager retains its versioned
+  identity which is the user-facing distinction.
+
 * Mon May 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-25
 - cmake demoted from Requires: to Recommends: (Mike Cromer feedback
   2026-05-04). The launcher uses cmake -P only for engine-path-id
