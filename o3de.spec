@@ -553,7 +553,7 @@ cmake \
     -DO3DE_INSTALL_ENGINE_NAME=%{o3de_pkgname} \
     -DO3DE_INSTALL_VERSION_STRING=%{engine_cmake_version} \
     -DO3DE_INSTALL_DISPLAY_VERSION_STRING=%{_o3de_display_version} \
-    -DO3DE_INSTALL_BUILD_VERSION=%{_o3de_build_version} \
+    -DO3DE_INSTALL_BUILD_VERSION='"%{_o3de_build_version}"' \
     -DLY_DISABLE_TEST_MODULES=ON \
     -DLY_STRIP_DEBUG_SYMBOLS=OFF \
     -DTHREADS_PREFER_PTHREAD_FLAG=ON \
@@ -820,19 +820,35 @@ EOF
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
 * Sun May 03 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-19
-- Fix doubled-quote in installed engine.json's display_version /
-  build_version. The cmake -D values were single-quoted in shell
-  with embedded double quotes:
-    -DO3DE_INSTALL_DISPLAY_VERSION_STRING='"%{_o3de_display_version}"'
-  meaning cmake received the literal value `"26.05.0-..."` (with the
-  quotes inside the string). The engine.json template substitutes
-  @O3DE_INSTALL_DISPLAY_VERSION_STRING@ already inside JSON quotes,
-  so the output became `""26.05.0-experimental.246b46f""` — invalid
-  JSON. Drop the embedded quotes; the macro values contain no spaces
-  so cmake parses them as a single value either way. Surfaced by
-  Tier 2's display_version test on the o3de2605 install which
-  correctly reported the malformed field as "still '00.00'" because
-  the field's actual value parsed as an empty string.
+- Fix doubled-quote in installed engine.json's display_version field.
+  The two cmake vars feed DIFFERENT upstream consumers and have
+  ASYMMETRIC quoting requirements:
+  * O3DE_INSTALL_DISPLAY_VERSION_STRING → cmake/install/engine.json.in
+    has `"display_version": "@var@",` (template supplies JSON quotes)
+    → value must be UNQUOTED. Previously '"...":'  produced
+    `""26.05.0-experimental.246b46f""` — invalid JSON, surfaced by
+    Tier 2's display_version test on the o3de2605 install (test
+    correctly reported the malformed field as "still '00.00'"
+    because the field's actual value parsed as an empty string).
+  * O3DE_INSTALL_BUILD_VERSION → both
+    cmake/install/engine.json.in (`"build": @var@,` — no template
+    quotes; the field expects either a number or a quoted string
+    raw) AND Code/Editor/CMakeLists.txt's
+    `O3DE_BUILD_VERSION=${O3DE_INSTALL_BUILD_VERSION}` COMPILE_DEFINITION
+    (preprocessor needs a string literal, not bare tokens). Both
+    require the value to include quotes. Surfaced by build take 5
+    failing in CryEdit.cpp at compile time with
+    "use of undeclared identifier 'experimental'" because the
+    unquoted preprocessor expansion `2605.0-experimental.246b46f`
+    parsed as bare tokens.
+  Net change: drop quotes from the DISPLAY_VERSION_STRING line only,
+  keep them on BUILD_VERSION. engine.json now has a properly-quoted
+  display_version JSON string AND the build field stays as our
+  channel-marker quoted string (pre-existing behavior — upstream
+  expects a number here but the channel-marker convention has been
+  using a quoted string since the channel-marker work landed; that
+  schema mismatch is a separate FIXME for a future engine.json
+  schema review).
 
 * Sun May 03 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-18
 - Stage 1 baseline reduced to mikkelsen-only. Build 10421133 (5-pack:
