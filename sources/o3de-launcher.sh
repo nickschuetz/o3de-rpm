@@ -108,7 +108,7 @@ for path in sys.argv[2:]:
 fi
 
 exec "$BIN_DIR/o3de" \
-    -name O3DE \
+    -name "O3DE" \
     --engine-path="$ENGINE_PATH" \
     --project-user-path="$HOME/.o3de/user" \
     --project-log-path="$HOME/.o3de/Logs" \
@@ -119,8 +119,15 @@ exec "$BIN_DIR/o3de" \
 # get_python.sh (which hashes /opt/o3de/). Passing the engine root
 # explicitly bypasses that scan-up and keeps both sides in sync.
 #
-# `-name O3DE` is the standard X11 toolkit argument (consumed by Qt
+# `-name "O3DE"` is the standard X11 toolkit argument (consumed by Qt
 # before the engine's argparser sees it). Sets WM_CLASS to "O3DE" so
-# GNOME/Plasma matches the running window to o3de-editor.desktop's
-# StartupWMClass=O3DE and shows our installed icon in the dock,
-# instead of the engine's internal Qt-set icon.
+# GNOME/Plasma matches the running window to the desktop file's
+# StartupWMClass and shows our installed icon in the dock, instead
+# of the engine's internal Qt-set icon. The double-quotes around the
+# literal value are LOAD-BEARING: o3de.spec's %install runs
+#   sed -e 's|-name "O3DE"|-name "O3DE-%{o3de_major_tag}"|g' …
+# at install time to versionize this string per major (so e.g.
+# `o3de2605` passes `-name "O3DE-2605"` matching the desktop file's
+# `StartupWMClass=O3DE-2605`). The sed pattern requires the quotes
+# to match — without them, the substitution silently no-ops and the
+# dock icon falls back to a generic Qt icon.
