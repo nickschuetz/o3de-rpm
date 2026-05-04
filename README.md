@@ -158,6 +158,18 @@ This roughly doubles build time (debug compiles all the same TUs at `-O0` with f
 
 ## Subpackages overview
 
+### Why split
+
+The o3de2605 RPM is split into a small number of subpackages so each install can match the actual workload. Concrete value:
+
+- **Smaller default install.** The post-split main package is ~1.7 GB compressed (down from ~2.2 GB pre-split — roughly 22% smaller). On disk, runtime-only deployments save ~4 GB by skipping the engine static archives that only native-C++-gem authors need.
+- **Right tool for your use case.** Three orthogonal install dimensions: *runtime* (everything in the main package), *static-archive surface for native C++ gem development* (`-devel`), *step-through debuggability of engine internals* (`-debug`). End users + Lua/ScriptCanvas project authors install just the main package; gem developers add `-devel`; engine-internal debuggers add `-debug`. No use case is forced to carry the others.
+- **CI- and container-friendly.** Game distribution servers shipping pre-built games, CI test containers, and minimal Docker images can skip ~4 GB of compiler-side material. `dnf install --setopt=install_weak_deps=False o3de2605` opts out of even the project-build `*-devel` system Recommends list — the absolute floor for a runtime-only deployment.
+- **Aligned with Fedora packaging guidelines.** Fedora's [Packaging Guidelines](https://docs.fedoraproject.org/en-US/packaging-guidelines/) require a `-devel` subpackage for any C/C++ package shipping static libraries, and recommend split-by-purpose for large packages. Doing this split proactively (rather than during the Fedora package review) removes one entire class of review friction. Same with the project-build `*-devel` Recommends pattern (clang, mesa-libGL[U]-devel, libxcb-devel, fontconfig-devel, libcurl-devel, pcre2-devel, openssl-devel, libunwind-devel, libzstd-devel, vim-common, plus per-active Stage 1 swap like mikkelsen-devel) — testers get a working build experience by default; minimal users opt out.
+- **Forward-compatible with multi-major.** When `o3de2605-devel` and `o3de2610-devel` both exist someday, they're independent — install the devel surface only for the major you actually develop against, not all of them.
+
+### What's in each package
+
 The main RPM ships alongside up to two optional subpackages:
 
 | Package | Contents | When to install |
