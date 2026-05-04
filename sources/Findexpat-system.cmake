@@ -9,36 +9,77 @@
 #     call.
 #  2. Target shape: produces 3rdParty::expat as a real INTERFACE IMPORTED
 #     target (not an alias), linked through to the system library by file
-#     path. Avoids the alias-of-alias error that engine-side code at
-#     cmake/3rdParty/BuiltInPackages.cmake:35 triggers when 3rdParty::<X>
-#     is itself an alias. Avoids the per-config IMPORTED_LOCATION_*
-#     requirement that O3DE's runtime walker imposes on imported targets
-#     when they're not INTERFACE.
+#     path.
 #
-# Same pattern as FindZLIB-system.cmake et al.
+# Refactored 2026-05-04 to the mikkelsen pattern (direct find_path +
+# find_library, no `include(${CMAKE_ROOT}/Modules/FindEXPAT.cmake)`).
+# Same root cause and same fix as FindZLIB-system.cmake — see that
+# file's comment block for the full diagnosis. Note that this shim
+# also provides EXPAT::EXPAT as an alias of 3rdParty::expat — that's
+# the standard cmake namespace some upstream consumers reference.
 
-if (TARGET 3rdParty::expat)
+set(TARGET_WITH_NAMESPACE "3rdParty::expat")
+if (TARGET ${TARGET_WITH_NAMESPACE})
     set(expat_FOUND TRUE)
     set(EXPAT_FOUND TRUE)
     return()
 endif()
 
-# Run cmake's stock FindEXPAT inline — uppercase filename, so include()
-# rather than find_package() to avoid recursion concerns and to ensure
-# we get exactly the stock module.
-include(${CMAKE_ROOT}/Modules/FindEXPAT.cmake)
-if (NOT EXPAT_FOUND)
-    message(FATAL_ERROR "Findexpat-system shim: cmake stock FindEXPAT.cmake did not locate expat (system expat-devel installed?)")
+find_path(EXPAT_SYSTEM_INCLUDE_DIR
+    NAMES expat.h
+    PATHS /usr/include /usr/local/include
+)
+
+find_library(EXPAT_SYSTEM_LIBRARY
+    NAMES expat
+    PATHS /usr/lib64 /usr/lib /usr/local/lib64 /usr/local/lib
+)
+
+if (NOT EXPAT_SYSTEM_INCLUDE_DIR OR NOT EXPAT_SYSTEM_LIBRARY)
+    message(FATAL_ERROR
+        "Findexpat (system stub): could not locate expat.h "
+        "(${EXPAT_SYSTEM_INCLUDE_DIR}) and/or libexpat "
+        "(${EXPAT_SYSTEM_LIBRARY}). Install expat-devel from Fedora, or "
+        "set LY_USE_SYSTEM_EXPAT=OFF to fall back to the upstream fetcher.")
 endif()
 
-add_library(3rdParty::expat INTERFACE IMPORTED GLOBAL)
-ly_target_include_system_directories(TARGET 3rdParty::expat INTERFACE ${EXPAT_INCLUDE_DIRS})
-target_link_libraries(3rdParty::expat INTERFACE ${EXPAT_LIBRARIES})
+# Extract the version from expat.h's XML_MAJOR/MINOR/MICRO_VERSION macros
+# so consumers like the bundled FindOpenColorIO.cmake that read
+# `expat_VERSION` get a real value (rather than an empty string that
+# might trip a >= compare).
+file(READ "${EXPAT_SYSTEM_INCLUDE_DIR}/expat.h" _expat_h_contents)
+string(REGEX MATCH "#[ ]*define[ ]+XML_MAJOR_VERSION[ ]+([0-9]+)" _ "${_expat_h_contents}")
+set(_expat_major "${CMAKE_MATCH_1}")
+string(REGEX MATCH "#[ ]*define[ ]+XML_MINOR_VERSION[ ]+([0-9]+)" _ "${_expat_h_contents}")
+set(_expat_minor "${CMAKE_MATCH_1}")
+string(REGEX MATCH "#[ ]*define[ ]+XML_MICRO_VERSION[ ]+([0-9]+)" _ "${_expat_h_contents}")
+set(_expat_micro "${CMAKE_MATCH_1}")
+set(EXPAT_VERSION_STRING "${_expat_major}.${_expat_minor}.${_expat_micro}")
+unset(_expat_h_contents)
+unset(_expat_major)
+unset(_expat_minor)
+unset(_expat_micro)
+
+add_library(${TARGET_WITH_NAMESPACE} INTERFACE IMPORTED GLOBAL)
+ly_target_include_system_directories(TARGET ${TARGET_WITH_NAMESPACE}
+    INTERFACE ${EXPAT_SYSTEM_INCLUDE_DIR})
+target_link_libraries(${TARGET_WITH_NAMESPACE} INTERFACE ${EXPAT_SYSTEM_LIBRARY})
+
+# Provide EXPAT::EXPAT as the standard uppercase cmake namespace alias.
+# See FindZLIB-system.cmake's alias block for the rationale.
+if (NOT TARGET EXPAT::EXPAT)
+    add_library(EXPAT::EXPAT ALIAS ${TARGET_WITH_NAMESPACE})
+endif()
 
 # Bridge uppercase output variables to lowercase consumers (the bundled
 # FindOpenColorIO.cmake reads `expat_FOUND` etc. for compat with the
 # pre-existing dual-case convention the bundled Findexpat.cmake set up).
-set(expat_FOUND ${EXPAT_FOUND})
+set(EXPAT_FOUND TRUE)
+set(EXPAT_INCLUDE_DIR "${EXPAT_SYSTEM_INCLUDE_DIR}")
+set(EXPAT_INCLUDE_DIRS "${EXPAT_SYSTEM_INCLUDE_DIR}")
+set(EXPAT_LIBRARY "${EXPAT_SYSTEM_LIBRARY}")
+set(EXPAT_LIBRARIES "${EXPAT_SYSTEM_LIBRARY}")
+set(expat_FOUND TRUE)
 set(expat_VERSION ${EXPAT_VERSION_STRING})
 set(expat_INCLUDE_DIR ${EXPAT_INCLUDE_DIR})
 set(expat_INCLUDE_DIRS ${EXPAT_INCLUDE_DIRS})
