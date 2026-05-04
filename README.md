@@ -156,6 +156,20 @@ This roughly doubles build time (debug compiles all the same TUs at `-O0` with f
 
 ---
 
+## Subpackages overview
+
+The main RPM ships alongside up to two optional subpackages:
+
+| Package | Contents | When to install |
+|---|---|---|
+| `o3de2605` (main) | Engine binaries (`bin/Linux/profile/Default/`), runtime cmake config + per-target import files, headers, gem sources, scripts, Templates, Editor assets, Python bootstrap, SBOM | Always — the runtime + the materials needed to compile a project against the engine's `.so`s |
+| `o3de2605-devel` | Static archives (`lib/Linux/profile/Default/*.a` + `lib64/`) — ~178 `.a` files, ~4 GB. Test framework, builder targets, static-only engine internals. | Add when writing native C++ gems that static-link against engine internals, or when building the engine's own test infrastructure. End users running games + Lua/ScriptCanvas project authors don't need this. |
+| `o3de2605-debug` | Debug-config binaries (`bin/Linux/debug/`) + matching static archives (`lib/Linux/debug/`). Full debug symbols, `-O0`. | Add when you need to step through engine code in a debugger. Set `O3DE_BUILD_CONFIG=debug` to launch the debug build. |
+
+`dnf install o3de2605` (default) gets you the runtime + project-build materials; `dnf install o3de2605 o3de2605-devel` adds the static-archive surface needed for native gem development. The project-build `*-devel` system packages (clang, mesa-libGL[U]-devel, libxcb-devel, fontconfig-devel, libcurl-devel, pcre2-devel, openssl-devel, libunwind-devel, libzstd-devel, vim-common, plus the `*-devel` for any active Stage 1 system-library swap like mikkelsen-devel) are pulled in via the main package's `Recommends:` list — installed by default unless you pass `--setopt=install_weak_deps=False`.
+
+---
+
 ## Using the installed RPM
 
 Each major release ships as its own versioned package (`o3de2605`, `o3de2610`, …) so multiple O3DE versions can coexist. Two PATH-installed entry points per package — the examples below use 26.05.0 (`o3de2605`):
