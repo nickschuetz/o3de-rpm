@@ -398,6 +398,13 @@ BuildRequires:  zlib-devel
 # from auto-Requires walking /opt/o3de/.
 Requires:       mesa-libGL
 Requires:       vulkan-loader
+# FIXME(cmake-bundled-fallback): the launcher (sources/o3de-launcher.sh
+# line ~58) hardcodes /usr/bin/cmake for engine-id calculation, so a
+# system cmake is required at runtime today. O3DE's bundled
+# get_python.sh now ships a cmake at <engineRoot>/cmake/runtime/bin/cmake
+# (Mike Cromer noted 2026-05-04). Teach the launcher to fall back to the
+# bundled cmake when /usr/bin/cmake is absent, then we can drop this
+# Requires. Saves ~150 MB on minimal installs.
 Requires:       cmake
 Requires:       python3
 
@@ -435,6 +442,53 @@ Requires:       zlib
 # `dnf install o3de` against; users must explicitly type `dnf install
 # o3de2605` (or whatever major they want).
 Provides:       o3de = %{version}-%{release}
+
+# ── Project-build dependencies (weak deps) ───────────────────────────────────
+# Surfaced 2026-05-04 by Mike Cromer (O3DE sig-build chair) on a clean
+# Fedora 44 install: `dnf install o3de2605` succeeded and Project Manager
+# launched, but compiling a user project from source via
+# `o3de2605-cli create-project ... && cmake -B build/linux -S .`
+# required ~13 additional *-devel packages (the same set we BuildRequires
+# for our own engine build, just on the user's side now).
+#
+# These are Recommends, not Requires, on purpose: a user installing
+# o3de2605 just to launch Project Manager and run pre-built games
+# doesn't need *-devel headers. dnf installs them by default; users who
+# only want runtime can `dnf install --setopt=install_weak_deps=False`.
+#
+# When the o3de2605-devel subpackage lands (see the `# TODO(devel-split):`
+# block above %package debug), these deps move there as hard Requires,
+# and this block goes away.
+#
+# What we're listing — and why each is here:
+#   - clang: O3DE projects compile with clang on Linux
+#   - mesa-libGL-devel + mesa-libGLU-devel: OpenGL headers
+#   - libxcb-devel: XCB (X11 protocol bindings)
+#   - libxkbcommon-devel + libxkbcommon-x11-devel: keyboard layout headers
+#   - fontconfig-devel: font config headers
+#   - libunwind-devel: stack unwinding headers
+#   - libzstd-devel: zstd compression headers
+#   - libcurl-devel + pcre2-devel + openssl-devel: O3DE bundles its own
+#     copies, but consumer projects often link their own code against
+#     these and need system headers (Mike's clean-install findings)
+#   - zlib-devel: same — also already a BuildRequires when system_zlib
+#     is active, listed here unconditionally for the user-build case
+#   - vim-common: provides /usr/bin/xxd, which O3DE's build invokes
+#     to embed binary blobs as C arrays
+Recommends:     clang
+Recommends:     mesa-libGL-devel
+Recommends:     mesa-libGLU-devel
+Recommends:     libxcb-devel
+Recommends:     libxkbcommon-devel
+Recommends:     libxkbcommon-x11-devel
+Recommends:     fontconfig-devel
+Recommends:     libunwind-devel
+Recommends:     libzstd-devel
+Recommends:     libcurl-devel
+Recommends:     pcre2-devel
+Recommends:     openssl-devel
+Recommends:     zlib-devel
+Recommends:     vim-common
 
 %description
 The Open 3D Engine (O3DE) is an Apache-licensed, real-time, multi-platform
@@ -819,6 +873,24 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Mon May 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-21
+- Add Recommends: block for project-build *-devel deps. Surfaced by
+  Mike Cromer (O3DE sig-build chair) on a clean Fedora 44 install:
+  `dnf install o3de2605` succeeded and Project Manager launched, but
+  compiling a user project from source needed clang +
+  mesa-libGL[U]-devel + libxcb-devel + libxkbcommon[-x11]-devel +
+  fontconfig-devel + libunwind-devel + libzstd-devel + libcurl-devel +
+  pcre2-devel + openssl-devel + zlib-devel + vim-common (for xxd).
+  Recommends rather than Requires so runtime-only users
+  (`dnf install --setopt=install_weak_deps=False`) can opt out;
+  default install pulls them in so the build experience just works.
+  These deps move to a future o3de2605-devel subpackage when the
+  devel-split lands; this block is the bridge until then.
+- File the cmake-bundled-fallback as a launcher FIXME (Mike noted
+  cmake is now part of get_python.sh's bundled toolchain, so we
+  could drop the runtime Requires once the launcher learns to fall
+  back to the bundled cmake at <engineRoot>/cmake/runtime/bin/cmake).
+
 * Mon May 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-20
 - Stage 1 5-pack reactivated and validated. After refactoring all four
   ZLIB-class Find<X>-system.cmake shims to the mikkelsen pattern in
