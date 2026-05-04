@@ -1,35 +1,49 @@
 {
   "bomFormat": "CycloneDX",
   "specVersion": "1.6",
-  "serialNumber": "urn:uuid:o3de2605-rpm-2605.0-14",
+  "serialNumber": "urn:uuid:o3de2605-rpm-2605.0-25",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-05-03T00:00:00Z",
+    "timestamp": "2026-05-04T22:30:00Z",
     "tools": {
       "components": [
         {
           "type": "application",
           "name": "o3de-rpm",
-          "version": "2605.0-14",
+          "version": "2605.0-25",
           "description": "O3DE RPM packaging spec (versioned package: o3de2605)"
         }
       ]
     },
     "component": {
-      "bom-ref": "pkg:rpm/fedora/o3de2605@2605.0-14",
+      "bom-ref": "pkg:rpm/fedora/o3de2605@2605.0-25",
       "type": "application",
       "name": "o3de2605",
-      "version": "2605.0",
-      "description": "Open 3D Engine 26.05 line — real-time, multi-platform 3D engine",
+      "version": "2605.0-25",
+      "description": "Open 3D Engine 26.05 line \u2014 real-time, multi-platform 3D engine",
       "licenses": [
-        { "expression": "Apache-2.0 OR MIT" }
+        {
+          "expression": "Apache-2.0 OR MIT"
+        }
       ],
-      "purl": "pkg:rpm/fedora/o3de2605@2605.0-14?arch=x86_64",
+      "purl": "pkg:rpm/fedora/o3de2605@2605.0-25?arch=x86_64",
       "externalReferences": [
-        { "type": "website",          "url": "https://o3de.org" },
-        { "type": "vcs",              "url": "https://github.com/o3de/o3de" },
-        { "type": "release-notes",    "url": "https://github.com/o3de/o3de/releases/tag/2510.2" },
-        { "type": "distribution",     "url": "https://github.com/o3de/o3de/releases/download/2605.0/o3de_2605.0_lfs.tar.gz" }
+        {
+          "type": "website",
+          "url": "https://o3de.org"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/o3de/o3de"
+        },
+        {
+          "type": "release-notes",
+          "url": "https://github.com/o3de/o3de/releases/tag/2510.2"
+        },
+        {
+          "type": "distribution",
+          "url": "https://github.com/o3de/o3de/releases/download/2605.0/o3de_2605.0_lfs.tar.gz"
+        }
       ]
     }
   },
@@ -76,11 +90,18 @@
       "name": "qt",
       "version": "5.15.2-rev9",
       "scope": "required",
-      "description": "Custom-patched Qt 5.15 bundled by upstream O3DE via packages.o3de.org. System Qt5 cannot substitute — the rev9 patches are load-bearing for the editor. Tracked for Bundling Library Exception filing in FEDORA_ROADMAP.md (stage 5).",
-      "licenses": [{ "expression": "LGPL-3.0-only OR GPL-3.0-only" }],
+      "description": "Custom-patched Qt 5.15 bundled by upstream O3DE via packages.o3de.org. System Qt5 cannot substitute \u2014 the rev9 patches are load-bearing for the editor. Tracked for Bundling Library Exception filing in FEDORA_ROADMAP.md (stage 5).",
+      "licenses": [
+        {
+          "expression": "LGPL-3.0-only OR GPL-3.0-only"
+        }
+      ],
       "purl": "pkg:generic/qt@5.15.2?revision=rev9",
       "properties": [
-        { "name": "fedora.bundling-exception-required", "value": "true" }
+        {
+          "name": "fedora.bundling-exception-required",
+          "value": "true"
+        }
       ]
     },
     {
@@ -104,11 +125,21 @@
       "version": "1.1.1t",
       "scope": "required",
       "description": "Bundled by upstream O3DE via packages.o3de.org. END-OF-LIFE since 2023-09-11. Migration to system OpenSSL 3.x is tracked in FEDORA_ROADMAP.md (stage 4); likely upstream-blocked.",
-      "licenses": [{ "id": "OpenSSL" }],
+      "licenses": [
+        {
+          "id": "OpenSSL"
+        }
+      ],
       "purl": "pkg:generic/openssl@1.1.1t",
       "properties": [
-        { "name": "endoflife.date", "value": "2023-09-11" },
-        { "name": "fedora.acceptable", "value": "false" }
+        {
+          "name": "endoflife.date",
+          "value": "2023-09-11"
+        },
+        {
+          "name": "fedora.acceptable",
+          "value": "false"
+        }
       ]
     },
     {
@@ -117,7 +148,11 @@
       "name": "googletest",
       "scope": "optional",
       "description": "Fetched at cmake configure time via FetchContent (test scaffolding only; LY_DISABLE_TEST_MODULES=ON skips test builds)",
-      "licenses": [{ "id": "BSD-3-Clause" }],
+      "licenses": [
+        {
+          "id": "BSD-3-Clause"
+        }
+      ],
       "purl": "pkg:github/google/googletest"
     },
     {
@@ -126,7 +161,11 @@
       "name": "o3de-clang-toolchain",
       "scope": "required",
       "description": "Embedded clang/libclang/libtinfo bundled by O3DE",
-      "licenses": [{ "id": "Apache-2.0" }]
+      "licenses": [
+        {
+          "id": "Apache-2.0"
+        }
+      ]
     },
     {
       "bom-ref": "bundled:python-3.10",
@@ -135,12 +174,16 @@
       "version": "3.10.13",
       "scope": "required",
       "description": "Bundled Python 3.10 venv installed by /opt/o3de/python/get_python.sh into ~/.o3de/Python/venv/<engine-id>",
-      "licenses": [{ "id": "PSF-2.0" }]
+      "licenses": [
+        {
+          "id": "PSF-2.0"
+        }
+      ]
     }
   ],
   "dependencies": [
     {
-      "ref": "pkg:rpm/fedora/o3de@2605.0-2",
+      "ref": "pkg:rpm/fedora/o3de2605@2605.0-25",
       "dependsOn": [
         "build-dep:cmake",
         "build-dep:ninja-build",
