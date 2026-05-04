@@ -398,15 +398,16 @@ BuildRequires:  zlib-devel
 # from auto-Requires walking /opt/o3de/.
 Requires:       mesa-libGL
 Requires:       vulkan-loader
-# FIXME(cmake-bundled-fallback): the launcher (sources/o3de-launcher.sh
-# line ~58) hardcodes /usr/bin/cmake for engine-id calculation, so a
-# system cmake is required at runtime today. O3DE's bundled
-# get_python.sh now ships a cmake at <engineRoot>/cmake/runtime/bin/cmake
-# (Mike Cromer noted 2026-05-04). Teach the launcher to fall back to the
-# bundled cmake when /usr/bin/cmake is absent, then we can drop this
-# Requires. Saves ~150 MB on minimal installs.
-Requires:       cmake
 Requires:       python3
+# cmake is Recommends, not Requires: the launcher uses cmake -P to compute
+# the engine-path-id (which keys the per-user Python venv). The detection
+# chain in sources/o3de-launcher.sh tries (1) system cmake on PATH, (2)
+# bundled cmake at <engineRoot>/cmake/runtime/bin/cmake (not currently
+# shipped — placeholder for future), (3) graceful degrade with empty
+# ENGINE_ID (engine still runs; per-engine venv functionality degrades
+# silently). Default install pulls cmake; minimal installs can opt out
+# via `dnf install --setopt=install_weak_deps=False`.
+Recommends:     cmake
 
 # Stage 1 system-library runtime side. RPM auto-Requires picks up the
 # .so.N dependencies by ldd-walking engine binaries, but listing the
@@ -971,6 +972,22 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Mon May 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-25
+- cmake demoted from Requires: to Recommends: (Mike Cromer feedback
+  2026-05-04). The launcher uses cmake -P only for engine-path-id
+  calculation (keys the per-user Python venv); the detection chain
+  in sources/o3de-launcher.sh tries (1) cmake on PATH, (2) bundled
+  cmake at <engineRoot>/cmake/runtime/bin/cmake (placeholder for
+  future when we ship a bundled cmake), (3) graceful degrade with
+  empty ENGINE_ID (engine still runs; per-engine venv functionality
+  degrades silently). Default install still pulls cmake; minimal
+  installs (`dnf install --setopt=install_weak_deps=False`) opt out.
+  Saves ~30-100 MB on minimal-install scenarios (CI test containers,
+  game distribution servers without development tooling).
+- Launcher cmake-detection logic hardened: was hardcoded /usr/bin/cmake
+  with a `|| true` swallow; now uses `command -v cmake` lookup with
+  bundled-fallback path search and explicit empty-ENGINE_ID branch.
+
 * Mon May 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-24
 - Revert engine_name to upstream default "o3de" (was "o3de2605"). Surfaced
   2026-05-04 by Nick: PM rejected adding the WarehouseAssets gem to a

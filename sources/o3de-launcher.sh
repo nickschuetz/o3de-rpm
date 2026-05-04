@@ -55,8 +55,30 @@ export O3DE_ENGINE_PATH="$ENGINE_PATH"
 
 # manifest.py uses O3DE_ENGINE_PATH to bypass the venv-relative __file__ logic.
 # Engine-id calculation must match how get_python.sh computes it (via $DIR/..).
-ENGINE_ID="$(/usr/bin/cmake -P "$ENGINE_PATH/cmake/CalculateEnginePathId.cmake" \
-    "$ENGINE_PATH/python/.." 2>/dev/null | tail -1 || true)"
+#
+# cmake-detection chain (matches get_python.sh's pattern):
+#   1. system cmake on PATH (most common — installed via package mgr)
+#   2. bundled cmake at <engineRoot>/cmake/runtime/bin/cmake (upstream's
+#      .deb installer ships this; our RPM currently does not, but if a
+#      future bundle lands the launcher picks it up automatically)
+#   3. graceful degrade: empty ENGINE_ID, skip the per-engine venv on
+#      PYTHONPATH. The engine still runs; user venv functionality
+#      degrades silently.
+# This chain is why cmake is `Recommends:` in the spec, not `Requires:`
+# — minimal installs (--setopt=install_weak_deps=False) skip cmake
+# and the launcher copes.
+CMAKE_BIN=""
+if command -v cmake >/dev/null 2>&1; then
+    CMAKE_BIN="$(command -v cmake)"
+elif [ -x "$ENGINE_PATH/cmake/runtime/bin/cmake" ]; then
+    CMAKE_BIN="$ENGINE_PATH/cmake/runtime/bin/cmake"
+fi
+
+ENGINE_ID=""
+if [ -n "$CMAKE_BIN" ]; then
+    ENGINE_ID="$("$CMAKE_BIN" -P "$ENGINE_PATH/cmake/CalculateEnginePathId.cmake" \
+        "$ENGINE_PATH/python/.." 2>/dev/null | tail -1 || true)"
+fi
 
 VENV_SITEPKGS=""
 if [ -n "$ENGINE_ID" ] && [ -d "$HOME/.o3de/Python/venv/$ENGINE_ID/lib/python$PYV/site-packages" ]; then
