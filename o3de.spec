@@ -490,6 +490,36 @@ Recommends:     openssl-devel
 Recommends:     zlib-devel
 Recommends:     vim-common
 
+# Stage 1 system-library swap activations also expose their *-devel as
+# project-build dependencies. When `--with system_<X>` is on, the engine's
+# cmake exports point at the system library path, so user projects need
+# the matching -devel headers to compile against the engine. Without these,
+# user-project cmake configure fails with "find_package(<X>) — Could NOT
+# find <X>" or compile-time "fatal error: <header> not found".
+#
+# Surfaced 2026-05-04 by Mike Cromer for mikkelsen specifically (the
+# system-mikkelsen swap was promoted in 10422296; user-project build
+# needed mikkelsen-devel that the bundled 3p doesn't satisfy). Same
+# logic applies to the other 4 swaps after 10423836 promotes.
+%if %{with system_expat}
+Recommends:     expat-devel
+%endif
+%if %{with system_freetype}
+Recommends:     freetype-devel
+%endif
+%if %{with system_mikkelsen}
+Recommends:     mikkelsen-devel
+%endif
+%if %{with system_png}
+Recommends:     libpng-devel
+%endif
+%if %{with system_tiff}
+Recommends:     libtiff-devel
+%endif
+%if %{with system_lua}
+Recommends:     lua-devel
+%endif
+
 %description
 The Open 3D Engine (O3DE) is an Apache-licensed, real-time, multi-platform
 3D engine for building AAA games, cinema-quality 3D worlds, and
@@ -873,6 +903,24 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Mon May 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-22
+- Add Recommends: for project-build *-devel matching active system_<X>
+  swaps. Mike Cromer (sig-build chair) follow-up 2026-05-04: when
+  system_mikkelsen is active, the engine's cmake exports point at the
+  system mikkelsen path — so user projects need mikkelsen-devel to
+  compile against the engine, NOT the bundled 3p mikkelsen. The package
+  currently Requires `mikkelsen` (runtime) only; build users hit
+  "find_package(mikkelsen) — Could NOT find mikkelsen" without
+  mikkelsen-devel. Same logic applies to the other 4 Stage 1 swaps
+  (expat, freetype, libpng, zlib — zlib-devel was already in the
+  unconditional list from Mike's first finding) plus the deferred
+  tiff/lua swaps when those activate.
+- Conditional Recommends keyed off the matching `--with system_<X>`
+  bcond so the spec stays internally consistent: when an SRPM is
+  built with a swap activated, the produced RPM Recommends both the
+  runtime package (already there, hard Require) and the *-devel
+  package (now Recommends, soft).
+
 * Mon May 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-21
 - Add Recommends: block for project-build *-devel deps. Surfaced by
   Mike Cromer (O3DE sig-build chair) on a clean Fedora 44 install:
