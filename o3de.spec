@@ -819,6 +819,22 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Mon May 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-20
+- Stage 1 5-pack reactivated and validated. After refactoring all four
+  ZLIB-class Find<X>-system.cmake shims to the mikkelsen pattern in
+  separate commits (92bde6e / cba5059 / 6b14ffa / 0ca58e8), the
+  combined 5-pack of system_X swaps (mikkelsen + expat + freetype +
+  png + zlib) builds cleanly via `make rpm-experimental` (47 min
+  combined; each individual shim previously validated in 47-52 min
+  isolated builds). Auto-Requires confirms all five system .so's
+  show up in the engine's link-time deps: libmikktspace.so.0,
+  libexpat.so.1, libfreetype.so.6, libpng16.so.16, libz.so.1.
+  Restores SRPM_EXPERIMENTAL_FLAGS to the full 5-pack and updates the
+  comment block. The o3de-experimental chroot config (rpmbuild-with
+  flags on F44 + rawhide) is also synced to the 5-pack via
+  copr-cli edit-chroot. system_tiff (CryCommon int64 conflict) and
+  system_lua (AzCore lobject.h carry-patch) remain parked separately.
+
 * Sun May 03 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-19
 - Fix doubled-quote in installed engine.json's display_version field.
   The two cmake vars feed DIFFERENT upstream consumers and have
