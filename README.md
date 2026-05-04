@@ -194,6 +194,16 @@ o3de2610                                      # launches 26.10.0 Project Manager
 ls /opt/O3DE/                                 # 26.05.0  26.10.0
 ```
 
+**On the manifest:** all installed o3deNNNN majors share `engine_name: "o3de"` in their `engine.json` (matching upstream's `.deb`, ensuring third-party gem `compatible_engines` checks resolve correctly). The user's `~/.o3de/o3de_manifest.json` keys engine registrations by name, so only ONE `o3de` engine is registered at a time. Switching the active engine between majors is a one-command operation:
+
+```bash
+# from inside the desired install root, register that engine as the active "o3de"
+/opt/O3DE/26.10.0/scripts/o3de.sh register --this-engine    # to switch to 26.10
+/opt/O3DE/26.05.0/scripts/o3de.sh register --this-engine    # to switch to 26.05
+```
+
+This matches upstream's multi-install UX. Files for both majors stay co-installed; only the active registration is single-slot. Project Manager from either launcher (`o3de2605` or `o3de2610`) routes to whichever engine is currently registered.
+
 Project Manager auto-routes a project to the right engine via the project's `engine:` field in `project.json`. Subpackages follow the same versioning — `o3de2605-debug` and `o3de2610-debug` are independent and co-installable. Cross-major dnf upgrades are intentionally NOT automatic: different majors are different engine lines and you opt in explicitly with `dnf install o3de2610` when ready.
 
 ---

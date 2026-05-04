@@ -648,6 +648,26 @@ unset CFLAGS CXXFLAGS LDFLAGS
 # FindThreads' compiler feature-tests false-fail when O3DE's bundled qt5
 # .prl processing triggers find_package(Threads) re-entry. Force the
 # pthread result so configure proceeds.
+#
+# O3DE_INSTALL_ENGINE_NAME=o3de (NOT %{o3de_pkgname}): the engine.json
+# engine_name field is a SEPARATE identity from the RPM package name.
+#   - The versioned RPM name (o3de2605) handles dnf's package identity
+#     (multi-major install, dnf swap, dnf remove).
+#   - engine.json's engine_name is what gem manifests' compatible_engines
+#     list matches against. Third-party gems hard-code "o3de" or
+#     "o3de-sdk" in their compatible_engines (e.g. WarehouseAssets:
+#     ["o3de-sdk>=2.3.0", "o3de>=2.3.0"]). If we set engine_name to
+#     "o3de2605", PM rejects every existing third-party gem.
+# Setting engine_name=o3de matches upstream's pristine engine.json AND
+# upstream's .deb default — so gems work out of the box.
+#
+# Trade-off: the manifest's `engines_path` map keys by engine_name, so
+# multiple installs of o3deNNNN all collide on the "o3de" key. Only one
+# is "registered" at a time; switching uses scripts/o3de.sh
+# register --this-engine from the desired install root. This is
+# exactly upstream's multi-install UX on .deb. Multi-install on disk
+# still works (paths versioned at /opt/O3DE/<v>/); only the active
+# registration is single-slot.
 cmake \
     -S . -B build \
     -G "Ninja Multi-Config" \
@@ -656,7 +676,7 @@ cmake \
     -DCMAKE_CONFIGURATION_TYPES="%{_o3de_configs}" \
     -DCMAKE_INSTALL_PREFIX=%{o3de_install_prefix} \
     -DLY_3RDPARTY_PATH=%{_builddir}/%{o3de_source_dir}/3rdParty \
-    -DO3DE_INSTALL_ENGINE_NAME=%{o3de_pkgname} \
+    -DO3DE_INSTALL_ENGINE_NAME=o3de \
     -DO3DE_INSTALL_VERSION_STRING=%{engine_cmake_version} \
     -DO3DE_INSTALL_DISPLAY_VERSION_STRING=%{_o3de_display_version} \
     -DO3DE_INSTALL_BUILD_VERSION='"%{_o3de_build_version}"' \
@@ -951,6 +971,37 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Mon May 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-24
+- Revert engine_name to upstream default "o3de" (was "o3de2605"). Surfaced
+  2026-05-04 by Nick: PM rejected adding the WarehouseAssets gem to a
+  project with:
+    Project may not be compatible with this engine
+    The following dependency requirements could not be satisfied:
+    WarehouseAssets is incompatible because: o3de2605 26.05.0 does not
+    match any version specifiers in the list of compatible engines:
+    ['o3de-sdk>=2.3.0', 'o3de>=2.3.0']
+  The gem's compatible_engines list hard-codes "o3de" / "o3de-sdk" as
+  the engine identity. Our previous override of
+  -DO3DE_INSTALL_ENGINE_NAME=%%{o3de_pkgname} (=o3de2605) made the
+  installed engine.json's engine_name "o3de2605", which doesn't match
+  any existing third-party gem's compat list — every gem fails the
+  check. Trace through cmake/Version.cmake in upstream confirms the
+  pristine default is engine_name="o3de" (read from the source's
+  engine.json), and CPACK's .deb output ships unversioned engine_name.
+  Match upstream by setting -DO3DE_INSTALL_ENGINE_NAME=o3de literally.
+  Other versioned identities stay (RPM name o3de2605, install path
+  /opt/O3DE/26.05.0, desktop files o3de2605.desktop, AppStream id
+  org.o3de.O3DE2605, dock WM_CLASS O3DE-2605, SBOM o3de2605.cdx.json):
+  these don't enter the gem-compat check, only engine.json's
+  engine_name does.
+- Trade-off accepted: the manifest's `engines_path` map keys by
+  engine_name, so multiple installed o3deNNNN majors all collide on
+  the "o3de" key. Only one is "registered" at a time; switching uses
+  scripts/o3de.sh register --this-engine from the desired install
+  root. This matches upstream's .deb multi-install UX exactly. Files
+  for multiple majors still coexist on disk (paths versioned); only
+  active registration is single-slot.
+
 * Mon May 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-23
 - Devel split: introduce %{name}-devel subpackage carrying the engine's
   static archives. Carves out two file sets from the main package:
