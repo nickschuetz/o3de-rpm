@@ -267,6 +267,11 @@ sudo dnf copr enable hellaenergy/o3de-stabilization   # pre-release tester chann
 sudo dnf install o3de2605                              # ~2 GB download (compressed)
 o3de2605                                               # launch Project Manager (GUI)
 o3de2605-cli --help                                    # CLI for project / gem / engine management
+
+sudo dnf install o3de2605-devel                        # OPTIONAL: add static-archive surface
+                                                       # for native C++ gem development. End users
+                                                       # and Lua/ScriptCanvas authors don't need it.
+                                                       # See "Subpackages overview" below.
 ```
 
 The package name follows a `o3deNNNN` convention (postgresql-style): `NNNN` is the upstream major as `YYMM` (`2605` for 26.05.x, `2610` for the next major). The install path under `/opt/O3DE/<DISPLAY_VERSION>/` matches what the upstream `.deb` and Windows `.msi` installers ship — same path mental model across distros and OSes.
