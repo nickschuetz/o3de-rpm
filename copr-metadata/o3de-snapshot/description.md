@@ -1,0 +1,1 @@
+O3DE one-off development-branch builds (ad-hoc cadence). For pre-release validation builds, see hellaenergy/o3de-stabilization — that channel ships from O3DE's stabilization branch (the next-release branch) and is the one community testers should consume.

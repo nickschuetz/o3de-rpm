@@ -71,6 +71,7 @@ RPMBUILD_DEFINES = \
         copr-stable copr-snapshot copr-stabilization copr-experimental \
         copr-snapshot-and-test copr-stabilization-and-test copr-experimental-and-test _copr-and-test \
         trigger-tests copr-init \
+        copr-metadata-pull copr-metadata-diff copr-metadata-push \
         test test-setup test-full test-ui test-ui-full test-branch clean
 
 help:
@@ -421,6 +422,28 @@ trigger-tests:
 	    -f event_type=copr-build-succeeded \
 	    -F client_payload[rpm_url]="$$rpm_url" \
 	    -F client_payload[build_id]="$(BUILD_ID)"
+
+# ── COPR project metadata sync ──────────────────────────────────────────────
+# The description / instructions / homepage / contact blocks shown on each
+# hellaenergy/<project> COPR page are user-facing docs. We mirror them into
+# copr-metadata/<project>/ so drift surfaces as a code-reviewable diff
+# (matches the feedback_keep_copr_metadata_current memory note).
+#
+# Workflow:
+#   make copr-metadata-pull    # COPR -> repo (use to capture out-of-band edits)
+#   make copr-metadata-diff    # compare; non-zero exit on drift
+#   make copr-metadata-push    # repo -> COPR (requires copr-cli auth)
+#
+# To touch a single project, drop into the script directly:
+#   scripts/copr-metadata.sh push o3de-stabilization
+copr-metadata-pull:
+	@scripts/copr-metadata.sh pull
+
+copr-metadata-diff:
+	@scripts/copr-metadata.sh diff
+
+copr-metadata-push:
+	@scripts/copr-metadata.sh push
 
 # ── Tests against an installed RPM ──────────────────────────────────────────
 # Tier 1+2+4: read-only checks. Tier 3 (--setup) modifies ~/.o3de.

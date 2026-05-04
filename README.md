@@ -32,6 +32,11 @@ o3de-rpm/
 │   ├── integration-test.sh                            #   tiers 1–5 against installed RPM
 │   ├── ui-smoke-test.sh                               #   tier 6: Project Manager + Editor smoke under Xvfb
 │   └── test-branch.sh                                 #   build + install + test from git ref
+├── copr-metadata/                                     # mirror of each COPR project's user-facing docs
+│   └── <project>/{description,instructions}.md       #   pulled/pushed via scripts/copr-metadata.sh
+│       {homepage,contact}.txt                        #   make copr-metadata-{pull,diff,push}
+├── scripts/                                           # repo tooling (not packaged into the RPM)
+│   └── copr-metadata.sh                               #   sync copr-metadata/ ↔ live COPR
 └── sources/                                           # rpm SOURCES dir (sources + patches)
     ├── o3de-launcher.sh                               # /usr/bin/o3deNNNN wrapper (Project Manager / Editor GUI)
     ├── o3de-cli                                       # /usr/bin/o3deNNNN-cli wrapper (project / gem / engine management)
