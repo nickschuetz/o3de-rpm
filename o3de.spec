@@ -533,15 +533,37 @@ debugger, additionally install %{name}-debug.
 This build is a development snapshot at commit %{shortcommit} (%{snapshot_date}).
 %endif
 
-# TODO(devel-split): Split lib/Linux/profile/Default/*.a (~4 GB of static
-# archives) out into a %%{name}-devel subpackage (resolves to o3de2605-devel,
-# o3de2610-devel, etc. — versioned automatically via %%package devel
-# inheriting %%{name}). Those archives are only needed by people
-# C++-linking against the engine to write native gems — Lua/ScriptCanvas
-# project authors and runtime users never touch them. Roughly halves the
-# main package on top of the compression switch. Care needed for which
-# cmake/<...>Targets.cmake files travel with the static libs vs. stay
-# with the runtime cmake of the main package.
+%package devel
+Summary:        Open 3D Engine — static archives for native C++ development
+Requires:       %{name}%{?_isa} = %{version}-%{release}
+
+%description devel
+Static archives (.a) for native C++ development against the Open 3D
+Engine. Install this in addition to %{name} when writing native gems
+with O3DE-specific APIs that need static linking against engine
+internals, or when building the engine's own static-only test
+infrastructure.
+
+End users running games, Lua/ScriptCanvas project authors, and most
+native C++ project authors do NOT need this package — the main
+%{name} runtime ships engine .so's and the per-target cmake config
+files those projects link against. Install %{name}-devel only if
+your project's cmake configure errors with `IMPORTED_LOCATION not
+found` on a static-archive path under %{o3de_install_prefix}/lib/
+or %{o3de_install_prefix}/lib64/.
+
+The %{name}-devel package contains:
+  - %{o3de_install_prefix}/lib/Linux/profile/Default/*.a — engine static
+    archives (~4 GB, 173 files): AzCoreTestCommon, AzGameFramework,
+    AzManipulatorTestFramework, AzNetworking, AzTest, RecastNavigation
+    helpers, gem builders, etc. Mostly testing/builder targets and
+    static-only engine internals.
+  - %{o3de_install_prefix}/lib64/ — Recast/Detour bundled static archives
+    (~2 MB, from the RecastNavigation gem) plus their pkgconfig files.
+
+Splitting these out roughly halves the on-disk size of %{name} for
+runtime-only users, CI test containers, and game distribution servers
+where static-link development against the engine isn't needed.
 
 %if %{with debug}
 %package debug
@@ -835,6 +857,18 @@ appstream-util validate-relax --nonet \
 %exclude %{o3de_install_prefix}/bin/Linux/debug
 %exclude %{o3de_install_prefix}/lib/Linux/debug
 %endif
+# Static archives + lib64/ (Recast/Detour bundled) → %{name}-devel.
+# Three exclude patterns cover all .a archives under the engine prefix:
+#   - lib/Linux/profile/Default/*.a — engine + gem static archives
+#     (~173 files, the bulk of the carve-out at ~4 GB)
+#   - lib/Linux/profile/*.a — bundled 3rdParty archives one level up
+#     (gmock, gtest, miniaudio, ogg, vorbis — ~13 files)
+#   - lib64/ — Recast/Detour bundled archives + pkgconfig metadata
+#     (5 files, ~2 MB; whole dir moves since it's exclusively
+#     devel-side content)
+%exclude %{o3de_install_prefix}/lib/Linux/profile/*.a
+%exclude %{o3de_install_prefix}/lib/Linux/profile/Default/*.a
+%exclude %{o3de_install_prefix}/lib64
 %{_bindir}/%{o3de_pkgname}
 %{_bindir}/%{o3de_pkgname}-cli
 %{_datadir}/applications/%{o3de_pkgname}.desktop
@@ -853,6 +887,11 @@ appstream-util validate-relax --nonet \
 %{o3de_install_prefix}/bin/Linux/debug
 %{o3de_install_prefix}/lib/Linux/debug
 %endif
+
+%files devel
+%{o3de_install_prefix}/lib/Linux/profile/*.a
+%{o3de_install_prefix}/lib/Linux/profile/Default/*.a
+%{o3de_install_prefix}/lib64
 
 # ── Scriptlets ───────────────────────────────────────────────────────────────
 %post
@@ -877,6 +916,15 @@ To step through engine code in a debugger, also install the debug
 subpackage if available:
 
     sudo dnf install %{name}-debug
+
+For native C++ gem development that needs to static-link against
+engine internals (test framework, builder targets, etc.), also
+install the devel subpackage:
+
+    sudo dnf install %{name}-devel
+
+Most user projects (Lua/ScriptCanvas, native C++ projects against
+engine .so's) do not need %{name}-devel.
 
 The per-user Python venv bootstraps on first launch automatically;
 to pre-bootstrap it manually run:
@@ -903,6 +951,34 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Mon May 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-23
+- Devel split: introduce %{name}-devel subpackage carrying the engine's
+  static archives. Carves out two file sets from the main package:
+    * %{o3de_install_prefix}/lib/Linux/profile/Default/*.a
+      — 173 .a files, ~4 GB (test framework, builder targets, static
+      engine internals)
+    * %{o3de_install_prefix}/lib64/
+      — 5 .a files (~2 MB) plus pkgconfig metadata for Recast/Detour
+      from the RecastNavigation gem
+  Fulfills the long-standing TODO(devel-split) block above %package
+  debug. Roughly halves on-disk size of %{name} for runtime-only
+  users (CI test containers, game distribution servers, Lua/ScriptCanvas
+  project authors). Native C++ gem developers writing static-link
+  code against engine internals install both: `dnf install %{name}
+  %{name}-devel`. The %{name}-devel package hard-Requires the same
+  NVR of %{name} so they always upgrade in lockstep.
+- Note that the project-build *-devel system packages (clang,
+  mesa-libGL[U]-devel, libxcb-devel, etc., from commit aa767e0) and
+  the conditional system_<X>-devel packages (mikkelsen-devel etc.,
+  from commit 84c021b) stay as Recommends on the main %{name}
+  package. Their consumer is user-project compilation against the
+  engine's .so's — that path doesn't need %{name}-devel's static
+  archives. Keeping these on main means `dnf install %{name}` (with
+  default weak deps) gets the build experience working for the
+  common case; %{name}-devel layers on the static-archive scenario.
+- Update %post user-facing message to mention %{name}-devel alongside
+  the existing %{name}-debug pointer.
+
 * Mon May 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-22
 - Add Recommends: for project-build *-devel matching active system_<X>
   swaps. Mike Cromer (sig-build chair) follow-up 2026-05-04: when
