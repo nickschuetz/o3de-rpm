@@ -552,8 +552,8 @@ cmake \
     -DLY_3RDPARTY_PATH=%{_builddir}/%{o3de_source_dir}/3rdParty \
     -DO3DE_INSTALL_ENGINE_NAME=%{o3de_pkgname} \
     -DO3DE_INSTALL_VERSION_STRING=%{engine_cmake_version} \
-    -DO3DE_INSTALL_DISPLAY_VERSION_STRING='"%{_o3de_display_version}"' \
-    -DO3DE_INSTALL_BUILD_VERSION='"%{_o3de_build_version}"' \
+    -DO3DE_INSTALL_DISPLAY_VERSION_STRING=%{_o3de_display_version} \
+    -DO3DE_INSTALL_BUILD_VERSION=%{_o3de_build_version} \
     -DLY_DISABLE_TEST_MODULES=ON \
     -DLY_STRIP_DEBUG_SYMBOLS=OFF \
     -DTHREADS_PREFER_PTHREAD_FLAG=ON \
@@ -819,6 +819,21 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Sun May 03 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-19
+- Fix doubled-quote in installed engine.json's display_version /
+  build_version. The cmake -D values were single-quoted in shell
+  with embedded double quotes:
+    -DO3DE_INSTALL_DISPLAY_VERSION_STRING='"%{_o3de_display_version}"'
+  meaning cmake received the literal value `"26.05.0-..."` (with the
+  quotes inside the string). The engine.json template substitutes
+  @O3DE_INSTALL_DISPLAY_VERSION_STRING@ already inside JSON quotes,
+  so the output became `""26.05.0-experimental.246b46f""` — invalid
+  JSON. Drop the embedded quotes; the macro values contain no spaces
+  so cmake parses them as a single value either way. Surfaced by
+  Tier 2's display_version test on the o3de2605 install which
+  correctly reported the malformed field as "still '00.00'" because
+  the field's actual value parsed as an empty string.
+
 * Sun May 03 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-18
 - Stage 1 baseline reduced to mikkelsen-only. Build 10421133 (5-pack:
   expat, freetype, libpng, mikkelsen, zlib — system_tiff already parked)

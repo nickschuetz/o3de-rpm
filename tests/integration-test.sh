@@ -33,8 +33,13 @@ RUN_PROJECT=0
 if [ -n "${O3DE_ENGINE_PATH:-}" ]; then
     ENGINE_PATH="$O3DE_ENGINE_PATH"
 else
+    # The package contains TWO engine.json files:
+    #   - /opt/O3DE/<v>/engine.json          (engine-root marker — what we want)
+    #   - /opt/O3DE/<v>/bin/Linux/profile/Default/engine.json  (per-build artifact)
+    # Pick the shorter path (= shallower in the tree = the engine root).
     ENGINE_PATH=$(rpm -ql "$O3DE_PKGNAME" 2>/dev/null \
-        | grep -m1 '/engine\.json$' \
+        | grep '/engine\.json$' \
+        | awk '{ print length, $0 }' | sort -n | head -1 | cut -d' ' -f2- \
         | xargs -r dirname 2>/dev/null)
     : "${ENGINE_PATH:=/opt/O3DE/26.05.0}"
 fi
@@ -133,19 +138,20 @@ head -1 "/usr/bin/$O3DE_PKGNAME" | grep -qE '^#!/(usr/)?bin/bash([[:space:]]|$)|
 if rpm -ql "$O3DE_PKGNAME" 2>/dev/null | grep -qx "/usr/bin/${O3DE_PKGNAME}-cli"; then
     [ -x "/usr/bin/${O3DE_PKGNAME}-cli" ] && ok "/usr/bin/${O3DE_PKGNAME}-cli is executable" || \
         nope "/usr/bin/${O3DE_PKGNAME}-cli executable" "RPM declares it but not +x or missing"
-    # Reachability check needs the bundled-Python venv set up — o3de.sh
-    # invokes the bundled python.sh which fails on a fresh install
-    # before get_python.sh has run. Skip when the venv isn't ready;
-    # Tier 3 (--setup) covers it via the register step.
-    if [ -d "$HOME/.o3de/Python/venv/" ] && \
-       ls "$HOME/.o3de/Python/venv/"*/lib/python*/site-packages/o3de >/dev/null 2>&1; then
-        if "/usr/bin/${O3DE_PKGNAME}-cli" --help </dev/null 2>&1 | grep -qE 'usage: o3de\.py|Sub-Commands'; then
-            ok "/usr/bin/${O3DE_PKGNAME}-cli --help reaches the upstream o3de.py argparse"
-        else
-            nope "/usr/bin/${O3DE_PKGNAME}-cli reachable" "venv ready, but no upstream argparse output — wrapper or o3de.sh path broken"
-        fi
+    # Reachability check: the wrapper should exec the bundled o3de.sh, which
+    # then either prints argparse output (full Tier-3-ready path) OR the
+    # "Python has not been downloaded" message from python.sh on a fresh
+    # install. Both prove the wrapper reached the bundled script chain;
+    # only one demands the per-user venv exist. Distinguish them in the
+    # success message so Tier-2 readers know whether further setup is
+    # needed before the cli is actually usable.
+    cli_out=$("/usr/bin/${O3DE_PKGNAME}-cli" --help </dev/null 2>&1)
+    if printf '%s\n' "$cli_out" | grep -qE 'usage: o3de\.py|Sub-Commands'; then
+        ok "/usr/bin/${O3DE_PKGNAME}-cli --help reaches the upstream o3de.py argparse"
+    elif printf '%s\n' "$cli_out" | grep -qE 'Python has not been downloaded|get_python\.sh first'; then
+        ok "/usr/bin/${O3DE_PKGNAME}-cli is reachable (wrapper → o3de.sh → python.sh — venv setup pending; run get_python.sh or pass --setup)"
     else
-        skipped "/usr/bin/${O3DE_PKGNAME}-cli reachable" "no per-user venv yet; pass --setup or run get_python.sh first"
+        nope "/usr/bin/${O3DE_PKGNAME}-cli reachable" "no argparse and no Python-setup hint — wrapper or o3de.sh path broken: ${cli_out//$'\n'/ | }"
     fi
 else
     skipped "/usr/bin/${O3DE_PKGNAME}-cli checks" "RPM doesn't declare it (pre-CLI build); skipping"

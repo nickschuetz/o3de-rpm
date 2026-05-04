@@ -33,8 +33,11 @@ DO_SCREENSHOT=0
 if [ -n "${O3DE_ENGINE_PATH:-}" ]; then
     ENGINE_PATH="$O3DE_ENGINE_PATH"
 else
+    # Two engine.json's in the package — root marker + per-build artifact.
+    # Prefer the shorter path (engine root). See integration-test.sh for detail.
     ENGINE_PATH=$(rpm -ql "$O3DE_PKGNAME" 2>/dev/null \
-        | grep -m1 '/engine\.json$' \
+        | grep '/engine\.json$' \
+        | awk '{ print length, $0 }' | sort -n | head -1 | cut -d' ' -f2- \
         | xargs -r dirname 2>/dev/null)
     : "${ENGINE_PATH:=/opt/O3DE/26.05.0}"
 fi
