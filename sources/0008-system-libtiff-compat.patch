@@ -1,0 +1,144 @@
+From: Nick Schuetz <nschuetz@redhat.com>
+Subject: [PATCH] CryCommon: gate int64/uint64 typedefs behind O3DE_SYSTEM_LIBTIFF_COMPAT for libtiff 4.5+ compat
+
+libtiff 4.5+ (Fedora 44+) defines `int64` / `uint64` in <tiff.h>
+(lines 88-89 on F44's libtiff 4.7.1) as `int64_t` / `uint64_t` —
+equivalent to `long` / `unsigned long` on LP64. CryCommon's
+BaseTypes.h defines them as `slonglong` / `ulonglong` (= `long
+long` / `unsigned long long`). Same 64-bit width but C++ treats
+`long` and `long long` as distinct types, so any TU including
+both BaseTypes.h and tiffio.h fails to compile:
+
+    /usr/include/tiff.h:88:37: error: typedef redefinition with
+        different types ('int64_t' (aka 'long') vs 'slonglong'
+        (aka 'long long'))
+
+Patch0007 already migrated `uint8`/`uint16`/`uint32` deprecation
+warnings in TIFFLoader.cpp + ImageTIF.cpp. This patch addresses
+the int64/uint64 typedef collision, which is in a separate layer
+of <tiff.h> and not addressable by the same C99-rename approach
+(BaseTypes.h's int64/uint64 are foundational engine typedefs used
+across hundreds of files; renaming them upstream-wide is out of
+scope for the Fedora packaging track).
+
+Approach: a guard macro `O3DE_SYSTEM_LIBTIFF_COMPAT`. The two
+TIFF-using `.cpp` files (`Code/Editor/Util/ImageTIF.cpp` and
+`Gems/Atom/Asset/ImageProcessingAtom/.../TIFFLoader.cpp`) define
+this macro before any #includes. CryCommon's BaseTypes.h checks
+for it and skips the int64/uint64 typedefs when set — letting
+libtiff's typedefs win in those two TUs. The `sint64` typedef
+(no libtiff equivalent) stays unconditional.
+
+`SKIP_UNITY_BUILD_INCLUSION` on both `.cpp` files (in the two
+relevant `CMakeLists.txt` files) keeps the macro scoped to a
+single TU. Without this, CMake's unity-build merge would pull
+the two TIFF files into a merge group with other `.cpp` files
+that use CryCommon's int64/uint64, and those files would fail
+to compile against the suppressed typedefs.
+
+Bundled-libtiff builds (the default everywhere except Fedora's
+`--with system_tiff`) don't define the macro and behavior is
+unchanged. Only fires when system libtiff is in use.
+
+Carry locally; not pitched to upstream. The proper upstream
+fix would be migrating CryCommon to C99 typedefs (Option B of
+the deferred-tiff analysis), which would touch overload
+resolution, printf format specifiers, and template
+specializations across the engine — out of scope for this
+packaging-track patch. The guard is conservative: it changes
+behavior only when explicitly opted into.
+
+Path-anchored at the typedef declarations themselves and the
+`ly_add_target` invocations so future upstream rebases are
+unlikely to drift the hunk anchors.
+
+Signed-off-by: Nick Schuetz <nschuetz@redhat.com>
+---
+--- a/Code/Legacy/CryCommon/BaseTypes.h
++++ b/Code/Legacy/CryCommon/BaseTypes.h
+@@ -60,13 +60,23 @@
+ static_assert(sizeof(uint32) == 4);
+ static_assert(sizeof(sint32) == 4);
+ 
++// O3DE-Fedora-packaging: when O3DE_SYSTEM_LIBTIFF_COMPAT is defined (in the
++// TIFF .cpp files only), suppress the int64/uint64 typedefs so libtiff's
++// <tiff.h> typedefs can win in those TUs. CryCommon defines them as
++// slonglong/ulonglong (= long long); libtiff defines them as int64_t/uint64_t
++// (= long on LP64). Same width, distinct C++ types — typedef redefinition
++// error otherwise. See sources/0008-system-libtiff-compat.patch.
++#if !defined(O3DE_SYSTEM_LIBTIFF_COMPAT)
+ typedef slonglong int64;
++#endif
+ 
+ #ifndef O3DE_INT64_DEFINED
+ #define O3DE_INT64_DEFINED
+ typedef slonglong sint64;
++#if !defined(O3DE_SYSTEM_LIBTIFF_COMPAT)
+ typedef ulonglong uint64;
+ static_assert(sizeof(uint64) == 8);
++#endif
+ static_assert(sizeof(sint64) == 8);
+ #endif
+ 
+--- a/Code/Editor/Util/ImageTIF.cpp
++++ b/Code/Editor/Util/ImageTIF.cpp
+@@ -6,6 +6,11 @@
+  *
+  */
+ 
++// O3DE-Fedora-packaging: gate CryCommon's int64/uint64 typedefs (BaseTypes.h)
++// off so libtiff's <tiff.h> typedefs (int64_t/uint64_t) win in this TU.
++// SKIP_UNITY_BUILD_INCLUSION on this file (Code/Editor/CMakeLists.txt) keeps
++// the macro from leaking into the unity merge group.
++#define O3DE_SYSTEM_LIBTIFF_COMPAT 1
+ 
+ #include "EditorDefs.h"
+ 
+--- a/Gems/Atom/Asset/ImageProcessingAtom/Code/Source/ImageLoader/TIFFLoader.cpp
++++ b/Gems/Atom/Asset/ImageProcessingAtom/Code/Source/ImageLoader/TIFFLoader.cpp
+@@ -6,6 +6,11 @@
+  *
+  */
+ 
++// O3DE-Fedora-packaging: gate CryCommon's int64/uint64 typedefs (BaseTypes.h)
++// off so libtiff's <tiff.h> typedefs (int64_t/uint64_t) win in this TU.
++// SKIP_UNITY_BUILD_INCLUSION on this file (Atom Code/CMakeLists.txt) keeps
++// the macro from leaking into the unity merge group.
++#define O3DE_SYSTEM_LIBTIFF_COMPAT 1
+ 
+ #include <AzCore/Debug/Trace.h>
+ #include <AzCore/Math/MathUtils.h>
+--- a/Code/Editor/CMakeLists.txt
++++ b/Code/Editor/CMakeLists.txt
+@@ -69,6 +69,15 @@
+ 
+ ly_get_pal_tool_dirs(pal_tool_dirs ${CMAKE_CURRENT_LIST_DIR}/Platform)
+ 
++# O3DE-Fedora-packaging: ImageTIF.cpp defines O3DE_SYSTEM_LIBTIFF_COMPAT to
++# suppress CryCommon's int64/uint64 typedefs so libtiff's <tiff.h> typedefs
++# can win in that TU. SKIP_UNITY_BUILD_INCLUSION isolates the macro to a
++# single TU; without this, other .cpp files in the unity merge group that
++# use CryCommon's int64/uint64 would fail to compile against the suppressed
++# typedefs. See sources/0008-system-libtiff-compat.patch.
++set_source_files_properties(Util/ImageTIF.cpp
++    PROPERTIES SKIP_UNITY_BUILD_INCLUSION TRUE)
++
+ ly_add_target(
+     NAME EditorLib SHARED
+     NAMESPACE Legacy
+--- a/Gems/Atom/Asset/ImageProcessingAtom/Code/CMakeLists.txt
++++ b/Gems/Atom/Asset/ImageProcessingAtom/Code/CMakeLists.txt
+@@ -36,6 +36,13 @@
+ o3de_pal_dir(pal_source_dir ${CMAKE_CURRENT_LIST_DIR}/Source/Platform/${PAL_PLATFORM_NAME} "${gem_restricted_path}" "${gem_path}" "${gem_parent_relative_path}")
+ set(common_source_dir ${CMAKE_CURRENT_LIST_DIR}/Source/Platform/Common)
+ 
++# O3DE-Fedora-packaging: TIFFLoader.cpp defines O3DE_SYSTEM_LIBTIFF_COMPAT to
++# suppress CryCommon's int64/uint64 typedefs so libtiff's <tiff.h> typedefs
++# can win in that TU. SKIP_UNITY_BUILD_INCLUSION isolates the macro to a
++# single TU. See sources/0008-system-libtiff-compat.patch.
++set_source_files_properties(Source/ImageLoader/TIFFLoader.cpp
++    PROPERTIES SKIP_UNITY_BUILD_INCLUSION TRUE)
++
+ ly_add_target(
+     NAME ${gem_name}.Editor.Static STATIC
+     NAMESPACE Gem

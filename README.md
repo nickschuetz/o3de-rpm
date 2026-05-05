@@ -52,6 +52,7 @@ o3de-rpm/
     ├── 0005-windowdecorationwrapper-propagate-initial-title.patch
     ├── 0006-builtinpackages-gate-mikkelsen-on-system.patch     # Stage 1 LY_USE_SYSTEM_<X> gates
     ├── 0007-libtiff-c99-typedefs.patch                          # libtiff 4.5+ compat (deprecation)
+    ├── 0008-system-libtiff-compat.patch                         # libtiff 4.5+ compat (CryCommon int64/uint64 guard)
     ├── Findmikkelsen-system.cmake                              # Stage 1 system-* find shims
     ├── Findexpat-system.cmake                                  #   (copied to cmake/3rdParty/
     ├── FindZLIB-system.cmake                                   #    during %prep when the matching
