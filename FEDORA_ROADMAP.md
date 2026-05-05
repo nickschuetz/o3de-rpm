@@ -207,12 +207,12 @@ Realistic timeline from today: **9–18 months**. The crypto migration (Stage 4)
 
 These four upstream-bundled packages **cannot** be hosted in COPR or Fedora because of license/redistribution conflicts. This is documented in `BUNDLED_LIBRARIES.md` per package, but called out here because it shapes the entire Fedora-inclusion strategy:
 
-| Package | Why off-limits | What it enables |
-|---|---|---|
-| **DirectXShaderCompilerDxc** | Microsoft tooling with redistribution restrictions on DXIL signing | shader compilation — **non-optional** for engine use |
-| **NvCloth** | NVIDIA proprietary, not Fedora-acceptable | the NvCloth Gem (cloth simulation) — optional |
-| **poly2tri** | Specific O3DE-vendored fork has license-attribution issues | navmesh generation — significant feature |
-| **squish-ccr** | Patent-encumbered texture compression algorithms | ImageProcessing Gem (asset bake) — significant |
+| Package | Why off-limits | What it enables | Upstream signal |
+|---|---|---|---|
+| **DirectXShaderCompilerDxc** | Microsoft tooling with redistribution restrictions on DXIL signing | shader compilation — **non-optional** for engine use | Linux-only SPIR-V rebuild is feasible (see Stage 5 sub-task below). |
+| **NvCloth** | NVIDIA proprietary, not Fedora-acceptable | the NvCloth Gem (cloth simulation) — optional | **On deprecation path** — Nick_L (sig-build, 2026-05-05) flagged NvCloth is being retired alongside PhysX 4; PhysX 5 has its own cloth sim. Cut lands whenever upstream retires PhysX 4. **No Fedora-track work needed** — problem solves itself via upstream evolution. Caveat: Nick_L flagged cloth feature-parity under PhysX 5 not yet verified; "it may even be a regression." |
+| **poly2tri** | Specific O3DE-vendored fork has license-attribution issues | navmesh generation — significant feature | No upstream-deprecation signal yet. |
+| **squish-ccr** | Patent-encumbered texture compression algorithms | ImageProcessing Gem (asset bake) — significant | No upstream-deprecation signal yet. |
 
 **Three handling options for the Fedora-shippable variant:**
 
@@ -222,9 +222,25 @@ These four upstream-bundled packages **cannot** be hosted in COPR or Fedora beca
 | B. Runtime fetcher | `/opt/O3DE/<version>/python/fetch-restricted-deps.sh` — one-time post-install opt-in mirroring `get_python.sh`; downloads to `~/.o3de/3rdParty/` from `packages.o3de.org` | full feature set | requires user network action; some Fedora reviewers disapprove of this pattern |
 | C. License-clean DXC rebuild | Build DXC from upstream NCSA/Apache-2.0 sources, configured Vulkan-only / SPIR-V-output (no Windows DXIL signing). Combined with A or B for the others. | best license posture | most engineering effort |
 
-**Current preference:** **B** for short-term Fedora viability + **C as a follow-up** to reduce the runtime-fetch surface to just NvCloth/poly2tri/squish (all optional/feature-gated). DXC is the load-bearing one — making it license-clean is the hardest single win.
+**Current preference:** **B** for short-term Fedora viability + **C as a follow-up** to reduce the runtime-fetch surface. With NvCloth on the upstream-deprecation path (see table above), the runtime-fetch surface in the long run is just poly2tri/squish-ccr — both optional/feature-gated. DXC is the load-bearing one — making it license-clean is the hardest single win.
 
----
+### How upstream contributors can help
+
+This section exists for O3DE upstream contributors (3rdParty maintainers, sig-build folks, anyone with engine-internals visibility) reading this doc and wondering what concrete asks would unblock Fedora-track work. Each ask is something a packager can't determine from outside; an upstream contributor with the right context can answer in minutes.
+
+**For DXC (critical-path; license-clean Linux rebuild — the highest-leverage win):**
+
+1. **What's in the `-o3de-rev3` suffix?** Are there carry-patches on top of upstream Microsoft DXC at the matching tag (`1.8.2505.1`)? If carry-patches exist, a public diff lets distro packagers know what to layer onto a system DXC build. If it's just a build-config marker with no source-level patches, that's even better.
+2. **Could the engine accept an external DXC via cmake?** A `LY_DXC_PATH` (or pkg-config-based discovery) cmake var that lets distros point at a system DXC build instead of always fetching from `packages.o3de.org` would be the single most valuable upstream change for Fedora-track work. Same scaffolding could later help Windows packagers (e.g., chocolatey).
+3. **What internal DXC API surface does the engine actually depend on?** If only the public `dxc` binary + `libdxcompiler.so` API, a license-clean SPIR-V-only rebuild Just Works. If the engine reaches into internal LLVM symbols or DXC private headers, that scopes whether a stripped-down rebuild can actually substitute.
+
+**For poly2tri + squish-ccr (Gem-boundary clarification):**
+
+4. **Is each restricted bundle's dependency at the Gem boundary, or deeper?** If `poly2tri` is cleanly isolated to a single Gem (or a single navmesh subsystem), distros can drop just that Gem (handling option A) and ship the rest of the engine without losing other features. Same question for `squish-ccr` and the ImageProcessing Gem's BC7 baking. Knowing per-bundle whether the dependency is Gem-boundary vs. core-engine-path lets us scope option A precisely.
+
+**For NvCloth:** No upstream-side help needed — Nick_L's 2026-05-05 sig-build update flagged NvCloth as deprecated for PhysX 5 (which has its own cloth sim), retiring alongside PhysX 4. Problem solves itself via upstream evolution.
+
+**Where to send answers:** GitHub issues at https://github.com/nickschuetz/o3de-rpm/issues, or the #sig-build channel in the O3DE Discord (the conversation is already running there).
 
 ---
 

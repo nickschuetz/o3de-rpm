@@ -15,7 +15,7 @@ These four are omitted from `hellaenergy/o3de-dependencies` and remain fetched f
 | Package | O3DE version | Upstream license | Why restricted |
 |---|---|---|---|
 | **DirectXShaderCompilerDxc** | 1.8.2505.1-o3de-rev3 | NCSA / Apache-2.0 (sources) + proprietary DXIL signing | The DXIL signing tooling is Microsoft-proprietary. **DXC is structurally a fork of Clang/LLVM** — that's why the bundle ships `libclang-12.so.1` + `libtinfo.so.6` under `Builders/DirectXShaderCompiler/lib/` (RPATH-resolved internal stack, hence the spec's `%__requires_exclude`). Linux O3DE only uses DXC's SPIR-V backend, not DXIL — so a license-clean rebuild from upstream Microsoft DXC sources against system clang is feasible. See `FEDORA_ROADMAP.md` § "License-clean DXC rebuild" for the concrete plan. |
-| **NvCloth** | v1.1.6-4-gd243404-pr58-rev1 | NVIDIA Source Code License | NVIDIA-specific clauses incompatible with Fedora's free-software requirements. |
+| **NvCloth** | v1.1.6-4-gd243404-pr58-rev1 | NVIDIA Source Code License | NVIDIA-specific clauses incompatible with Fedora's free-software requirements. **On upstream deprecation path** — Nick_L (sig-build, 2026-05-05) flagged NvCloth is being retired alongside PhysX 4; PhysX 5 has its own cloth simulation. When upstream cuts PhysX 4, NvCloth disappears from the bundle list automatically. Caveat: cloth feature-parity under PhysX 5 not yet verified. No Fedora-track packaging work needed; the problem solves itself via upstream evolution. |
 | **poly2tri** | 7f0487a-rev1 | BSD-3-Clause (upstream) | The specific O3DE-vendored fork has license-attribution complications. |
 | **squish-ccr** | deb557d-rev1 | MIT-like + patents | Texture-compression algorithms encumbered by BPTC/BC7 patents. |
 
