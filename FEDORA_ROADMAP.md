@@ -79,12 +79,12 @@ O3DE bundles ~30 3rdParty packages from its CDN at cmake configure time. Most of
 
 ### How upstream contributors can help (Stage 1)
 
-These are the Stage 1 bundles where outside-the-packager visibility would unblock specific work:
+These are the Stage 1 bundles where outside-the-packager visibility would unblock specific work. Each ask has a tracking issue — comment there or in #sig-build, both are watched.
 
-- **`system_lua` — AzCore's internal-header dependency.** `Code/Framework/AzCore/.../ScriptContext.cpp` includes Lua's *internal* `<Lua/lobject.h>` header for low-level type definitions. Fedora's `lua-devel` only ships the public API (`lua.h`, `lauxlib.h`, `lualib.h`, `luaconf.h`). Question: is the internal-header use load-bearing, or could AzCore migrate to public-API-only (or vendor the needed type definitions inline)? This is currently the only blocker for `system_lua` activation.
-- **`system_tiff` — CryCommon `int64`/`uint64` typedef migration.** Confirmed (commits `cda6b7b` → `9f2f099`, 2026-05-05) that the narrow-guard approach is structurally infeasible because CryCommon's own internal headers (`Cry_ValidNumber.h`'s `DoubleU64` macros, etc.) use `uint64` directly, well outside `BaseTypes.h`. The clean fix is migrating CryCommon's `int64`/`uint64` typedefs from `slonglong`/`ulonglong` (= `long long`) to `int64_t`/`uint64_t`. We ruled this out as out-of-scope for the packaging track. Question: **is upstream open to that migration?** A Linux-side PR would unblock `system_tiff` for free. Currently parked under Option C (Bundling Library Exception path).
-- **`mcpp` `_az` fork delta.** O3DE bundles `mcpp-2.7.2_az.2-rev1` — an O3DE-patched fork. Question: what does the `_az` patch set do? If it's small/fixable, base `mcpp` from Fedora (2.7.x) might satisfy with a tiny carry-patch.
-- **`AWSNativeSDK` + `AwsIotDeviceSdkCpp` libcurl bundling.** These two bundles transitively include libcurl, which is why direct `system_curl` doesn't apply (libcurl isn't in `BuiltInPackages_linux_x86_64.cmake` at all — it's transitive). Question: are either AWS SDK in line for an upgrade that links against system curl on Linux?
+- **`system_lua` — AzCore's internal-header dependency.** [#1](https://github.com/nickschuetz/o3de-rpm/issues/1). `Code/Framework/AzCore/.../ScriptContext.cpp` includes Lua's *internal* `<Lua/lobject.h>` header for low-level type definitions. Fedora's `lua-devel` only ships the public API (`lua.h`, `lauxlib.h`, `lualib.h`, `luaconf.h`). Question: is the internal-header use load-bearing, or could AzCore migrate to public-API-only (or vendor the needed type definitions inline)? This is currently the only blocker for `system_lua` activation.
+- **`system_tiff` — CryCommon `int64`/`uint64` typedef migration.** [#2](https://github.com/nickschuetz/o3de-rpm/issues/2). Confirmed (commits `cda6b7b` → `9f2f099`, 2026-05-05) that the narrow-guard approach is structurally infeasible because CryCommon's own internal headers (`Cry_ValidNumber.h`'s `DoubleU64` macros, etc.) use `uint64` directly, well outside `BaseTypes.h`. The clean fix is migrating CryCommon's `int64`/`uint64` typedefs from `slonglong`/`ulonglong` (= `long long`) to `int64_t`/`uint64_t`. We ruled this out as out-of-scope for the packaging track. Question: **is upstream open to that migration?** A Linux-side PR would unblock `system_tiff` for free. Currently parked under Option C (Bundling Library Exception path).
+- **`mcpp` `_az` fork delta.** [#3](https://github.com/nickschuetz/o3de-rpm/issues/3). O3DE bundles `mcpp-2.7.2_az.2-rev1` — an O3DE-patched fork. Question: what does the `_az` patch set do? If it's small/fixable, base `mcpp` from Fedora (2.7.x) might satisfy with a tiny carry-patch.
+- **`AWSNativeSDK` + `AwsIotDeviceSdkCpp` libcurl bundling.** [#4](https://github.com/nickschuetz/o3de-rpm/issues/4). These two bundles transitively include libcurl, which is why direct `system_curl` doesn't apply (libcurl isn't in `BuiltInPackages_linux_x86_64.cmake` at all — it's transitive). Question: are either AWS SDK in line for an upgrade that links against system curl on Linux?
 
 ---
 
@@ -101,7 +101,7 @@ If the API gap is too large, this stage may temporarily stay bundled until O3DE 
 
 ### How upstream contributors can help (Stage 2)
 
-- **Version-pinning strictness.** OpenEXR 3.1.3-rev4, OpenImageIO/OpenColorIO 2.3.17-rev2 are pinned exactly. F44 ships newer (OpenEXR 3.2+, OIIO/OCIO newer). Question: are the version pins hard requirements (specific API surface, ABI assumptions), or `>=`-acceptable? If upstream knows of compatible newer-version ranges, that scopes whether Stage 2 is "swap to system" vs. "wait for upstream to catch up."
+- **Version-pinning strictness.** [#5](https://github.com/nickschuetz/o3de-rpm/issues/5). OpenEXR 3.1.3-rev4, OpenImageIO/OpenColorIO 2.3.17-rev2 are pinned exactly. F44 ships newer (OpenEXR 3.2+, OIIO/OCIO newer). Question: are the version pins hard requirements (specific API surface, ABI assumptions), or `>=`-acceptable? If upstream knows of compatible newer-version ranges, that scopes whether Stage 2 is "swap to system" vs. "wait for upstream to catch up."
 
 ---
 
@@ -251,7 +251,7 @@ These four upstream-bundled packages **cannot** be hosted in COPR or Fedora beca
 
 This section exists for O3DE upstream contributors (3rdParty maintainers, sig-build folks, anyone with engine-internals visibility) reading this doc and wondering what concrete asks would unblock Fedora-track work. Each ask is something a packager can't determine from outside; an upstream contributor with the right context can answer in minutes.
 
-**For DXC (critical-path; license-clean Linux rebuild — the highest-leverage win):**
+**For DXC (critical-path; license-clean Linux rebuild — the highest-leverage win):** all three sub-questions tracked at [#6](https://github.com/nickschuetz/o3de-rpm/issues/6).
 
 1. **What's in the `-o3de-rev3` suffix?** Are there carry-patches on top of upstream Microsoft DXC at the matching tag (`1.8.2505.1`)? If carry-patches exist, a public diff lets distro packagers know what to layer onto a system DXC build. If it's just a build-config marker with no source-level patches, that's even better.
 2. **Could the engine accept an external DXC via cmake?** A `LY_DXC_PATH` (or pkg-config-based discovery) cmake var that lets distros point at a system DXC build instead of always fetching from `packages.o3de.org` would be the single most valuable upstream change for Fedora-track work. Same scaffolding could later help Windows packagers (e.g., chocolatey).
