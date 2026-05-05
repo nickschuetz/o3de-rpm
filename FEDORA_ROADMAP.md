@@ -268,7 +268,7 @@ This section exists for O3DE upstream contributors (3rdParty maintainers, sig-bu
 2. **Could the engine accept an external DXC via cmake?** — Implicitly resolved. The engine just shells out to a `dxc` binary; `$PATH` discovery or an `LY_DXC_PATH` (or `LY_DXC_EXECUTABLE`) cmake var both work cleanly. No library-finding plumbing needed.
 3. **What internal DXC API surface does the engine actually depend on?** — **ANSWERED (massive simplification).** Engine **doesn't link DXC** at all. DXC is invoked as a runtime/tool-time **executable** (the `dxc` binary), not linked as a library. So the license-clean rebuild only needs to produce a working `dxc` binary that produces SPIR-V output and accepts the same CLI. **No `libdxcompiler.so`, no internal LLVM symbol concerns, no `__requires_exclude` workaround needed in the post-rebuild spec.**
 
-**For poly2tri + squish-ccr (Gem-boundary clarification):**
+**For poly2tri + squish-ccr (Gem-boundary clarification):** [#7](https://github.com/nickschuetz/o3de-rpm/issues/7).
 
 4. **Is each restricted bundle's dependency at the Gem boundary, or deeper?** If `poly2tri` is cleanly isolated to a single Gem (or a single navmesh subsystem), distros can drop just that Gem (handling option A) and ship the rest of the engine without losing other features. Same question for `squish-ccr` and the ImageProcessing Gem's BC7 baking. Knowing per-bundle whether the dependency is Gem-boundary vs. core-engine-path lets us scope option A precisely.
 
