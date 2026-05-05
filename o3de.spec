@@ -972,6 +972,41 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Tue May 05 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-27
+- system_tiff Stage 1 swap: Option A (narrow guard macro) confirmed
+  structurally infeasible. Patch0008 attempt (commit cda6b7b, reverted
+  by 9f2f099) gated CryCommon's int64/uint64 typedefs in BaseTypes.h
+  behind O3DE_SYSTEM_LIBTIFF_COMPAT, with SKIP_UNITY_BUILD_INCLUSION
+  on the two TIFF .cpp files. Local rpmbuild -bb --with system_tiff
+  failed at compile time in Cry_ValidNumber.h (transitively included
+  from EditorDefs.h via Cry_Math.h):
+    error: use of undeclared identifier 'uint64'
+        #define DoubleU64(x)   (*((uint64*) &(x)))
+  Cry_ValidNumber.h's own DoubleU64/DoubleU64ExpMask/DoubleU64FracMask
+  macros use `uint64` directly. The guard suppresses CryCommon's
+  typedef but libtiff's <tiffio.h> hadn't yet been included when
+  Cry_ValidNumber.h was parsed. Reordering tiffio.h ahead of the
+  engine includes would compile (libtiff's typedefs become visible
+  first), but introduces a `long` (LP64 libtiff) vs `long long`
+  (CryCommon engine ABI) mismatch — CryGetTicks() and other engine
+  symbols mangling differ -> unresolved-symbol link errors. Both
+  paths fail; Option A is dead.
+- Decision: switch to Option C — leave system_tiff parked
+  indefinitely, ship the bundled libtiff-4.2.0.15-rev3 from
+  packages.o3de.org, file a permanent Bundling Library Exception in
+  the Fedora package review (Stage 5 of FEDORA_ROADMAP). The
+  "narrow guard" approach is incompatible with CryCommon's internal
+  int64/uint64 usage; the only clean alternative is Option B (engine-
+  wide CryCommon C99 migration) which Nick previously ruled out as
+  too invasive for the Fedora packaging track. Patch0007 stays in
+  place (the deprecation-warning migration is required regardless of
+  system_tiff). FindTIFF-system.cmake reverted to the pre-refactor
+  form; bcond + Source declaration stay declared but defaulted off.
+- Documentation: BUNDLED_LIBRARIES libtiff row updated to "Option C —
+  Bundling Library Exception"; FEDORA_ROADMAP Stage 1 status keeps
+  "5-pack" (libtiff exits the Stage 1 candidate list). Plan file
+  squeezing-typeface-tiffany.md gets a closeout addendum.
+
 * Mon May 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-26
 - Editor dock icon: drop version from o3de2605-editor.desktop's
   StartupWMClass. Project Manager's launcher passes Qt -name
