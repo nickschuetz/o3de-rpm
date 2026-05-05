@@ -71,7 +71,7 @@ These have direct Fedora equivalents. Migration is per-package, low risk per mig
 | expat | 2.4.2-rev2 | `expat-devel` | 2.6.x | trivial flip |
 | SQLite | 3.37.2-rev1 | `sqlite-devel` | 3.46.x | trivial flip |
 | Lua | 5.4.4-rev1 | `lua-devel` | 5.4.7+ | trivial flip |
-| lz4 | 1.9.4-rev2 | `lz4-devel` | 1.9.x | trivial flip |
+| lz4 | 1.9.4-rev2 | `lz4-devel` | 1.10.0 | **VALIDATED in 6-pack (2026-05-05)** — Findlz4-system.cmake mikkelsen-pattern (no stock include needed; cmake doesn't ship FindLZ4). Engine consumers use `#include <lz4.h>` / `<lz4hc.h>` / `<lz4frame.h>` verbatim, matching Fedora layout exactly — no wrapper bridging. Engine binaries auto-Require `liblz4.so.1()(64bit)`. lz4 1.10 has stable API back-compat with 1.9 (the engine's bundled major). |
 | libsamplerate | 0.2.1-rev2 | `libsamplerate-devel` | 0.2.2 | trivial flip |
 | mcpp | 2.7.2_az.2-rev1 | `mcpp` | 2.7.x | O3DE uses an `_az` patched fork — verify base mcpp suffices. |
 | **expat** | 2.4.2-rev2 | `expat-devel` | 2.6+ | **VALIDATED in 5-pack (2026-05-04)** — Patch0006 gate + Findexpat-system.cmake refactored to mikkelsen pattern (commit `0ca8e58`); preserves case-bridging role for bundled FindOpenColorIO. Engine binaries auto-Require `libexpat.so.1()(64bit)`. |

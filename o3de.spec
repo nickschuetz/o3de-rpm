@@ -67,6 +67,7 @@
 %bcond_with system_expat
 %bcond_with system_freetype
 %bcond_with system_lua
+%bcond_with system_lz4
 %bcond_with system_mikkelsen
 %bcond_with system_png
 %bcond_with system_tiff
@@ -122,7 +123,7 @@
 # system_<X> bconds to the experimental OR-chain as the Stage 1
 # migration list grows.
 %global _o3de_channel %{nil}
-%if %{with system_expat} || %{with system_freetype} || %{with system_lua} || %{with system_mikkelsen} || %{with system_png} || %{with system_tiff} || %{with system_zlib}
+%if %{with system_expat} || %{with system_freetype} || %{with system_lua} || %{with system_lz4} || %{with system_mikkelsen} || %{with system_png} || %{with system_tiff} || %{with system_zlib}
 %global _o3de_channel -experimental
 %else
 %if %{with stabilization}
@@ -291,6 +292,7 @@ Source33:       FindFreetype-system.cmake
 Source34:       FindPNG-system.cmake
 Source35:       FindTIFF-system.cmake
 Source36:       FindLua-system.cmake
+Source37:       Findlz4-system.cmake
 
 # Pre-built O3DE 3rdParty bundles — declare a Source10x and a matching
 # bcond above, then add an extract line in %%prep. Templates:
@@ -371,6 +373,9 @@ BuildRequires:  freetype-devel
 %if %{with system_lua}
 BuildRequires:  lua-devel
 %endif
+%if %{with system_lz4}
+BuildRequires:  lz4-devel
+%endif
 %if %{with system_mikkelsen}
 BuildRequires:  mikkelsen-devel
 %endif
@@ -427,6 +432,9 @@ Requires:       mikkelsen
 %endif
 %if %{with system_png}
 Requires:       libpng
+%endif
+%if %{with system_lz4}
+Requires:       lz4-libs
 %endif
 %if %{with system_tiff}
 Requires:       libtiff
@@ -507,6 +515,9 @@ Recommends:     expat-devel
 %endif
 %if %{with system_freetype}
 Recommends:     freetype-devel
+%endif
+%if %{with system_lz4}
+Recommends:     lz4-devel
 %endif
 %if %{with system_mikkelsen}
 Recommends:     mikkelsen-devel
@@ -625,6 +636,9 @@ cp %{SOURCE35} cmake/3rdParty/FindTIFF.cmake
 %if %{with system_lua}
 cp %{SOURCE36} cmake/3rdParty/FindLua.cmake
 %endif
+%if %{with system_lz4}
+cp %{SOURCE37} cmake/3rdParty/Findlz4.cmake
+%endif
 
 # ── BUILD ────────────────────────────────────────────────────────────────────
 %build
@@ -692,6 +706,7 @@ cmake \
     %{?with_system_expat:-DLY_USE_SYSTEM_EXPAT=ON} \
     %{?with_system_freetype:-DLY_USE_SYSTEM_FREETYPE=ON} \
     %{?with_system_lua:-DLY_USE_SYSTEM_LUA=ON} \
+    %{?with_system_lz4:-DLY_USE_SYSTEM_LZ4=ON} \
     %{?with_system_mikkelsen:-DLY_USE_SYSTEM_MIKKELSEN=ON} \
     %{?with_system_png:-DLY_USE_SYSTEM_PNG=ON} \
     %{?with_system_tiff:-DLY_USE_SYSTEM_TIFF=ON} \
@@ -972,6 +987,18 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Tue May 05 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-28
+- Stage 1 6-pack: add system_lz4. Findlz4-system.cmake follows the
+  mikkelsen pattern (direct find_path/find_library, no stock-cmake
+  include — cmake doesn't ship a FindLZ4.cmake module so there's no
+  side-effect target to avoid). Engine consumers (Gems/MultiplayerCompression,
+  Code/Framework/AzFramework Archive, Code/Legacy/CrySystem) use
+  `#include <lz4.h>` / `<lz4hc.h>` / `<lz4frame.h>` verbatim, matching
+  Fedora's lz4-devel layout exactly — no wrapper-header bridging
+  needed. Patch0006 extended with the LY_USE_SYSTEM_LZ4 gate hunk
+  (8 gates total now). Engine binaries auto-Require liblz4.so.1.
+  Per-chroot `--rpmbuild-with system_lz4` applied separately.
+
 * Tue May 05 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-27
 - system_tiff Stage 1 swap: Option A (narrow guard macro) confirmed
   structurally infeasible. Patch0008 attempt (commit cda6b7b, reverted

@@ -159,9 +159,16 @@ SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
                           --with stabilization \
                           --with system_expat \
                           --with system_freetype \
+                          --with system_lz4 \
                           --with system_mikkelsen \
                           --with system_png \
                           --with system_zlib
+# system_lz4 added 2026-05-05. Findlz4-system.cmake follows mikkelsen
+# pattern; engine consumers (Gems/MultiplayerCompression,
+# Code/Framework/AzFramework Archive) use `#include <lz4.h>` /
+# `<lz4hc.h>` / `<lz4frame.h>` verbatim, which match Fedora's
+# lz4-devel layout exactly — no wrapper-header bridging needed.
+#
 # system_expat / system_freetype / system_png / system_zlib re-activated
 # 2026-05-04 after refactoring the 4 Find<X>-system.cmake shims to the
 # mikkelsen pattern (commits 92bde6e / cba5059 / 6b14ffa / 0ca58e8).
@@ -174,18 +181,15 @@ SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
 # consumers (notably the bundled freetype's FindFreetype.cmake doing
 # `target_link_libraries(... ZLIB::ZLIB)`) still resolve. Each was
 # validated individually via isolated `rpmbuild --with system_<X>`
-# builds; combined 5-pack validation is in the same commit that
-# reactivates this list.
+# builds; combined 6-pack validation lands with the same commit that
+# adds system_lz4.
 #
-# system_tiff deferred: in addition to the deprecation-warning migration
-# Patch0007 already addresses, libtiff's <tiff.h> conflicts with
-# Code/Legacy/CryCommon/BaseTypes.h on the int64/uint64 typedef
-# (libtiff: int64 → int64_t aka long; CryCommon: int64 → slonglong aka
-# long long — same size, distinct C++ types → typedef redefinition error
-# in any TU including both, surfaced by the Unity build merging multiple
-# .cpp files). Real fix is migrating CryCommon's typedefs to the C99
-# names, which is a foundational header change with audit cost across
-# the engine. Park as a separate Stage 1 item.
+# system_tiff Option C (Bundling Library Exception path, 2026-05-05) —
+# Patch0008 narrow-guard attempt failed because CryCommon's own internal
+# headers (Cry_ValidNumber.h's DoubleU64 macros) use `uint64` directly,
+# transitively included from EditorDefs.h before <tiffio.h>. Reordering
+# the includes ABI-mismatches at link time. Engine-wide CryCommon C99
+# migration ruled out as out-of-scope. Bundle stays.
 #
 # system_lua deferred: AzCore's ScriptContext.cpp #includes Lua's internal
 # <Lua/lobject.h> which Fedora's lua-devel doesn't ship (only public API:

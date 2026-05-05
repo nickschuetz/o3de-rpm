@@ -58,7 +58,8 @@ o3de-rpm/
     ├── FindFreetype-system.cmake                               #    --with system_<lib> bcond is on)
     ├── FindPNG-system.cmake
     ├── FindTIFF-system.cmake
-    └── FindLua-system.cmake
+    ├── FindLua-system.cmake
+    └── Findlz4-system.cmake
 ```
 
 `rpmbuild` reads sources from `_sourcedir`, so build invocations point both `_sourcedir` and `_specdir` at this checkout — no copying into `~/rpmbuild/SOURCES`.
