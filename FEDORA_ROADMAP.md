@@ -79,29 +79,42 @@ O3DE bundles ~30 3rdParty packages from its CDN at cmake configure time. Most of
 
 ### How upstream contributors can help (Stage 1)
 
-These are the Stage 1 bundles where outside-the-packager visibility would unblock specific work. Each ask has a tracking issue — comment there or in #sig-build, both are watched.
+These are the Stage 1 bundles where outside-the-packager visibility would unblock specific work. Each ask has a tracking issue — comment there or in #sig-build, both are watched. **Some asks are answered as of 2026-05-05 (Nick_L on sig-build); see issue comments for details.**
 
-- **`system_lua` — AzCore's internal-header dependency.** [#1](https://github.com/nickschuetz/o3de-rpm/issues/1). `Code/Framework/AzCore/.../ScriptContext.cpp` includes Lua's *internal* `<Lua/lobject.h>` header for low-level type definitions. Fedora's `lua-devel` only ships the public API (`lua.h`, `lauxlib.h`, `lualib.h`, `luaconf.h`). Question: is the internal-header use load-bearing, or could AzCore migrate to public-API-only (or vendor the needed type definitions inline)? This is currently the only blocker for `system_lua` activation.
-- **`system_tiff` — CryCommon `int64`/`uint64` typedef migration.** [#2](https://github.com/nickschuetz/o3de-rpm/issues/2). Confirmed (commits `cda6b7b` → `9f2f099`, 2026-05-05) that the narrow-guard approach is structurally infeasible because CryCommon's own internal headers (`Cry_ValidNumber.h`'s `DoubleU64` macros, etc.) use `uint64` directly, well outside `BaseTypes.h`. The clean fix is migrating CryCommon's `int64`/`uint64` typedefs from `slonglong`/`ulonglong` (= `long long`) to `int64_t`/`uint64_t`. We ruled this out as out-of-scope for the packaging track. Question: **is upstream open to that migration?** A Linux-side PR would unblock `system_tiff` for free. Currently parked under Option C (Bundling Library Exception path).
-- **`mcpp` `_az` fork delta.** [#3](https://github.com/nickschuetz/o3de-rpm/issues/3). O3DE bundles `mcpp-2.7.2_az.2-rev1` — an O3DE-patched fork. Question: what does the `_az` patch set do? If it's small/fixable, base `mcpp` from Fedora (2.7.x) might satisfy with a tiny carry-patch.
-- **`AWSNativeSDK` + `AwsIotDeviceSdkCpp` libcurl bundling.** [#4](https://github.com/nickschuetz/o3de-rpm/issues/4). These two bundles transitively include libcurl, which is why direct `system_curl` doesn't apply (libcurl isn't in `BuiltInPackages_linux_x86_64.cmake` at all — it's transitive). Question: are either AWS SDK in line for an upgrade that links against system curl on Linux?
+- **`system_lua` — AzCore's internal-header dependency.** [#1](https://github.com/nickschuetz/o3de-rpm/issues/1) — *open.* `Code/Framework/AzCore/.../ScriptContext.cpp` includes Lua's *internal* `<Lua/lobject.h>` header for low-level type definitions. Fedora's `lua-devel` only ships the public API (`lua.h`, `lauxlib.h`, `lualib.h`, `luaconf.h`). Question: is the internal-header use load-bearing, or could AzCore migrate to public-API-only (or vendor the needed type definitions inline)? This is currently the only blocker for `system_lua` activation.
+- **`system_tiff` — CryCommon `int64`/`uint64` typedef migration.** [#2](https://github.com/nickschuetz/o3de-rpm/issues/2) — **REFRAMED as actionable engine-maintenance work** (Nick_L 2026-05-05: "most of them are just legacy housework like, the uint64 stuff"). The migration is now characterized by upstream as legacy housework rather than out-of-scope. Anyone who picks up the engine-side PR (CryCommon's `int64`/`uint64` from `slonglong`/`ulonglong` to `int64_t`/`uint64_t`, with cross-platform format-specifier audit) unblocks `system_tiff` for free. Until someone does, libtiff stays bundled under Option C.
+- **`mcpp` `_az` fork delta.** [#3](https://github.com/nickschuetz/o3de-rpm/issues/3) — **CLOSED, reframed as architectural choice** (Nick_L 2026-05-05: "we really just need any preprocessor that can run on c-like files"). mcpp's only role is `#ifdef` expansion in AZSL/AZSLI shader files; could be replaced with a Python plugin or system clang `-E`. Not a packaging concern; closing the question.
+- **`AWSNativeSDK` + `AwsIotDeviceSdkCpp` libcurl bundling.** [#4](https://github.com/nickschuetz/o3de-rpm/issues/4) — **CLOSED, resolves via upstream direction** (Nick_L 2026-05-05: "AWS SDK should be excised from O3DE entirely tbh, so curl and such should be entirely a non issue"). When upstream excises AWS SDK from core O3DE, the libcurl transitive bundling problem disappears.
 
 ---
 
 ## Stage 2 — Big-media bundle migration
 
-**Status:** dependent on Stage 1 + version-checking.
+**Status:** **two sub-tracks** with different blocking conditions, per Nick_L's 2026-05-05 sig-build response (see [#5](https://github.com/nickschuetz/o3de-rpm/issues/5)).
 
-OpenEXR / OpenImageIO / OpenColorIO are split out from Stage 1 because they pin specific API versions:
+### Stage 2a — OpenEXR + Imath (Stage-1.5; independent of Stage 3)
 
-- O3DE bundles `OpenEXR-3.1.3-rev4-linux`. Fedora 44 ships OpenEXR 3.x. Likely compatible; verify.
-- O3DE bundles `openimageio-opencolorio-2.3.17-rev2-linux`. Fedora 44 ships OIIO 3.x. **Likely API-incompatible** — needs O3DE upstream patches.
+**Status:** ready to schedule.
 
-If the API gap is too large, this stage may temporarily stay bundled until O3DE upstream catches up.
+O3DE bundles `OpenEXR-3.1.3-rev4-linux`. Fedora 44 ships OpenEXR 3.x; F44 also ships `imath` (which is part of the OpenEXR project — bundled together upstream). The [O3DE build_config.json](https://github.com/o3de/3p-package-source/blob/main/package-system/OpenEXR/build_config.json) **does not patch OpenEXR**; system version works as long as API is compatible. OpenEXR's only dependencies are Imath (sibling project, in Fedora) and zlib (already system-swapped in our 6-pack).
+
+**No Python C Module** — pure C++. So Stage 2a ships independently of Stage 3 (Python migration). Effectively this is "Stage 1.5 — extends the 6-pack to 8-pack" rather than a hard Stage-2 boundary.
+
+### Stage 2b — OpenImageIO + OpenColorIO (blocked on Stage 3)
+
+**Status:** blocked on Stage 3 (Python migration to system Python).
+
+O3DE bundles `openimageio-opencolorio-2.3.17-rev2-linux` (combined). The blocker isn't the C++ ABI — version pins aren't hard. The blocker is the **Python C Module ABI chain**:
+
+- OpenImageIO and OpenColorIO are circularly dependent (one wraps the other)
+- Both ship Python C Modules (Python bindings)
+- Those Python C Modules must link against the same Python the editor's embedded Python uses
+- Today: O3DE's editor links against bundled Python 3.10; F44 ships Python 3.13. System OIIO/OCIO Python C Modules link against 3.13 → ABI mismatch
+- **Unblocks once Stage 3 lands** — when editor uses system Python, system OIIO/OCIO Python C Modules ABI-match
 
 ### How upstream contributors can help (Stage 2)
 
-- **Version-pinning strictness.** [#5](https://github.com/nickschuetz/o3de-rpm/issues/5). OpenEXR 3.1.3-rev4, OpenImageIO/OpenColorIO 2.3.17-rev2 are pinned exactly. F44 ships newer (OpenEXR 3.2+, OIIO/OCIO newer). Question: are the version pins hard requirements (specific API surface, ABI assumptions), or `>=`-acceptable? If upstream knows of compatible newer-version ranges, that scopes whether Stage 2 is "swap to system" vs. "wait for upstream to catch up."
+- **Version-pinning strictness.** [#5](https://github.com/nickschuetz/o3de-rpm/issues/5) — **ANSWERED** (Nick_L 2026-05-05). Pins are not hard for OpenEXR; for OIIO/OCIO the binding constraint is Python C Module ABI compat with the editor's embedded Python (which makes Stage 2b a Stage-3 dependency).
 
 ---
 
@@ -167,22 +180,20 @@ Target: system OpenSSL 3.x.
 
 ### License-clean DXC rebuild — the critical sub-task
 
-**Why this is on the critical path:** DXC is the only one of the four restricted bundles that's **non-optional for engine use** (see § "Restricted bundles" below — without DXC, the engine can't compile shaders). NvCloth/poly2tri/squish-ccr are all feature-gated and can be runtime-fetched (handling option B). DXC alone needs a different solution.
+**Why this is on the critical path:** DXC is the only one of the four restricted bundles that's **non-optional for engine use** — without DXC, the engine can't compile shaders. NvCloth/poly2tri/squish-ccr are all feature-gated (NvCloth is also on the upstream PhysX-4-retirement deprecation path, see "Restricted bundles" below).
 
 **The opportunity:** The licensing problem is *only* the Windows DXIL signing tooling, not DXC itself. The HLSL → SPIR-V (Vulkan) code path is fully open-source under NCSA/Apache-2.0. Linux O3DE doesn't use the DXIL path at all. So we can ship a Linux-only DXC built from upstream Microsoft sources without the DXIL bits, and it's redistributable.
 
-**The technical context, so the work is unambiguous when we get to it:**
+**The technical context** (massively simplified by Nick_L's 2026-05-05 sig-build response — see [#6](https://github.com/nickschuetz/o3de-rpm/issues/6)):
 
-DXC is a fork of Clang/LLVM, not a separate project. Microsoft forked Clang ~2017 to add an HLSL frontend. Internally, DXC is structurally a full Clang/LLVM build with:
-- HLSL parser/AST (alongside Clang's existing C/C++ frontend)
-- DXIL backend (Windows shader format — the licensed-encumbered piece)
-- SPIR-V backend (cross-platform — what we want)
-
-This is also why the bundled DXC carries `libclang-12.so.1` and `libtinfo.so.6` — those are DXC's own internal LLVM 12 stack, RPATH-resolved from `Builders/DirectXShaderCompiler/lib/`. It's also why we need `%__requires_exclude` in the spec today.
+- **The engine doesn't link DXC at all.** No `libdxcompiler.so` linkage; DXC is a runtime/tool-time **binary** dependency only. The engine shells out to the `dxc` executable to compile shaders. **No library API surface to match in the rebuild.**
+- DXC is a fork of Clang/LLVM (Microsoft forked Clang ~2017 to add an HLSL frontend). The bundled DXC carries `libclang-12.so.1` and `libtinfo.so.6` because the *bundled `dxc` binary* RPATH-resolves them — they're DXC's own internal LLVM 12 stack, not engine consumers. A clean rebuild against system clang/LLVM eliminates the `%__requires_exclude` workaround.
+- The bundle pinning convention: `1.8.2505.1-o3de-rev3` decomposes as **source git tag** (`release-1.8.2505.1-o3de` in the [o3de/DirectXShaderCompiler](https://github.com/o3de/DirectXShaderCompiler/tree/release-1.8.2505.1-o3de) fork) plus the **package-system revision counter** (`-rev3`, just rebuilds of the same source). Build recipe lives in [`o3de/3p-package-source/tree/main/package-system/DirectXShaderCompiler`](https://github.com/o3de/3p-package-source/tree/main/package-system/DirectXShaderCompiler) — `build_config.json` has the canonical `package_url` + `git_tag`.
+- The carry-patch is **4 commits**: [`microsoft:release-1.8.2505...o3de:DirectXShaderCompiler:release-1.8.2505.1-o3de`](https://github.com/microsoft/DirectXShaderCompiler/compare/release-1.8.2505...o3de:DirectXShaderCompiler:release-1.8.2505.1-o3de). One Linux compile fix, one adds a `dxsc` tool, others are general improvements that "should be contrib'd upstream tbh" per Nick_L. We can apply the diff as a custom patch on top of upstream Microsoft sources (`microsoft:release-1.8.2505`).
 
 **The migration plan (when we reach Stage 5):**
 
-1. Build upstream Microsoft DXC (`github.com/microsoft/DirectXShaderCompiler`) from source against system clang/LLVM (Fedora 44 ships clang 22). The version we need to match is whatever O3DE's `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` pins — currently DXC `1.8.2505.1-o3de-rev3`.
+1. Build upstream Microsoft DXC (`github.com/microsoft/DirectXShaderCompiler` at `release-1.8.2505`) from source against system clang/LLVM (Fedora 44 ships clang 22). Apply the 4-commit carry-patch from `o3de:release-1.8.2505.1-o3de` as a packaging-side patch (or vendor the diff into the build recipe).
 2. Configure the build SPIR-V-only:
    ```
    -DENABLE_SPIRV_CODEGEN=ON
@@ -190,13 +201,13 @@ This is also why the bundled DXC carries `libclang-12.so.1` and `libtinfo.so.6` 
    -DCLANG_INCLUDE_TESTS=OFF
    ```
    Do *not* enable any DXIL-target options.
-3. Verify the resulting `libdxcompiler.so` and `dxc` binary link against system `libclang`/`libLLVM`, not bundled copies — `ldd` should show `/usr/lib64/libclang.so.*` etc.
-4. Package as a new `o3de-dxc-spirv` SRPM in `hellaenergy/o3de-dependencies` (the COPR repo with `enable_net=false`). License is NCSA + Apache-2.0 with LLVM exception, both Fedora-compatible.
-5. In `o3de.spec`, drop the upstream DXC fetch (remove the package from `BuiltInPackages_linux_x86_64.cmake` via patch), add `BuildRequires: o3de-dxc-spirv-devel`, and patch O3DE's cmake to find DXC via pkg-config or a `LY_DXC_PATH` cmake var.
-6. **Drop** the `%__requires_exclude ^libclang-12\.so.*|^libtinfo\.so\.6.*` line from the spec (it's only there because DXC's bundled libclang/libtinfo aren't auto-Provided by rpm — system libclang from a clean rebuild *is*).
+3. Verify the resulting `dxc` binary works against the engine: feed it a sample shader, get back valid SPIR-V output. **No library-linking concerns** — the engine just shells out to `dxc`.
+4. Package as a new `o3de-dxc-spirv` SRPM in `hellaenergy/o3de-dependencies` (the COPR repo with `enable_net=false`). License is NCSA + Apache-2.0 with LLVM exception, both Fedora-compatible. Ships `/usr/bin/dxc` and any DXC support files.
+5. In `o3de.spec`, drop the upstream DXC fetch (remove the package from `BuiltInPackages_linux_x86_64.cmake` via patch), add `BuildRequires: o3de-dxc-spirv` (or `dxc` if upstream Fedora ever ships it), and either expose an `LY_DXC_PATH` cmake var or rely on `$PATH` to find `dxc`.
+6. **Drop** the `%__requires_exclude ^libclang-12\.so.*|^libtinfo\.so\.6.*` line from the spec (it's only there because the bundled DXC's libclang/libtinfo aren't auto-Provided by rpm — once `dxc` comes from a system rebuild that links system libclang, the workaround isn't needed).
 
 **Side benefits of completing this:**
-- Eliminates the only mandatory restricted bundle, leaving NvCloth/poly2tri/squish as purely optional feature-gated bits (handling option A becomes viable).
+- Eliminates the only mandatory restricted bundle, leaving poly2tri/squish-ccr as the only remaining optional feature-gated bits (NvCloth handles itself via PhysX-4 retirement). Handling option A becomes viable.
 - Drops the `__requires_exclude` workaround (one fewer thing to justify in the Fedora package review).
 - Reduces the runtime-fetcher surface area dramatically — most users won't need it at all.
 
@@ -251,11 +262,11 @@ These four upstream-bundled packages **cannot** be hosted in COPR or Fedora beca
 
 This section exists for O3DE upstream contributors (3rdParty maintainers, sig-build folks, anyone with engine-internals visibility) reading this doc and wondering what concrete asks would unblock Fedora-track work. Each ask is something a packager can't determine from outside; an upstream contributor with the right context can answer in minutes.
 
-**For DXC (critical-path; license-clean Linux rebuild — the highest-leverage win):** all three sub-questions tracked at [#6](https://github.com/nickschuetz/o3de-rpm/issues/6).
+**For DXC (critical-path; license-clean Linux rebuild — the highest-leverage win):** tracked at [#6](https://github.com/nickschuetz/o3de-rpm/issues/6). Sub-questions 1 and 3 ANSWERED by Nick_L 2026-05-05; sub-question 2 implicitly resolved.
 
-1. **What's in the `-o3de-rev3` suffix?** Are there carry-patches on top of upstream Microsoft DXC at the matching tag (`1.8.2505.1`)? If carry-patches exist, a public diff lets distro packagers know what to layer onto a system DXC build. If it's just a build-config marker with no source-level patches, that's even better.
-2. **Could the engine accept an external DXC via cmake?** A `LY_DXC_PATH` (or pkg-config-based discovery) cmake var that lets distros point at a system DXC build instead of always fetching from `packages.o3de.org` would be the single most valuable upstream change for Fedora-track work. Same scaffolding could later help Windows packagers (e.g., chocolatey).
-3. **What internal DXC API surface does the engine actually depend on?** If only the public `dxc` binary + `libdxcompiler.so` API, a license-clean SPIR-V-only rebuild Just Works. If the engine reaches into internal LLVM symbols or DXC private headers, that scopes whether a stripped-down rebuild can actually substitute.
+1. **What's in the `-o3de-rev3` suffix?** — **ANSWERED.** `-rev3` is just the package-system revision counter; source git tag is `release-1.8.2505.1-o3de` in the [o3de fork](https://github.com/o3de/DirectXShaderCompiler/tree/release-1.8.2505.1-o3de). Diff against upstream Microsoft `release-1.8.2505` is **4 commits** — Linux compile fix, `dxsc` tool addition, and contributions that "should be contrib'd upstream tbh." Carry-patch is small + tractable.
+2. **Could the engine accept an external DXC via cmake?** — Implicitly resolved. The engine just shells out to a `dxc` binary; `$PATH` discovery or an `LY_DXC_PATH` (or `LY_DXC_EXECUTABLE`) cmake var both work cleanly. No library-finding plumbing needed.
+3. **What internal DXC API surface does the engine actually depend on?** — **ANSWERED (massive simplification).** Engine **doesn't link DXC** at all. DXC is invoked as a runtime/tool-time **executable** (the `dxc` binary), not linked as a library. So the license-clean rebuild only needs to produce a working `dxc` binary that produces SPIR-V output and accepts the same CLI. **No `libdxcompiler.so`, no internal LLVM symbol concerns, no `__requires_exclude` workaround needed in the post-rebuild spec.**
 
 **For poly2tri + squish-ccr (Gem-boundary clarification):**
 
