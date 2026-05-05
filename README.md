@@ -430,6 +430,7 @@ Each patch carries a `From:`/`Subject:` header with the rationale. Stage 1 syste
 - Four upstream-bundled packages (`DirectXShaderCompilerDxc`, `NvCloth`, `poly2tri`, `squish-ccr`) cannot be hosted in Fedora or COPR for licensing reasons. The Fedora-shippable variant will need either a runtime-fetcher script or feature-gated builds — see [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) § "Restricted bundles".
 - Bundled OpenSSL 1.1.1t is end-of-life. Tracked for migration to system OpenSSL 3.x in [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) (stage 4); likely upstream-blocked.
 - `debuginfo` / `debugsource` subpackages are suppressed (`%global debug_package %{nil}`). Debug symbols are present in the binaries but not extracted into a separate package. Unblocking this is on the Fedora roadmap (stage 5).
+- The Editor stalls at viewport creation under VirtualBox + software 3D + lavapipe Vulkan. Engine inits its RHI against `llvmpipe`, then hangs when creating the Editor's render viewport. `QT_QPA_PLATFORM=xcb` does not help — the engine forces XCB anyway. No known workaround; affects anyone running O3DE in a VM without GPU passthrough. Bare-metal Linux + native GPU + `vulkan-loader` is unaffected.
 
 ## License
 

@@ -77,6 +77,15 @@ O3DE bundles ~30 3rdParty packages from its CDN at cmake configure time. Most of
 
 **Promotion to `o3de-snapshot`:** each migration that passes test-installed.yml end-to-end on the experimental channel is eligible for promotion to the snapshot channel — but only when Nick signals the testing window is open for new pushes. Until then, `o3de-experimental` accumulates the validated activations and `o3de-snapshot` stays stable.
 
+### How upstream contributors can help (Stage 1)
+
+These are the Stage 1 bundles where outside-the-packager visibility would unblock specific work:
+
+- **`system_lua` — AzCore's internal-header dependency.** `Code/Framework/AzCore/.../ScriptContext.cpp` includes Lua's *internal* `<Lua/lobject.h>` header for low-level type definitions. Fedora's `lua-devel` only ships the public API (`lua.h`, `lauxlib.h`, `lualib.h`, `luaconf.h`). Question: is the internal-header use load-bearing, or could AzCore migrate to public-API-only (or vendor the needed type definitions inline)? This is currently the only blocker for `system_lua` activation.
+- **`system_tiff` — CryCommon `int64`/`uint64` typedef migration.** Confirmed (commits `cda6b7b` → `9f2f099`, 2026-05-05) that the narrow-guard approach is structurally infeasible because CryCommon's own internal headers (`Cry_ValidNumber.h`'s `DoubleU64` macros, etc.) use `uint64` directly, well outside `BaseTypes.h`. The clean fix is migrating CryCommon's `int64`/`uint64` typedefs from `slonglong`/`ulonglong` (= `long long`) to `int64_t`/`uint64_t`. We ruled this out as out-of-scope for the packaging track. Question: **is upstream open to that migration?** A Linux-side PR would unblock `system_tiff` for free. Currently parked under Option C (Bundling Library Exception path).
+- **`mcpp` `_az` fork delta.** O3DE bundles `mcpp-2.7.2_az.2-rev1` — an O3DE-patched fork. Question: what does the `_az` patch set do? If it's small/fixable, base `mcpp` from Fedora (2.7.x) might satisfy with a tiny carry-patch.
+- **`AWSNativeSDK` + `AwsIotDeviceSdkCpp` libcurl bundling.** These two bundles transitively include libcurl, which is why direct `system_curl` doesn't apply (libcurl isn't in `BuiltInPackages_linux_x86_64.cmake` at all — it's transitive). Question: are either AWS SDK in line for an upgrade that links against system curl on Linux?
+
 ---
 
 ## Stage 2 — Big-media bundle migration
@@ -89,6 +98,10 @@ OpenEXR / OpenImageIO / OpenColorIO are split out from Stage 1 because they pin 
 - O3DE bundles `openimageio-opencolorio-2.3.17-rev2-linux`. Fedora 44 ships OIIO 3.x. **Likely API-incompatible** — needs O3DE upstream patches.
 
 If the API gap is too large, this stage may temporarily stay bundled until O3DE upstream catches up.
+
+### How upstream contributors can help (Stage 2)
+
+- **Version-pinning strictness.** OpenEXR 3.1.3-rev4, OpenImageIO/OpenColorIO 2.3.17-rev2 are pinned exactly. F44 ships newer (OpenEXR 3.2+, OIIO/OCIO newer). Question: are the version pins hard requirements (specific API surface, ABI assumptions), or `>=`-acceptable? If upstream knows of compatible newer-version ranges, that scopes whether Stage 2 is "swap to system" vs. "wait for upstream to catch up."
 
 ---
 
@@ -109,6 +122,10 @@ Target: use system Python (currently 3.13 in F44, 3.12 in RHEL 10).
 6. Validate `o3de.sh register --this-engine`, the editor launch, and Project Manager end-to-end.
 
 **Risk:** PySide2 has been unmaintained since 2024-12. Some O3DE Python tooling depends on it. F44's `python3-pyside2` is on 5.15.x but built against 3.13. The editor's Python bindings will need patching.
+
+### How upstream contributors can help (Stage 3)
+
+- **PySide2 → PySide6 migration timeline.** PySide2 is unmaintained upstream since 2024-12. Fedora ships pyside6 (PySide6 is actively maintained against PyQt 6 / Qt 6). Question: is there an upstream timeline or active work for the PySide2 → PySide6 migration? Linux-side, this is the gating dependency for system-Python; if upstream has a target window we can sequence Stage 3 work against it instead of doing carry-patches that conflict with the upstream migration.
 
 ---
 
@@ -184,6 +201,12 @@ This is also why the bundled DXC carries `libclang-12.so.1` and `libtinfo.so.6` 
 - Reduces the runtime-fetcher surface area dramatically — most users won't need it at all.
 
 **Risk:** O3DE may have applied custom patches on top of upstream DXC for the `1.8.2505.1-o3de-rev3` build (the `-o3de-rev3` suffix suggests it). If those patches are non-trivial, we'd need to track them and rebase onto whatever DXC version we ship. Worth investigating early — `git log` on O3DE's DXC fork (if there is one) or the patch set inside the bundled tarball.
+
+### How upstream contributors can help (Stage 5)
+
+In addition to the DXC asks in the "Restricted bundles" subsection above:
+
+- **`LY_3RDPARTY_SYSTEM_OVERRIDE` generalization (long-term direction).** The proposed `LY_DXC_PATH` cmake var (see "Restricted bundles" subsection) could generalize: a uniform mechanism that lets distro packagers system-substitute *any* 3rdParty bundle without per-bundle gating. Question for the cmake side of the engine: would a generic `LY_USE_SYSTEM_<X>` convention (or a single `LY_SYSTEM_OVERRIDES` map) be in scope as a future engine feature? It would reduce the per-bundle gating Patch0006 currently applies to a single upstream-side change. Probably too ambitious for one PR; mention as a long-term direction we'd happily contribute toward if upstream is interested.
 
 ---
 
