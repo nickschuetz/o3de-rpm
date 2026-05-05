@@ -161,30 +161,31 @@ SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
                           --with system_freetype \
                           --with system_mikkelsen \
                           --with system_png \
-                          --with system_tiff \
                           --with system_zlib
-# system_tiff added 2026-05-05 after Patch0008 (CryCommon int64/uint64
-# guard macro + SKIP_UNITY_BUILD_INCLUSION on the two TIFF .cpp files)
-# and the FindTIFF-system.cmake mikkelsen-pattern refactor land. The
-# guard macro avoids the engine-wide CryCommon C99 migration that would
-# otherwise be needed to resolve libtiff 4.5+'s `int64`/`uint64`
-# typedef collision with CryCommon's `slonglong`/`ulonglong`.
-#
 # system_expat / system_freetype / system_png / system_zlib re-activated
 # 2026-05-04 after refactoring the 4 Find<X>-system.cmake shims to the
 # mikkelsen pattern (commits 92bde6e / cba5059 / 6b14ffa / 0ca58e8).
 # Each refactored shim does its own find_path + find_library lookup and
 # does NOT `include()` cmake's stock module — so the side-effect upper-
 # namespace target (`ZLIB::ZLIB`, `PNG::PNG`, `Freetype::Freetype`,
-# `EXPAT::EXPAT`, `TIFF::TIFF`) that previously failed O3DE's runtime
-# walker is no longer created by the stock module. The shims provide
-# those upper-namespace names as ALIASes of `3rdParty::<X>` so upstream
+# `EXPAT::EXPAT`) that previously failed O3DE's runtime walker is no
+# longer created by the stock module. The shims provide those
+# upper-namespace names as ALIASes of `3rdParty::<X>` so upstream
 # consumers (notably the bundled freetype's FindFreetype.cmake doing
-# `target_link_libraries(... ZLIB::ZLIB)` and the bundled
-# FindOpenImageIO.cmake referencing `TIFF::TIFF`) still resolve. Each
-# was validated individually via isolated `rpmbuild --with system_<X>`
-# builds; combined 6-pack validation lands with the same commit that
-# reactivates system_tiff.
+# `target_link_libraries(... ZLIB::ZLIB)`) still resolve. Each was
+# validated individually via isolated `rpmbuild --with system_<X>`
+# builds; combined 5-pack validation is in the same commit that
+# reactivates this list.
+#
+# system_tiff deferred: in addition to the deprecation-warning migration
+# Patch0007 already addresses, libtiff's <tiff.h> conflicts with
+# Code/Legacy/CryCommon/BaseTypes.h on the int64/uint64 typedef
+# (libtiff: int64 → int64_t aka long; CryCommon: int64 → slonglong aka
+# long long — same size, distinct C++ types → typedef redefinition error
+# in any TU including both, surfaced by the Unity build merging multiple
+# .cpp files). Real fix is migrating CryCommon's typedefs to the C99
+# names, which is a foundational header change with audit cost across
+# the engine. Park as a separate Stage 1 item.
 #
 # system_lua deferred: AzCore's ScriptContext.cpp #includes Lua's internal
 # <Lua/lobject.h> which Fedora's lua-devel doesn't ship (only public API:

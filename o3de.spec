@@ -265,21 +265,6 @@ Patch0005:      0005-windowdecorationwrapper-propagate-initial-title.patch
 # resolves from the upstream CDN bundle or from system tiff-devel.
 Patch0007:      0007-libtiff-c99-typedefs.patch
 
-# Companion to Patch0007 for system_tiff: gate CryCommon's int64/uint64
-# typedefs in Code/Legacy/CryCommon/BaseTypes.h behind a new
-# O3DE_SYSTEM_LIBTIFF_COMPAT macro. The two TIFF .cpp files define the
-# macro before any includes; BaseTypes.h then skips the typedefs in
-# those TUs so libtiff's <tiff.h> typedefs (int64_t/uint64_t = long on
-# LP64) win, instead of CryCommon's slonglong/ulonglong (= long long).
-# Same width, distinct C++ types — without this gate the redefinition
-# is a hard error at compile time. SKIP_UNITY_BUILD_INCLUSION on both
-# .cpp files (in their CMakeLists.txt) keeps the macro scoped to a
-# single TU. Patch0007 covers deprecation; this covers type identity —
-# both are required for any --with system_tiff build. Applies
-# unconditionally; bundled-libtiff builds simply don't define the
-# macro, so behavior is unchanged off-Fedora.
-Patch0008:      0008-system-libtiff-compat.patch
-
 # Stage 1 system-library swap patches — each gates one upstream
 # ly_associate_package(...) line on a new LY_USE_SYSTEM_<X> cmake var,
 # and pairs with a corresponding system Find<X>.cmake (Source30+ below).
@@ -987,23 +972,6 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
-* Tue May 05 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-27
-- Stage 1 6-pack: reactivate system_tiff after Patch0008
-  (CryCommon int64/uint64 guard macro O3DE_SYSTEM_LIBTIFF_COMPAT
-  + SKIP_UNITY_BUILD_INCLUSION on ImageTIF.cpp + TIFFLoader.cpp).
-  Patch0008 narrows the libtiff 4.5+ typedef collision with
-  CryCommon's BaseTypes.h to the two TIFF-using TUs only —
-  avoiding the engine-wide CryCommon C99 migration that would
-  otherwise be required (Option B of the deferred-tiff analysis).
-  FindTIFF-system.cmake refactored to mikkelsen pattern (no stock
-  include) for the same reason as the four ZLIB-class shims:
-  cmake's stock FindTIFF would create TIFF::TIFF as UNKNOWN
-  IMPORTED with MAP_IMPORTED_CONFIG_* but no per-config
-  IMPORTED_LOCATION_*, which O3DE's runtime walker bails on.
-  Provides TIFF::TIFF as an ALIAS of 3rdParty::TIFF for upstream
-  consumers (notably bundled FindOpenImageIO.cmake). Per-chroot
-  COPR config (--rpmbuild-with system_tiff) applied separately.
-
 * Mon May 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-26
 - Editor dock icon: drop version from o3de2605-editor.desktop's
   StartupWMClass. Project Manager's launcher passes Qt -name
