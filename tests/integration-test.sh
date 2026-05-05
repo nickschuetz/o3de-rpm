@@ -174,15 +174,23 @@ else
     skipped "AppStream search" "appstreamcli not installed"
 fi
 
-# StartupWMClass values (for dock icon matching). Versioned to match
-# what the launcher's Qt -name arg sets at runtime — multiple installed
-# majors get distinct dock identities.
+# StartupWMClass values (for dock icon matching).
+# Project Manager: versioned to match what the launcher's Qt -name arg
+#   sets at runtime — multiple installed majors get distinct dock identities.
+# Editor: NOT versioned. The Editor is exec'd by Project Manager directly,
+#   bypassing our launcher, so its WM_CLASS comes from Qt's internal
+#   setApplicationName("O3DE Editor"). Verified live via xprop:
+#     WM_CLASS(STRING) = "Editor", "O3DE Editor"
+#   The desktop file's StartupWMClass must match that exactly for GNOME/KDE
+#   to attach our icon to the running Editor window. Two installed majors'
+#   Editors share the same dock icon (acceptable: PM is the user-facing
+#   launcher and retains its versioned identity).
 grep -q "^StartupWMClass=${WMCLASS}\$" "/usr/share/applications/$O3DE_PKGNAME.desktop" && \
     ok "Project Manager StartupWMClass=$WMCLASS" || \
     nope "ProjectManager StartupWMClass" "missing or wrong (looking for $WMCLASS)"
-grep -q "^StartupWMClass=${WMCLASS} Editor\$" "/usr/share/applications/$O3DE_PKGNAME-editor.desktop" && \
-    ok "Editor StartupWMClass=$WMCLASS Editor" || \
-    nope "Editor StartupWMClass" "missing or wrong (looking for $WMCLASS Editor)"
+grep -q "^StartupWMClass=O3DE Editor\$" "/usr/share/applications/$O3DE_PKGNAME-editor.desktop" && \
+    ok "Editor StartupWMClass=O3DE Editor (matches Qt's setApplicationName)" || \
+    nope "Editor StartupWMClass" "missing or wrong (looking for 'O3DE Editor')"
 
 # Engine.json carries a 3-component MAJOR.MINOR.PATCH version
 EJ_VERSION=$(grep '"version"' "$ENGINE_PATH/engine.json" | awk -F'"' '{print $4}')
