@@ -1,6 +1,15 @@
-**Use hellaenergy/o3de-stabilization for end-user testing.** This repo is for the packagers' own validation — RPMs here may have un-vetted -devel splits, system-library swaps, or other in-flight changes.
+**Use [hellaenergy/o3de-stabilization](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-stabilization/) for end-user testing.** This repo is for the packagers' own validation — RPMs here may have un-vetted -devel splits, system-library swaps, or other in-flight changes.
 
-**What is this:** O3DE experimental builds — Stage 1 system-library migration work (see `BUNDLED_LIBRARIES.md` in the source repo) and other structural changes that are not ready for the o3de-stabilization testers' channel. RPMs here graduate to o3de-stabilization once validated end-to-end. The `o3de-dependencies` repo auto-enables alongside this one (no separate `dnf copr enable` needed).
+**If you're here anyway** (e.g. engine contributors validating Stage 1 migration work, or packagers debugging build issues):
+
+    sudo dnf copr enable hellaenergy/o3de-experimental
+    sudo dnf install o3de2605
+
+The `o3de-dependencies` repo auto-enables alongside this one (no separate `dnf copr enable` needed). Add the optional `-devel` subpackage if you need engine static archives for native C++ gem development:
+
+    sudo dnf install o3de2605-devel
+
+**What is this:** O3DE experimental builds — Stage 1 system-library migration work (see `BUNDLED_LIBRARIES.md` in the source repo) and other structural changes that are not ready for the o3de-stabilization testers' channel. RPMs here graduate to o3de-stabilization once validated end-to-end.
 
 The package follows a **versioned-major naming convention** (`o3de2605` for the 26.05.x line, future `o3de2610` for 26.10) installing to `/opt/O3DE/<DISPLAY_VERSION>/`, matching upstream's `.deb` and Windows `.msi` install layout. Multiple majors can be installed side-by-side. Each major's `engine.json` ships `engine_name: "o3de"` (matching upstream); the manifest at `~/.o3de/o3de_manifest.json` is single-slot for active registration — switch via `<install-prefix>/scripts/o3de.sh register --this-engine`.
 
