@@ -7,13 +7,13 @@ The package follows a **versioned-major naming convention** (`o3de2605` for the 
 **Subpackage layout** — same as o3de-stabilization: main `o3de2605` (runtime + project-build essentials, ~1.7 GB compressed); optional `o3de2605-devel` (~500 MB compressed, engine static archives for native C++ gems that static-link engine internals); optional `o3de2605-debug` (debug-config binaries — only built when `--with debug` is set, currently NOT activated in this channel). Project-build `*-devel` system packages pulled in via Recommends; opt out with `--setopt=install_weak_deps=False`.
 
 **Currently active in this channel:**
-- **Stage 1 5-pack** — engine links to system `expat`, `freetype`, `libpng`, `mikkelsen` (`libmikktspace.so.0`), `zlib` instead of bundled copies. Find-shim refactor (commits 92bde6e / cba5059 / 6b14ffa / 0ca58e8) makes the cmake target wiring play nicely with O3DE's runtime-dependency walker.
+- **Stage 1 6-pack** — engine links to system `expat`, `freetype`, `liblz4`, `libpng`, `mikkelsen` (`libmikktspace.so.0`), `zlib` instead of bundled copies. Find-shim refactor (commits 92bde6e / cba5059 / 6b14ffa / 0ca58e8 for the original 4 ZLIB-class swaps; commit `4b0893a` for lz4) follows a uniform pattern: direct find_path/find_library, no stock-cmake-include, real INTERFACE IMPORTED 3rdParty target — keeps O3DE's runtime-dependency walker happy.
 - **`o3de2605-cli` PATH wrapper** — `/usr/bin/o3de2605-cli` forwards to `/opt/O3DE/26.05.0/scripts/o3de.sh` so the upstream Python CLI (project / gem / engine management, ~25 sub-commands) is reachable on `$PATH`.
 - **Versioned multi-install architecture + devel split** — packages are `o3deNNNN`; main + `-devel` subpackage; runtime `engine_name="o3de"` for gem compat.
 - **Patch0007** (libtiff C99 typedef migration in TIFFLoader.cpp + Code/Editor/Util/ImageTIF.cpp) — required for any build against modern libtiff regardless of `--with system_tiff` state.
 
-**Stage 1 batch deferrals (separate Stage 1 PR pending):**
-- `system_tiff` — libtiff 4.5+'s `<tiff.h>` defines `int64`/`uint64` as `int64_t`/`uint64_t` while CryCommon's `BaseTypes.h` defines them as `slonglong`/`ulonglong` — typedef redefinition error needing a CryCommon C99 migration. Plan filed.
-- `system_lua` — needs an AzCore `<Lua/lobject.h>` carry-patch (Fedora's lua-devel doesn't ship internal headers).
+**Stage 1 status of remaining bundles:**
+- `system_tiff` — **OPTION C (Bundling Library Exception path, decided 2026-05-05).** Patch0008 narrow-guard attempt (commit `cda6b7b`) failed because CryCommon's own internal headers (`Cry_ValidNumber.h`'s DoubleU64 macros) use `uint64` directly, transitively included from `EditorDefs.h` before `<tiffio.h>` brings libtiff's typedef into scope. Reordering the includes ABI-mismatches at link time. Engine-wide CryCommon C99 migration ruled out as out-of-scope. Bundle stays.
+- `system_lua` — deferred; needs an AzCore `<Lua/lobject.h>` carry-patch (Fedora's lua-devel doesn't ship internal headers).
 
 **Source + issues:** https://github.com/nickschuetz/o3de-rpm and https://github.com/nickschuetz/o3de-rpm/issues
