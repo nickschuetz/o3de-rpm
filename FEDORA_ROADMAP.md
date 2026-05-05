@@ -144,22 +144,28 @@ Target: use system Python (currently 3.13 in F44, 3.12 in RHEL 10).
 
 ## Stage 4 — Crypto migration (OpenSSL 1.1.1t → system 3.x)
 
-**Status:** likely upstream-blocked.
+**Status:** likely upstream-blocked, but the migration scope shrank 2026-05-05 with the AWS-SDK-excision news.
 
-Today: O3DE bundles OpenSSL 1.1.1t (EOL since 2023-09-11). Both COPR's policy and Fedora's are unsympathetic to vendored EOL crypto libraries.
+Today: O3DE bundles OpenSSL 1.1.1t (EOL since 2023-09-11 — 2.5+ years of CVE exposure if shipped today). Both COPR's policy and Fedora's are unsympathetic to vendored EOL crypto libraries.
 
 Target: system OpenSSL 3.x.
 
-**Why it's hard:**
-- O3DE C++ code that uses OpenSSL is scattered across multiple Gems (HttpRequestor, AWSCore, etc.).
+**What just changed:** Per Nick_L's 2026-05-05 sig-build update (see [#4](https://github.com/nickschuetz/o3de-rpm/issues/4) / `project_aws_sdk_excision.md`), AWS SDK is being excised from core O3DE entirely; AWS-related Gems move to AWS-maintained O3DE repos. `AWSCore`'s OpenSSL usage leaves with it (out of our packaging scope). The remaining post-excision OpenSSL surface in core is **HttpRequestor and possibly others** (specifics still TBD — see [#8](https://github.com/nickschuetz/o3de-rpm/issues/8)).
+
+**Why it's still hard:**
 - 1.1 → 3.0 is a major API break (deprecated `EVP_*` functions, `BIO_*` changes, `SSL_*` ABI shifts).
-- Each affected Gem needs porting + testing.
+- Each affected Gem still needs porting + testing.
 - Likely needs upstream cooperation; we can patch in our spec but it's a maintenance burden.
 
 **Path forward:**
-- File the migration request upstream with O3DE.
+- File the migration request upstream with O3DE (in flight via [#8](https://github.com/nickschuetz/o3de-rpm/issues/8)).
+- Confirm post-AWS-excision OpenSSL surface — possibly just HttpRequestor (which itself may be libcurl-wrapped, in which case switching to a modern system libcurl bypasses the porting work entirely).
 - Volunteer to do the porting work if upstream doesn't have bandwidth.
 - Until done, the Fedora variant either ships affected Gems disabled or uses the runtime-fetcher pattern (see "Restricted bundles" below).
+
+### How upstream contributors can help (Stage 4)
+
+- **OpenSSL 3.x migration: timeline + remaining consumers.** [#8](https://github.com/nickschuetz/o3de-rpm/issues/8) — open. Three sub-questions: (1) any upstream signal on the migration; (2) post-AWS-excision, which Gems still consume OpenSSL in core; (3) are any of those consumers thin enough to replace via libcurl-wrapped-system-OpenSSL rather than direct porting? Stage 4 is currently the wild-card on the Fedora-roadmap timeline; even rough signal scopes whether it's trivial / moderate / hard.
 
 ---
 
