@@ -186,7 +186,7 @@ Target: system OpenSSL 3.x.
 
 ### License-clean DXC rebuild — the critical sub-task
 
-**Why this is on the critical path:** DXC is the only one of the four restricted bundles that's **non-optional for engine use** — without DXC, the engine can't compile shaders. NvCloth/poly2tri/squish-ccr are all feature-gated (NvCloth's upstream status is under discussion as of 2026-05-06 — see "Restricted bundles" below).
+**Why this is on the critical path:** DXC is the only one of the four restricted bundles that's **non-optional for engine use** — without DXC, the engine can't compile shaders. NvCloth/poly2tri/squish-ccr are all feature-gated (NvCloth confirmed Gem-isolated 2026-05-06 — see "Restricted bundles" below).
 
 **The opportunity:** The licensing problem is *only* the Windows DXIL signing tooling, not DXC itself. The HLSL → SPIR-V (Vulkan) code path is fully open-source under NCSA/Apache-2.0. Linux O3DE doesn't use the DXIL path at all. So we can ship a Linux-only DXC built from upstream Microsoft sources without the DXIL bits, and it's redistributable.
 
@@ -250,7 +250,7 @@ These four upstream-bundled packages **cannot** be hosted in COPR or Fedora beca
 | Package | Why off-limits | What it enables | Upstream signal |
 |---|---|---|---|
 | **DirectXShaderCompilerDxc** | Microsoft tooling with redistribution restrictions on DXIL signing | shader compilation — **non-optional** for engine use | Linux-only SPIR-V rebuild is feasible (see Stage 5 sub-task below). |
-| **NvCloth** | NVIDIA proprietary, not Fedora-acceptable | the NvCloth Gem (cloth simulation) — optional | **Status under active discussion in #sig-build (as of 2026-05-06)** — original "auto-resolves via PhysX 4 retirement" framing (per Nick_L 2026-05-05) is being revisited. Follow-up 2026-05-06 surfaced that NvCloth may be standalone (not actually tied to PhysX 4), and PhysX 5's cloth replacement (`PxDeformableSurface`) is CUDA-only — so substitution would itself be a regression for non-NVIDIA GPU users. Cheddarspice volunteered to test PhysX-4-removed + PhysX-5.6.1 + NvCloth-still-in to see if it works. Do NOT treat NvCloth as auto-resolving until that test result + upstream decision land. See `project_nvcloth_deprecation.md` memory note for the verbatim sig-build context. |
+| **NvCloth** | NVIDIA proprietary, not Fedora-acceptable | the NvCloth Gem (cloth simulation) — optional | **Effectively standalone, confirmed by experiment 2026-05-06.** Cheddarspice tested NvCloth with PhysX 4 removed + PhysX 5.6.1 active; AutomatedTesting cloth (chicken prefab) still works. Original "auto-resolves via PhysX 4 retirement" framing (Nick_L 2026-05-05) is empirically falsified — NvCloth doesn't auto-disappear. **Treat as a regular restricted bundle:** handle via option A (drop the Gem; confirmed Gem-isolated, no engine-core cascade) or option B (runtime fetcher). PhysX 5's cloth replacement `PxDeformableSurface` is CUDA-only, so it's NOT a viable substitute for non-NVIDIA-GPU Linux users. Long-term upstream disposition (keep NvCloth in core vs. move to optional/restricted-Gem-repo) is still TBD. |
 | **poly2tri** | Specific O3DE-vendored fork has license-attribution issues | navmesh generation — significant feature | No upstream-deprecation signal yet. |
 | **squish-ccr** | Patent-encumbered texture compression algorithms | ImageProcessing Gem (asset bake) — significant | No upstream-deprecation signal yet. |
 
@@ -262,7 +262,7 @@ These four upstream-bundled packages **cannot** be hosted in COPR or Fedora beca
 | B. Runtime fetcher | `/opt/O3DE/<version>/python/fetch-restricted-deps.sh` — one-time post-install opt-in mirroring `get_python.sh`; downloads to `~/.o3de/3rdParty/` from `packages.o3de.org` | full feature set | requires user network action; some Fedora reviewers disapprove of this pattern |
 | C. License-clean DXC rebuild | Build DXC from upstream NCSA/Apache-2.0 sources, configured Vulkan-only / SPIR-V-output (no Windows DXIL signing). Combined with A or B for the others. | best license posture | most engineering effort |
 
-**Current preference:** **B** for short-term Fedora viability + **C as a follow-up** to reduce the runtime-fetch surface. The runtime-fetch surface in the long run depends on how NvCloth shakes out (status under sig-build discussion 2026-05-06; see table above): if NvCloth ends up dropped or auto-resolved, surface shrinks to poly2tri/squish-ccr; if it stays, surface includes all three of NvCloth/poly2tri/squish-ccr. DXC is the load-bearing one regardless — making it license-clean is the hardest single win.
+**Current preference:** **B** for short-term Fedora viability + **C as a follow-up** to reduce the runtime-fetch surface. With NvCloth confirmed standalone-but-not-disappearing as of 2026-05-06 (Cheddarspice's test under PhysX 5.6.1; see table above), the runtime-fetch surface in the long run is **NvCloth + poly2tri + squish-ccr** — all three remain optional/feature-gated. Distros can choose option A (drop those three Gems for a clean license posture, accept the feature loss) or option B (runtime-fetch them post-install). DXC is the load-bearing one regardless — making it license-clean is the hardest single win.
 
 ### How upstream contributors can help
 
@@ -278,7 +278,7 @@ This section exists for O3DE upstream contributors (3rdParty maintainers, sig-bu
 
 4. **Is each restricted bundle's dependency at the Gem boundary, or deeper?** If `poly2tri` is cleanly isolated to a single Gem (or a single navmesh subsystem), distros can drop just that Gem (handling option A) and ship the rest of the engine without losing other features. Same question for `squish-ccr` and the ImageProcessing Gem's BC7 baking. Knowing per-bundle whether the dependency is Gem-boundary vs. core-engine-path lets us scope option A precisely.
 
-**For NvCloth:** Status under active sig-build discussion as of 2026-05-06 — Cheddarspice testing PhysX-4-removed + PhysX-5.6.1 + NvCloth-standalone scenario. Original "auto-resolves" framing (Nick_L 2026-05-05) is being revisited. Holding off on Fedora-track decisions until the test + upstream-direction settle.
+**For NvCloth:** Cheddarspice's 2026-05-06 test confirmed NvCloth still works with PhysX 4 removed + PhysX 5.6.1 active (the "essentially standalone" claim verified). For Fedora-track planning, NvCloth is a regular restricted bundle handled via option A (drop the Gem, confirmed Gem-isolated) or option B (runtime fetcher). The strategic question — does upstream keep NvCloth in core long-term, or move it to an optional/restricted-Gem repo? — is open. If anyone has visibility on the upstream PhysX 4 → 5 changeover plan and what it does to NvCloth's status in core, that scopes whether option A is sufficient or whether we should plan around NvCloth migrating out of core anyway.
 
 **Where to send answers:** GitHub issues at https://github.com/nickschuetz/o3de-rpm/issues, or the #sig-build channel in the O3DE Discord (the conversation is already running there).
 
