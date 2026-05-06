@@ -108,9 +108,9 @@ These have Fedora equivalents but O3DE pins specific older API versions.
 
 | Bundle | O3DE version | Fedora F44 | Concern |
 |---|---|---|---|
-| OpenEXR | 3.1.3-rev4 | 3.x | Same major; minor API differences. Verify. |
-| OpenImageIO | 2.3.17-rev2 | 3.x | **Major API break.** OIIO 3.x dropped some C-API symbols OIIO 2.x exposed. Likely needs O3DE patches. |
-| OpenColorIO | (bundled with OIIO) | 2.4.x | Should be compatible. |
+| **OpenEXR + Imath** | 3.1.3-rev4 (bundle declares both targets) | openexr-3.2.4 + imath-3.1.12 | **STAGED in 7-pack (2026-05-06)** — single FindOpenEXR-system.cmake shim creates both `3rdParty::OpenEXR` (links libOpenEXR + libOpenEXRCore + libIex + libIlmThread) and `3rdParty::Imath` (links libImath). Engine consumers use `#include <OpenEXR/Imf*.h>` verbatim, matching Fedora layout. Per Nick_L 2026-05-05, version pins aren't hard; 3.1 → 3.2 is OpenEXR back-compat. Engine binaries auto-Require `libOpenEXR-3_2.so.31()(64bit)` + `libImath-3_1.so.29()(64bit)` + ancillary OpenEXR-family libs. |
+| OpenImageIO | 2.3.17-rev2 | 3.x | **Stage 2b — blocked on Stage 3 (Python migration)** per Nick_L 2026-05-05. OIIO + OCIO are circularly dependent; both ship Python C Modules that must ABI-match the editor's embedded Python. Today's editor uses bundled Python 3.10; F44 has Python 3.13. System OIIO/OCIO Python C Modules link against 3.13 → ABI mismatch. Unblocks once editor uses system Python. |
+| OpenColorIO | (bundled with OIIO) | 2.4.x | Same Stage 2b sub-track as OpenImageIO above. Circularly dependent + Python C Module ABI chain. |
 
 ---
 

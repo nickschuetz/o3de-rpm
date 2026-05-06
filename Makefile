@@ -161,8 +161,20 @@ SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
                           --with system_freetype \
                           --with system_lz4 \
                           --with system_mikkelsen \
+                          --with system_openexr \
                           --with system_png \
                           --with system_zlib
+# system_openexr added 2026-05-06 (Stage 2a — first cross-stage step).
+# OpenEXR's bundle declares both TARGETS OpenEXR + Imath; single
+# FindOpenEXR-system.cmake shim creates both 3rdParty::OpenEXR (links
+# libOpenEXR family) and 3rdParty::Imath (links libImath). Engine
+# consumers use `#include <OpenEXR/Imf*.h>` verbatim — matches Fedora's
+# openexr-devel + imath-devel layout exactly. Per Nick_L's 2026-05-05
+# response, OpenEXR version pins are not hard (3.1 → 3.2 is back-compat
+# per OpenEXR semver). The openimageio-opencolorio sibling Stage 2b
+# track is NOT activated here — blocked on Stage 3 (Python migration)
+# per the Python C Module ABI chain.
+#
 # system_lz4 added 2026-05-05. Findlz4-system.cmake follows mikkelsen
 # pattern; engine consumers (Gems/MultiplayerCompression,
 # Code/Framework/AzFramework Archive) use `#include <lz4.h>` /

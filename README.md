@@ -59,7 +59,9 @@ o3de-rpm/
     ├── FindPNG-system.cmake
     ├── FindTIFF-system.cmake
     ├── FindLua-system.cmake
-    └── Findlz4-system.cmake
+    ├── Findlz4-system.cmake
+    ├── FindOpenEXR-system.cmake
+    └── FindImath-system.cmake
 ```
 
 `rpmbuild` reads sources from `_sourcedir`, so build invocations point both `_sourcedir` and `_specdir` at this checkout — no copying into `~/rpmbuild/SOURCES`.

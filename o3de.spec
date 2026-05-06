@@ -69,6 +69,7 @@
 %bcond_with system_lua
 %bcond_with system_lz4
 %bcond_with system_mikkelsen
+%bcond_with system_openexr
 %bcond_with system_png
 %bcond_with system_tiff
 %bcond_with system_zlib
@@ -123,7 +124,7 @@
 # system_<X> bconds to the experimental OR-chain as the Stage 1
 # migration list grows.
 %global _o3de_channel %{nil}
-%if %{with system_expat} || %{with system_freetype} || %{with system_lua} || %{with system_lz4} || %{with system_mikkelsen} || %{with system_png} || %{with system_tiff} || %{with system_zlib}
+%if %{with system_expat} || %{with system_freetype} || %{with system_lua} || %{with system_lz4} || %{with system_mikkelsen} || %{with system_openexr} || %{with system_png} || %{with system_tiff} || %{with system_zlib}
 %global _o3de_channel -experimental
 %else
 %if %{with stabilization}
@@ -293,6 +294,8 @@ Source34:       FindPNG-system.cmake
 Source35:       FindTIFF-system.cmake
 Source36:       FindLua-system.cmake
 Source37:       Findlz4-system.cmake
+Source38:       FindOpenEXR-system.cmake
+Source39:       FindImath-system.cmake
 
 # Pre-built O3DE 3rdParty bundles — declare a Source10x and a matching
 # bcond above, then add an extract line in %%prep. Templates:
@@ -379,6 +382,10 @@ BuildRequires:  lz4-devel
 %if %{with system_mikkelsen}
 BuildRequires:  mikkelsen-devel
 %endif
+%if %{with system_openexr}
+BuildRequires:  openexr-devel
+BuildRequires:  imath-devel
+%endif
 %if %{with system_png}
 BuildRequires:  libpng-devel
 %endif
@@ -435,6 +442,10 @@ Requires:       libpng
 %endif
 %if %{with system_lz4}
 Requires:       lz4-libs
+%endif
+%if %{with system_openexr}
+Requires:       openexr-libs
+Requires:       imath
 %endif
 %if %{with system_tiff}
 Requires:       libtiff
@@ -521,6 +532,10 @@ Recommends:     lz4-devel
 %endif
 %if %{with system_mikkelsen}
 Recommends:     mikkelsen-devel
+%endif
+%if %{with system_openexr}
+Recommends:     openexr-devel
+Recommends:     imath-devel
 %endif
 %if %{with system_png}
 Recommends:     libpng-devel
@@ -639,6 +654,10 @@ cp %{SOURCE36} cmake/3rdParty/FindLua.cmake
 %if %{with system_lz4}
 cp %{SOURCE37} cmake/3rdParty/Findlz4.cmake
 %endif
+%if %{with system_openexr}
+cp %{SOURCE38} cmake/3rdParty/FindOpenEXR.cmake
+cp %{SOURCE39} cmake/3rdParty/FindImath.cmake
+%endif
 
 # ── BUILD ────────────────────────────────────────────────────────────────────
 %build
@@ -708,6 +727,7 @@ cmake \
     %{?with_system_lua:-DLY_USE_SYSTEM_LUA=ON} \
     %{?with_system_lz4:-DLY_USE_SYSTEM_LZ4=ON} \
     %{?with_system_mikkelsen:-DLY_USE_SYSTEM_MIKKELSEN=ON} \
+    %{?with_system_openexr:-DLY_USE_SYSTEM_OPENEXR=ON} \
     %{?with_system_png:-DLY_USE_SYSTEM_PNG=ON} \
     %{?with_system_tiff:-DLY_USE_SYSTEM_TIFF=ON} \
     %{?with_system_zlib:-DLY_USE_SYSTEM_ZLIB=ON}
@@ -987,6 +1007,29 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Wed May 06 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-29
+- Stage 2a 7-pack: add system_openexr (extends the 6-pack with
+  OpenEXR + Imath; first cross-stage step). The OpenEXR bundle
+  (OpenEXR-3.1.3-rev4-linux on packages.o3de.org) declares both
+  TARGETS OpenEXR and Imath in a single ly_associate_package line —
+  the new FindOpenEXR-system.cmake shim mirrors that and creates
+  both 3rdParty::OpenEXR (linking system libOpenEXR + libOpenEXRCore
+  + libIex + libIlmThread) and 3rdParty::Imath (linking system
+  libImath) as INTERFACE IMPORTED targets. Engine consumers
+  (Gems/Atom/Asset/ImageProcessingAtom/Code/.../ExrLoader.cpp) use
+  `#include <OpenEXR/Imf*.h>` verbatim, matching Fedora's openexr-devel
+  layout exactly — no wrapper-header bridging needed.
+- Per Nick_L (sig-build, 2026-05-05, issue #5), OpenEXR's version
+  pin in the engine is not hard; Fedora's openexr-3.2.4 + imath-3.1.12
+  are API-compatible with the bundle's 3.1.3 (3.1 → 3.2 is OpenEXR
+  back-compat). Patch0006 extended with LY_USE_SYSTEM_OPENEXR gate
+  (9 gates total now). Engine binaries auto-Require libOpenEXR-3_2.so.31
+  + libImath-3_1.so.29 + ancillary OpenEXR-family libs.
+- This is the OpenEXR + Imath sub-track of Stage 2 only. The
+  OpenImageIO + OpenColorIO sub-track (also in Stage 2) stays blocked
+  on Stage 3 (Python migration) per Nick_L's circular-dependency +
+  Python C Module ABI explanation.
+
 * Tue May 05 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-28
 - Stage 1 6-pack: add system_lz4. Findlz4-system.cmake follows the
   mikkelsen pattern (direct find_path/find_library, no stock-cmake
