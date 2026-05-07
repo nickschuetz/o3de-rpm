@@ -1061,6 +1061,37 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Thu May 07 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-34
+- Docs sharpen: BUNDLED_LIBRARIES.md absorbs the SQLite + libsamplerate +
+  SPIRVCross audit findings (2026-05-07). No code/build changes; spec
+  change is the changelog entry only.
+- SQLite (cleanest Stage 1 candidate to date): consumers in
+  AzToolsFramework/SQLite/ + AssetProcessor/AssetDatabase/ only;
+  all 29 sqlite3_* symbols are public C-API and 100% present in Fedora
+  3.51.2 headers; stock cmake FindSQLite3 ships — no Find shim needed;
+  point-version increment within SQLite's 21-year ABI-stable major.
+- libsamplerate: Stage 1 viable + upstream-PR opportunity (same shape
+  as the AzCore Lua PR #19733). Single Gem (Microphone); engine actually
+  calls src_* functions only on Windows. Linux PAL is a do-nothing stub
+  — zero libsamplerate function calls in the Linux runtime path.
+- SPIRVCross reclassified out of "Migrate to system Fedora libs (Stage
+  1)" into a new "Binary-only / DXC-class dependencies" section. Audit
+  found: (a) Fedora F44 doesn't ship SPIRV-Cross at all (the previous
+  "Fedora 1.3.x — trivial flip" annotation was wrong); (b) engine
+  treats SPIRV-Cross as an executable, not a library — zero #include
+  lines for SPIRV-Cross C++ headers anywhere; (c) license is
+  Apache-2.0 (Fedora-acceptable in principle), so blocker is
+  availability not license — different category from DXC's DXIL-signing
+  blocker. Path: license-clean COPR rebuild as o3de-spirv-cross,
+  sibling track to o3de-dxc-spirv PoC.
+- Audit-pattern reliability tracker (2026-05-07): seven audits, three
+  outcome categories — Stage 1 swap (assimp/SQLite/libsamplerate/poly2tri),
+  carry-patch+PR (Lua, libsamplerate follow-on), stays out of Stage 1
+  with sharpened framing (squish-ccr, SPIRVCross). The "stays out"
+  results are the highest-value find: SPIRVCross specifically would
+  have caused a failed --with system_spirvcross build immediately if
+  we'd taken the prior "trivial flip" annotation at face value.
+
 * Thu May 07 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-33
 - Docs sharpen: NvCloth status + Patch0009 PhysX4 timebomb annotation +
   assimp Stage 1 audit summary. No code/build changes; spec changes are
