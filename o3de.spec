@@ -491,9 +491,11 @@ Provides:       o3de = %{version}-%{release}
 # doesn't need *-devel headers. dnf installs them by default; users who
 # only want runtime can `dnf install --setopt=install_weak_deps=False`.
 #
-# When the o3de2605-devel subpackage lands (see the `# TODO(devel-split):`
-# block above %package debug), these deps move there as hard Requires,
-# and this block goes away.
+# Note: the %%{name}-devel subpackage (which carries engine static
+# archives for native C++ gem development) is a separate concern — it
+# does NOT cover these project-build deps. Project-build deps stay as
+# Recommends on the main package so they're installed by default for
+# typical project authors, regardless of whether they install -devel.
 #
 # What we're listing — and why each is here:
 #   - clang: O3DE projects compile with clang on Linux
@@ -924,11 +926,11 @@ appstream-util validate-relax --nonet \
 %if %{with debug}
 # DEFAULT_DEBUG installs both runtime binaries (bin/Linux/debug/) and
 # debug-config archives + shared libs (lib/Linux/debug/) — both belong
-# in the %{name}-debug subpackage, not the main one.
+# in the %%{name}-debug subpackage, not the main one.
 %exclude %{o3de_install_prefix}/bin/Linux/debug
 %exclude %{o3de_install_prefix}/lib/Linux/debug
 %endif
-# Static archives + lib64/ (Recast/Detour bundled) → %{name}-devel.
+# Static archives + lib64/ (Recast/Detour bundled) → %%{name}-devel.
 # Three exclude patterns cover all .a archives under the engine prefix:
 #   - lib/Linux/profile/Default/*.a — engine + gem static archives
 #     (~173 files, the bulk of the carve-out at ~4 GB)
