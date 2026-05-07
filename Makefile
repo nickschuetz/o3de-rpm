@@ -113,12 +113,12 @@ spec-parse-experimental:
 	    --define "_with_stabilization 1" \
 	    --define "_with_system_expat 1" \
 	    --define "_with_system_freetype 1" \
+	    --define "_with_system_lua 1" \
 	    --define "_with_system_mikkelsen 1" \
 	    --define "_with_system_png 1" \
 	    --define "_with_system_poly2tri 1" \
 	    --define "_with_system_tiff 1" \
 	    --define "_with_system_zlib 1" -q o3de.spec
-# system_lua intentionally absent here — see SRPM_EXPERIMENTAL_FLAGS comment.
 
 # ── Snapshot tarball ────────────────────────────────────────────────────────
 
@@ -160,6 +160,7 @@ SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
                           --with stabilization \
                           --with system_expat \
                           --with system_freetype \
+                          --with system_lua \
                           --with system_lz4 \
                           --with system_mikkelsen \
                           --with system_openexr \
@@ -224,12 +225,16 @@ SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
 # the includes ABI-mismatches at link time. Engine-wide CryCommon C99
 # migration ruled out as out-of-scope. Bundle stays.
 #
-# system_lua deferred: AzCore's ScriptContext.cpp #includes Lua's internal
-# <Lua/lobject.h> which Fedora's lua-devel doesn't ship (only public API:
-# lua.h, lauxlib.h, lualib.h, luaconf.h). Activating system_lua needs a
-# carry-patch that replaces lobject.h usage with the public API, or a
-# different way to expose Lua's internal type definitions. Bcond + find
-# shim + Source declaration stay in place for future activation.
+# system_lua added 2026-05-07 (Stage 1 9-pack). Patch0008 carry-patch
+# (commit d69bb9c) drops AzCore ScriptContext.cpp's include of Lua's
+# internal <Lua/lobject.h> — the only symbol it pulled in (LUAI_MAXALIGN)
+# is already public Lua API via luaconf.h's transitive include from
+# lauxlib.h. Behavior-preserving; bundled-Lua builds also benefit. With
+# Patch0008 applied unconditionally, Fedora's lua-devel (which ships
+# only the public API: lua.h, lauxlib.h, lualib.h, luaconf.h) is now
+# sufficient. Patch0008 was also submitted upstream as o3de/o3de PR
+# #19733 (approved by nick-l-o3de 2026-05-07, awaiting merge); when
+# that lands, our Patch0008 becomes redundant and can drop.
 
 srpm-experimental:
 	rpmbuild -bs $(SRPM_EXPERIMENTAL_FLAGS) $(RPMBUILD_DEFINES) o3de.spec
@@ -325,14 +330,17 @@ copr-init:
 	@echo "          --rpmbuild-with stabilization \\"
 	@echo "          --rpmbuild-with system_expat \\"
 	@echo "          --rpmbuild-with system_freetype \\"
+	@echo "          --rpmbuild-with system_lua \\"
+	@echo "          --rpmbuild-with system_lz4 \\"
 	@echo "          --rpmbuild-with system_mikkelsen \\"
+	@echo "          --rpmbuild-with system_openexr \\"
 	@echo "          --rpmbuild-with system_png \\"
-	@echo "          --rpmbuild-with system_tiff \\"
+	@echo "          --rpmbuild-with system_poly2tri \\"
 	@echo "          --rpmbuild-with system_zlib; \\"
 	@echo "  done"
-	@echo "#       (system_lua deferred — depends on a carry-patch that replaces"
-	@echo "#        AzCore ScriptContext.cpp's use of <Lua/lobject.h> with the"
-	@echo "#        public API. Add system_lua back when the patch lands.)"
+	@echo "#       (system_tiff stays parked — Option C / Bundling Library Exception"
+	@echo "#        per the 2026-05-05 CryCommon int64 audit; bcond + Find shim"
+	@echo "#        + Source declaration stay in place for future activation.)"
 	@echo
 	@echo "#    c. o3de-snapshot stays unflagged. Plain --with snapshot at the"
 	@echo "#       SRPM level marks the build as a one-off dev-branch snapshot;"

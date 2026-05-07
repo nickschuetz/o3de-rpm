@@ -1053,6 +1053,25 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Thu May 07 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-32
+- Stage 1 9-pack: activate system_lua (no spec change — all wiring was
+  already in place since the original deferral; this commit just flips
+  the Makefile flag list and refreshes the lockstep docs).
+- Patch0008 (commit d69bb9c, in the spec since 2605.0-30) drops AzCore
+  ScriptContext.cpp's #include <Lua/lobject.h>. Audit identified the
+  only symbol consumed (LUAI_MAXALIGN) is already public Lua API via
+  luaconf.h's transitive include from lauxlib.h. Behavior-preserving.
+- With Patch0008 applied unconditionally, Fedora's lua-devel (which
+  ships only the public API: lua.h, lauxlib.h, lualib.h, luaconf.h)
+  is now sufficient. The "DEFERRED" framing in BUNDLED_LIBRARIES.md
+  is reframed accordingly; FEDORA_ROADMAP.md issue-#1 marked RESOLVED.
+- Same patch submitted upstream as o3de/o3de PR #19733 (approved by
+  nick-l-o3de 2026-05-07, awaiting merge); when that lands, our
+  Patch0008 becomes redundant and can drop.
+- Audit-pattern reliability tracker: Lua + poly2tri (8-pack, 2605.0-31)
+  + system_lua activation (9-pack, this commit) — three same-day
+  audit-track wins on 2026-05-07.
+
 * Thu May 07 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-31
 - Stage 1 system_poly2tri swap (Patch0009 + Findpoly2tri-system.cmake).
   poly2tri's bundle anchor lives in PhysX-Gem-internal PAL files
