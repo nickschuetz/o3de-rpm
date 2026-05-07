@@ -272,6 +272,21 @@ Patch0007:      0007-libtiff-c99-typedefs.patch
 # and pairs with a corresponding system Find<X>.cmake (Source30+ below).
 Patch0006:      0006-builtinpackages-gate-mikkelsen-on-system.patch
 
+# Drop AzCore's redundant `#include <Lua/lobject.h>` in ScriptContext.cpp.
+# The only thing it pulls in is the `LUAI_MAXALIGN` macro, which is
+# already public Lua API — defined in `luaconf.h` and used in `lauxlib.h`'s
+# `luaL_Buffer`. AzCore already includes <Lua/lualib.h> and <Lua/lauxlib.h>
+# in the same extern "C" block, both of which transitively include
+# luaconf.h, so LUAI_MAXALIGN is in scope without lobject.h. This is the
+# single blocker for system_lua activation on Fedora (Fedora's lua-devel
+# only ships the public API headers — lua.h, lualib.h, lauxlib.h,
+# luaconf.h — never lobject.h, lstate.h, etc.). Behavior-preserving;
+# upstream-track candidate (proposed/drafted; submission gated on Nick's
+# fully-baked signal per the no-upstream-until-baked memory rule).
+# Applies unconditionally — bundled-Lua builds also benefit (one fewer
+# brittle internal-header dependency).
+Patch0008:      0008-azcore-drop-lua-lobject-include.patch
+
 # Stage 1 system-library find modules. Copied into cmake/3rdParty/
 # during %%prep when the matching `--with system_<lib>` is enabled.
 # Most Stage 1 swaps don't need a custom find module (cmake ships
@@ -1007,6 +1022,25 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Thu May 07 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-30
+- Patch0008 (carry-patch, upstream-track candidate): drop AzCore's
+  redundant `#include <Lua/lobject.h>` in ScriptContext.cpp. Audit
+  finding 2026-05-07: the only symbol AzCore needs from that internal
+  header is `LUAI_MAXALIGN`, which is part of Lua's public API
+  (defined in luaconf.h, used in lauxlib.h's `luaL_Buffer`).
+  Empirically verified against Fedora 44's lua-devel-5.4.8: the
+  same `union L_Umaxalign { LUAI_MAXALIGN; };` line compiles cleanly
+  with only public Lua headers. Carry-patch applies unconditionally
+  (bundled-Lua builds also benefit). Activates `system_lua` on
+  Fedora — Stage 1 scaffolding (bcond, FindLua-system.cmake,
+  Source36, conditional BR/Recommends/Requires/cmake -D, %prep cp)
+  was already in place; only the engine-side patch was missing.
+  Upstream PR drafted; submission to o3de/o3de gated on
+  fully-baked signal per project_no_upstream_until_baked memory.
+- Issue [#1](https://github.com/nickschuetz/o3de-rpm/issues/1)
+  comment posted with full audit findings + the empirical compile
+  test that backs the change.
+
 * Wed May 06 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-29
 - Stage 2a 7-pack: add system_openexr (extends the 6-pack with
   OpenEXR + Imath; first cross-stage step). The OpenEXR bundle
