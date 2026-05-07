@@ -32,6 +32,15 @@ packaging scope). The aarch64 ly_associate_package line in the
 same files stays as the upstream fetcher; future work could
 gate it the same way for ARM Fedora packaging.
 
+TIMEBOMB: this patch has hunks against BOTH PhysX4 AND PhysX5
+PAL_linux.cmake. o3de/o3de PR #19726 (PhysX 4 retirement) is
+imminent (tested + approved 2026-05-07; see project_nvcloth_status.md
+memory note). When that PR merges upstream, the Gems/PhysX/Core/PhysX4/
+tree disappears and the PhysX4 hunk of this patch will fail to apply.
+Fix is mechanical: drop the PhysX4 hunk; regenerate this patch with
+only the PhysX5 hunk. Do this in the same commit that pulls a fresh
+snapshot tarball post-#19726-merge.
+
 Carry-patch (applies unconditionally; bundled-poly2tri builds also
 benefit from the gate convention being uniform). Activates poly2tri
 as a Stage 1 system swap on Fedora packaging — converts the bundle

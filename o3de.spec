@@ -300,6 +300,14 @@ Patch0008:      0008-azcore-drop-lua-lobject-include.patch
 # license-clean and independent of the bundled fork's attribution issue.
 # Applies unconditionally; bundled-poly2tri builds also benefit from a
 # uniform LY_USE_SYSTEM_<X> gate convention.
+#
+# TIMEBOMB: this patch has hunks against BOTH PhysX4 AND PhysX5 PAL_linux.cmake.
+# o3de/o3de PR #19726 (PhysX 4 retirement) is imminent (tested + approved
+# 2026-05-07; see project_nvcloth_status.md memory). When that PR merges
+# upstream, the Gems/PhysX/Core/PhysX4/ tree disappears and the PhysX4 hunk
+# of this patch will fail to apply. Fix is mechanical: drop the PhysX4 hunk;
+# regenerate Patch0009 with only the PhysX5 hunk. Do this in the same commit
+# that pulls a fresh snapshot tarball post-#19726-merge.
 Patch0009:      0009-physx-pal-gate-poly2tri-on-system.patch
 
 # Stage 1 system-library find modules. Copied into cmake/3rdParty/
@@ -1053,6 +1061,31 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Thu May 07 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-33
+- Docs sharpen: NvCloth status + Patch0009 PhysX4 timebomb annotation +
+  assimp Stage 1 audit summary. No code/build changes; spec changes are
+  comment-only (Patch0009 declaration block + this changelog entry).
+- NvCloth confirmed standalone via three independent evidence types
+  (2026-05-06 + 2026-05-07): Cheddarspice runtime test (chicken prefab
+  with PhysX 4 removed + PhysX 5.6.1 active), Steve P [Amazon] code
+  review ("no direct references to physx4 library in any of the nvcloth
+  code"), and Cheddarspice structural fact ("NvCloth has its own
+  standalone PxShared library and Foundation"). Option A (drop the Gem)
+  is now well-supported, not tentative. PR #19726 (PhysX 4 retirement)
+  is imminent.
+- Patch0009 timebomb annotated in both the spec declaration block and
+  the patch file header: when PR #19726 merges upstream, the PhysX4
+  hunk fails to apply (PhysX4/ tree disappears). Fix is mechanical:
+  drop the PhysX4 hunk; regenerate Patch0009 with only the PhysX5 hunk.
+  Schedule for the same commit that pulls a fresh post-#19726 snapshot.
+- assimp audit (2026-05-07): clean Stage 1 candidate, all 27 types +
+  7 processing flags engine consumes are public C-API and 100% present
+  in Fedora 6.0.4 headers. Engine include style matches Fedora layout
+  exactly — no path-bridging needed. Fedora ships assimpConfig.cmake
+  config-mode export — no Find shim needed either. Major version delta
+  (5.4 → 6.0) is the only caveat; mitigation is pairing activation with
+  a Tier 6 FBX-bake integration test. Documented in BUNDLED_LIBRARIES.md.
+
 * Thu May 07 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-32
 - Stage 1 9-pack: activate system_lua (no spec change — all wiring was
   already in place since the original deferral; this commit just flips
