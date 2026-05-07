@@ -256,7 +256,7 @@ The interim distribution channel. Four COPR projects under the same owner, each 
 - **[`hellaenergy/o3de-snapshot`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-snapshot/)** — one-off / ad-hoc builds from upstream's `development` branch or any specific commit. Used when someone wants to test a non-stabilization ref without disrupting the regular tester channel.
 - **[`hellaenergy/o3de-experimental`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-experimental/)** — in-flight Stage 1 system-library migration validation (see [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) Stage 1). Not for end-user testing; internal to the packaging effort.
 
-All three engine projects use `enable_net=true` so cmake can still fetch the four restricted bundles from `packages.o3de.org` (DXC, NvCloth, poly2tri, squish-ccr) — those four cannot be redistributed via Fedora/COPR for licensing reasons.
+All three engine projects use `enable_net=true` so cmake can still fetch the remaining restricted bundles from `packages.o3de.org` (DXC, NvCloth, squish-ccr) — those cannot be redistributed via Fedora/COPR for licensing reasons. (`poly2tri` was originally a fourth entry; the audit on 2026-05-07 reframed it as a Stage 1 swap candidate, so it now resolves through Fedora's `poly2tri-devel` when the swap is active.)
 
 ### 2. o3debinaries.org (eventual upstream)
 
@@ -429,7 +429,7 @@ Each patch carries a `From:`/`Subject:` header with the rationale. Stage 1 syste
 ## Known limitations
 
 - O3DE's 3rdParty package fetcher still runs at cmake configure unless every package is pre-bundled. Fully hermetic offline builds (mock without `--enable-net`) require staging every package the engine pulls — see [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md).
-- Four upstream-bundled packages (`DirectXShaderCompilerDxc`, `NvCloth`, `poly2tri`, `squish-ccr`) cannot be hosted in Fedora or COPR for licensing reasons. The Fedora-shippable variant will need either a runtime-fetcher script or feature-gated builds — see [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) § "Restricted bundles".
+- Three upstream-bundled packages (`DirectXShaderCompilerDxc`, `NvCloth`, `squish-ccr`) cannot be hosted in Fedora or COPR for licensing reasons. The Fedora-shippable variant will need either a runtime-fetcher script or feature-gated builds — see [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) § "Restricted bundles". (`poly2tri` was originally a fourth entry; the audit on 2026-05-07 reframed it as a Stage 1 swap candidate, so it can now resolve via Fedora's `poly2tri-devel` when the swap is active.)
 - Bundled OpenSSL 1.1.1t is end-of-life. Tracked for migration to system OpenSSL 3.x in [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) (stage 4); likely upstream-blocked.
 - `debuginfo` / `debugsource` subpackages are suppressed (`%global debug_package %{nil}`). Debug symbols are present in the binaries but not extracted into a separate package. Unblocking this is on the Fedora roadmap (stage 5).
 - The Editor stalls at viewport creation under VirtualBox + software 3D + lavapipe Vulkan. Engine inits its RHI against `llvmpipe`, then hangs when creating the Editor's render viewport. `QT_QPA_PLATFORM=xcb` does not help — the engine forces XCB anyway. No known workaround; affects anyone running O3DE in a VM without GPU passthrough. Bare-metal Linux + native GPU + `vulkan-loader` is unaffected.

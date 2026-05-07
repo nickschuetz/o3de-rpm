@@ -10,14 +10,15 @@ Categories below match `FEDORA_ROADMAP.md` stages.
 
 ## Restricted (cannot be packaged for COPR or Fedora)
 
-These four are omitted from `hellaenergy/o3de-dependencies` and remain fetched from `packages.o3de.org` at build time. **They will never go into Fedora.** See `FEDORA_ROADMAP.md` § "Restricted bundles" for the three handling options.
+These three are omitted from `hellaenergy/o3de-dependencies` and remain fetched from `packages.o3de.org` at build time. **They will never go into Fedora.** See `FEDORA_ROADMAP.md` § "Restricted bundles" for the three handling options.
+
+`poly2tri` was originally a fourth entry here; the audit on 2026-05-07 ([#7](https://github.com/nickschuetz/o3de-rpm/issues/7)) reframed it as a Stage 1 swap candidate (Fedora's `poly2tri-devel` ships from Mason Green's BSD-3-Clause original tree, license-clean and independent of the bundled fork's attribution issue). It now lives under "In Fedora proper" below.
 
 | Package | O3DE version | Upstream license | Why restricted |
 |---|---|---|---|
 | **DirectXShaderCompilerDxc** | 1.8.2505.1-o3de-rev3 | NCSA / Apache-2.0 (sources) + proprietary DXIL signing | The DXIL signing tooling is Microsoft-proprietary. **DXC is structurally a fork of Clang/LLVM** — that's why the bundle ships `libclang-12.so.1` + `libtinfo.so.6` under `Builders/DirectXShaderCompiler/lib/` (RPATH-resolved internal stack, hence the spec's `%__requires_exclude`). Linux O3DE only uses DXC's SPIR-V backend, not DXIL — so a license-clean rebuild from upstream Microsoft DXC sources against system clang is feasible. See `FEDORA_ROADMAP.md` § "License-clean DXC rebuild" for the concrete plan. |
 | **NvCloth** | v1.1.6-4-gd243404-pr58-rev1 | NVIDIA Source Code License | NVIDIA-specific clauses incompatible with Fedora's free-software requirements. **On upstream deprecation path** — Nick_L (sig-build, 2026-05-05) flagged NvCloth is being retired alongside PhysX 4; PhysX 5 has its own cloth simulation. When upstream cuts PhysX 4, NvCloth disappears from the bundle list automatically. Caveat: cloth feature-parity under PhysX 5 not yet verified. No Fedora-track packaging work needed; the problem solves itself via upstream evolution. |
-| **poly2tri** | 7f0487a-rev1 | BSD-3-Clause (upstream) | The specific O3DE-vendored fork has license-attribution complications. |
-| **squish-ccr** | deb557d-rev1 | MIT-like + patents | Texture-compression algorithms encumbered by BPTC/BC7 patents. |
+| **squish-ccr** | deb557d-rev1 | MIT-like + patents | Texture-compression algorithms encumbered by BPTC/BC7 patents. **Audit 2026-05-07 (issue #7) confirmed this stays restricted:** Fedora's `squish` package is upstream libsquish (DXT compression only — BC1/BC3/BC5; lacks BC7 entirely); the squish-ccr fork's BC7 codec is the patent-encumbered piece Fedora wouldn't ship even if separately packaged; engine consumes squish-ccr-specific extension API beyond upstream libsquish's surface, so an ABI-compatible drop-in isn't possible. Engine impact of dropping: BC7 path in the ImageProcessing Gem's bake step disappears; BC1/BC3/BC5/uncompressed texture formats still bake fine. |
 
 ---
 
@@ -85,6 +86,7 @@ These have direct Fedora equivalents. Migration is per-package, low risk per mig
 | SPIRVCross | 1.3.275.0-rev1 | `spirv-cross-devel` | 1.3.x | trivial flip |
 | vulkan-validationlayers | 1.2.198-rev1 | `vulkan-validation-layers-devel` | 1.3.x | newer in Fedora; verify O3DE's loader interaction |
 | googlebenchmark | 1.7.0-rev1 | `google-benchmark-devel` | 1.8.x | test-only; can drop entirely |
+| **poly2tri** | 7f0487a-rev1 | `poly2tri-devel` | 0.0^20130501 (commit `26242d0a`, Mason Green BSD-3-Clause) | **NEW Stage 1 candidate (audit 2026-05-07, [#7](https://github.com/nickschuetz/o3de-rpm/issues/7))** — reframed from "off-limits restricted" after the audit found: (a) consumers exclusively in `Gems/PhysX/` (Editor's `PolygonPrismMeshUtils` for polygon-prism shape colliders; zero references in core `Code/`); (b) engine uses public `p2t::` namespace API only — no internal-symbol coupling; (c) Fedora's `poly2tri-devel` ships from Mason Green's BSD-3-Clause original tree, license-clean and independent of the bundled fork's attribution issue. Implemented as Patch0009 gating PhysX{4,5} `PAL_linux.cmake` on `LY_USE_SYSTEM_POLY2TRI`; `Findpoly2tri-system.cmake` bridges engine's `<poly2tri.h>` syntax to `/usr/include/poly2tri/poly2tri.h` via include-path adjustment. Spec: bcond + Source40 + conditional BR/Recommends/Requires/cmake -D + %prep cp. ABI compatibility (Fedora `0.0^20130501hg26242d0aa7b8` vs bundled `7f0487a-rev1`) inferred-with-high-confidence from public-API stability since 2013; **needs experimental-build verification**. |
 
 ### mikkelsen migration status
 

@@ -71,6 +71,7 @@
 %bcond_with system_mikkelsen
 %bcond_with system_openexr
 %bcond_with system_png
+%bcond_with system_poly2tri
 %bcond_with system_tiff
 %bcond_with system_zlib
 
@@ -124,7 +125,7 @@
 # system_<X> bconds to the experimental OR-chain as the Stage 1
 # migration list grows.
 %global _o3de_channel %{nil}
-%if %{with system_expat} || %{with system_freetype} || %{with system_lua} || %{with system_lz4} || %{with system_mikkelsen} || %{with system_openexr} || %{with system_png} || %{with system_tiff} || %{with system_zlib}
+%if %{with system_expat} || %{with system_freetype} || %{with system_lua} || %{with system_lz4} || %{with system_mikkelsen} || %{with system_openexr} || %{with system_png} || %{with system_poly2tri} || %{with system_tiff} || %{with system_zlib}
 %global _o3de_channel -experimental
 %else
 %if %{with stabilization}
@@ -287,6 +288,20 @@ Patch0006:      0006-builtinpackages-gate-mikkelsen-on-system.patch
 # brittle internal-header dependency).
 Patch0008:      0008-azcore-drop-lua-lobject-include.patch
 
+# Gate poly2tri's bundled fetcher in the PhysX Gem PAL files (PhysX4 + PhysX5,
+# Linux x86_64) on `LY_USE_SYSTEM_POLY2TRI`. Pairs with Findpoly2tri-system.cmake
+# (Source40). poly2tri's bundle anchor lives in PhysX-Gem-internal PAL files
+# rather than the standard `cmake/3rdParty/Platform/Linux/BuiltInPackages…`,
+# so this gate ships as its own patch instead of extending Patch0006.
+# Engine consumes only the public p2t:: namespace API
+# (Gems/PhysX/Core/Code/Editor/PolygonPrismMeshUtils.h triangulates 2D
+# polygons for polygon-prism shape colliders); no internal-symbol coupling.
+# Fedora's poly2tri-devel ships from Mason Green's BSD-3-Clause original tree —
+# license-clean and independent of the bundled fork's attribution issue.
+# Applies unconditionally; bundled-poly2tri builds also benefit from a
+# uniform LY_USE_SYSTEM_<X> gate convention.
+Patch0009:      0009-physx-pal-gate-poly2tri-on-system.patch
+
 # Stage 1 system-library find modules. Copied into cmake/3rdParty/
 # during %%prep when the matching `--with system_<lib>` is enabled.
 # Most Stage 1 swaps don't need a custom find module (cmake ships
@@ -311,6 +326,7 @@ Source36:       FindLua-system.cmake
 Source37:       Findlz4-system.cmake
 Source38:       FindOpenEXR-system.cmake
 Source39:       FindImath-system.cmake
+Source40:       Findpoly2tri-system.cmake
 
 # Pre-built O3DE 3rdParty bundles — declare a Source10x and a matching
 # bcond above, then add an extract line in %%prep. Templates:
@@ -404,6 +420,9 @@ BuildRequires:  imath-devel
 %if %{with system_png}
 BuildRequires:  libpng-devel
 %endif
+%if %{with system_poly2tri}
+BuildRequires:  poly2tri-devel
+%endif
 %if %{with system_tiff}
 BuildRequires:  libtiff-devel
 %endif
@@ -454,6 +473,9 @@ Requires:       mikkelsen
 %endif
 %if %{with system_png}
 Requires:       libpng
+%endif
+%if %{with system_poly2tri}
+Requires:       poly2tri
 %endif
 %if %{with system_lz4}
 Requires:       lz4-libs
@@ -556,6 +578,9 @@ Recommends:     imath-devel
 %endif
 %if %{with system_png}
 Recommends:     libpng-devel
+%endif
+%if %{with system_poly2tri}
+Recommends:     poly2tri-devel
 %endif
 %if %{with system_tiff}
 Recommends:     libtiff-devel
@@ -675,6 +700,9 @@ cp %{SOURCE37} cmake/3rdParty/Findlz4.cmake
 cp %{SOURCE38} cmake/3rdParty/FindOpenEXR.cmake
 cp %{SOURCE39} cmake/3rdParty/FindImath.cmake
 %endif
+%if %{with system_poly2tri}
+cp %{SOURCE40} cmake/3rdParty/Findpoly2tri.cmake
+%endif
 
 # ── BUILD ────────────────────────────────────────────────────────────────────
 %build
@@ -746,6 +774,7 @@ cmake \
     %{?with_system_mikkelsen:-DLY_USE_SYSTEM_MIKKELSEN=ON} \
     %{?with_system_openexr:-DLY_USE_SYSTEM_OPENEXR=ON} \
     %{?with_system_png:-DLY_USE_SYSTEM_PNG=ON} \
+    %{?with_system_poly2tri:-DLY_USE_SYSTEM_POLY2TRI=ON} \
     %{?with_system_tiff:-DLY_USE_SYSTEM_TIFF=ON} \
     %{?with_system_zlib:-DLY_USE_SYSTEM_ZLIB=ON}
 
@@ -1024,6 +1053,33 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Thu May 07 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-31
+- Stage 1 system_poly2tri swap (Patch0009 + Findpoly2tri-system.cmake).
+  poly2tri's bundle anchor lives in PhysX-Gem-internal PAL files
+  (Gems/PhysX/Core/PhysX{4,5}/Source/Platform/Linux/PAL_linux.cmake),
+  not in the standard cmake/3rdParty/Platform/Linux/BuiltInPackages…
+  surface — Patch0009 ships separately from Patch0006 for that reason.
+- Audit (issue #7, 2026-05-07): poly2tri consumers are exclusively in
+  Gems/PhysX/ (Editor's PolygonPrismMeshUtils for polygon-prism shape
+  colliders), zero references in core Code/. Engine uses public p2t::
+  namespace API only — no internal-symbol coupling.
+- Fedora's poly2tri-devel ships from Mason Green's BSD-3-Clause original
+  (commit 26242d0a, May 2013); license-clean and independent of the
+  bundled fork's attribution issue. Path-bridging in Findpoly2tri-system
+  adds /usr/include/poly2tri to include-dir so engine's `<poly2tri.h>`
+  consumer syntax resolves cleanly against Fedora's layout.
+- Activates --with system_poly2tri (BR poly2tri-devel,
+  Recommends poly2tri-devel, Requires poly2tri,
+  -DLY_USE_SYSTEM_POLY2TRI=ON, %prep cp). Per-chroot
+  --rpmbuild-with system_poly2tri applied separately in COPR.
+- Channel-marker OR-chain extended; --with system_poly2tri now
+  triggers experimental channel labeling.
+- Audit-track confirmation: same playbook that delivered the AzCore Lua
+  PR (#19733) and the OpenEXR shim split now flips poly2tri from
+  "off-limits restricted bundle" to "Stage 1 swap candidate" — a
+  significantly better outcome than the original handling-options
+  framing in FEDORA_ROADMAP.md suggested.
+
 * Thu May 07 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-30
 - Patch0008 (carry-patch, upstream-track candidate): drop AzCore's
   redundant `#include <Lua/lobject.h>` in ScriptContext.cpp. Audit

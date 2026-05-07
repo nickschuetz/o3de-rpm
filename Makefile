@@ -115,6 +115,7 @@ spec-parse-experimental:
 	    --define "_with_system_freetype 1" \
 	    --define "_with_system_mikkelsen 1" \
 	    --define "_with_system_png 1" \
+	    --define "_with_system_poly2tri 1" \
 	    --define "_with_system_tiff 1" \
 	    --define "_with_system_zlib 1" -q o3de.spec
 # system_lua intentionally absent here — see SRPM_EXPERIMENTAL_FLAGS comment.
@@ -163,7 +164,27 @@ SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
                           --with system_mikkelsen \
                           --with system_openexr \
                           --with system_png \
+                          --with system_poly2tri \
                           --with system_zlib
+# system_poly2tri added 2026-05-07 (Stage 1 8-pack). Audit (issue #7,
+# 2026-05-07) found poly2tri consumers exclusively in Gems/PhysX/
+# (Editor's PolygonPrismMeshUtils for polygon-prism shape colliders),
+# zero references in core Code/. Engine uses public p2t:: namespace
+# API only; no internal-symbol coupling. Fedora's poly2tri-devel ships
+# from Mason Green's BSD-3-Clause original (commit 26242d0a, May 2013) —
+# license-clean and independent of the bundled fork's attribution
+# issue. Findpoly2tri-system.cmake bridges the engine's `<poly2tri.h>`
+# include syntax to Fedora's /usr/include/poly2tri/poly2tri.h layout
+# via include-path adjustment. Patch0009 ships separately from
+# Patch0006 because poly2tri's bundle anchor lives in PhysX-Gem-internal
+# PAL files (Gems/PhysX/Core/PhysX{4,5}/Source/Platform/Linux/
+# PAL_linux.cmake), not the standard BuiltInPackages_linux_x86_64.cmake.
+# Audit-track confirmation: same playbook that delivered the AzCore Lua
+# PR (#19733) and the OpenEXR shim split. squish-ccr (the other half of
+# issue #7's restricted scope) was audited in the same pass and stays
+# restricted: BC7 patent encumbrance + squish-ccr-specific API surface
+# (Fedora ships only upstream libsquish, which lacks BC7 / different ABI).
+#
 # system_openexr added 2026-05-06 (Stage 2a — first cross-stage step).
 # OpenEXR's bundle declares both TARGETS OpenEXR + Imath; single
 # FindOpenEXR-system.cmake shim creates both 3rdParty::OpenEXR (links

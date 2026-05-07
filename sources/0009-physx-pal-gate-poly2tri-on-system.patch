@@ -1,0 +1,70 @@
+From: Nick Schuetz <nschuetz@redhat.com>
+Subject: [PATCH] PhysX/PAL: gate poly2tri ly_associate_package on LY_USE_SYSTEM_POLY2TRI
+
+Stage 1 system-library swap for poly2tri. The audit at
+2026-05-07 (issue #7) found:
+
+  - Engine consumes poly2tri exclusively within Gems/PhysX/Core/
+    (zero references in Code/). Specifically, only
+    Gems/PhysX/Core/Code/Editor/PolygonPrismMeshUtils.h (an
+    editor-only utility for triangulating 2D polygons for
+    polygon-prism shape colliders).
+  - Engine uses public p2t:: namespace API only (p2t::Point,
+    p2t::Triangle, etc.); no internal-namespace symbols.
+  - Fedora 44 ships poly2tri-devel as a system package, from
+    Mason Green's original BSD-3-Clause upstream
+    (commit 26242d0a, May 2013). License-clean; independent of
+    O3DE bundled fork's attribution issue.
+
+This patch wraps the linux x86_64 ly_associate_package call in
+both PhysX4 and PhysX5 Gem PAL files with the same
+LY_USE_SYSTEM_POLY2TRI gate convention as Patch0006. When the
+o3de-rpm spec activates --with system_poly2tri, the gate cmake
+falls through to find_package(poly2tri REQUIRED), which is
+satisfied by sources/Findpoly2tri-system.cmake (mikkelsen-pattern
+shim that bridges the engine's <poly2tri.h> include syntax to
+Fedora's /usr/include/poly2tri/poly2tri.h layout via include-path
+adjustment).
+
+Linux aarch64 + Mac + Windows are NOT gated here — the system_poly2tri
+swap is Linux-x86_64-specific for now (matches the Fedora-track
+packaging scope). The aarch64 ly_associate_package line in the
+same files stays as the upstream fetcher; future work could
+gate it the same way for ARM Fedora packaging.
+
+Carry-patch (applies unconditionally; bundled-poly2tri builds also
+benefit from the gate convention being uniform). Activates poly2tri
+as a Stage 1 system swap on Fedora packaging — converts the bundle
+from "off-limits restricted" to "Stage 1 candidate." Audit-track
+analogue of Patch0006's LY_USE_SYSTEM_<X> gates for the standard
+BuiltInPackages bundles, applied to PhysX-Gem-internal bundles.
+
+---
+--- a/Gems/PhysX/Core/PhysX4/Source/Platform/Linux/PAL_linux.cmake
++++ b/Gems/PhysX/Core/PhysX4/Source/Platform/Linux/PAL_linux.cmake
+@@ -18,7 +18,11 @@
+ 
+ if(PAL_TRAIT_BUILD_HOST_TOOLS)
+     if(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
++        if (NOT LY_USE_SYSTEM_POLY2TRI)
+         ly_associate_package(PACKAGE_NAME poly2tri-7f0487a-rev1-linux           TARGETS poly2tri PACKAGE_HASH b16eef8f0bc469de0e3056d28d7484cf42659667e39b68b239f0d3a4cbb533d0) 
++        else()
++            find_package(poly2tri REQUIRED)
++        endif()
+     elseif(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "aarch64")
+         ly_associate_package(PACKAGE_NAME poly2tri-7f0487a-rev1-linux-aarch64   TARGETS poly2tri PACKAGE_HASH a7dfa76df0b77a65c00e52bda28c3c174fe84ca115f5a015b6e937ee5b55e969)
+     else()
+--- a/Gems/PhysX/Core/PhysX5/Source/Platform/Linux/PAL_linux.cmake
++++ b/Gems/PhysX/Core/PhysX5/Source/Platform/Linux/PAL_linux.cmake
+@@ -18,7 +18,11 @@
+ 
+ if(PAL_TRAIT_BUILD_HOST_TOOLS)
+     if(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
++        if (NOT LY_USE_SYSTEM_POLY2TRI)
+         ly_associate_package(PACKAGE_NAME poly2tri-7f0487a-rev1-linux           TARGETS poly2tri PACKAGE_HASH b16eef8f0bc469de0e3056d28d7484cf42659667e39b68b239f0d3a4cbb533d0) 
++        else()
++            find_package(poly2tri REQUIRED)
++        endif()
+     elseif(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "aarch64")
+         ly_associate_package(PACKAGE_NAME poly2tri-7f0487a-rev1-linux-aarch64   TARGETS poly2tri PACKAGE_HASH a7dfa76df0b77a65c00e52bda28c3c174fe84ca115f5a015b6e937ee5b55e969)
+     else()
