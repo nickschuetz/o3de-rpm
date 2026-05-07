@@ -220,29 +220,20 @@ jobs:
             echo "run_ui_editor=$run_ui_editor"
           } >> "$GITHUB_OUTPUT"
 
-  prepare:
-    # Pull the COPR RPM exactly once and stash it as a workflow artifact
-    # so each chroot in the test matrix downloads it from GitHub-internal
-    # storage instead of re-fetching multi-GB from the COPR CDN.
-    needs: detect
-    if: needs.detect.outputs.should_test == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download RPM from COPR
-        run: |
-          mkdir -p /tmp/o3de-rpm
-          curl -fsSL -o /tmp/o3de-rpm/o3de.rpm "${{ needs.detect.outputs.rpm_url }}"
-          ls -lh /tmp/o3de-rpm/o3de.rpm
-      - name: Stash RPM as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: o3de-rpm-${{ needs.detect.outputs.build_id }}
-          path: /tmp/o3de-rpm/o3de.rpm
-          retention-days: 1     # only needs to outlive this workflow run
-          compression-level: 0  # the rpm payload is already zstd-compressed
-
   test:
-    needs: [detect, prepare]
+    # Each chroot in the matrix downloads the RPM directly from COPR.
+    # Earlier versions of this workflow funneled the RPM through a
+    # `prepare` job that stashed it as a `actions/upload-artifact@v4`
+    # artifact and let each test job pull from GitHub-internal storage,
+    # to save COPR-CDN egress. That flow had a probabilistic
+    # corruption mode at our package size (2026-05-07: 1.75 GB) — every
+    # ~50% of artifact roundtrips returned bytes that didn't match the
+    # RPM header's payload digest, failing dnf install with
+    # "Payload SHA256 ALT digest: BAD". Re-running the same workflow
+    # against the same RPM passed cleanly. With only two chroots in
+    # the matrix, two COPR downloads per CI run is cheap; with the
+    # artifact roundtrip eliminated, the flake class is gone.
+    needs: [detect]
     if: needs.detect.outputs.should_test == 'true'
     strategy:
       fail-fast: false
@@ -285,11 +276,10 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      - name: Download RPM (from prepare-job artifact)
-        uses: actions/download-artifact@v4
-        with:
-          name: o3de-rpm-${{ needs.detect.outputs.build_id }}
-          path: /tmp
+      - name: Download RPM from COPR
+        run: |
+          curl -fsSL -o /tmp/o3de.rpm "${{ needs.detect.outputs.rpm_url }}"
+          ls -lh /tmp/o3de.rpm
 
       - name: Install
         # No --skip-broken: a missing dep should fail loudly here (where
