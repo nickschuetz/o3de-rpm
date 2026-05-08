@@ -1,0 +1,61 @@
+From: Nick Schuetz <nschuetz@redhat.com>
+Subject: [PATCH] AzCore/Script: lua_newstate signature compat for Lua 5.5
+
+Lua 5.5 (released 2026 ahead of Fedora 45's debut in rawhide) added a
+required third parameter to `lua_newstate`:
+
+  Lua 5.4:  lua_State *lua_newstate(lua_Alloc f, void *ud);
+  Lua 5.5:  lua_State *lua_newstate(lua_Alloc f, void *ud, unsigned int seed);
+
+The new `seed` parameter randomizes Lua's string-table hash seed to
+mitigate hash-collision DoS. Passing `0` disables randomization (engine
+asset-build / scripting workflows do not consume untrusted strings at
+the rate where collision attacks are realistic; the hash seeding is
+still applied internally for fixed-table operations).
+
+Caught on COPR build 10436540 (o3de-experimental 14-pack, fedora-rawhide
+chroot, 2026-05-08): rawhide's lua-devel-5.5.x failed compilation of
+`Code/Framework/AzCore/AzCore/Script/ScriptContext.cpp:4359`:
+
+  error: no matching function for call to 'lua_newstate'
+  /usr/include/lua.h:163:21: note: candidate function not viable:
+  requires 3 arguments, but 2 were provided
+
+Same source builds cleanly on F44 (lua 5.4.8). The `LUA_VERSION_NUM`
+preprocessor symbol is documented public Lua API (defined in luaconf.h);
+guarding on `>= 505` keeps the patch behavior-preserving for Lua 5.4
+consumers while letting Lua 5.5+ compile.
+
+This patch is independent of the `system_lua` bcond -- the engine
+ScriptContext invokes `lua_newstate` regardless of whether Lua comes
+from the bundled `Lua-5.4.4-rev1-linux` package or from system
+`lua-devel`. With `--with system_lua` ON: the rebuilt engine links
+against whatever Lua the distro ships (5.4 on F44, 5.5 on rawhide).
+With `--with system_lua` OFF: the bundled Lua is 5.4 so the
+`#if` branch always evaluates false and behavior is unchanged.
+
+This is sibling to Patch0008 (drop the redundant `<Lua/lobject.h>`
+include in the same file) but addresses a separate concern: API
+signature drift across major Lua versions, vs. that patch's
+internal-header-cleanup goal.
+
+Worth pitching upstream: every distro that follows rawhide will
+eventually ship Lua 5.5 (Debian unstable, Alpine edge, Arch). The
+fix is small, behavior-preserving, and version-gated.
+
+Signed-off-by: Nick Schuetz <nschuetz@redhat.com>
+---
+--- a/Code/Framework/AzCore/AzCore/Script/ScriptContext.cpp
++++ b/Code/Framework/AzCore/AzCore/Script/ScriptContext.cpp
+@@ -4356,7 +4356,11 @@
+                     {
+                         allocator = &m_luaAllocator;
+                     }
++#if LUA_VERSION_NUM >= 505
++                    m_lua = lua_newstate(&LuaMemoryHook, allocator, 0);
++#else
+                     m_lua = lua_newstate(&LuaMemoryHook, allocator);
++#endif
+                     AZ_Assert(m_lua, "Failed to create new LUA state!");
+                 }
+

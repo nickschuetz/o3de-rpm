@@ -316,6 +316,20 @@ Patch0008:      0008-azcore-drop-lua-lobject-include.patch
 # that pulls a fresh snapshot tarball post-#19726-merge.
 Patch0009:      0009-physx-pal-gate-poly2tri-on-system.patch
 
+# Lua 5.5 added a required third parameter to `lua_newstate` (a hash-seed
+# randomization parameter). Engine's ScriptContext.cpp:4359 still calls
+# the 5.4 two-arg form, which fails compilation on any distro shipping
+# Lua 5.5+. Patch wraps the call in a `#if LUA_VERSION_NUM >= 505` guard
+# that passes seed=0 on Lua 5.5+ and falls through to the original
+# two-arg form on Lua 5.4. Applies unconditionally; behavior-preserving
+# on Lua 5.4 (the #if branch evaluates false) so bundled-Lua builds are
+# unaffected. Caught on COPR build 10436540 (o3de-experimental 14-pack
+# fedora-rawhide chroot, 2026-05-08); Fedora 44 still ships Lua 5.4.8
+# so the issue is rawhide-only at present, but every distro on rawhide's
+# Lua 5.5 trajectory (Fedora 45+, Debian unstable, Alpine edge, Arch)
+# will hit it.
+Patch0010:      0010-azcore-script-lua-5-5-newstate-signature-compat.patch
+
 # Stage 1 system-library find modules. Copied into cmake/3rdParty/
 # during %%prep when the matching `--with system_<lib>` is enabled.
 # Most Stage 1 swaps don't need a custom find module (cmake ships
@@ -1219,6 +1233,28 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-41
+- Patch0010: Lua 5.5 lua_newstate signature compat. Lua 5.5 (released
+  ahead of Fedora 45) added a required third `seed` parameter to
+  `lua_newstate`; engine's `Code/Framework/AzCore/AzCore/Script/
+  ScriptContext.cpp:4359` calls the 5.4 two-arg form. Patch wraps in
+  `#if LUA_VERSION_NUM >= 505` guard, passes seed=0 on 5.5+, falls
+  through to original on 5.4. Behavior-preserving on bundled-Lua
+  builds; lifts the rawhide compile failure caught on build 10436540
+  (o3de-experimental 14-pack, fedora-rawhide chroot, 2026-05-08;
+  F44 succeeded with bundled lua-5.4.8, rawhide failed at
+  ScriptContext.cpp:4359 with "no matching function for call to
+  'lua_newstate' ... requires 3 arguments, but 2 were provided").
+- Independent of `system_lua` bcond: applies unconditionally, fires
+  whether the engine links bundled Lua or system Lua. Sibling to
+  Patch0008 (Lua/lobject.h include cleanup) but addresses a separate
+  concern (API signature drift across Lua majors).
+- Memory note: `project_lua_5_5_newstate_break.md`. Worth pitching
+  upstream once the patch shape settles -- benefits every distro on
+  the rawhide Lua 5.5 trajectory (Fedora 45+, Debian unstable,
+  Alpine edge, Arch).
+- SBOM bumped 2605.0-40 -> 2605.0-41.
+
 * Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-40
 - Stage 2 third swap: activate system_mcpp. Library-link variant of
   the DXC-class binary-only pattern (vs. system_spirvcross +
