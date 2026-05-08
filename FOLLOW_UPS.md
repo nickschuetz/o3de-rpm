@@ -8,7 +8,7 @@ This file is intentionally a living scratchpad. Entries get added or removed as 
 
 ## End-of-day 2026-05-08 -- what landed
 
-Bigger day than yesterday. Eleven commits on `main` plus three PoC dirs plus two upstream PRs.
+Bigger day than yesterday. Fifteen commits on `main` plus three PoC dirs plus two upstream PRs.
 
 ### Stage 1 system swaps (5 added today; engine now consumes 12 system libs)
 
@@ -18,10 +18,11 @@ Bigger day than yesterday. Eleven commits on `main` plus three PoC dirs plus two
 - **`system_spirvcross` activated (Stage 2 first binary-only swap)** -- engine-side glue via `%install`-time symlink to `/usr/bin/spirv-cross` from the o3de-spirv-cross COPR package. No engine code change.
 - **`system_dxc` activated (Stage 2 second binary-only swap)** -- same install-overlay shape but three symlinks (dxc, dxsc, libdxcompiler.so).
 
-### Stage 2 binary-only PoCs
+### Stage 2 PoCs (third one landed today; full set now ✓ green)
 
 - **DXC PoC ✓ GREEN** -- `o3de-dxc-spirv-1.8.2505.1-1.rev12` (build 10435628). 12 iterations rev4 -> rev12. Final fix: Patch0002 added `SPIRV-Tools` to clangSPIRV's LINK_LIBS at the consumer side (rev11's transitive `target_link_libraries(IMPORTED INTERFACE)` form didn't propagate). Functional verification: `dxc -spirv -T ps_6_0 -E main shader.hlsl` produces valid SPIR-V output.
-- **mcpp PoC ✓ GREEN** -- `o3de-mcpp-az-2.7.2-1.rev7` (build 10436752, F44 + rawhide). 7 iterations rev1 -> rev7. Library-link variant of the DXC-class pattern. Source: upstream mcpp 2.7.2 (BSD-2-Clause, abandonware-class, 2008) + o3de/3p-package-source's 566-line `_az.2` patch. Configure: `--with-pic --enable-mcpplib`. Outputs the four expected RPMs: o3de-mcpp-az (libmcpp.so.0, /usr/bin/mcpp, man page), o3de-mcpp-az-devel (libmcpp.so + libmcpp.a + mcpp_lib.h + mcpp_out.h), debuginfo, debugsource. Iteration history: rev1 missing libtool BR, rev2 GCC 14 strictness on pointer types, rev3 LL_FORM undefined (configure AC_RUN_IFELSE silent fail), rev4 `true`/`false` keyword conflict in C23, rev5 trim AUTHORS + info docs from %files, rev6 unpackaged docs from autotools install, rev7 fix.
+- **mcpp PoC ✓ GREEN + engine-side glue activated** -- `o3de-mcpp-az-2.7.2-1.rev7` (build 10436752, F44 + rawhide). 7 iterations rev1 -> rev7. Library-link variant of the DXC-class pattern (different shape from spirvcross/dxc which are binary shellouts -- mcpp is `#include <mcpp_lib.h>` + linked into the engine binary at build time). Source: upstream mcpp 2.7.2 (BSD-2-Clause, abandonware-class, 2008) + o3de/3p-package-source's 566-line `_az.2` patch. Configure: `--with-pic --enable-mcpplib`. Outputs the four expected RPMs: o3de-mcpp-az (libmcpp.so.0, /usr/bin/mcpp, man page), o3de-mcpp-az-devel (libmcpp.so + libmcpp.a + mcpp_lib.h + mcpp_out.h), debuginfo, debugsource. Iteration history: rev1 missing libtool BR, rev2 GCC 14 strictness on pointer types, rev3 LL_FORM undefined (configure AC_RUN_IFELSE silent fail), rev4 `true`/`false` keyword conflict in C23, rev5 trim AUTHORS + info docs from %files, rev6 unpackaged docs from autotools install, rev7 fix.
+- **system_mcpp engine-side glue activated** (commit `1cf44dc`) -- third Stage 2 swap, first library-link variant. `Findmcpp-system.cmake` shim + Patch0006 `LY_USE_SYSTEM_MCPP` gate + spec wiring (`%bcond_with system_mcpp`, Source44 declaration, BR `o3de-mcpp-az-devel`, Requires `o3de-mcpp-az`, cmake `-DLY_USE_SYSTEM_MCPP=ON`). Engine code unchanged. SBOM bumped 2605.0-39 -> 2605.0-40. The two Stage 2 architectural variants (binary shellout for spirvcross/dxc, library link for mcpp) are now both proven in production engine builds.
 
 ### Upstream PRs (2 new + 1 fix on existing)
 
@@ -38,7 +39,9 @@ Bigger day than yesterday. Eleven commits on `main` plus three PoC dirs plus two
 
 - **F43 chroot dropped** from `hellaenergy/o3de-dependencies` (was failing on EOL distro per `project_target_distros.md` rule).
 - **`o3de-dependencies` COPR project added to `scripts/copr-metadata.sh`** managed-projects list (4 -> 5). Description + instructions populated and live-pushed.
-- **New memory rules** -- `feedback_no_em_dashes.md` (user preference, ASCII punctuation everywhere); `project_o3de_unicode_validator.md` (upstream gate that caught PR #19737).
+- **Tier 7 cron default flipped OFF** (commit `a7c6e18`) -- first live run (CI run 25553050229) confirmed test infrastructure works end-to-end (Tiers 1+2+3 green, AP launched, log + artifact upload clean) but revealed a cold-cache parallel-jobs SRG-merge ordering quirk that fails 76+ FBX bakes + 210 shader builds spuriously on first AP pass. NOT a packaging regression -- same on upstream from-source build. Cron-driven cycle would keep red-flagging a non-bug; flipped to opt-in via workflow_dispatch only until design fix. Memory captured at `project_tier7_cold_cache_quirk.md`.
+- **COPR edit-chroot REPLACE-not-append gotcha caught** -- single-flag `copr-cli edit-chroot --rpmbuild-with system_mcpp` reduced o3de-experimental's 16-entry with_opts list to 1 entry. Detected via post-edit `get-chroot` verification within ~5 min, restored full list before any builds were submitted in the corrupt window. Two in-flight builds (10435647 + 10436540) had already resolved their chroot config at task pickup over an hour earlier so they're unaffected. Memory rule + Makefile copr-init hint updated (commits `ddb299f` and the new `feedback_copr_edit_chroot_replaces.md`) to make the REPLACE semantic explicit.
+- **New memory rules** -- `feedback_no_em_dashes.md` (user preference, ASCII punctuation everywhere); `project_o3de_unicode_validator.md` (upstream gate that caught PR #19737); `project_tier7_cold_cache_quirk.md`; `feedback_copr_edit_chroot_replaces.md`.
 
 ### In flight (background agents)
 
