@@ -36,4 +36,6 @@ The package follows a **versioned-major naming convention** (`o3de2605` for the 
 
 **Versioned-major naming**: all three Stage 2 packages use the `o3deNNNN-<dep>` form. Future `o3de2610-<dep>` packages co-exist in the same `o3de-dependencies` COPR for the 26.10.x line; users can install `o3de2605` and `o3de2610` side-by-side, each with its own dep set. Mirrors postgresql10/postgresql11 in Fedora's main repo. Memory note in the source repo: `project_o3de_3p_versioning_research.md`.
 
+**Gems with system runtime dependencies:** some o3de-extras gems (ROS 2 family, AudioEngineWwise, OpenXRVk, etc.) require external system runtimes the engine RPM does not bundle. Project Manager surfaces the requirement on each gem's information icon. See [`docs/GEMS_WITH_SYSTEM_DEPS.md`](https://github.com/nickschuetz/o3de-rpm/blob/main/docs/GEMS_WITH_SYSTEM_DEPS.md) for install paths and the project-build workflow.
+
 **Source + issues:** https://github.com/nickschuetz/o3de-rpm and https://github.com/nickschuetz/o3de-rpm/issues

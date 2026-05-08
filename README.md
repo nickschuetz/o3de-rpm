@@ -242,6 +242,10 @@ This matches upstream's multi-install UX. Files for both majors stay co-installe
 
 Project Manager auto-routes a project to the right engine via the project's `engine:` field in `project.json`. Subpackages follow the same versioning — `o3de2605-debug` and `o3de2610-debug` are independent and co-installable. Cross-major dnf upgrades are intentionally NOT automatic: different majors are different engine lines and you opt in explicitly with `dnf install o3de2610` when ready.
 
+### Gems with system runtime dependencies
+
+This RPM ships the engine plus the ~117 gems sourced from the `o3de/o3de` repository. Additional gems live in [`o3de/o3de-extras`](https://github.com/o3de/o3de-extras) and are discovered automatically by Project Manager via a default-registered remote gem repository — they appear in the gem catalog with a download-cloud icon and fetch on demand into `~/.o3de/gems/<gem-name>/` when you click "Download Gem". Some of those remote gems require external runtime libraries the engine RPM does NOT bundle (most notably the ROS 2 family, AudioEngineWwise, OpenXRVk). See [`docs/GEMS_WITH_SYSTEM_DEPS.md`](docs/GEMS_WITH_SYSTEM_DEPS.md) for which gems need what, install paths for each runtime on Fedora 44+ / CentOS Stream 10+, and the project-build workflow.
+
 ---
 
 ## Distribution

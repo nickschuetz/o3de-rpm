@@ -28,4 +28,6 @@ The package follows a **versioned-major naming convention** (`o3deNNNN` where NN
 
 **For bleeding-edge `development`-branch builds**, see `hellaenergy/o3de-snapshot` (one-off, ad-hoc cadence).
 
+**Gems with system runtime dependencies:** some o3de-extras gems (ROS 2 family, AudioEngineWwise, OpenXRVk, etc.) require external system runtimes the engine RPM does not bundle. Project Manager surfaces the requirement on each gem's information icon. See [`docs/GEMS_WITH_SYSTEM_DEPS.md`](https://github.com/nickschuetz/o3de-rpm/blob/main/docs/GEMS_WITH_SYSTEM_DEPS.md) for install paths and the project-build workflow.
+
 **Reporting issues:** https://github.com/nickschuetz/o3de-rpm/issues. Include `rpm -q o3de2605` and the COPR build ID. Engine bugs that aren't packaging-related should go upstream to https://github.com/o3de/o3de/issues.
