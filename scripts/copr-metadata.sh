@@ -8,8 +8,8 @@
 #   scripts/copr-metadata.sh diff [project ...]    # compare repo vs live
 #   scripts/copr-metadata.sh push [project ...]    # repo -> COPR (requires copr-cli auth)
 #
-# With no project argument, all four are processed:
-#   o3de  o3de-stabilization  o3de-snapshot  o3de-experimental
+# With no project argument, all five are processed:
+#   o3de  o3de-stabilization  o3de-snapshot  o3de-experimental  o3de-dependencies
 #
 # The four mirrored fields per project are:
 #   description.md  instructions.md  homepage.txt  contact.txt
@@ -17,7 +17,7 @@
 set -euo pipefail
 
 OWNER="hellaenergy"
-ALL_PROJECTS=(o3de o3de-stabilization o3de-snapshot o3de-experimental)
+ALL_PROJECTS=(o3de o3de-stabilization o3de-snapshot o3de-experimental o3de-dependencies)
 FIELDS=(description instructions homepage contact)
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 META_ROOT="${REPO_ROOT}/copr-metadata"

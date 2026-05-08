@@ -1,0 +1,1 @@
+License-clean COPR rebuilds of Open 3D Engine 3rdParty dependencies that aren't packaged in Fedora proper. Auto-enabled alongside any of the engine COPR projects (o3de, o3de-stabilization, o3de-snapshot, o3de-experimental); end users typically don't enable this directly.
