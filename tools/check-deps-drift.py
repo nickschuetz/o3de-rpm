@@ -304,14 +304,36 @@ def read_spec_bconds(spec: Path) -> set[str]:
 
 
 def normalize_version(v: str) -> str:
-    """Strip the trailing -rev<N> label and the leading "v" if present, so
-    "1.11.288-rev1" and "1.11.288-rev2" compare equal at this level."""
+    """Strip packaging-iteration labels so the underlying upstream tag is
+    what we compare. Examples:
+      "1.11.288-rev1"        -> "1.11.288"          (Lumberyard rev label)
+      "1.8.2505.1-o3de-rev3" -> "1.8.2505.1"        (o3de-fork suffix + rev)
+      "1.8.2505.1-1.rev12"   -> "1.8.2505.1"        (COPR NVR + iteration)
+      "2.7.2_az.2-rev1"      -> "2.7.2"             (Lumberyard _az.<N> patch series)
+      "2.7.2-1.rev7"         -> "2.7.2"             (COPR NVR for the same)
+    so engine pins, COPR builds, and 3p package-source build_config strings
+    that all describe the same upstream tag compare equal regardless of how
+    each side spells the iteration count.
+    """
     if not v:
         return ""
     v = v.strip()
-    # drop any -rev<N> suffix anywhere (mid-token or trailing)
+    # Drop any -rev<N> suffix anywhere (mid-token or trailing).
     v = re.sub(r"-rev\d+", "", v)
-    # drop trailing -<digits> RPM release tail ("1.11.361-6")
+    # Drop the Lumberyard `_az.<N>` patch-series suffix attached to mcpp etc.
+    # ("2.7.2_az.2-rev1" -> "2.7.2_az.2" after the prior step; this drops
+    # the `_az.2` to leave bare "2.7.2"). We do this before the COPR-NVR
+    # step so engine-form normalizes to the same shape as our COPR-form.
+    v = re.sub(r"_az\.\d+", "", v)
+    # Drop the o3de-fork suffix appended to upstream tags (DXC, others).
+    # ("1.8.2505.1-o3de" -> "1.8.2505.1"). Only when followed by end-of-string
+    # or a non-version-part separator so we don't strip a literal "o3de" that's
+    # part of a real upstream version.
+    v = re.sub(r"-o3de(?=$|[-.])", "", v)
+    # Drop COPR's NVR iteration tail: "-<digit>.rev<digit>" or "-<digit>"
+    # at end-of-string, with optional trailing dist tag like ".fc44".
+    v = re.sub(r"-\d+(?:\.rev\d+)?(?:\.fc\d+)?$", "", v)
+    # Drop trailing -<digits> RPM release tail ("1.11.361-6").
     v = re.sub(r"-\d+(?:\.fc\d+)?$", "", v)
     if v.startswith("v"):
         v = v[1:]

@@ -49,6 +49,7 @@ copr_packages:
   astc-encoder: astc-encoder
   aws-gamelift-server-sdk: aws-gamelift-server-sdk
   azslc: azslc
+  mcpp: o3de-mcpp-az
   mikkelsen: mikkelsen
   qt: o3de-qt5
 
@@ -98,7 +99,7 @@ spec_bcond_aliases:
   freetype: freetype
   libsamplerate: libsamplerate
   lz4: lz4
-  mcpp: ""
+  mcpp: mcpp
   mikkelsen: mikkelsen
   openimageio-opencolorio: ""
   png: png
