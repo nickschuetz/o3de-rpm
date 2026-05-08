@@ -1249,9 +1249,9 @@ EOF
   Requires o3de-mcpp-az, conditional cmake -DLY_USE_SYSTEM_MCPP=ON.
 - Makefile: add system_mcpp to spec-parse-experimental's --define list,
   to SRPM_EXPERIMENTAL_FLAGS, and to copr-init's chroot --rpmbuild-with
-  hint. Engine now consumes 13 system libs (Stage 1) + 3 PoC-rebuilt
-  COPR deps (Stage 2: spirvcross + dxc binary, mcpp library). 16-pack
-  experimental.
+  hint. Engine now consumes 12 Stage 1 system libs + 3 Stage 2 PoC-
+  rebuilt COPR deps (spirvcross + dxc binary, mcpp library) for a
+  15-pack experimental config (was 14-pack before today's commit).
 - This completes the Stage 2 swap set: two binary shellouts
   (spirvcross + dxc) + one library link (mcpp). Both architectural
   variants now have working engine-side glue.
