@@ -72,7 +72,8 @@ RPMBUILD_DEFINES = \
         copr-snapshot-and-test copr-stabilization-and-test copr-experimental-and-test _copr-and-test \
         trigger-tests copr-init \
         copr-metadata-pull copr-metadata-diff copr-metadata-push \
-        test test-setup test-full test-ui test-ui-full test-branch clean
+        check-deps-drift \
+        test test-setup test-full test-ui test-ui-full test-asset-bake test-branch clean
 
 help:
 	@awk '/^# / { sub(/^# /,"",$$0); print } /^[a-z][a-z0-9_-]*:/ && $$0 !~ /^\./' Makefile | head -40
@@ -593,11 +594,28 @@ test-ui:
 test-ui-full:
 	tests/ui-smoke-test.sh --screenshot --editor
 
+# Asset-bake regression (Tier 7): bake a known FBX through the full
+# AssetProcessor pipeline (which uses assimp exclusively) and smoke
+# the .azmodel + .azmaterial output. Pairs with the system_assimp
+# Stage 1 swap to catch 5 -> 6 major-version behavior deltas.
+test-asset-bake:
+	tests/asset-bake-test.sh
+
 # End-to-end driver: build a snapshot RPM from <REF> and test it.
 # Usage: make test-branch REF=stabilization/26050
 test-branch:
 	@[ -n "$(REF)" ] || { echo "usage: make test-branch REF=<git-ref>"; exit 2; }
 	tests/test-branch.sh $(REF)
+
+# ── 3rdParty dependency-drift audit ─────────────────────────────────────────
+
+# Compare engine BuiltInPackages_linux_x86_64.cmake pins, our COPR
+# o3de-dependencies versions, and o3de/3p-package-source build_config.json
+# pins. Prints a Markdown table to stdout. Exits 1 if any "out-of-date"
+# entries are found, 0 otherwise. The .github/workflows/check-deps-drift.yml
+# runs this weekly and sticky-issues the result.
+check-deps-drift:
+	python3 tools/check-deps-drift.py
 
 # ── Clean ───────────────────────────────────────────────────────────────────
 

@@ -1,0 +1,120 @@
+# dep-map.yaml -- mapping from O3DE engine package names to our COPR packages
+# in hellaenergy/o3de-dependencies and to o3de/3p-package-source/<Name>/build_config.json.
+#
+# Used by tools/check-deps-drift.py to compare three sources of truth:
+#   1) Engine pin -- BuiltInPackages_linux_x86_64.cmake on the active branch
+#   2) Our COPR  -- latest-succeeded-build version in hellaenergy/o3de-dependencies
+#   3) Upstream  -- build_config.json package_version in o3de/3p-package-source
+#
+# Update this file whenever a new package is added to or removed from the COPR.
+# See tools/README.md for the full update procedure.
+#
+# YAML is parsed by a tiny regex-only loader in check-deps-drift.py (no PyYAML
+# dependency); keep the structure flat:
+#   - one "key: value" line per scalar
+#   - lists use "- item" inline-prefixed entries
+#   - block-mappings under top-level keys are exactly two-space indented
+#   - no anchors, no flow style, no multi-line strings, no quoted keys
+# If you need richer YAML, add PyYAML to the workflow image and update the
+# parser (or convert this file to JSON; the script auto-detects extension).
+
+# Active engine branch the script targets by default. The workflow can
+# override this via the ENGINE_REF env var.
+engine_ref: stabilization/26050
+
+# Engine repo + 3p package-source repo (rarely change).
+engine_repo: o3de/o3de
+threep_repo: o3de/3p-package-source
+
+# COPR project that ships our license-clean rebuilds.
+copr_owner: hellaenergy
+copr_project: o3de-dependencies
+
+# Map: engine package name (the first token of the ly_associate_package
+# PACKAGE_NAME, e.g. "AWSNativeSDK" from "AWSNativeSDK-1.11.288-rev1-linux")
+# -> COPR source package name in hellaenergy/o3de-dependencies.
+#
+# Keys must match the engine name exactly (case-sensitive). A null value
+# means "engine references this package but we do not ship it in COPR";
+# the script will classify it as "gap" unless it is also covered by a
+# %bcond_with system_<X> entry in o3de.spec (see covered_by_spec_bcond
+# heuristics below).
+copr_packages:
+  AWSNativeSDK: o3de-AWSNativeSDK
+  AwsIotDeviceSdkCpp: aws-iot-device-sdk-cpp-v2
+  DirectXShaderCompilerDxc: o3de-dxc-spirv
+  ISPCTexComp: ISPCTexComp
+  PhysX: PhysX
+  SPIRVCross: o3de-spirv-cross
+  astc-encoder: astc-encoder
+  aws-gamelift-server-sdk: aws-gamelift-server-sdk
+  azslc: azslc
+  mikkelsen: mikkelsen
+  qt: o3de-qt5
+
+# Map: engine package name -> upstream o3de/3p-package-source directory.
+# Most names match the engine name 1:1. List explicit entries only when
+# the directory differs (e.g. lower/upper case or merged dirs). Keys not
+# listed here default to the engine name itself.
+threep_dirs:
+  qt: Qt
+  mikkelsen: mikkelsen
+  ISPCTexComp: ISPCTexComp
+  astc-encoder: astc-encoder
+
+# Engine packages that are intentionally swapped for a Fedora system
+# library when the matching %bcond_with system_<X> is enabled in
+# o3de.spec. The script reads the live list of bconds from o3de.spec
+# and uses these aliases to map engine-package -> bcond suffix.
+#
+# (The spec uses lowercase suffixes like system_assimp, system_dxc,
+# system_freetype, system_libsamplerate, system_lua, system_lz4,
+# system_mikkelsen, system_openexr, system_png, system_poly2tri,
+# system_spirvcross, system_sqlite, system_tiff, system_zlib,
+# system_expat. The aliases let the script translate engine names
+# like SPIRVCross or DirectXShaderCompilerDxc to their bcond suffix.)
+spec_bcond_aliases:
+  AWSNativeSDK: ""
+  AwsIotDeviceSdkCpp: ""
+  DirectXShaderCompilerDxc: dxc
+  Freetype: freetype
+  ISPCTexComp: ""
+  Lua: lua
+  OpenEXR: openexr
+  OpenSSL: ""
+  PNG: png
+  PhysX: ""
+  SPIRVCross: spirvcross
+  SQLite: sqlite
+  TIFF: tiff
+  ZLIB: zlib
+  tiff: tiff
+  zlib: zlib
+  assimp: assimp
+  astc-encoder: ""
+  aws-gamelift-server-sdk: ""
+  azslc: ""
+  expat: expat
+  freetype: freetype
+  libsamplerate: libsamplerate
+  lz4: lz4
+  mcpp: ""
+  mikkelsen: mikkelsen
+  openimageio-opencolorio: ""
+  png: png
+  poly2tri: poly2tri
+  pyside2: ""
+  qt: ""
+  squish-ccr: ""
+  vulkan-validationlayers: ""
+
+# Engine packages we deliberately do not track (multiplatform header-only
+# libraries, build-tooling-only deps, etc). The script silently skips these.
+ignore_engine_packages:
+  - RapidJSON
+  - RapidXML
+  - pybind11
+  - glad
+  - xxhash
+  - cityhash
+  - googlebenchmark

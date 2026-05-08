@@ -54,6 +54,11 @@ on:
         required: false
         default: false
         type: boolean
+      run_asset_bake:
+        description: 'Run Tier 7 (FBX asset-bake regression; assimp 5->6 guard)'
+        required: false
+        default: true
+        type: boolean
       o3de_pkgname:
         description: 'Explicit package name override (e.g. o3de2605). Leave blank to auto-detect from the RPM URL.'
         required: false
@@ -98,6 +103,7 @@ jobs:
       run_project:   ${{ steps.flags.outputs.run_project }}
       run_ui:        ${{ steps.flags.outputs.run_ui }}
       run_ui_editor: ${{ steps.flags.outputs.run_ui_editor }}
+      run_asset_bake: ${{ steps.flags.outputs.run_asset_bake }}
     steps:
       - name: Resolve trigger inputs
         id: resolve
@@ -209,15 +215,18 @@ jobs:
           run_project="${{ inputs.run_project }}"
           run_ui="${{ inputs.run_ui }}"
           run_ui_editor="${{ inputs.run_ui_editor }}"
-          [ -z "$run_setup" ]     && run_setup=true
-          [ -z "$run_project" ]   && run_project=false
-          [ -z "$run_ui" ]        && run_ui=true
-          [ -z "$run_ui_editor" ] && run_ui_editor=false
+          run_asset_bake="${{ inputs.run_asset_bake }}"
+          [ -z "$run_setup" ]      && run_setup=true
+          [ -z "$run_project" ]    && run_project=false
+          [ -z "$run_ui" ]         && run_ui=true
+          [ -z "$run_ui_editor" ]  && run_ui_editor=false
+          [ -z "$run_asset_bake" ] && run_asset_bake=true
           {
             echo "run_setup=$run_setup"
             echo "run_project=$run_project"
             echo "run_ui=$run_ui"
             echo "run_ui_editor=$run_ui_editor"
+            echo "run_asset_bake=$run_asset_bake"
           } >> "$GITHUB_OUTPUT"
 
   test:
@@ -322,12 +331,40 @@ jobs:
               su -l runner -c "O3DE_PKGNAME='${{ needs.detect.outputs.pkgname }}' $GITHUB_WORKSPACE/tests/ui-smoke-test.sh --screenshot"
           fi
 
+      - name: Tier 7 (asset-bake regression; assimp 5->6 guard)
+        if: ${{ needs.detect.outputs.run_asset_bake == 'true' }}
+        env:
+          # AssetProcessorBatch initializes the RHI even when running
+          # headless, so the lavapipe ICD must be discoverable. Same
+          # variable Tier 6 sets.
+          VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
+          O3DE_PKGNAME: ${{ needs.detect.outputs.pkgname }}
+        run: |
+          chown -R runner:runner /home/runner $GITHUB_WORKSPACE
+          # Tier 7 needs Tier 3 done (per-user venv); when run_setup is
+          # off in workflow_dispatch, skip rather than fail.
+          if [ "${{ needs.detect.outputs.run_setup }}" != "true" ]; then
+              echo "Tier 7 needs Tier 3 (--setup); skipping because run_setup=false"
+              exit 0
+          fi
+          su -l runner -c "O3DE_PKGNAME='${{ needs.detect.outputs.pkgname }}' $GITHUB_WORKSPACE/tests/asset-bake-test.sh --keep-tmp"
+
       - name: Upload screenshots
         if: ${{ needs.detect.outputs.run_ui == 'true' && always() }}
         uses: actions/upload-artifact@v4
         with:
           name: ui-screenshots-${{ matrix.chroot }}
           path: /tmp/o3de-*.png
+          if-no-files-found: ignore
+
+      - name: Upload AssetProcessor log on Tier 7 failure
+        if: ${{ needs.detect.outputs.run_asset_bake == 'true' && failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: asset-bake-log-${{ matrix.chroot }}
+          # The bake script (with --keep-tmp) leaves its scratch
+          # project plus log under mktemp's standard location.
+          path: /tmp/o3de-bake-test-*/asset-processor.log
           if-no-files-found: ignore
 
   record:

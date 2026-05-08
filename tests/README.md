@@ -20,8 +20,9 @@ Each tier requires more state from the prior. You can run any subset.
 | **4** | Engine binary smoke (launcher, vulkan loader) | nothing extra | <1 s |
 | **5** | Project end-to-end (`o3de create-project` + `cmake -B build/linux -S .`) | Tier 3 done, network for 3rdParty CDN | ~5–10 min |
 | **6** | UI smoke (Project Manager + Editor launch under Xvfb, don't crash) | Xvfb, scrot, software Vulkan (lavapipe) for CI | ~30 s (PM only) / ~90 s (with --editor) |
-| **7** *(future)* | Visual regression (pixel-diff screenshots vs baseline) | maintained baselines per Fedora version | varies |
-| **8** *(future)* | Render correctness (compare rendered scene to reference) | GPU-equipped runner | varies |
+| **7** | Asset-bake regression (bake a known FBX, smoke the `.azmodel` + `.azmaterial` output). Catches `assimp` 5 -> 6 behavior deltas from the Stage 1 system swap. | Tier 3 done; AssetProcessorBatch installed | ~1-4 min |
+| **8** *(future)* | Visual regression (pixel-diff screenshots vs baseline) | maintained baselines per Fedora version | varies |
+| **9** *(future)* | Render correctness (compare rendered scene to reference) | GPU-equipped runner | varies |
 
 Tiers 1, 2, 4 are read-only and safe on a developer machine. Tier 3 modifies `~/.o3de/` (creates the per-user venv). Tier 5 creates a temporary project that's cleaned up on exit.
 
@@ -41,9 +42,14 @@ sudo dnf install -y xorg-x11-server-Xvfb scrot xdpyinfo
 tests/ui-smoke-test.sh                             # Project Manager smoke
 tests/ui-smoke-test.sh --editor                    # also Editor scripted run
 tests/ui-smoke-test.sh --editor --screenshot      # with screenshots
+
+# Asset-bake regression (tier 7) -- bake a known FBX, smoke .azmodel/.azmaterial
+tests/asset-bake-test.sh                           # default cube.fbx
+tests/asset-bake-test.sh --fbx /path/to/your.fbx   # arbitrary FBX
+tests/asset-bake-test.sh --keep-tmp                # keep scratch project for inspection
 ```
 
-`make test`, `make test-setup`, `make test-full`, `make test-ui`, `make test-ui-full` are shortcuts for the above.
+`make test`, `make test-setup`, `make test-full`, `make test-ui`, `make test-ui-full`, `make test-asset-bake` are shortcuts for the above.
 
 The test scripts auto-detect which versioned package is installed (matching `^o3de[0-9]+$` from `rpm -qa`) and derive `$ENGINE_PATH` from its installed `engine.json`. To force a specific package when multiple majors are installed (e.g., both `o3de2605` and `o3de2610`):
 
@@ -95,14 +101,15 @@ For automated COPR → CI integration, configure a COPR webhook that triggers th
 - manifest.py patch active in venv
 - Engine registered in user manifest
 - `o3de create-project` + `cmake configure` against installed engine
+- Tier 7 asset-bake regression: drive `AssetProcessorBatch` against a known FBX (default: `Gems/AtomContent/TestData/Assets/TestData/Objects/cube/cube.fbx`), smoke the resulting `.azmodel` + `.azmaterial` for non-emptiness and AssImp-importer error cleanliness. Catches `assimp` 5 -> 6 major-version behavior deltas from the Stage 1 system swap.
 
 ❌ **Not covered (yet):**
 - Compile of the sample project (currently only `cmake configure`; full build takes hours)
-- Asset Processor functional test (needs assets to process)
 - Full upgrade path test (install old → install new → verify state migrated)
 - Cross-Fedora upgrade test (install on F44, upgrade to F45)
-- Tier 7: visual regression (screenshots → pixel-diff against baselines per Fedora version) — pattern documented, not yet implemented
-- Tier 8: render correctness (Vulkan render vs reference image) — needs GPU-equipped runners
+- Per-field azmodel comparison vs a checked-in reference (Tier 7 today is structural-only: file-presence + size + POSITION-marker + error-log clean. Adding a vertex-count + per-channel comparison against a reference baked under bundled-assimp is the obvious next iteration)
+- Tier 8: visual regression (screenshots → pixel-diff against baselines per Fedora version) — pattern documented, not yet implemented
+- Tier 9: render correctness (Vulkan render vs reference image) — needs GPU-equipped runners
 
 The "not covered" items are tracked here so contributors can pick them up. None are blockers for a useful first version.
 
