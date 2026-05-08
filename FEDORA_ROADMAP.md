@@ -124,7 +124,7 @@ O3DE bundles `openimageio-opencolorio-2.3.17-rev2-linux` (combined). The blocker
 
 Today: O3DE bundles Python 3.10.13 from `packages.o3de.org` and creates a per-user venv at `~/.o3de/Python/venv/<engine-id>/lib/python3.10/`. The launcher's `O3DE_PYTHON_VERSION` env var (default `3.10`) is already parameterized for this migration.
 
-Target: use system Python (currently 3.13 in F44, 3.12 in RHEL 10).
+Target: use system Python (currently 3.13 in F44, 3.12 in CentOS Stream 10).
 
 **Steps:**
 1. Patch `python/get_python.sh` to skip the bundled-Python download path entirely when `LY_USE_SYSTEM_PYTHON=ON` is set.

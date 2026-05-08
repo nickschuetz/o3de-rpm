@@ -220,7 +220,7 @@ The full RPM build itself is too heavy for free GitHub runners (~25 GB output, m
 
 A few project-level conventions that don't fit elsewhere:
 
-- **Target distros:** Fedora 44+ and RHEL 10+ only. No F43-or-earlier shims.
+- **Target distros:** Fedora 44+ and CentOS Stream 10+ only. No F43/CS9-or-earlier shims. (Earlier project framing said "RHEL 10+"; that was shorthand for the CS10 line, which is upstream of RHEL 10.)
 - **O3DE bundles a custom-patched Qt 5.15-rev9.** Never add system Qt5 BRs/Requires; the rev9 patches are load-bearing.
 - **Four restricted bundles** (DXC, NvCloth, poly2tri, squish-ccr) cannot be hosted in Fedora or COPR — they come from `packages.o3de.org` via cmake at build time. See `BUNDLED_LIBRARIES.md` § "Restricted".
 - **DXC is a Clang/LLVM fork** — that's why it bundles libclang-12/libtinfo. The license-clean Linux rebuild path is documented in `FEDORA_ROADMAP.md` § Stage 5.

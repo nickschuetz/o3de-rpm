@@ -12,7 +12,7 @@
 #   tests/test-branch.sh main
 #
 # Requirements (fail fast if missing):
-#   - Fedora 44+ (or RHEL 10+, F45 etc.)
+#   - Fedora 44+ (or CentOS Stream 10+, F45 etc.)
 #   - rpmbuild, git, git-lfs, sudo, dnf
 #   - ~70 GB free disk for build artifacts
 #   - 4+ hours patience (full build of debug + profile)
