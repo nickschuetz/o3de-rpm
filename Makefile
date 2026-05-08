@@ -119,6 +119,7 @@ spec-parse-experimental:
 	    --define "_with_system_mikkelsen 1" \
 	    --define "_with_system_png 1" \
 	    --define "_with_system_poly2tri 1" \
+	    --define "_with_system_spirvcross 1" \
 	    --define "_with_system_sqlite 1" \
 	    --define "_with_system_tiff 1" \
 	    --define "_with_system_zlib 1" -q o3de.spec
@@ -171,8 +172,25 @@ SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
                           --with system_openexr \
                           --with system_png \
                           --with system_poly2tri \
+                          --with system_spirvcross \
                           --with system_sqlite \
                           --with system_zlib
+# system_spirvcross added 2026-05-08 (Stage 2 binary-only swap, first
+# of its kind). Engine treats spirv-cross as a binary executable
+# shellout, not a library link (per audit 2026-05-07,
+# /tmp/o3de-assimp-audit/SPIRVCROSS_INVESTIGATION_NOTES.md).
+# Implementation: %install creates a symlink at the engine's expected
+# runtime path
+# (/opt/O3DE/<v>/bin/Linux/profile/Default/Builders/SPIRVCross/spirv-cross)
+# pointing to /usr/bin/spirv-cross from the o3de-spirv-cross COPR
+# package (built from KhronosGroup/SPIRV-Cross at vulkan-sdk-1.3.275.0,
+# license-clean Apache-2.0 OR MIT). The bundled spirv-cross fetch from
+# packages.o3de.org still happens at cmake time (it ships a
+# FindSPIRVCross.cmake the engine needs at config time); the symlink
+# at install time overlays it. Future cleanup: write a
+# Findspirvcross-system.cmake shim, gate Patch0006, drop the upstream
+# fetch entirely.
+#
 # system_assimp added 2026-05-08 (Stage 1 12-pack). Audit (2026-05-07,
 # /tmp/o3de-assimp-audit/INVESTIGATION_NOTES.md) confirmed Stage 1
 # candidate: consumers exclusively in Code/Tools/SceneAPI/ (asset-

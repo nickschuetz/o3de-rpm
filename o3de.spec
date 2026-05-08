@@ -74,6 +74,7 @@
 %bcond_with system_openexr
 %bcond_with system_png
 %bcond_with system_poly2tri
+%bcond_with system_spirvcross
 %bcond_with system_sqlite
 %bcond_with system_tiff
 %bcond_with system_zlib
@@ -128,7 +129,7 @@
 # system_<X> bconds to the experimental OR-chain as the Stage 1
 # migration list grows.
 %global _o3de_channel %{nil}
-%if %{with system_assimp} || %{with system_expat} || %{with system_freetype} || %{with system_libsamplerate} || %{with system_lua} || %{with system_lz4} || %{with system_mikkelsen} || %{with system_openexr} || %{with system_png} || %{with system_poly2tri} || %{with system_sqlite} || %{with system_tiff} || %{with system_zlib}
+%if %{with system_assimp} || %{with system_expat} || %{with system_freetype} || %{with system_libsamplerate} || %{with system_lua} || %{with system_lz4} || %{with system_mikkelsen} || %{with system_openexr} || %{with system_png} || %{with system_poly2tri} || %{with system_spirvcross} || %{with system_sqlite} || %{with system_tiff} || %{with system_zlib}
 %global _o3de_channel -experimental
 %else
 %if %{with stabilization}
@@ -446,6 +447,16 @@ BuildRequires:  poly2tri-devel
 %if %{with system_sqlite}
 BuildRequires:  sqlite-devel
 %endif
+%if %{with system_spirvcross}
+# Stage 2 binary-only dependency: o3de-spirv-cross from
+# hellaenergy/o3de-dependencies COPR (sibling project, auto-enabled
+# alongside this one). Ships /usr/bin/spirv-cross. The %install step
+# below symlinks the engine's expected runtime path
+# (Builders/SPIRVCross/spirv-cross under the install prefix) to
+# /usr/bin/spirv-cross, so the engine's asset-build pipeline shells
+# out to the system binary instead of the bundled fetch.
+BuildRequires:  o3de-spirv-cross
+%endif
 %if %{with system_tiff}
 BuildRequires:  libtiff-devel
 %endif
@@ -508,6 +519,9 @@ Requires:       poly2tri
 %endif
 %if %{with system_sqlite}
 Requires:       sqlite-libs
+%endif
+%if %{with system_spirvcross}
+Requires:       o3de-spirv-cross
 %endif
 %if %{with system_lz4}
 Requires:       lz4-libs
@@ -899,6 +913,37 @@ DESTDIR=%{buildroot} cmake --install build --config debug --component DEFAULT_DE
 find %{buildroot}%{o3de_install_prefix} -type f -name '*.py' \
     -exec sed -i '1s|^#!/usr/bin/env python$|#!/usr/bin/env python3|' {} +
 
+%if %{with system_spirvcross}
+# Stage 2 binary-only swap: replace the bundled spirv-cross binary
+# (which the engine fetched from packages.o3de.org during cmake
+# configure and `cmake --install` just copied to its expected runtime
+# path) with a symlink to /usr/bin/spirv-cross from the o3de-spirv-cross
+# COPR package. The engine's runtime path resolution
+# (RHI::ExecuteShaderCompiler in
+# Gems/Atom/RHI/Code/Source/RHI.Edit/Utils.cpp) follows the symlink
+# transparently.
+#
+# Per the audit (2026-05-07,
+# /tmp/o3de-assimp-audit/SPIRVCROSS_INVESTIGATION_NOTES.md) the engine
+# treats spirv-cross as a binary executable shellout, not a library
+# link, so swapping the binary at install time is sufficient. No engine
+# code changes needed.
+#
+# Why not gate the upstream fetch via Patch0006: the bundled package
+# contains a FindSPIRVCross.cmake that creates the 3rdParty::SPIRVCross
+# cmake target the engine needs at configure time; gating the fetch
+# without providing an equivalent target shape would break cmake config.
+# Future cleanup: write a Findspirvcross-system.cmake shim that creates
+# the IMPORTED EXECUTABLE target, gate Patch0006, drop the upstream
+# fetch entirely. For the PoC this overlay approach is enough.
+ln -sf /usr/bin/spirv-cross \
+    %{buildroot}%{o3de_install_prefix}/bin/Linux/profile/Default/Builders/SPIRVCross/spirv-cross
+%if %{with debug}
+ln -sf /usr/bin/spirv-cross \
+    %{buildroot}%{o3de_install_prefix}/bin/Linux/debug/Default/Builders/SPIRVCross/spirv-cross
+%endif
+%endif
+
 # Editor expects engine.json + python relative to the binary's location.
 # Profile binaries are always present; debug only when --with debug.
 ln -s ../../../../python      %{buildroot}%{o3de_install_prefix}/bin/Linux/profile/Default/python
@@ -1106,6 +1151,39 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-38
+- Stage 2 first binary-only swap: activate system_spirvcross. Routes
+  the engine's runtime spirv-cross invocations to the COPR-built
+  /usr/bin/spirv-cross from the o3de-spirv-cross package
+  (sibling COPR project hellaenergy/o3de-dependencies, license-clean
+  Apache-2.0 OR MIT, ✓ green PoC build 10434617 since 2026-05-07).
+- Implementation: %install creates a symlink at the engine's expected
+  runtime path
+  (%{o3de_install_prefix}/bin/Linux/profile/Default/Builders/SPIRVCross/spirv-cross)
+  to /usr/bin/spirv-cross. Engine's path resolution
+  (RHI::ExecuteShaderCompiler in
+  Gems/Atom/RHI/Code/Source/RHI.Edit/Utils.cpp) follows the symlink
+  transparently. Per the 2026-05-07 audit, the engine treats
+  spirv-cross as a binary executable shellout (zero #include lines for
+  SPIRV-Cross C++ headers anywhere in Code/ or Gems/), so binary
+  swap at install time is sufficient -- no engine code changes needed.
+- Why not gate the upstream fetch via Patch0006: the bundled package
+  contains a FindSPIRVCross.cmake that creates the 3rdParty::SPIRVCross
+  cmake target the engine needs at configure time; gating the fetch
+  without an equivalent target shape would break cmake config. Future
+  cleanup: write a Findspirvcross-system.cmake shim that creates the
+  IMPORTED EXECUTABLE target, gate Patch0006, drop the upstream fetch
+  entirely. For the PoC, the install-time overlay is enough to validate
+  the engine -> COPR PoC integration path end-to-end.
+- Spec wires: %bcond_with system_spirvcross, OR-chain extension,
+  conditional BR/Requires o3de-spirv-cross, conditional %install
+  symlink (profile + debug configs).
+- This is the FIRST Stage 2 binary-only swap activation. DXC PoC
+  rev12 (✓ green 2026-05-08) follows the same shape; engine-side
+  glue for it lands as a future commit (same install-overlay
+  approach for /usr/bin/dxc + /usr/lib64/libdxcompiler.so).
+- SBOM bumped 2605.0-37 -> 2605.0-38.
+
 * Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-37
 - Stage 1 12-pack: activate system_assimp. Audit (2026-05-07,
   /tmp/o3de-assimp-audit/INVESTIGATION_NOTES.md) confirmed: engine
