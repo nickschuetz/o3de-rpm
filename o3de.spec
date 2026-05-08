@@ -68,6 +68,7 @@
 %bcond_with system_dxc
 %bcond_with system_expat
 %bcond_with system_freetype
+%bcond_with system_googlebenchmark
 %bcond_with system_libsamplerate
 %bcond_with system_lua
 %bcond_with system_lz4
@@ -131,7 +132,7 @@
 # system_<X> bconds to the experimental OR-chain as the Stage 1
 # migration list grows.
 %global _o3de_channel %{nil}
-%if %{with system_assimp} || %{with system_dxc} || %{with system_expat} || %{with system_freetype} || %{with system_libsamplerate} || %{with system_lua} || %{with system_lz4} || %{with system_mcpp} || %{with system_mikkelsen} || %{with system_openexr} || %{with system_png} || %{with system_poly2tri} || %{with system_spirvcross} || %{with system_sqlite} || %{with system_tiff} || %{with system_zlib}
+%if %{with system_assimp} || %{with system_dxc} || %{with system_expat} || %{with system_freetype} || %{with system_googlebenchmark} || %{with system_libsamplerate} || %{with system_lua} || %{with system_lz4} || %{with system_mcpp} || %{with system_mikkelsen} || %{with system_openexr} || %{with system_png} || %{with system_poly2tri} || %{with system_spirvcross} || %{with system_sqlite} || %{with system_tiff} || %{with system_zlib}
 %global _o3de_channel -experimental
 %else
 %if %{with stabilization}
@@ -359,6 +360,7 @@ Source41:       FindSQLite-system.cmake
 Source42:       Findlibsamplerate-system.cmake
 Source43:       Findassimp-system.cmake
 Source44:       Findmcpp-system.cmake
+Source45:       FindGoogleBenchmark-system.cmake
 
 # Pre-built O3DE 3rdParty bundles — declare a Source10x and a matching
 # bcond above, then add an extract line in %%prep. Templates:
@@ -454,6 +456,19 @@ BuildRequires:  expat-devel
 %if %{with system_freetype}
 BuildRequires:  freetype-devel
 %endif
+%if %{with system_googlebenchmark}
+# Stage 1 swap: replace the bundled googlebenchmark-1.7.0-rev1-linux
+# tarball fetch with Fedora's google-benchmark-devel (currently 1.9.5 in
+# F44). gbench is a build+ship dep of the engine even when our spec sets
+# LY_DISABLE_TEST_MODULES=ON: AzTestRunner + AzTest ship unconditionally
+# so external gem developers can write benchmarks against them. Per
+# project_az_test_runner_architecture.md, this design intent was
+# confirmed by Nick_L on PR #19738. Static->shared linkage variance is
+# expected; Fedora's package ships only libbenchmark.so (no -static
+# subpackage), so AzTestRunner ends up dynamically linked rather than
+# having gbench compiled in.
+BuildRequires:  google-benchmark-devel
+%endif
 %if %{with system_libsamplerate}
 BuildRequires:  libsamplerate-devel
 %endif
@@ -548,6 +563,9 @@ Requires:       expat
 %endif
 %if %{with system_freetype}
 Requires:       freetype
+%endif
+%if %{with system_googlebenchmark}
+Requires:       google-benchmark
 %endif
 %if %{with system_libsamplerate}
 Requires:       libsamplerate
@@ -820,6 +838,9 @@ cp %{SOURCE43} cmake/3rdParty/Findassimp.cmake
 %if %{with system_mcpp}
 cp %{SOURCE44} cmake/3rdParty/Findmcpp.cmake
 %endif
+%if %{with system_googlebenchmark}
+cp %{SOURCE45} cmake/3rdParty/FindGoogleBenchmark.cmake
+%endif
 
 # ── BUILD ────────────────────────────────────────────────────────────────────
 %build
@@ -887,6 +908,7 @@ cmake \
     %{?with_system_assimp:-DLY_USE_SYSTEM_ASSIMP=ON} \
     %{?with_system_expat:-DLY_USE_SYSTEM_EXPAT=ON} \
     %{?with_system_freetype:-DLY_USE_SYSTEM_FREETYPE=ON} \
+    %{?with_system_googlebenchmark:-DLY_USE_SYSTEM_GOOGLEBENCHMARK=ON} \
     %{?with_system_libsamplerate:-DLY_USE_SYSTEM_LIBSAMPLERATE=ON} \
     %{?with_system_lua:-DLY_USE_SYSTEM_LUA=ON} \
     %{?with_system_lz4:-DLY_USE_SYSTEM_LZ4=ON} \
@@ -1237,6 +1259,45 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-43
+- Add system_googlebenchmark Stage 1 swap (PLUMBING ONLY -- bcond is OFF
+  by default; not yet activated in SRPM_EXPERIMENTAL_FLAGS or any chroot
+  config). Replaces what closed PR #19738 was originally trying to
+  achieve, but in the architecturally-correct shape Nick_L pointed us
+  toward: gbench is a build+ship dep of the engine even with
+  LY_DISABLE_TEST_MODULES=ON because AzTestRunner + AzTest ship
+  unconditionally for external gem developers. So the right move isn't
+  to GATE the bundled fetch on test modules; it's to SWAP the bundled
+  fetch for Fedora's google-benchmark-devel.
+- Plumbing wired: %bcond_with system_googlebenchmark, OR-chain extension,
+  Source45 declaration of FindGoogleBenchmark-system.cmake, conditional
+  cp in %prep, BR google-benchmark-devel, Requires google-benchmark,
+  cmake -DLY_USE_SYSTEM_GOOGLEBENCHMARK=ON, Patch0006 hunk gating the
+  ly_associate_package(googlebenchmark-1.7.0-rev1-linux). Hunk header
+  bumped -17,30 +17,82 -> -17,30 +17,86 (+4 lines for the gate).
+- Linkage variance noted: Fedora ships ONLY libbenchmark.so (no -static
+  subpackage), so AzTestRunner ends up dynamically linked rather than
+  having gbench compiled in statically. gbench's API is stable across
+  1.7.0 (engine pin) -> 1.9.5 (Fedora ship) and the consumed surface
+  (BENCHMARK macros + benchmark::internal::InitializeStreams) is core
+  public API, so the variance is acceptable.
+- Activation deferred: this commit is plumbing-only so today's chain-
+  built 15-pack experimental (10437498, validating rename + Patch0010 +
+  system_mcpp) is not affected. The bcond can be flipped on in a
+  separate commit once that build lands green and we've smoke-tested
+  the swap independently.
+- Drift-script side: dep-map.yaml updated to add googlebenchmark to
+  spec_bcond_aliases and to remove it from ignore_engine_packages so
+  the next drift run reclassifies the GoogleBenchmark engine pin as
+  covered-by-spec.
+- Sibling note: the missing-libbenchmark.a-archive bug surfaced 2026-05-08
+  and filed as o3de/o3de#19740 is a SEPARATE issue. With the system swap
+  on, an external gem developer can satisfy benchmark links via Fedora's
+  google-benchmark-devel directly even if the engine's own install set
+  is missing libbenchmark.a -- partial mitigation, but #19740 is still
+  the right fix on the engine side.
+- SBOM bumped 2605.0-42 -> 2605.0-43.
+
 * Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-42
 - Versioned-major rename of the Stage 2 COPR-shipped 3rdParty deps to
   match the engine package's o3deNNNN naming convention:

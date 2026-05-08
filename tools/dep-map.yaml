@@ -79,6 +79,7 @@ spec_bcond_aliases:
   AwsIotDeviceSdkCpp: ""
   DirectXShaderCompilerDxc: dxc
   Freetype: freetype
+  GoogleBenchmark: googlebenchmark
   ISPCTexComp: ""
   Lua: lua
   OpenEXR: openexr
@@ -97,6 +98,7 @@ spec_bcond_aliases:
   azslc: ""
   expat: expat
   freetype: freetype
+  googlebenchmark: googlebenchmark
   libsamplerate: libsamplerate
   lz4: lz4
   mcpp: mcpp
@@ -118,4 +120,3 @@ ignore_engine_packages:
   - glad
   - xxhash
   - cityhash
-  - googlebenchmark

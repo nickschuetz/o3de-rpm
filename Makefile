@@ -116,6 +116,7 @@ spec-parse-experimental:
 	    --define "_with_system_dxc 1" \
 	    --define "_with_system_expat 1" \
 	    --define "_with_system_freetype 1" \
+	    --define "_with_system_googlebenchmark 1" \
 	    --define "_with_system_libsamplerate 1" \
 	    --define "_with_system_lua 1" \
 	    --define "_with_system_mcpp 1" \

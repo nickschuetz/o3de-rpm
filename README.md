@@ -62,7 +62,8 @@ o3de-rpm/
     ├── Findlz4-system.cmake
     ├── FindOpenEXR-system.cmake
     ├── FindImath-system.cmake
-    └── Findmcpp-system.cmake                                   # Stage 2 library-link variant
+    ├── Findmcpp-system.cmake                                   # Stage 2 library-link variant
+    └── FindGoogleBenchmark-system.cmake                        # plumbed; bcond off by default
 ```
 
 `rpmbuild` reads sources from `_sourcedir`, so build invocations point both `_sourcedir` and `_specdir` at this checkout — no copying into `~/rpmbuild/SOURCES`.

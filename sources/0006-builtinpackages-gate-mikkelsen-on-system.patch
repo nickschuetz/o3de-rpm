@@ -46,6 +46,15 @@ Currently gated:
                                walker — same reason as FindZLIB shim)
   - LY_USE_SYSTEM_TIFF      → sources/FindTIFF-system.cmake
   - LY_USE_SYSTEM_FREETYPE  → sources/FindFreetype-system.cmake
+  - LY_USE_SYSTEM_GOOGLEBENCHMARK → sources/FindGoogleBenchmark-system.cmake
+                               (mikkelsen pattern; replaces the bundled
+                               googlebenchmark-1.7.0-rev1-linux fetch with
+                               Fedora's google-benchmark-devel. Static->shared
+                               linkage variance is expected -- Fedora ships
+                               only libbenchmark.so. AzTestRunner + AzTest
+                               consume the gbench API regardless of
+                               LY_DISABLE_TEST_MODULES per the engine's design
+                               intent confirmed by Nick_L on PR #19738.)
   - LY_USE_SYSTEM_LUA       → sources/FindLua-system.cmake
   - LY_USE_SYSTEM_MCPP      → sources/Findmcpp-system.cmake
                                (mikkelsen pattern; library-link variant
@@ -94,7 +103,7 @@ the system library via file path rather than via the stock target.
 ---
 --- a/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake
 +++ b/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake
-@@ -17,30 +17,82 @@
+@@ -17,30 +17,86 @@
  ly_associate_package(PACKAGE_NAME cityhash-1.1-multiplatform                        TARGETS cityhash                    PACKAGE_HASH 0ace9e6f0b2438c5837510032d2d4109125845c0efd7d807f4561ec905512dd2)
  
  # platform-specific:
@@ -134,7 +143,11 @@ the system library via file path rather than via the stock target.
 +else()
 +    find_package(mikkelsen REQUIRED)
 +endif()
++if (NOT LY_USE_SYSTEM_GOOGLEBENCHMARK)
  ly_associate_package(PACKAGE_NAME googlebenchmark-1.7.0-rev1-linux                  TARGETS GoogleBenchmark             PACKAGE_HASH 230e1881e31490820f0bd2059df4741455b52809ac73367e278e1e821ac89c9b)
++else()
++    find_package(GoogleBenchmark REQUIRED)
++endif()
  ly_associate_package(PACKAGE_NAME qt-5.15.2-rev9-linux                              TARGETS Qt                          PACKAGE_HASH db4bcd2003262f4d8c7d7da832758824fc24e53da5895edef743f67a64a5c734)
 +if (NOT LY_USE_SYSTEM_PNG)
  ly_associate_package(PACKAGE_NAME png-1.6.37-rev2-linux                             TARGETS PNG                         PACKAGE_HASH 5c82945a1648905a5c4c5cee30dfb53a01618da1bf58d489610636c7ade5adf5)
