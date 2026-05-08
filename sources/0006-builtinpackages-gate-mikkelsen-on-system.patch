@@ -30,6 +30,12 @@ at a time onto the system version without touching the rest. Default
 
 Currently gated:
 
+  - LY_USE_SYSTEM_ASSIMP    → sources/Findassimp-system.cmake
+                               (mikkelsen pattern; engine consumes assimp
+                               exclusively in Code/Tools/SceneAPI/ as the
+                               3D-model importer; 5.4 → 6.0 major bump
+                               with symbol-presence verified, runtime
+                               FBX behavior pairs with future Tier 6 test)
   - LY_USE_SYSTEM_EXPAT     → sources/Findexpat-system.cmake (case bridge:
                                bundled FindOpenColorIO calls find_package
                                lowercase, cmake stock is FindEXPAT.cmake)
@@ -79,7 +85,7 @@ the system library via file path rather than via the stock target.
 ---
 --- a/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake
 +++ b/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake
-@@ -17,30 +17,74 @@
+@@ -17,30 +17,78 @@
  ly_associate_package(PACKAGE_NAME cityhash-1.1-multiplatform                        TARGETS cityhash                    PACKAGE_HASH 0ace9e6f0b2438c5837510032d2d4109125845c0efd7d807f4561ec905512dd2)
  
  # platform-specific:
@@ -88,7 +94,11 @@ the system library via file path rather than via the stock target.
 +else()
 +    find_package(expat REQUIRED)
 +endif()
++if (NOT LY_USE_SYSTEM_ASSIMP)
  ly_associate_package(PACKAGE_NAME assimp-5.4.3-rev3-linux                           TARGETS assimp                      PACKAGE_HASH 62ddd306d520b9b9ac6f587927ff82a90fb1e9e81d7609d67984551da376cf98)
++else()
++    find_package(assimp REQUIRED)
++endif()
  ly_associate_package(PACKAGE_NAME AWSNativeSDK-1.11.288-rev1-linux                  TARGETS AWSNativeSDK                PACKAGE_HASH 20421c93a5d32feae636c6dc46323b10547f2c5e7e62b63db00319765bb45331)
 +if (NOT LY_USE_SYSTEM_TIFF)
  ly_associate_package(PACKAGE_NAME tiff-4.2.0.15-rev3-linux                          TARGETS TIFF                        PACKAGE_HASH 2377f48b2ebc2d1628d9f65186c881544c92891312abe478a20d10b85877409a)

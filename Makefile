@@ -111,6 +111,7 @@ spec-parse-stabilization:
 spec-parse-experimental:
 	@rpmspec $(RPMBUILD_DEFINES) --define "_with_snapshot 1" \
 	    --define "_with_stabilization 1" \
+	    --define "_with_system_assimp 1" \
 	    --define "_with_system_expat 1" \
 	    --define "_with_system_freetype 1" \
 	    --define "_with_system_libsamplerate 1" \
@@ -160,6 +161,7 @@ srpm-stabilization:
 # reviewer downloads the SRPM directly.
 SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
                           --with stabilization \
+                          --with system_assimp \
                           --with system_expat \
                           --with system_freetype \
                           --with system_libsamplerate \
@@ -171,6 +173,23 @@ SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
                           --with system_poly2tri \
                           --with system_sqlite \
                           --with system_zlib
+# system_assimp added 2026-05-08 (Stage 1 12-pack). Audit (2026-05-07,
+# /tmp/o3de-assimp-audit/INVESTIGATION_NOTES.md) confirmed Stage 1
+# candidate: consumers exclusively in Code/Tools/SceneAPI/ (asset-
+# pipeline 3D-model importer); zero refs in Gems/, zero in core
+# Code/Framework/. All 27 unique types + 7 processing flags engine
+# consumes are public ai* C-API and Assimp::Importer C++ class; 100%
+# present in Fedora 6.0.4 headers. Engine include style
+# `<assimp/header.h>` matches Fedora layout exactly. FBX importer
+# compiled into Fedora's libassimp.so.6.0.4. Findassimp-system.cmake
+# follows mikkelsen pattern (Fedora's assimpConfig.cmake creates
+# `assimp::assimp` as a side-effect IMPORTED target which trips
+# O3DE's runtime walker — same reason as the FindZLIB / FindSQLite
+# shims). Caveat: 5.4 → 6.0 major version delta; symbols verified ✓
+# but runtime FBX-import behavior on tricky inputs is unverified.
+# Mitigation: pair with a Tier 6 integration test that bakes a known
+# FBX from AutomatedTesting Gem (FOLLOW_UPS.md item).
+#
 # system_libsamplerate added 2026-05-08 (Stage 1 11-pack). Audit
 # (2026-05-07, /tmp/o3de-assimp-audit/LIBSAMPLERATE_INVESTIGATION_NOTES.md)
 # confirmed lowest-risk Stage 1 swap to date — engine consumes

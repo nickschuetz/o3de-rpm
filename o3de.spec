@@ -64,6 +64,7 @@
 # binary-build phase doesn't inherit `--with` from the SRPM build —
 # see CONTRIBUTING.md / FEDORA_ROADMAP.md for the gotcha and the
 # Makefile's `make copr-init` target for the chroot-config commands).
+%bcond_with system_assimp
 %bcond_with system_expat
 %bcond_with system_freetype
 %bcond_with system_libsamplerate
@@ -127,7 +128,7 @@
 # system_<X> bconds to the experimental OR-chain as the Stage 1
 # migration list grows.
 %global _o3de_channel %{nil}
-%if %{with system_expat} || %{with system_freetype} || %{with system_libsamplerate} || %{with system_lua} || %{with system_lz4} || %{with system_mikkelsen} || %{with system_openexr} || %{with system_png} || %{with system_poly2tri} || %{with system_sqlite} || %{with system_tiff} || %{with system_zlib}
+%if %{with system_assimp} || %{with system_expat} || %{with system_freetype} || %{with system_libsamplerate} || %{with system_lua} || %{with system_lz4} || %{with system_mikkelsen} || %{with system_openexr} || %{with system_png} || %{with system_poly2tri} || %{with system_sqlite} || %{with system_tiff} || %{with system_zlib}
 %global _o3de_channel -experimental
 %else
 %if %{with stabilization}
@@ -339,6 +340,7 @@ Source39:       FindImath-system.cmake
 Source40:       Findpoly2tri-system.cmake
 Source41:       FindSQLite-system.cmake
 Source42:       Findlibsamplerate-system.cmake
+Source43:       Findassimp-system.cmake
 
 # Pre-built O3DE 3rdParty bundles — declare a Source10x and a matching
 # bcond above, then add an extract line in %%prep. Templates:
@@ -410,6 +412,9 @@ BuildRequires:  vulkan-loader-devel
 # already (zlib-devel, freetype-devel, libpng-devel, libtiff-devel,
 # expat-devel, lua-devel); mikkelsen lives in hellaenergy/o3de-dependencies
 # on COPR until it's accepted into Fedora.
+%if %{with system_assimp}
+BuildRequires:  assimp-devel
+%endif
 %if %{with system_expat}
 BuildRequires:  expat-devel
 %endif
@@ -477,6 +482,9 @@ Recommends:     cmake
 # .so.N dependencies by ldd-walking engine binaries, but listing the
 # package names explicitly is clearer for reviewers (and survives if a
 # future build statically links and the auto-dep disappears).
+%if %{with system_assimp}
+Requires:       assimp
+%endif
 %if %{with system_expat}
 Requires:       expat
 %endif
@@ -584,6 +592,9 @@ Recommends:     vim-common
 # system-mikkelsen swap was promoted in 10422296; user-project build
 # needed mikkelsen-devel that the bundled 3p doesn't satisfy). Same
 # logic applies to the other 4 swaps after 10423836 promotes.
+%if %{with system_assimp}
+Recommends:     assimp-devel
+%endif
 %if %{with system_expat}
 Recommends:     expat-devel
 %endif
@@ -739,6 +750,9 @@ cp %{SOURCE41} cmake/3rdParty/FindSQLite.cmake
 %if %{with system_libsamplerate}
 cp %{SOURCE42} cmake/3rdParty/Findlibsamplerate.cmake
 %endif
+%if %{with system_assimp}
+cp %{SOURCE43} cmake/3rdParty/Findassimp.cmake
+%endif
 
 # ── BUILD ────────────────────────────────────────────────────────────────────
 %build
@@ -803,6 +817,7 @@ cmake \
     -DCMAKE_USE_PTHREADS_INIT=1 \
     -DCMAKE_EXE_LINKER_FLAGS_INIT="-Wl,-z,relro -Wl,-z,now" \
     -DCMAKE_SHARED_LINKER_FLAGS_INIT="-Wl,-z,relro -Wl,-z,now" \
+    %{?with_system_assimp:-DLY_USE_SYSTEM_ASSIMP=ON} \
     %{?with_system_expat:-DLY_USE_SYSTEM_EXPAT=ON} \
     %{?with_system_freetype:-DLY_USE_SYSTEM_FREETYPE=ON} \
     %{?with_system_libsamplerate:-DLY_USE_SYSTEM_LIBSAMPLERATE=ON} \
@@ -1091,6 +1106,37 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-37
+- Stage 1 12-pack: activate system_assimp. Audit (2026-05-07,
+  /tmp/o3de-assimp-audit/INVESTIGATION_NOTES.md) confirmed: engine
+  consumes assimp exclusively in Code/Tools/SceneAPI/SceneBuilder/
+  + Code/Tools/SceneAPI/SDKWrapper/ (asset-pipeline 3D-model importer
+  for FBX/glTF/OBJ/Collada); zero refs in Gems/, zero in core
+  Code/Framework/. All 27 unique types + 7 processing flags consumed
+  are public ai* C-API and Assimp::Importer C++ class; 100% present
+  in Fedora 6.0.4 headers. Engine include style `<assimp/header.h>`
+  matches Fedora's `/usr/include/assimp/header.h` layout exactly —
+  no path-bridging needed. FBX importer compiled into Fedora's
+  libassimp.so.6.0.4 (verified via importer-descriptor strings).
+- Patch0006 extension: add `LY_USE_SYSTEM_ASSIMP` gate hunk for the
+  assimp line in BuiltInPackages_linux_x86_64.cmake.
+- New sources/Findassimp-system.cmake (Source43), mikkelsen pattern
+  (direct find_path/find_library, creates 3rdParty::assimp directly).
+  Necessary because Fedora's `assimpConfig.cmake` creates `assimp::assimp`
+  as a side-effect IMPORTED target which trips O3DE's runtime walker
+  (same reason as ZLIB/SQLite shims). Mikkelsen-pattern shim sidesteps.
+- Caveat: 5.4 → 6.0 major version delta. Symbols verified ✓; runtime
+  FBX-import behavior on tricky inputs (subdivision surfaces, layered
+  animations, embedded textures) is **unverified**. Mitigation: pair
+  with a Tier 6 integration test that bakes a known FBX from
+  AutomatedTesting Gem (FOLLOW_UPS.md item; not in this commit).
+- Spec wires: %bcond_with system_assimp, OR-chain extension, Source43
+  declaration, conditional BR/Recommends assimp-devel, conditional
+  Requires assimp, conditional cmake -DLY_USE_SYSTEM_ASSIMP=ON,
+  conditional %prep cp.
+- License: assimp is BSD-3-Clause, Fedora-acceptable.
+- SBOM bumped 2605.0-36 → 2605.0-37.
+
 * Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-36
 - Stage 1 11-pack: activate system_libsamplerate. Audit (2026-05-07,
   /tmp/o3de-assimp-audit/LIBSAMPLERATE_INVESTIGATION_NOTES.md) confirmed
