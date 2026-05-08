@@ -28,6 +28,12 @@
 #   tests/asset-bake-test.sh --fbx <path>     # bake a specific FBX
 #   tests/asset-bake-test.sh --keep-tmp       # leave the temp project
 #                                             # in place for inspection
+#   tests/asset-bake-test.sh --timeout 600    # set BOTH cold + warm
+#                                             # pass timeouts (back-compat)
+#   tests/asset-bake-test.sh --timeout-cold 600 --timeout-warm 300
+#                                             # set them independently
+#   tests/asset-bake-test.sh --skip-cold-pass # only run warm; assumes
+#                                             # cache from a previous run
 #
 # Prerequisites:
 #   - o3de RPM installed
@@ -65,11 +71,25 @@
 #        SceneAPI uses different log tags. The check passed with
 #        false reassurance.
 #
-#   Decisions for the next iteration of this test (deferred):
+#   Decisions implemented for this iteration of the test:
 #     - Cron default = OFF (workflow_dispatch only) until design-fixed
 #       [DONE 2026-05-08, commit a7c6e18]
-#     - Source research 2026-05-08 surfaced three command-line flags AP
-#       does support (per Code/Tools/AssetProcessor/native/utilities/
+#     - Two-pass design (Option B from earlier analysis) IMPLEMENTED
+#       2026-05-08. The script now runs AP twice in succession: cold
+#       pass populates the cache (some shaders + downstream FBX bakes
+#       fail spuriously per the SRG-merge ordering quirk); warm pass
+#       re-processes incrementally with the cache populated, by which
+#       point the SRG-generated headers (viewsrg.srgi/scenesrg.srgi)
+#       are present and the cube.fbx bake completes. Pass/fail grading
+#       is based on the WARM pass output (default $LOG); the cold pass
+#       log is preserved at $TMPDIR/asset-processor.cold.log for
+#       diagnostic purposes.
+#     - Default timeouts: TIMEOUT_COLD_SECS=600 (cold-pass needs to
+#       reach AP's idle exit on the full ~1041-asset scan; the prior
+#       240s cap was hit too early), TIMEOUT_WARM_SECS=300 (warm pass
+#       only re-processes whatever the cold pass missed).
+#     - Source research surfaced three command-line flags AP does
+#       support (Code/Tools/AssetProcessor/native/utilities/
 #       PlatformConfiguration.cpp:661-670, engine commit 246b46f5):
 #         --scanfolders=<path>       Add a custom scan folder
 #         --noConfigScanFolders      Skip registry-defined scan folders
@@ -78,23 +98,13 @@
 #       (PlatformConfiguration.cpp:692:
 #         ReadGems(..., addGemsConfigs && !noGemScanFolders, ...)
 #       which probably also disables SceneBuilder/AssImp builder
-#       registration -- needs empirical verification before relying on it
-#       for FBX baking.
-#     - Two design candidates for the redesign:
-#       A) Combo approach: --scanfolders=<project>/Assets WITHOUT
-#          --noGemScanFolders (keep builders loaded), giving our project
-#          high scan-priority so cube.fbx processes early. Doesn't
-#          fully solve the cold-cache SRG ordering -- material chain
-#          still depends on shader builds finishing first -- but cuts
-#          processed-asset count from ~1041 to a few hundred.
-#       B) Two-pass approach: run AP cold + warm in succession; check
-#          warm-pass cache results. The SRG ordering quirk is purely
-#          cold-cache -- second pass picks up the missed dependencies.
-#          More resilient to gem-set drift; 240s timeout per pass is
-#          probably enough.
-#     - Recommendation: try B first (test design unchanged, just
-#       wraps the bake in a 2x loop). If still flaky, layer A on top
-#       (scope the scan AND retry).
+#       registration. Not used by the current two-pass design; available
+#       as a fallback if the two-pass shape proves insufficient.
+#     - If the two-pass design still produces flaky results across
+#       chroots, the next layer is to ALSO scope the scan to the
+#       project's Assets/ via --scanfolders=$PROJECT_DIR/Assets (option A
+#       from earlier analysis) WITHOUT --noGemScanFolders so SceneBuilder
+#       still registers as a builder.
 #     - Punt to upstream as a real bug report only if the cold-cache
 #       parallel SRG-dependency ordering reproduces on a fresh
 #       upstream-from-source build (rules out our packaging shape).
@@ -142,22 +152,54 @@ FBX_PATH=""
 KEEP_TMP=0
 GE_VERTEX_COUNT=8        # cube has 8 unique verts; assimp may split to 24.
                          # The test thresholds at >= 8 to allow either.
-TIMEOUT_SECS=240         # AssetProcessorBatch on a 1-FBX project should
-                         # finish in well under 4 min on cold cache.
+# Two-pass design (Option B from the design block above):
+# - Cold pass: AP processes the project from a clean cache. Some shader
+#   builds and downstream FBX bakes spuriously fail because of AP's
+#   parallel-jobs SRG-merge dependency-ordering quirk
+#   (viewsrg.srgi/scenesrg.srgi not yet emitted when ShaderAssetBuilder
+#   runs).
+# - Warm pass: AP re-processes incrementally from the cache the cold
+#   pass left behind. The SRG-generated headers are now present, so
+#   shader builds and the cube.fbx bake complete cleanly. We grade
+#   the test on the WARM pass output.
+# Each pass gets its own log + its own timeout. Defaults sized for the
+# cold-pass observed asset-count (~1041 assets in 240s before timeout
+# on the 7-pack stabilization build); a longer cold timeout lets AP
+# reach idle exit on cold cache, and a shorter warm timeout reflects
+# that the warm pass only re-processes whatever the cold pass missed
+# (typically just the SRG-dependent shaders + their consumers).
+TIMEOUT_COLD_SECS=600    # cold pass: full project scan from empty cache.
+TIMEOUT_WARM_SECS=300    # warm pass: incremental re-process; should be
+                         # well under 5 min once cache is populated.
+TIMEOUT_SECS=             # back-compat: if user passes --timeout, apply
+                         # it to BOTH passes (sets TIMEOUT_COLD/WARM).
+SKIP_COLD_PASS=0         # for debugging/inspection: re-run against an
+                         # already-populated cache without redoing cold.
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --fbx)      FBX_PATH="$2"; shift 2 ;;
-        --fbx=*)    FBX_PATH="${1#*=}"; shift ;;
-        --keep-tmp) KEEP_TMP=1; shift ;;
-        --timeout)  TIMEOUT_SECS="$2"; shift 2 ;;
-        --timeout=*) TIMEOUT_SECS="${1#*=}"; shift ;;
+        --fbx)              FBX_PATH="$2"; shift 2 ;;
+        --fbx=*)            FBX_PATH="${1#*=}"; shift ;;
+        --keep-tmp)         KEEP_TMP=1; shift ;;
+        --timeout)          TIMEOUT_SECS="$2"; shift 2 ;;
+        --timeout=*)        TIMEOUT_SECS="${1#*=}"; shift ;;
+        --timeout-cold)     TIMEOUT_COLD_SECS="$2"; shift 2 ;;
+        --timeout-cold=*)   TIMEOUT_COLD_SECS="${1#*=}"; shift ;;
+        --timeout-warm)     TIMEOUT_WARM_SECS="$2"; shift 2 ;;
+        --timeout-warm=*)   TIMEOUT_WARM_SECS="${1#*=}"; shift ;;
+        --skip-cold-pass)   SKIP_COLD_PASS=1; shift ;;
         -h|--help)
             sed -n '/^# Usage:/,/^$/p' "$0" | sed 's/^# \?//'
             exit 0 ;;
         *) printf 'unknown arg: %s\n' "$1" >&2; exit 2 ;;
     esac
 done
+
+# --timeout (back-compat) sets BOTH cold and warm to the same value.
+if [ -n "$TIMEOUT_SECS" ]; then
+    TIMEOUT_COLD_SECS="$TIMEOUT_SECS"
+    TIMEOUT_WARM_SECS="$TIMEOUT_SECS"
+fi
 
 require() {
     command -v "$1" >/dev/null 2>&1 || {
@@ -269,24 +311,50 @@ EOF
 ok "scratch project created at $PROJECT_DIR"
 
 # ---------------------------------------------------------------------
-# Run the bake. AssetProcessorBatch picks up the project via
-# --project-path; the engine root is auto-detected from the binary's
-# adjacent engine.json symlink (installed by the spec).
-# ---------------------------------------------------------------------
-LOG="$TMPDIR/asset-processor.log"
-printf '\n[bake] running AssetProcessorBatch (timeout %ss)...\n' "$TIMEOUT_SECS"
-START=$(date +%s)
+# Run the bake. Two passes (cold + warm) -- see the design block in the
+# script header for the rationale. AssetProcessorBatch picks up the
+# project via --project-path; the engine root is auto-detected from the
+# binary's adjacent engine.json symlink (installed by the spec).
+#
+# The pass/fail grading below uses $LOG (= warm pass log). The cold pass
+# log is preserved at $COLD_LOG for diagnostic purposes when a regression
+# is suspected.
+#
 # AssetProcessorBatch can return non-zero even when individual assets
 # baked fine (e.g., other unrelated builders complain). We rely on the
 # log + cache contents for the actual pass/fail decision, not the
 # exit code.
-timeout --preserve-status "$TIMEOUT_SECS" "$APB" \
-        --project-path="$PROJECT_DIR" \
-        --platforms=linux \
-        >"$LOG" 2>&1 || :
-END=$(date +%s)
-ELAPSED=$((END - START))
-printf '[bake] finished in %ss (log: %s)\n' "$ELAPSED" "$LOG"
+# ---------------------------------------------------------------------
+COLD_LOG="$TMPDIR/asset-processor.cold.log"
+LOG="$TMPDIR/asset-processor.log"
+
+run_ap_pass() {
+    local label="$1"
+    local timeout_secs="$2"
+    local out_log="$3"
+    local start end elapsed
+    printf '\n[bake:%s] running AssetProcessorBatch (timeout %ss)...\n' \
+        "$label" "$timeout_secs"
+    start=$(date +%s)
+    timeout --preserve-status "$timeout_secs" "$APB" \
+            --project-path="$PROJECT_DIR" \
+            --platforms=linux \
+            >"$out_log" 2>&1 || :
+    end=$(date +%s)
+    elapsed=$((end - start))
+    printf '[bake:%s] finished in %ss (log: %s)\n' "$label" "$elapsed" "$out_log"
+}
+
+if [ "$SKIP_COLD_PASS" -eq 0 ]; then
+    run_ap_pass cold "$TIMEOUT_COLD_SECS" "$COLD_LOG"
+else
+    printf '\n[bake:cold] SKIPPED via --skip-cold-pass (cache must already exist at %s)\n' \
+        "$PROJECT_DIR/Cache"
+    : >"$COLD_LOG"
+fi
+
+run_ap_pass warm "$TIMEOUT_WARM_SECS" "$LOG"
+ELAPSED="(cold + warm; see $COLD_LOG and $LOG)"
 
 # Did the binary even reach asset-processing? An immediate startup
 # failure (missing libvulkan, broken venv, etc.) leaves no asset

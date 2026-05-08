@@ -55,7 +55,7 @@ on:
         default: false
         type: boolean
       run_asset_bake:
-        description: 'Run Tier 7 (FBX asset-bake regression; assimp 5->6 guard) -- opt-in, see notes in tests/asset-bake-test.sh'
+        description: 'Run Tier 7 (FBX asset-bake regression; assimp 5->6 guard) -- opt-in until two-pass design verified in CI'
         required: false
         default: false
         type: boolean
@@ -220,14 +220,15 @@ jobs:
           [ -z "$run_project" ]    && run_project=false
           [ -z "$run_ui" ]         && run_ui=true
           [ -z "$run_ui_editor" ]  && run_ui_editor=false
-          # Tier 7 default OFF: AP cold-cache + parallel-jobs ordering
-          # produces spurious shader/SRG dependency failures on a fresh
-          # bake (viewsrg.srgi / scenesrg.srgi not yet emitted when
-          # ShaderAssetBuilder runs). Cascades into FBX bake failures.
-          # Test infrastructure works; the design needs a two-pass AP
-          # run (or a targeted --scanFolders override) before it's a
-          # reliable cron signal. See tests/asset-bake-test.sh for the
-          # full manual-verification notes from run 25553050229.
+          # Tier 7 default OFF until the two-pass design is verified in
+          # CI. The script (tests/asset-bake-test.sh) was redesigned
+          # 2026-05-08 to run AP twice (cold + warm pass) so the
+          # cold-cache parallel-jobs SRG-merge ordering quirk
+          # (viewsrg.srgi / scenesrg.srgi not yet emitted when
+          # ShaderAssetBuilder runs) gets resolved on the warm pass.
+          # Pass/fail grading uses the warm-pass log. Default flips to
+          # true once a manual workflow_dispatch run confirms the
+          # two-pass shape works end-to-end.
           [ -z "$run_asset_bake" ] && run_asset_bake=false
           {
             echo "run_setup=$run_setup"
