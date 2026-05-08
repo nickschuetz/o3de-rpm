@@ -64,7 +64,7 @@ Bigger day than yesterday. Eleven commits on `main` plus three PoC dirs plus two
 ### Warm
 
 - **Patch0009 PhysX4-hunk timebomb** -- when PR #19726 (PhysX 4 retirement) merges upstream, our `Gems/PhysX/Core/PhysX4/.../PAL_linux.cmake` patch hunk will fail to apply. Mechanical rebase: drop the PhysX4 hunk; regenerate Patch0009 with only the PhysX5 hunk. Not blocked on us. Annotated in three places (spec Patch0009 declaration, patch file header, NvCloth memory).
-- **Drift-detection workflow rollout** -- when the background agent finishes building it, review + commit + manually trigger the first run + verify the sticky-issue mechanism works. Then let the weekly cron fire on its own schedule.
+- ~~**Drift-detection workflow rollout**~~ -- DONE 2026-05-08. Workflow committed (`.github/workflows/check-deps-drift.yml`), first manual trigger uncovered a "dubious ownership" git-config issue (Fedora container + actions/checkout uid mismatch), fixed in commit 360b088 (`safe.directory` step), re-trigger created sticky [issue #9 "Dependency drift report"](https://github.com/nickschuetz/o3de-rpm/issues/9). The 'drift' label was created proactively + applied. Weekly cron at Mondays 06:00 UTC active. The workflow's exit-non-zero-on-drift behavior is intentional (red GHA dot surfaces real action items).
 - **Tier 7 FBX-bake test rollout** -- script in tree as of 2026-05-08; needs first live run against an installed o3de2605 with the 12-pack swaps active to (a) confirm the AssetProcessorBatch invocation pattern works against an RPM-installed engine, (b) shake out the assumptions list in the script header, and (c) reveal any actual assimp 5 to 6 behavior deltas requiring follow-up patch work.
 
 ### Cool (someday/maybe)
