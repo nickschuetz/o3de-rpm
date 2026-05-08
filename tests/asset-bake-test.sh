@@ -67,11 +67,37 @@
 #
 #   Decisions for the next iteration of this test (deferred):
 #     - Cron default = OFF (workflow_dispatch only) until design-fixed
-#     - Investigate AP `--scanFolders` to scope the scan to the test
-#       project's Assets/ dir only; OR
-#     - Run AP twice in succession and check second-pass results; OR
-#     - Punt to upstream as a real bug report (AP cold-cache parallel
-#       SRG-dependency ordering)
+#       [DONE 2026-05-08, commit a7c6e18]
+#     - Source research 2026-05-08 surfaced three command-line flags AP
+#       does support (per Code/Tools/AssetProcessor/native/utilities/
+#       PlatformConfiguration.cpp:661-670, engine commit 246b46f5):
+#         --scanfolders=<path>       Add a custom scan folder
+#         --noConfigScanFolders      Skip registry-defined scan folders
+#         --noGemScanFolders         Skip gem-derived scan folders
+#       Caveat: --noGemScanFolders also gates gem-config loading
+#       (PlatformConfiguration.cpp:692:
+#         ReadGems(..., addGemsConfigs && !noGemScanFolders, ...)
+#       which probably also disables SceneBuilder/AssImp builder
+#       registration -- needs empirical verification before relying on it
+#       for FBX baking.
+#     - Two design candidates for the redesign:
+#       A) Combo approach: --scanfolders=<project>/Assets WITHOUT
+#          --noGemScanFolders (keep builders loaded), giving our project
+#          high scan-priority so cube.fbx processes early. Doesn't
+#          fully solve the cold-cache SRG ordering -- material chain
+#          still depends on shader builds finishing first -- but cuts
+#          processed-asset count from ~1041 to a few hundred.
+#       B) Two-pass approach: run AP cold + warm in succession; check
+#          warm-pass cache results. The SRG ordering quirk is purely
+#          cold-cache -- second pass picks up the missed dependencies.
+#          More resilient to gem-set drift; 240s timeout per pass is
+#          probably enough.
+#     - Recommendation: try B first (test design unchanged, just
+#       wraps the bake in a 2x loop). If still flaky, layer A on top
+#       (scope the scan AND retry).
+#     - Punt to upstream as a real bug report only if the cold-cache
+#       parallel SRG-dependency ordering reproduces on a fresh
+#       upstream-from-source build (rules out our packaging shape).
 #
 #   Items still in the "needs live verification" pile:
 #     1. ./Cache/linux/ layout under project root: confirmed in run.
