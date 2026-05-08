@@ -434,7 +434,7 @@ BuildRequires:  vulkan-loader-devel
 BuildRequires:  assimp-devel
 %endif
 %if %{with system_dxc}
-# Stage 2 binary-only dependency: o3de-dxc-spirv from
+# Stage 2 binary-only dependency: o3de2605-dxc-spirv from
 # hellaenergy/o3de-dependencies COPR (sibling project, auto-enabled
 # alongside this one). Ships /usr/bin/dxc, /usr/bin/dxsc,
 # /usr/lib64/libdxcompiler.so. The %install step below symlinks the
@@ -442,8 +442,11 @@ BuildRequires:  assimp-devel
 # (Builders/DirectXShaderCompiler/{bin/dxc,bin/dxsc,lib/libdxcompiler.so}
 # under the install prefix) to the system locations, so the engine's
 # asset-build pipeline shells out to the system binary instead of the
-# bundled fetch.
-BuildRequires:  o3de-dxc-spirv
+# bundled fetch. Versioned-major naming: o3de2605-dxc-spirv covers the
+# whole 26.05.x line (matches the engine package's o3de2605 convention);
+# a future o3de2610-dxc-spirv co-exists in the same COPR project for
+# the 26.10.x line. Memory: project_o3de_3p_versioning_research.md.
+BuildRequires:  o3de2605-dxc-spirv
 %endif
 %if %{with system_expat}
 BuildRequires:  expat-devel
@@ -455,15 +458,15 @@ BuildRequires:  freetype-devel
 BuildRequires:  libsamplerate-devel
 %endif
 %if %{with system_mcpp}
-# Stage 2 library-link dependency: o3de-mcpp-az from
+# Stage 2 library-link dependency: o3de2605-mcpp-az from
 # hellaenergy/o3de-dependencies COPR (sibling project, auto-enabled
 # alongside this one). Library-link variant of the DXC-class binary-only
 # pattern. Ships /usr/lib64/libmcpp.so + /usr/include/mcpp_lib.h via the
 # -devel subpackage; the engine #includes <mcpp_lib.h> and links into
 # the binary at build time. License-clean rebuild of upstream mcpp 2.7.2
 # (BSD-2-Clause, abandonware-class) + o3de/3p-package-source's _az.2
-# patch series.
-BuildRequires:  o3de-mcpp-az-devel
+# patch series. Versioned-major naming -- see system_dxc block above.
+BuildRequires:  o3de2605-mcpp-az-devel
 %endif
 %if %{with system_lua}
 BuildRequires:  lua-devel
@@ -488,14 +491,15 @@ BuildRequires:  poly2tri-devel
 BuildRequires:  sqlite-devel
 %endif
 %if %{with system_spirvcross}
-# Stage 2 binary-only dependency: o3de-spirv-cross from
+# Stage 2 binary-only dependency: o3de2605-spirv-cross from
 # hellaenergy/o3de-dependencies COPR (sibling project, auto-enabled
 # alongside this one). Ships /usr/bin/spirv-cross. The %install step
 # below symlinks the engine's expected runtime path
 # (Builders/SPIRVCross/spirv-cross under the install prefix) to
 # /usr/bin/spirv-cross, so the engine's asset-build pipeline shells
-# out to the system binary instead of the bundled fetch.
-BuildRequires:  o3de-spirv-cross
+# out to the system binary instead of the bundled fetch. Versioned-major
+# naming -- see system_dxc block above.
+BuildRequires:  o3de2605-spirv-cross
 %endif
 %if %{with system_tiff}
 BuildRequires:  libtiff-devel
@@ -537,7 +541,7 @@ Recommends:     cmake
 Requires:       assimp
 %endif
 %if %{with system_dxc}
-Requires:       o3de-dxc-spirv
+Requires:       o3de2605-dxc-spirv
 %endif
 %if %{with system_expat}
 Requires:       expat
@@ -549,7 +553,7 @@ Requires:       freetype
 Requires:       libsamplerate
 %endif
 %if %{with system_mcpp}
-Requires:       o3de-mcpp-az
+Requires:       o3de2605-mcpp-az
 %endif
 %if %{with system_lua}
 Requires:       lua-libs
@@ -567,7 +571,7 @@ Requires:       poly2tri
 Requires:       sqlite-libs
 %endif
 %if %{with system_spirvcross}
-Requires:       o3de-spirv-cross
+Requires:       o3de2605-spirv-cross
 %endif
 %if %{with system_lz4}
 Requires:       lz4-libs
@@ -967,8 +971,8 @@ find %{buildroot}%{o3de_install_prefix} -type f -name '*.py' \
 # Stage 2 binary-only swap: replace the bundled spirv-cross binary
 # (which the engine fetched from packages.o3de.org during cmake
 # configure and `cmake --install` just copied to its expected runtime
-# path) with a symlink to /usr/bin/spirv-cross from the o3de-spirv-cross
-# COPR package. The engine's runtime path resolution
+# path) with a symlink to /usr/bin/spirv-cross from the
+# o3de2605-spirv-cross COPR package. The engine's runtime path resolution
 # (RHI::ExecuteShaderCompiler in
 # Gems/Atom/RHI/Code/Source/RHI.Edit/Utils.cpp) follows the symlink
 # transparently.
@@ -998,7 +1002,7 @@ ln -sf /usr/bin/spirv-cross \
 # Stage 2 binary-only swap: same shape as system_spirvcross above, but
 # DXC has three install paths to overlay (dxc, dxsc, libdxcompiler.so).
 # COPR-built /usr/bin/dxc + /usr/bin/dxsc + /usr/lib64/libdxcompiler.so
-# from the o3de-dxc-spirv package (license-clean Linux/SPIR-V-only
+# from the o3de2605-dxc-spirv package (license-clean Linux/SPIR-V-only
 # rebuild from o3de/DirectXShaderCompiler at tag release-1.8.2505.1-o3de;
 # ✓ green PoC build 10435628 since 2026-05-08; functional verification
 # confirmed `dxc -spirv -T ps_6_0 -E main shader.hlsl` produces valid
@@ -1233,6 +1237,36 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-42
+- Versioned-major rename of the Stage 2 COPR-shipped 3rdParty deps to
+  match the engine package's o3deNNNN naming convention:
+    o3de-spirv-cross  -> o3de2605-spirv-cross    (rev2 -> rev3)
+    o3de-dxc-spirv    -> o3de2605-dxc-spirv      (rev12 -> rev13)
+    o3de-mcpp-az      -> o3de2605-mcpp-az        (rev7 -> rev8)
+    o3de-mcpp-az-devel -> o3de2605-mcpp-az-devel
+  Each renamed package carries Obsoletes + Provides headers so dnf
+  upgrade transitions seamlessly from PoC iterations on the unversioned
+  names. Same shape as Fedora's postgresql10/postgresql10-server family
+  pattern, mirroring upstream's CDN model where multiple engine-major
+  lines pin different package versions side-by-side.
+- Engine-side spec updates: BuildRequires + Requires lines for the three
+  Stage 2 deps now reference the o3de2605-* names. The Find shims
+  (Findmcpp-system.cmake) are unchanged -- they query system paths
+  (/usr/include, /usr/lib64), not COPR package names.
+- Why now: the three Stage 2 PoCs landed within the past 36 hours
+  (spirv-cross 2026-05-07, dxc + mcpp 2026-05-08); naming convention had
+  not yet hardened anywhere. Cost of changing now (~10 testers, three
+  packages, ~50 min runner time) is dramatically lower than after 26.10
+  ships and forces a hot migration. Empirical research + decision
+  rationale captured in memory note
+  `project_o3de_3p_versioning_research.md`.
+- 26.05.x point releases (26.05.0, 26.05.1, ...) all share the same
+  o3de2605-<dep> packages. Engine-team's empirical 3p-pin update cadence
+  is a few times per year, not per release; within-major drift is
+  near-zero. Same as how postgresql10 covers 10.0 through 10.23 over
+  its support window.
+- SBOM bumped 2605.0-41 -> 2605.0-42.
+
 * Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-41
 - Patch0010: Lua 5.5 lua_newstate signature compat. Lua 5.5 (released
   ahead of Fedora 45) added a required third `seed` parameter to
