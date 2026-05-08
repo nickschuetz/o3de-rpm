@@ -72,6 +72,7 @@
 %bcond_with system_openexr
 %bcond_with system_png
 %bcond_with system_poly2tri
+%bcond_with system_sqlite
 %bcond_with system_tiff
 %bcond_with system_zlib
 
@@ -125,7 +126,7 @@
 # system_<X> bconds to the experimental OR-chain as the Stage 1
 # migration list grows.
 %global _o3de_channel %{nil}
-%if %{with system_expat} || %{with system_freetype} || %{with system_lua} || %{with system_lz4} || %{with system_mikkelsen} || %{with system_openexr} || %{with system_png} || %{with system_poly2tri} || %{with system_tiff} || %{with system_zlib}
+%if %{with system_expat} || %{with system_freetype} || %{with system_lua} || %{with system_lz4} || %{with system_mikkelsen} || %{with system_openexr} || %{with system_png} || %{with system_poly2tri} || %{with system_sqlite} || %{with system_tiff} || %{with system_zlib}
 %global _o3de_channel -experimental
 %else
 %if %{with stabilization}
@@ -335,6 +336,7 @@ Source37:       Findlz4-system.cmake
 Source38:       FindOpenEXR-system.cmake
 Source39:       FindImath-system.cmake
 Source40:       Findpoly2tri-system.cmake
+Source41:       FindSQLite-system.cmake
 
 # Pre-built O3DE 3rdParty bundles — declare a Source10x and a matching
 # bcond above, then add an extract line in %%prep. Templates:
@@ -431,6 +433,9 @@ BuildRequires:  libpng-devel
 %if %{with system_poly2tri}
 BuildRequires:  poly2tri-devel
 %endif
+%if %{with system_sqlite}
+BuildRequires:  sqlite-devel
+%endif
 %if %{with system_tiff}
 BuildRequires:  libtiff-devel
 %endif
@@ -484,6 +489,9 @@ Requires:       libpng
 %endif
 %if %{with system_poly2tri}
 Requires:       poly2tri
+%endif
+%if %{with system_sqlite}
+Requires:       sqlite-libs
 %endif
 %if %{with system_lz4}
 Requires:       lz4-libs
@@ -589,6 +597,9 @@ Recommends:     libpng-devel
 %endif
 %if %{with system_poly2tri}
 Recommends:     poly2tri-devel
+%endif
+%if %{with system_sqlite}
+Recommends:     sqlite-devel
 %endif
 %if %{with system_tiff}
 Recommends:     libtiff-devel
@@ -711,6 +722,9 @@ cp %{SOURCE39} cmake/3rdParty/FindImath.cmake
 %if %{with system_poly2tri}
 cp %{SOURCE40} cmake/3rdParty/Findpoly2tri.cmake
 %endif
+%if %{with system_sqlite}
+cp %{SOURCE41} cmake/3rdParty/FindSQLite.cmake
+%endif
 
 # ── BUILD ────────────────────────────────────────────────────────────────────
 %build
@@ -783,6 +797,7 @@ cmake \
     %{?with_system_openexr:-DLY_USE_SYSTEM_OPENEXR=ON} \
     %{?with_system_png:-DLY_USE_SYSTEM_PNG=ON} \
     %{?with_system_poly2tri:-DLY_USE_SYSTEM_POLY2TRI=ON} \
+    %{?with_system_sqlite:-DLY_USE_SYSTEM_SQLITE=ON} \
     %{?with_system_tiff:-DLY_USE_SYSTEM_TIFF=ON} \
     %{?with_system_zlib:-DLY_USE_SYSTEM_ZLIB=ON}
 
@@ -1061,6 +1076,36 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-35
+- Stage 1 10-pack: activate system_sqlite. Audit (2026-05-07) confirmed
+  SQLite is the cleanest Stage 1 candidate to date — consumers
+  exclusively in Code/Framework/AzToolsFramework/SQLite/ + Code/Tools/
+  AssetProcessor/AssetDatabase/ (editor/tool framework, not runtime
+  engine). All 29 unique sqlite3_* symbols are core public C-API; 100%
+  present in Fedora 3.51.2 headers. Zero extension-only API used
+  (no FTS5/RTREE/JSON1/SEE). 3.37 → 3.51 is point-version increment
+  within SQLite's 21-year ABI-stable major (since 3.0.0, 2004).
+- Patch0006 extension: add `LY_USE_SYSTEM_SQLITE` gate hunk for the
+  SQLite line in BuiltInPackages_linux_x86_64.cmake. Same shape as the
+  existing 9 gates (mikkelsen, expat, zlib, freetype, png, tiff, lua,
+  lz4, openexr — and via Patch0009 as a sibling, poly2tri).
+- New FindSQLite-system.cmake (Source41): mikkelsen pattern — direct
+  find_path/find_library, creates 3rdParty::SQLite directly. Necessary
+  because cmake's stock FindSQLite3.cmake creates SQLite::SQLite3 as a
+  side-effect IMPORTED target which trips O3DE's runtime walker (same
+  pattern as FindZLIB shim). Engine consumes `3rdParty::SQLite` from
+  Code/Framework/AzToolsFramework/CMakeLists.txt:54 and
+  Code/Tools/AssetProcessor/CMakeLists.txt:37.
+- Spec wires: `%bcond_with system_sqlite`, OR-chain extension, Source41
+  declaration, conditional BR/Recommends `sqlite-devel`, conditional
+  Requires `sqlite-libs`, conditional `cmake -DLY_USE_SYSTEM_SQLITE=ON`,
+  conditional %prep cp.
+- Engine has an exact-match `sqlite3_libversion_number() ==
+  SQLITE_VERSION_NUMBER` runtime assertion in
+  AzToolsFramework/SQLite/SQLiteConnection.cpp — automatically satisfied
+  by paired system header+library; not a blocker.
+- SBOM bumped 2605.0-34 → 2605.0-35. Channel-marker OR-chain extended.
+
 * Thu May 07 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-34
 - Docs sharpen: BUNDLED_LIBRARIES.md absorbs the SQLite + libsamplerate +
   SPIRVCross audit findings (2026-05-07). No code/build changes; spec

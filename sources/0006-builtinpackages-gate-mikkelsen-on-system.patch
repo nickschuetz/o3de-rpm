@@ -33,6 +33,11 @@ Currently gated:
   - LY_USE_SYSTEM_EXPAT     → sources/Findexpat-system.cmake (case bridge:
                                bundled FindOpenColorIO calls find_package
                                lowercase, cmake stock is FindEXPAT.cmake)
+  - LY_USE_SYSTEM_SQLITE    → sources/FindSQLite-system.cmake
+                               (mikkelsen pattern; cmake's stock
+                               FindSQLite3.cmake creates SQLite::SQLite3
+                               which is incompatible with O3DE's runtime
+                               walker — same reason as FindZLIB shim)
   - LY_USE_SYSTEM_TIFF      → sources/FindTIFF-system.cmake
   - LY_USE_SYSTEM_FREETYPE  → sources/FindFreetype-system.cmake
   - LY_USE_SYSTEM_LUA       → sources/FindLua-system.cmake
@@ -69,7 +74,7 @@ the system library via file path rather than via the stock target.
 ---
 --- a/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake
 +++ b/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake
-@@ -17,29 +17,65 @@
+@@ -17,30 +17,70 @@
  ly_associate_package(PACKAGE_NAME cityhash-1.1-multiplatform                        TARGETS cityhash                    PACKAGE_HASH 0ace9e6f0b2438c5837510032d2d4109125845c0efd7d807f4561ec905512dd2)
  
  # platform-specific:
@@ -133,5 +138,10 @@ the system library via file path rather than via the stock target.
 +    find_package(lz4 REQUIRED)
 +endif()
  ly_associate_package(PACKAGE_NAME pyside2-5.15.2.1-py3.10-rev7-linux                TARGETS pyside2                     PACKAGE_HASH bae4598cb5579d835e90e8435181bb3c5222449ce9c2665143a618dac6122be7)
++if (NOT LY_USE_SYSTEM_SQLITE)
  ly_associate_package(PACKAGE_NAME SQLite-3.37.2-rev1-linux                          TARGETS SQLite                      PACKAGE_HASH bee80d6c6db3e312c1f4f089c90894436ea9c9b74d67256d8c1fb00d4d81fe46)
++else()
++    find_package(SQLite REQUIRED)
++endif()
  ly_associate_package(PACKAGE_NAME AwsIotDeviceSdkCpp-1.15.2-rev1-linux              TARGETS AwsIotDeviceSdkCpp          PACKAGE_HASH 83fc1711404d3e5b2faabb1134e97cc92b748d8b87ff4ea99599d8c750b8eff0)
+ ly_associate_package(PACKAGE_NAME vulkan-validationlayers-1.2.198-rev1-linux        TARGETS vulkan-validationlayers     PACKAGE_HASH 9195c7959695bcbcd1bc1dc5c425c14639a759733b3abe2ffa87eb3915b12c71)

@@ -117,6 +117,7 @@ spec-parse-experimental:
 	    --define "_with_system_mikkelsen 1" \
 	    --define "_with_system_png 1" \
 	    --define "_with_system_poly2tri 1" \
+	    --define "_with_system_sqlite 1" \
 	    --define "_with_system_tiff 1" \
 	    --define "_with_system_zlib 1" -q o3de.spec
 
@@ -166,7 +167,23 @@ SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
                           --with system_openexr \
                           --with system_png \
                           --with system_poly2tri \
+                          --with system_sqlite \
                           --with system_zlib
+# system_sqlite added 2026-05-08 (Stage 1 10-pack). Audit (2026-05-07,
+# /tmp/o3de-assimp-audit/SQLITE_INVESTIGATION_NOTES.md) found SQLite is
+# the cleanest Stage 1 candidate to date: consumers exclusively in
+# Code/Framework/AzToolsFramework/SQLite/ + Code/Tools/AssetProcessor/
+# AssetDatabase/ (editor/tool framework, not runtime engine); all 29
+# unique sqlite3_* symbols are core public C-API and 100% present in
+# Fedora 3.51.2 headers; zero extension-only API used (no FTS5/RTREE/
+# JSON1/SEE) so Fedora's standard sqlite-libs is sufficient; 3.37 → 3.51
+# is point-version increment within SQLite's 21-year ABI-stable major.
+# FindSQLite-system.cmake follows the mikkelsen pattern (direct
+# find_path/find_library, creates 3rdParty::SQLite directly) — necessary
+# because cmake's stock FindSQLite3.cmake creates SQLite::SQLite3 as a
+# side-effect IMPORTED target which trips O3DE's runtime walker (same
+# reason as FindZLIB shim).
+#
 # system_poly2tri added 2026-05-07 (Stage 1 8-pack). Audit (issue #7,
 # 2026-05-07) found poly2tri consumers exclusively in Gems/PhysX/
 # (Editor's PolygonPrismMeshUtils for polygon-prism shape colliders),
