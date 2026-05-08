@@ -331,6 +331,19 @@ Patch0009:      0009-physx-pal-gate-poly2tri-on-system.patch
 # will hit it.
 Patch0010:      0010-azcore-script-lua-5-5-newstate-signature-compat.patch
 
+# Sibling Lua 5.5 compat fix to Patch0010, but in a different file
+# (Code/Tools/LuaIDE/Source/LUA/WatchesPanel.cpp). Lua 5.5 dropped the
+# LUA_NUMTAGS public macro that 5.4 retained as a deprecation-alias for
+# LUA_NUMTYPES; this patch restores the alias on 5.5+ via a one-line
+# `#define LUA_NUMTAGS LUA_NUMTYPES` near the lua.h include so the two
+# existing call sites compile unchanged. Behavior-preserving on Lua 5.4
+# (the #if branch evaluates false and the upstream alias is in scope).
+# Caught on COPR build 10437498 (o3de-experimental, fedora-rawhide
+# chroot, 2026-05-08); Patch0010 alone wasn't sufficient because the
+# LuaIDE compile happens later in the build than ScriptContext.cpp.
+# Memory: project_lua_5_5_newstate_break.md.
+Patch0011:      0011-luaide-watchespanel-lua-5-5-numtags-compat.patch
+
 # Stage 1 system-library find modules. Copied into cmake/3rdParty/
 # during %%prep when the matching `--with system_<lib>` is enabled.
 # Most Stage 1 swaps don't need a custom find module (cmake ships
@@ -1259,6 +1272,33 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-44
+- Patch0011: Lua 5.5 LUA_NUMTAGS compat fix in
+  Code/Tools/LuaIDE/Source/LUA/WatchesPanel.cpp. Sibling to Patch0010
+  (lua_newstate signature) but covers a separate Lua 5.5 API break:
+  the LUA_NUMTAGS public macro was dropped in 5.5 (had been retained
+  in 5.4 as a deprecation-alias for LUA_NUMTYPES). WatchesPanel.cpp
+  references LUA_NUMTAGS at two sites (a `c > LUA_NUMTAGS` bounds
+  check and a `static_assert` on typeStringLUT size). Patch adds a
+  one-line `#define LUA_NUMTAGS LUA_NUMTYPES` shim guarded on
+  `#if LUA_VERSION_NUM >= 505 && !defined(LUA_NUMTAGS)` right after
+  the lua.h include, so existing call sites compile unchanged.
+- Caught on COPR build 10437498 (o3de-experimental, fedora-rawhide
+  chroot, 2026-05-08; the chain-built validation run for the Stage 2
+  rename + Patch0010 + system_mcpp). Patch0010 covered the engine
+  link in ScriptContext.cpp but the build progressed past that to
+  trip on this LuaIDE compile site. F44 chroot of the same build
+  separately failed with "Build root is locked by another process"
+  (transient COPR/mock infrastructure flake; not our code) -- the
+  next experimental build should succeed on F44 cleanly.
+- Caveat: there may be MORE Lua 5.5 break sites in the engine that
+  we haven't tripped on yet because they live in even-later-built
+  source files. Right way to find them all is `grep -rn LUA_NUMTAGS
+  Code/ Gems/` against the engine source on a CS10/F45-class
+  lua-devel-5.5 sysroot. Phase 2 (CS10 iteration) work; not blocking
+  this fix.
+- SBOM bumped 2605.0-43 -> 2605.0-44.
+
 * Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-43
 - Add system_googlebenchmark Stage 1 swap (PLUMBING ONLY -- bcond is OFF
   by default; not yet activated in SRPM_EXPERIMENTAL_FLAGS or any chroot

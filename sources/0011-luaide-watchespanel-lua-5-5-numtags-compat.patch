@@ -1,0 +1,59 @@
+From: Nick Schuetz <nschuetz@redhat.com>
+Subject: [PATCH] LuaIDE/WatchesPanel: LUA_NUMTAGS compat for Lua 5.5
+
+Sibling fix to Patch0010 (lua_newstate signature). Lua 5.5 dropped
+the `LUA_NUMTAGS` public macro; it had been retained in 5.4 as a
+deprecation-alias for `LUA_NUMTYPES` in `lua.h`. Engine code in
+`Code/Tools/LuaIDE/Source/LUA/WatchesPanel.cpp` references
+`LUA_NUMTAGS` at two sites (lines 834 + 838 -- the `c > LUA_NUMTAGS`
+bounds check and the `static_assert` checking the typeStringLUT size
+matches the type-tag count). Both fail to compile on Lua 5.5+.
+
+Caught on COPR build 10437498 (o3de-experimental, fedora-rawhide
+chroot, 2026-05-08): the build progressed past the ScriptContext.cpp
+site (covered by Patch0010) only to fail later at the LuaIDE compile
+with `error: use of undeclared identifier 'LUA_NUMTAGS'`. Patch0010
+was load-bearing but incomplete.
+
+Approach: add a one-line compat shim right after `<AzCore/Script/lua/
+lua.h>` is included. On Lua 5.5+ define `LUA_NUMTAGS` as an alias for
+the still-present `LUA_NUMTYPES` (which has the same semantic value).
+On Lua 5.4 the `#if` branch evaluates false and the engine's existing
+references to `LUA_NUMTAGS` (which lua.h provides as the upstream
+alias) compile unchanged.
+
+This is sibling to Patch0010 in the same way they're both Lua 5.5
+compat fixes, but they target different files and different API
+surfaces (call-site signature drift vs. removed compat macro). Worth
+pitching upstream alongside Patch0010 once the patch shape settles
+across both -- benefits every distro on the rawhide Lua 5.5
+trajectory (Fedora 45+, Debian unstable, Alpine edge, Arch).
+
+Caveat: there may be MORE Lua 5.5 break sites in the engine that we
+haven't tripped on yet because they live in even-later-built source
+files. The right way to find them all is `grep -rn LUA_NUMTAGS Code/
+Gems/` against the engine source on a CS10/F45-class lua-devel-5.5
+sysroot. Phase 2 work; not blocking this fix.
+
+Memory note: project_lua_5_5_newstate_break.md (existing) updated
+to reference this patch as the second-of-N Lua 5.5 compat fixes.
+
+Signed-off-by: Nick Schuetz <nschuetz@redhat.com>
+---
+--- a/Code/Tools/LuaIDE/Source/LUA/WatchesPanel.cpp
++++ b/Code/Tools/LuaIDE/Source/LUA/WatchesPanel.cpp
+@@ -12,6 +12,12 @@
+ #include "LUAEditorDebuggerMessages.h"
+ #include <AzCore/Casting/numeric_cast.h>
+ #include <AzCore/Script/lua/lua.h>
++
++// Lua 5.5 dropped the LUA_NUMTAGS public macro that 5.4 retained as a
++// deprecation-alias for LUA_NUMTYPES. Restore the alias on 5.5+ so the
++// existing call sites below compile unchanged. Behavior-preserving on 5.4.
++#if LUA_VERSION_NUM >= 505 && !defined(LUA_NUMTAGS)
++#  define LUA_NUMTAGS LUA_NUMTYPES
++#endif
++
+ #include <Source/LUA/moc_WatchesPanel.cpp>
+
+ #include <QSortFilterProxyModel>
