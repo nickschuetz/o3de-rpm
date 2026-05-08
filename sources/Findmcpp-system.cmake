@@ -12,7 +12,7 @@
 # call `mcpp_lib_main()`, `mcpp_set_out_func()`,
 # `mcpp_set_report_include_callback()` against the linked-in library.
 #
-# Source: hellaenergy/o3de-dependencies COPR `o3de-mcpp-az-devel`
+# Source: hellaenergy/o3de-dependencies COPR `o3de2605-mcpp-az-devel`
 # (license-clean rebuild of upstream mcpp 2.7.2 + o3de/3p-package-source's
 # `_az.2` 566-line patch series; ✓ green PoC build 10436752 since
 # 2026-05-08, both F44 + rawhide). Ships:
@@ -54,7 +54,7 @@ if (NOT MCPP_SYSTEM_INCLUDE_DIR OR NOT MCPP_SYSTEM_LIBRARY)
     message(FATAL_ERROR
         "Findmcpp (system stub): could not locate mcpp_lib.h "
         "(${MCPP_SYSTEM_INCLUDE_DIR}) and/or libmcpp "
-        "(${MCPP_SYSTEM_LIBRARY}). Install o3de-mcpp-az-devel from the "
+        "(${MCPP_SYSTEM_LIBRARY}). Install o3de2605-mcpp-az-devel from the "
         "hellaenergy/o3de-dependencies COPR project, or set "
         "LY_USE_SYSTEM_MCPP=OFF to fall back to the upstream fetcher.")
 endif()

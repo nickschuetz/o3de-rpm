@@ -60,7 +60,7 @@ Currently gated:
                                (mikkelsen pattern; library-link variant
                                of the DXC-class Stage 2 swap. Source is
                                hellaenergy/o3de-dependencies COPR's
-                               o3de-mcpp-az-devel, a license-clean
+                               o3de2605-mcpp-az-devel, a license-clean
                                rebuild of upstream mcpp 2.7.2 + the
                                o3de/3p-package-source _az.2 patch series.
                                No cmake-stock find module exists since
