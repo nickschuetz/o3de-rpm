@@ -63,10 +63,7 @@ Per `feedback_keep_docs_current.md`: every spec/sources change → updates READM
 
 ### Hot (could land in 1-2 hours)
 
-- **DXC PoC rev12** — pick one of two fixes for the SPIRV-Tools transitive link:
-  - **Option A**: `set_target_properties(SPIRV-Tools-opt PROPERTIES INTERFACE_LINK_LIBRARIES SPIRV-Tools)` instead of `target_link_libraries(... INTERFACE)`. Smaller diff to existing Patch0001.
-  - **Option B**: Patch0002 against `tools/clang/lib/SPIRV/CMakeLists.txt:43` adding `SPIRV-Tools` directly to clangSPIRV's link list. More targeted — hits the specific cmake target that needs the symbol.
-  - Recommend B; the failure mode showed cmake's IMPORTED-target `INTERFACE_LINK_LIBRARIES` propagation was unreliable.
+- ~~**DXC PoC rev12**~~ — **DONE 2026-05-08**, ✓ green via Patch0002 (option B). `o3de-dxc-spirv-1.8.2505.1-1.rev12` built and signed; functionally verified (`dxc -spirv` produces valid SPIR-V output). Build 10435628.
 
 - **Patch0009 PhysX4-hunk timebomb** — when PR #19726 (PhysX 4 retirement) merges, our `Gems/PhysX/Core/PhysX4/.../PAL_linux.cmake` patch hunk will fail to apply. Mechanical rebase: drop the PhysX4 hunk; regenerate Patch0009 with only the PhysX5 hunk. **Not blocked on us** — fires when upstream merges (could be days, could be weeks; alex7900's `upgrade-physx-gem` migration-tool edge case may push out the merge). Annotated in three places (spec Patch0009 declaration, patch file header, NvCloth memory) so future-me can't miss it.
 
