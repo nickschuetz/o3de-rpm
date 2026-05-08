@@ -84,6 +84,8 @@ Per `feedback_keep_docs_current.md`: every spec/sources change → updates READM
 
 ### Cool (someday/maybe)
 
+- **`o3de-mcpp-az` PoC** — sibling to DXC + SPIRV-Cross PoCs, but library-link instead of binary-shellout. License-clean COPR rebuild from upstream mcpp 2.7.2 (BSD-2-Clause, abandonware-class) + apply the `_az.2` patches. Output: `libmcpp-az.so` + `mcpp_lib.h` (engine `#include`s the lib header and calls `mcpp_lib_main()` etc.). Defer until DXC PoC lands; pattern proven, just bandwidth-bound. Audit added 2026-05-08, see `project_mcpp_architectural_choice.md` (Update 2026-05-08 section).
+
 - **Tier 6 integration test for assimp** — bake a known FBX from AutomatedTesting Gem and smoke-test the resulting `.azmodel` + `.azmaterial` for non-emptiness. Pairs with assimp activation to catch 5→6 behavior deltas.
 - **F43 chroot cleanup in hellaenergy/o3de-dependencies** — F43 hit EOL April 2025; per `project_target_distros.md` we're F44+ / RHEL 10+ only. The DXC PoC F43 chroot keeps failing at SRPM-build because of EOL package availability issues. Drop the F43 chroot from the project.
 - **`o3de-dependencies` COPR metadata sync** — we don't currently manage that project's description/instructions from this repo. Could add `copr-metadata/o3de-dependencies/` if it would help users discover what's in there (Qt5-rev9, PhysX, AWS SDK, mikkelsen, in-flight DXC + SPIRV-Cross PoCs, etc.).
