@@ -70,7 +70,7 @@ Bigger day than yesterday. Eleven commits on `main` plus three PoC dirs plus two
 ### Cool (someday/maybe)
 
 - **Drift-detection findings act-on** -- the audit research agent today identified 5 drift items in `o3de-dependencies` (qt5 5.15.1 vs .2; AWSNativeSDK .361 vs .288; astc-encoder 5.3.0 vs 3.2; ISPCTexComp commit 691513b vs 36b80aa; mikkelsen label form). Plus 2 cruft (aws-gamelift, PhysX no longer referenced on Linux). When the drift-detection workflow lands and the sticky issue surfaces these, decide which to fix.
-- **F43 cleanup verification** -- F43 dropped today from `o3de-dependencies`. The `o3de-experimental` and other engine projects also have F43? (Check + drop if yes.)
+- ~~**F43 cleanup verification**~~ -- DONE 2026-05-08. Audited all 4 engine projects (`o3de`, `o3de-stabilization`, `o3de-snapshot`, `o3de-experimental`); all already F44 + rawhide only (plus `o3de` has `epel-10-x86_64` per RHEL 10+ rule). No action needed.
 - **CryCommon int64/uint64 C99 migration** -- Nick_L 2026-05-05 said upstream is "open" to this; if an engine PR lands, `system_tiff` activates automatically. Not blocking; pure optionality for someone else to pick up.
 - **Engine-side cmake-gate cleanup for Stage 2 swaps** -- both system_spirvcross and system_dxc currently use install-time symlink overlays (the bundled fetches still happen at cmake-config time, then we overlay). Cleaner long-term: write Find shims that create IMPORTED EXECUTABLE / IMPORTED SHARED targets pointing at /usr/bin/, then gate Patch0006 to skip the upstream fetch entirely. Saves the cmake-time fetch.
 

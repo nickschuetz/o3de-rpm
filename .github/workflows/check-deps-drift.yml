@@ -36,6 +36,15 @@ jobs:
 
       - uses: actions/checkout@v4
 
+      - name: Configure git safe.directory for the checkout
+        # `gh issue` calls git internally to detect the repo from the
+        # checkout's git config. The Fedora container runs as root but
+        # actions/checkout sets up the working tree under a different
+        # uid, so git refuses with "dubious ownership" unless we mark
+        # the path as safe. Without this, "Update sticky issue" below
+        # fails before the gh call even fires.
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Run drift check
         id: drift
         env:
