@@ -112,6 +112,7 @@ spec-parse-experimental:
 	@rpmspec $(RPMBUILD_DEFINES) --define "_with_snapshot 1" \
 	    --define "_with_stabilization 1" \
 	    --define "_with_system_assimp 1" \
+	    --define "_with_system_dxc 1" \
 	    --define "_with_system_expat 1" \
 	    --define "_with_system_freetype 1" \
 	    --define "_with_system_libsamplerate 1" \
@@ -163,6 +164,7 @@ srpm-stabilization:
 SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
                           --with stabilization \
                           --with system_assimp \
+                          --with system_dxc \
                           --with system_expat \
                           --with system_freetype \
                           --with system_libsamplerate \
@@ -175,6 +177,21 @@ SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
                           --with system_spirvcross \
                           --with system_sqlite \
                           --with system_zlib
+# system_dxc added 2026-05-08 (Stage 2 binary-only swap, sibling to
+# system_spirvcross). Engine treats DXC as a binary executable
+# shellout, not a library link (per `project_dxc_binary_only_dependency.md`
+# memory and Nick_L's 2026-05-05 sig-build comment: "engine doesn't
+# link DXC at all, just shells out to the dxc binary"). Three install
+# paths to overlay (engine-side):
+#   Builders/DirectXShaderCompiler/bin/dxc          -> /usr/bin/dxc
+#   Builders/DirectXShaderCompiler/bin/dxsc         -> /usr/bin/dxsc
+#   Builders/DirectXShaderCompiler/lib/libdxcompiler.so -> /usr/lib64/libdxcompiler.so
+# All three from the o3de-dxc-spirv COPR package (built from
+# o3de/DirectXShaderCompiler at tag release-1.8.2505.1-o3de;
+# license-clean Linux/SPIR-V-only build; ✓ green PoC build 10435628
+# since 2026-05-08; functional verification confirmed
+# `dxc -spirv -T ps_6_0` produces valid SPIR-V output).
+#
 # system_spirvcross added 2026-05-08 (Stage 2 binary-only swap, first
 # of its kind). Engine treats spirv-cross as a binary executable
 # shellout, not a library link (per audit 2026-05-07,

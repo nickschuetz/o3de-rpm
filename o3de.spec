@@ -65,6 +65,7 @@
 # see CONTRIBUTING.md / FEDORA_ROADMAP.md for the gotcha and the
 # Makefile's `make copr-init` target for the chroot-config commands).
 %bcond_with system_assimp
+%bcond_with system_dxc
 %bcond_with system_expat
 %bcond_with system_freetype
 %bcond_with system_libsamplerate
@@ -129,7 +130,7 @@
 # system_<X> bconds to the experimental OR-chain as the Stage 1
 # migration list grows.
 %global _o3de_channel %{nil}
-%if %{with system_assimp} || %{with system_expat} || %{with system_freetype} || %{with system_libsamplerate} || %{with system_lua} || %{with system_lz4} || %{with system_mikkelsen} || %{with system_openexr} || %{with system_png} || %{with system_poly2tri} || %{with system_spirvcross} || %{with system_sqlite} || %{with system_tiff} || %{with system_zlib}
+%if %{with system_assimp} || %{with system_dxc} || %{with system_expat} || %{with system_freetype} || %{with system_libsamplerate} || %{with system_lua} || %{with system_lz4} || %{with system_mikkelsen} || %{with system_openexr} || %{with system_png} || %{with system_poly2tri} || %{with system_spirvcross} || %{with system_sqlite} || %{with system_tiff} || %{with system_zlib}
 %global _o3de_channel -experimental
 %else
 %if %{with stabilization}
@@ -416,6 +417,18 @@ BuildRequires:  vulkan-loader-devel
 %if %{with system_assimp}
 BuildRequires:  assimp-devel
 %endif
+%if %{with system_dxc}
+# Stage 2 binary-only dependency: o3de-dxc-spirv from
+# hellaenergy/o3de-dependencies COPR (sibling project, auto-enabled
+# alongside this one). Ships /usr/bin/dxc, /usr/bin/dxsc,
+# /usr/lib64/libdxcompiler.so. The %install step below symlinks the
+# engine's expected runtime paths
+# (Builders/DirectXShaderCompiler/{bin/dxc,bin/dxsc,lib/libdxcompiler.so}
+# under the install prefix) to the system locations, so the engine's
+# asset-build pipeline shells out to the system binary instead of the
+# bundled fetch.
+BuildRequires:  o3de-dxc-spirv
+%endif
 %if %{with system_expat}
 BuildRequires:  expat-devel
 %endif
@@ -495,6 +508,9 @@ Recommends:     cmake
 # future build statically links and the auto-dep disappears).
 %if %{with system_assimp}
 Requires:       assimp
+%endif
+%if %{with system_dxc}
+Requires:       o3de-dxc-spirv
 %endif
 %if %{with system_expat}
 Requires:       expat
@@ -944,6 +960,38 @@ ln -sf /usr/bin/spirv-cross \
 %endif
 %endif
 
+%if %{with system_dxc}
+# Stage 2 binary-only swap: same shape as system_spirvcross above, but
+# DXC has three install paths to overlay (dxc, dxsc, libdxcompiler.so).
+# COPR-built /usr/bin/dxc + /usr/bin/dxsc + /usr/lib64/libdxcompiler.so
+# from the o3de-dxc-spirv package (license-clean Linux/SPIR-V-only
+# rebuild from o3de/DirectXShaderCompiler at tag release-1.8.2505.1-o3de;
+# ✓ green PoC build 10435628 since 2026-05-08; functional verification
+# confirmed `dxc -spirv -T ps_6_0 -E main shader.hlsl` produces valid
+# SPIR-V output).
+#
+# Engine's per-platform DXC path is set in
+# Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/Vulkan_Traits_Linux.h:10
+# as "Builders/DirectXShaderCompiler/bin/dxc" and consumed via
+# RHI::ExecuteShaderCompiler. Same install-overlay pattern as
+# spirv-cross above; see SPIRV-Cross block for the architectural
+# rationale.
+ln -sf /usr/bin/dxc \
+    %{buildroot}%{o3de_install_prefix}/bin/Linux/profile/Default/Builders/DirectXShaderCompiler/bin/dxc
+ln -sf /usr/bin/dxsc \
+    %{buildroot}%{o3de_install_prefix}/bin/Linux/profile/Default/Builders/DirectXShaderCompiler/bin/dxsc
+ln -sf /usr/lib64/libdxcompiler.so \
+    %{buildroot}%{o3de_install_prefix}/bin/Linux/profile/Default/Builders/DirectXShaderCompiler/lib/libdxcompiler.so
+%if %{with debug}
+ln -sf /usr/bin/dxc \
+    %{buildroot}%{o3de_install_prefix}/bin/Linux/debug/Default/Builders/DirectXShaderCompiler/bin/dxc
+ln -sf /usr/bin/dxsc \
+    %{buildroot}%{o3de_install_prefix}/bin/Linux/debug/Default/Builders/DirectXShaderCompiler/bin/dxsc
+ln -sf /usr/lib64/libdxcompiler.so \
+    %{buildroot}%{o3de_install_prefix}/bin/Linux/debug/Default/Builders/DirectXShaderCompiler/lib/libdxcompiler.so
+%endif
+%endif
+
 # Editor expects engine.json + python relative to the binary's location.
 # Profile binaries are always present; debug only when --with debug.
 ln -s ../../../../python      %{buildroot}%{o3de_install_prefix}/bin/Linux/profile/Default/python
@@ -1151,6 +1199,34 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-39
+- Stage 2 second binary-only swap: activate system_dxc. Routes the
+  engine's runtime DXC invocations to the COPR-built /usr/bin/dxc
+  (and dxsc, libdxcompiler.so) from the o3de-dxc-spirv package
+  (sibling COPR project hellaenergy/o3de-dependencies, license-clean
+  NCSA + Apache-2.0 with LLVM-exception, ✓ green PoC build 10435628
+  since 2026-05-08).
+- Implementation: %install creates symlinks at the engine's expected
+  runtime paths (Builders/DirectXShaderCompiler/{bin/dxc, bin/dxsc,
+  lib/libdxcompiler.so} under the install prefix) to the system
+  locations. Same install-overlay pattern as system_spirvcross
+  (2605.0-38) but with three paths instead of one. Engine's path
+  resolution (RHI::ExecuteShaderCompiler in
+  Gems/Atom/RHI/Code/Source/RHI.Edit/Utils.cpp) follows the symlinks
+  transparently; engine code unchanged. Per
+  `project_dxc_binary_only_dependency.md` memory + Nick_L's 2026-05-05
+  sig-build comment, the engine doesn't link DXC -- shells out to the
+  binary. So binary swap at install time is sufficient.
+- Spec wires: %bcond_with system_dxc, OR-chain extension, conditional
+  BR/Requires o3de-dxc-spirv, conditional %install symlinks (3 paths
+  for profile config + 3 for debug under --with debug).
+- This completes the Stage 2 binary-only set (SPIRV-Cross + DXC).
+  Both PoC builds in hellaenergy/o3de-dependencies now have engine-side
+  glue to consume them via system installs. The mcpp PoC (library-link
+  variant per audit 2026-05-08) follows the same pattern but stays
+  deferred per FOLLOW_UPS.md.
+- SBOM bumped 2605.0-38 -> 2605.0-39.
+
 * Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-38
 - Stage 2 first binary-only swap: activate system_spirvcross. Routes
   the engine's runtime spirv-cross invocations to the COPR-built
