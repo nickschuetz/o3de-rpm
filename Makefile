@@ -118,6 +118,7 @@ spec-parse-experimental:
 	    --define "_with_system_freetype 1" \
 	    --define "_with_system_libsamplerate 1" \
 	    --define "_with_system_lua 1" \
+	    --define "_with_system_mcpp 1" \
 	    --define "_with_system_mikkelsen 1" \
 	    --define "_with_system_png 1" \
 	    --define "_with_system_poly2tri 1" \
@@ -171,6 +172,7 @@ SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
                           --with system_libsamplerate \
                           --with system_lua \
                           --with system_lz4 \
+                          --with system_mcpp \
                           --with system_mikkelsen \
                           --with system_openexr \
                           --with system_png \
@@ -415,6 +417,7 @@ copr-init:
 	@echo "          --rpmbuild-with system_freetype \\"
 	@echo "          --rpmbuild-with system_lua \\"
 	@echo "          --rpmbuild-with system_lz4 \\"
+	@echo "          --rpmbuild-with system_mcpp \\"
 	@echo "          --rpmbuild-with system_mikkelsen \\"
 	@echo "          --rpmbuild-with system_openexr \\"
 	@echo "          --rpmbuild-with system_png \\"

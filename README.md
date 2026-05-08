@@ -61,7 +61,8 @@ o3de-rpm/
     ├── FindLua-system.cmake
     ├── Findlz4-system.cmake
     ├── FindOpenEXR-system.cmake
-    └── FindImath-system.cmake
+    ├── FindImath-system.cmake
+    └── Findmcpp-system.cmake                                   # Stage 2 library-link variant
 ```
 
 `rpmbuild` reads sources from `_sourcedir`, so build invocations point both `_sourcedir` and `_specdir` at this checkout — no copying into `~/rpmbuild/SOURCES`.

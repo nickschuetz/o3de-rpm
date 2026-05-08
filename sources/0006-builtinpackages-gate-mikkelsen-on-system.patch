@@ -47,6 +47,15 @@ Currently gated:
   - LY_USE_SYSTEM_TIFF      → sources/FindTIFF-system.cmake
   - LY_USE_SYSTEM_FREETYPE  → sources/FindFreetype-system.cmake
   - LY_USE_SYSTEM_LUA       → sources/FindLua-system.cmake
+  - LY_USE_SYSTEM_MCPP      → sources/Findmcpp-system.cmake
+                               (mikkelsen pattern; library-link variant
+                               of the DXC-class Stage 2 swap. Source is
+                               hellaenergy/o3de-dependencies COPR's
+                               o3de-mcpp-az-devel, a license-clean
+                               rebuild of upstream mcpp 2.7.2 + the
+                               o3de/3p-package-source _az.2 patch series.
+                               No cmake-stock find module exists since
+                               mcpp is abandonware-class.)
   - LY_USE_SYSTEM_MIKKELSEN → sources/Findmikkelsen-system.cmake
                                (no cmake-stock find module — locates
                                system mikktspace directly)
@@ -85,7 +94,7 @@ the system library via file path rather than via the stock target.
 ---
 --- a/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake
 +++ b/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake
-@@ -17,30 +17,78 @@
+@@ -17,30 +17,82 @@
  ly_associate_package(PACKAGE_NAME cityhash-1.1-multiplatform                        TARGETS cityhash                    PACKAGE_HASH 0ace9e6f0b2438c5837510032d2d4109125845c0efd7d807f4561ec905512dd2)
  
  # platform-specific:
@@ -115,7 +124,11 @@ the system library via file path rather than via the stock target.
 +else()
 +    find_package(Lua REQUIRED)
 +endif()
++if (NOT LY_USE_SYSTEM_MCPP)
  ly_associate_package(PACKAGE_NAME mcpp-2.7.2_az.2-rev1-linux                        TARGETS mcpp                        PACKAGE_HASH df7a998d0bc3fedf44b5bdebaf69ddad6033355b71a590e8642445ec77bc6c41)
++else()
++    find_package(mcpp REQUIRED)
++endif()
 +if (NOT LY_USE_SYSTEM_MIKKELSEN)
  ly_associate_package(PACKAGE_NAME mikkelsen-1.0.0.4-linux                           TARGETS mikkelsen                   PACKAGE_HASH 5973b1e71a64633588eecdb5b5c06ca0081f7be97230f6ef64365cbda315b9c8)
 +else()

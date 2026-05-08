@@ -71,6 +71,7 @@
 %bcond_with system_libsamplerate
 %bcond_with system_lua
 %bcond_with system_lz4
+%bcond_with system_mcpp
 %bcond_with system_mikkelsen
 %bcond_with system_openexr
 %bcond_with system_png
@@ -130,7 +131,7 @@
 # system_<X> bconds to the experimental OR-chain as the Stage 1
 # migration list grows.
 %global _o3de_channel %{nil}
-%if %{with system_assimp} || %{with system_dxc} || %{with system_expat} || %{with system_freetype} || %{with system_libsamplerate} || %{with system_lua} || %{with system_lz4} || %{with system_mikkelsen} || %{with system_openexr} || %{with system_png} || %{with system_poly2tri} || %{with system_spirvcross} || %{with system_sqlite} || %{with system_tiff} || %{with system_zlib}
+%if %{with system_assimp} || %{with system_dxc} || %{with system_expat} || %{with system_freetype} || %{with system_libsamplerate} || %{with system_lua} || %{with system_lz4} || %{with system_mcpp} || %{with system_mikkelsen} || %{with system_openexr} || %{with system_png} || %{with system_poly2tri} || %{with system_spirvcross} || %{with system_sqlite} || %{with system_tiff} || %{with system_zlib}
 %global _o3de_channel -experimental
 %else
 %if %{with stabilization}
@@ -343,6 +344,7 @@ Source40:       Findpoly2tri-system.cmake
 Source41:       FindSQLite-system.cmake
 Source42:       Findlibsamplerate-system.cmake
 Source43:       Findassimp-system.cmake
+Source44:       Findmcpp-system.cmake
 
 # Pre-built O3DE 3rdParty bundles — declare a Source10x and a matching
 # bcond above, then add an extract line in %%prep. Templates:
@@ -438,6 +440,17 @@ BuildRequires:  freetype-devel
 %if %{with system_libsamplerate}
 BuildRequires:  libsamplerate-devel
 %endif
+%if %{with system_mcpp}
+# Stage 2 library-link dependency: o3de-mcpp-az from
+# hellaenergy/o3de-dependencies COPR (sibling project, auto-enabled
+# alongside this one). Library-link variant of the DXC-class binary-only
+# pattern. Ships /usr/lib64/libmcpp.so + /usr/include/mcpp_lib.h via the
+# -devel subpackage; the engine #includes <mcpp_lib.h> and links into
+# the binary at build time. License-clean rebuild of upstream mcpp 2.7.2
+# (BSD-2-Clause, abandonware-class) + o3de/3p-package-source's _az.2
+# patch series.
+BuildRequires:  o3de-mcpp-az-devel
+%endif
 %if %{with system_lua}
 BuildRequires:  lua-devel
 %endif
@@ -520,6 +533,9 @@ Requires:       freetype
 %endif
 %if %{with system_libsamplerate}
 Requires:       libsamplerate
+%endif
+%if %{with system_mcpp}
+Requires:       o3de-mcpp-az
 %endif
 %if %{with system_lua}
 Requires:       lua-libs
@@ -783,6 +799,9 @@ cp %{SOURCE42} cmake/3rdParty/Findlibsamplerate.cmake
 %if %{with system_assimp}
 cp %{SOURCE43} cmake/3rdParty/Findassimp.cmake
 %endif
+%if %{with system_mcpp}
+cp %{SOURCE44} cmake/3rdParty/Findmcpp.cmake
+%endif
 
 # ── BUILD ────────────────────────────────────────────────────────────────────
 %build
@@ -853,6 +872,7 @@ cmake \
     %{?with_system_libsamplerate:-DLY_USE_SYSTEM_LIBSAMPLERATE=ON} \
     %{?with_system_lua:-DLY_USE_SYSTEM_LUA=ON} \
     %{?with_system_lz4:-DLY_USE_SYSTEM_LZ4=ON} \
+    %{?with_system_mcpp:-DLY_USE_SYSTEM_MCPP=ON} \
     %{?with_system_mikkelsen:-DLY_USE_SYSTEM_MIKKELSEN=ON} \
     %{?with_system_openexr:-DLY_USE_SYSTEM_OPENEXR=ON} \
     %{?with_system_png:-DLY_USE_SYSTEM_PNG=ON} \
@@ -1199,6 +1219,43 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-40
+- Stage 2 third swap: activate system_mcpp. Library-link variant of
+  the DXC-class binary-only pattern (vs. system_spirvcross +
+  system_dxc which are binary shellouts). Routes the engine's mcpp
+  consumption (Gems/Atom/Asset/Shader/Code/Source/Editor/CommonFiles/
+  Preprocessor.cpp's mcpp_lib_main / mcpp_set_out_func /
+  mcpp_set_report_include_callback calls) to the system libmcpp.so
+  from o3de-mcpp-az-devel (license-clean rebuild of upstream mcpp
+  2.7.2 + o3de/3p-package-source's _az.2 patch series; ✓ green PoC
+  build 10436752 since 2026-05-08, F44 + rawhide).
+- Implementation pattern: same as system_assimp / system_libsamplerate
+  / system_sqlite (mikkelsen-style Find shim + Patch0006 gate). Unlike
+  system_spirvcross / system_dxc, mcpp is linked into the engine
+  binary at build time rather than shelled out to at runtime, so the
+  install-overlay approach does not apply. We need a real Find shim
+  + cmake gate to skip the bundled fetch and link against the system
+  library at configure time.
+- Patch0006 extension: add `LY_USE_SYSTEM_MCPP` gate hunk for the
+  mcpp-2.7.2_az.2-rev1-linux ly_associate_package. Hunk header bumped
+  -17,30 +17,78 -> -17,30 +17,82 (+4 lines: if/else/find_package/endif).
+- New sources/Findmcpp-system.cmake (Source44), mikkelsen pattern
+  creating 3rdParty::mcpp directly via find_path / find_library on
+  /usr/include/mcpp_lib.h + /usr/lib64/libmcpp.so. No cmake-stock
+  Findmcpp module exists (mcpp is abandonware-class) so direct lookup
+  is the only option.
+- Spec wires: %bcond_with system_mcpp, OR-chain extension, Source44
+  declaration, conditional cp in %prep, BuildRequires o3de-mcpp-az-devel,
+  Requires o3de-mcpp-az, conditional cmake -DLY_USE_SYSTEM_MCPP=ON.
+- Makefile: add system_mcpp to spec-parse-experimental's --define list,
+  to SRPM_EXPERIMENTAL_FLAGS, and to copr-init's chroot --rpmbuild-with
+  hint. Engine now consumes 13 system libs (Stage 1) + 3 PoC-rebuilt
+  COPR deps (Stage 2: spirvcross + dxc binary, mcpp library). 16-pack
+  experimental.
+- This completes the Stage 2 swap set: two binary shellouts
+  (spirvcross + dxc) + one library link (mcpp). Both architectural
+  variants now have working engine-side glue.
+
 * Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-39
 - Stage 2 second binary-only swap: activate system_dxc. Routes the
   engine's runtime DXC invocations to the COPR-built /usr/bin/dxc
