@@ -34,32 +34,54 @@
 #   - Tier 3 setup done (per-user venv, engine registered)
 #   - vulkan-loader (engine startup) + lavapipe (CI) -- same as Tier 6
 #
-# Manual verification status (2026-05-08):
-#   This script was authored without a live install handy and with the
-#   assumption that the standard upstream AssetProcessorBatch
-#   --project-path invocation works against an RPM-installed engine
-#   the same way it does against a from-source build. Items that need
-#   a live run to confirm:
-#     1. The AssetProcessorBatch binary at $ENGINE_PATH/bin/Linux/
-#        profile/Default/AssetProcessorBatch can find the engine root
-#        on its own (it should -- the bin dir has an engine.json
-#        symlink installed by the spec at line 998).
-#     2. The cache layout AssetProcessorBatch produces under a temp
-#        project really is <project>/Cache/linux/ (this is upstream
-#        default; verified via Registry/AssetProcessorPlatformConfig.
-#        setreg only).
-#     3. The .azmodel format byte-prefix used by the file-magic check
-#        below: FOURCC 'AZMD' is what upstream AssetSerializer writes
-#        for all .az* binary stream products. If the engine starts
-#        emitting a different prefix (textual JSON, e.g.) the magic
-#        check below needs to be relaxed to "non-empty" only.
-#     4. The minimum vertex count for the default cube.fbx -- 8 is the
-#        topology-correct count; 24 is what assimp emits when it
-#        splits per-face normals + per-vertex UVs without merging.
-#        The test accepts either; if the engine's post-processing
-#        changes that, adjust GE_VERTEX_COUNT.
-#   Once a live bake is observed, the assumptions list above can be
-#   turned into hard assertions (or relaxed if any prove wrong).
+# Manual verification status (2026-05-08, after CI run 25553050229):
+#   First end-to-end CI fire on the 7-pack stabilization build
+#   (assimp still bundled, NOT a system-swap regression test). Tier 1+2+3
+#   all green; the test infrastructure works -- AP launched, processed
+#   1041 assets, the artifact upload + log capture all worked end-to-end.
+#
+#   What the live run revealed about the test design itself:
+#     1. AssetProcessorBatch does NOT scope its scan to the scratch
+#        project's Assets/ directory. Even with empty `gem_names: []`
+#        in project.json, AP scans the engine root + all installed
+#        gems' Assets/ subtrees. We saw 1041 assets processed across
+#        Atom, AtomLyIntegration, AtomTools, MaterialEditor, etc.
+#        before the 240s timeout fired. The cube.fbx was reached
+#        (line 4685 of the log) but failed to bake.
+#     2. ALL FBX bakes failed (Cube, BeveledCube, Cone, Plane_*,
+#        Hermanubis, Shaderball, our cube.fbx -- 76+ FBX in total) plus
+#        ~210 shader builds with the same symptom: AP's parallel-jobs
+#        scheduler (3 jobs in CI) runs ShaderAssetBuilder against
+#        Atom/Feature/Common/Assets/Shaders/ before the SRG-merge
+#        builder has emitted the auto-generated viewsrg.srgi /
+#        scenesrg.srgi. Cold-cache ordering quirk; second AP pass
+#        would resolve it. NOT a packaging regression -- same behavior
+#        on an upstream-from-source install.
+#     3. The 240s TIMEOUT_SECS is too short for cold-cache AP
+#        processing of the engine + AtomContent gem set (1041+ assets);
+#        AP didn't reach its idle-exit at 240s.
+#     4. The "no AssImp* importer errors" check (line 366) greps for
+#        a regex prefix that doesn't appear in modern AP logs --
+#        SceneAPI uses different log tags. The check passed with
+#        false reassurance.
+#
+#   Decisions for the next iteration of this test (deferred):
+#     - Cron default = OFF (workflow_dispatch only) until design-fixed
+#     - Investigate AP `--scanFolders` to scope the scan to the test
+#       project's Assets/ dir only; OR
+#     - Run AP twice in succession and check second-pass results; OR
+#     - Punt to upstream as a real bug report (AP cold-cache parallel
+#       SRG-dependency ordering)
+#
+#   Items still in the "needs live verification" pile:
+#     1. ./Cache/linux/ layout under project root: confirmed in run.
+#     2. .azmodel byte-prefix check (FOURCC 'AZMD' or similar): we
+#        never emitted a .azmodel due to the FBX-bake failure, so this
+#        remains untested.
+#     3. The minimum vertex count for the default cube.fbx -- still
+#        unknown live. GE_VERTEX_COUNT=8 left as the threshold; if
+#        live confirmation shows assimp's post-processing emits 24,
+#        the test threshold is already lenient enough.
 #
 # Exit code: 0 on pass, 1 on fail, 2 on prereqs missing.
 

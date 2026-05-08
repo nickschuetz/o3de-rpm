@@ -55,9 +55,9 @@ on:
         default: false
         type: boolean
       run_asset_bake:
-        description: 'Run Tier 7 (FBX asset-bake regression; assimp 5->6 guard)'
+        description: 'Run Tier 7 (FBX asset-bake regression; assimp 5->6 guard) -- opt-in, see notes in tests/asset-bake-test.sh'
         required: false
-        default: true
+        default: false
         type: boolean
       o3de_pkgname:
         description: 'Explicit package name override (e.g. o3de2605). Leave blank to auto-detect from the RPM URL.'
@@ -220,7 +220,15 @@ jobs:
           [ -z "$run_project" ]    && run_project=false
           [ -z "$run_ui" ]         && run_ui=true
           [ -z "$run_ui_editor" ]  && run_ui_editor=false
-          [ -z "$run_asset_bake" ] && run_asset_bake=true
+          # Tier 7 default OFF: AP cold-cache + parallel-jobs ordering
+          # produces spurious shader/SRG dependency failures on a fresh
+          # bake (viewsrg.srgi / scenesrg.srgi not yet emitted when
+          # ShaderAssetBuilder runs). Cascades into FBX bake failures.
+          # Test infrastructure works; the design needs a two-pass AP
+          # run (or a targeted --scanFolders override) before it's a
+          # reliable cron signal. See tests/asset-bake-test.sh for the
+          # full manual-verification notes from run 25553050229.
+          [ -z "$run_asset_bake" ] && run_asset_bake=false
           {
             echo "run_setup=$run_setup"
             echo "run_project=$run_project"
