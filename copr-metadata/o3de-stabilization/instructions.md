@@ -23,6 +23,9 @@ The package follows a **versioned-major naming convention** (`o3deNNNN` where NN
 
 **What is this:** Builds from O3DE upstream's **stabilization branch** (currently `stabilization/26050`, the pre-release branch for the upcoming 26.05 release). This is *not* a nightly bleeding-edge build — when O3DE tags 2605.0, this branch's tip becomes the release. Quality target: near-RC. If something breaks here, we want to know before it ships to users.
 
+**Currently active in this channel (Stage 1 / Fedora-track):**
+- **Stage 1/2a 7-pack** — engine links to system `expat`, `freetype`, `liblz4`, `libpng`, `mikkelsen` (`libmikktspace.so.0`), `openexr` (+ `imath`), `zlib` instead of bundled copies. Promoted to this channel 2026-05-07 (build 10433491 succeeded on F44 + rawhide; CI passed Tiers 1+2+4+6 on both chroots). The 9-pack (adds `system_lua` + `system_poly2tri`) is currently exercised in `o3de-experimental` and will graduate to this channel once we've collected community feedback on the 7-pack.
+
 **For bleeding-edge `development`-branch builds**, see `hellaenergy/o3de-snapshot` (one-off, ad-hoc cadence).
 
 **Reporting issues:** https://github.com/nickschuetz/o3de-rpm/issues. Include `rpm -q o3de2605` and the COPR build ID. Engine bugs that aren't packaging-related should go upstream to https://github.com/o3de/o3de/issues.
