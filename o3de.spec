@@ -66,6 +66,7 @@
 # Makefile's `make copr-init` target for the chroot-config commands).
 %bcond_with system_expat
 %bcond_with system_freetype
+%bcond_with system_libsamplerate
 %bcond_with system_lua
 %bcond_with system_lz4
 %bcond_with system_mikkelsen
@@ -126,7 +127,7 @@
 # system_<X> bconds to the experimental OR-chain as the Stage 1
 # migration list grows.
 %global _o3de_channel %{nil}
-%if %{with system_expat} || %{with system_freetype} || %{with system_lua} || %{with system_lz4} || %{with system_mikkelsen} || %{with system_openexr} || %{with system_png} || %{with system_poly2tri} || %{with system_sqlite} || %{with system_tiff} || %{with system_zlib}
+%if %{with system_expat} || %{with system_freetype} || %{with system_libsamplerate} || %{with system_lua} || %{with system_lz4} || %{with system_mikkelsen} || %{with system_openexr} || %{with system_png} || %{with system_poly2tri} || %{with system_sqlite} || %{with system_tiff} || %{with system_zlib}
 %global _o3de_channel -experimental
 %else
 %if %{with stabilization}
@@ -337,6 +338,7 @@ Source38:       FindOpenEXR-system.cmake
 Source39:       FindImath-system.cmake
 Source40:       Findpoly2tri-system.cmake
 Source41:       FindSQLite-system.cmake
+Source42:       Findlibsamplerate-system.cmake
 
 # Pre-built O3DE 3rdParty bundles — declare a Source10x and a matching
 # bcond above, then add an extract line in %%prep. Templates:
@@ -414,6 +416,9 @@ BuildRequires:  expat-devel
 %if %{with system_freetype}
 BuildRequires:  freetype-devel
 %endif
+%if %{with system_libsamplerate}
+BuildRequires:  libsamplerate-devel
+%endif
 %if %{with system_lua}
 BuildRequires:  lua-devel
 %endif
@@ -477,6 +482,9 @@ Requires:       expat
 %endif
 %if %{with system_freetype}
 Requires:       freetype
+%endif
+%if %{with system_libsamplerate}
+Requires:       libsamplerate
 %endif
 %if %{with system_lua}
 Requires:       lua-libs
@@ -581,6 +589,9 @@ Recommends:     expat-devel
 %endif
 %if %{with system_freetype}
 Recommends:     freetype-devel
+%endif
+%if %{with system_libsamplerate}
+Recommends:     libsamplerate-devel
 %endif
 %if %{with system_lz4}
 Recommends:     lz4-devel
@@ -725,6 +736,9 @@ cp %{SOURCE40} cmake/3rdParty/Findpoly2tri.cmake
 %if %{with system_sqlite}
 cp %{SOURCE41} cmake/3rdParty/FindSQLite.cmake
 %endif
+%if %{with system_libsamplerate}
+cp %{SOURCE42} cmake/3rdParty/Findlibsamplerate.cmake
+%endif
 
 # ── BUILD ────────────────────────────────────────────────────────────────────
 %build
@@ -791,6 +805,7 @@ cmake \
     -DCMAKE_SHARED_LINKER_FLAGS_INIT="-Wl,-z,relro -Wl,-z,now" \
     %{?with_system_expat:-DLY_USE_SYSTEM_EXPAT=ON} \
     %{?with_system_freetype:-DLY_USE_SYSTEM_FREETYPE=ON} \
+    %{?with_system_libsamplerate:-DLY_USE_SYSTEM_LIBSAMPLERATE=ON} \
     %{?with_system_lua:-DLY_USE_SYSTEM_LUA=ON} \
     %{?with_system_lz4:-DLY_USE_SYSTEM_LZ4=ON} \
     %{?with_system_mikkelsen:-DLY_USE_SYSTEM_MIKKELSEN=ON} \
@@ -1076,6 +1091,37 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-36
+- Stage 1 11-pack: activate system_libsamplerate. Audit (2026-05-07,
+  /tmp/o3de-assimp-audit/LIBSAMPLERATE_INVESTIGATION_NOTES.md) confirmed
+  this is the lowest-risk Stage 1 swap to date — engine consumes
+  libsamplerate exclusively in Gems/Microphone/, and the Microphone
+  Gem's Linux PAL points to MicrophoneSystemComponent_None.cpp (a
+  do-nothing stub). Zero `src_*` function calls in the Linux runtime
+  path; the Gem's CMakeLists.txt:25 unconditionally LINKS
+  3rdParty::libsamplerate but no engine code path on Linux exercises
+  the library at runtime.
+- Patch0006 extension: add `LY_USE_SYSTEM_LIBSAMPLERATE` gate hunk
+  for the libsamplerate line in BuiltInPackages_linux_x86_64.cmake.
+- New sources/Findlibsamplerate-system.cmake (Source42), mikkelsen
+  pattern: direct find_path/find_library, creates
+  3rdParty::libsamplerate directly. libsamplerate doesn't ship a
+  stock cmake module (pkg-config available at
+  /usr/lib64/pkgconfig/samplerate.pc as a fallback).
+- Spec wires: %bcond_with system_libsamplerate, OR-chain extension,
+  Source42 declaration, conditional BR/Recommends libsamplerate-devel,
+  conditional Requires libsamplerate, conditional cmake -DLY_USE_SYSTEM_LIBSAMPLERATE=ON,
+  conditional %prep cp.
+- 0.2.1 → 0.2.2 is patch-version increment within libsamplerate's
+  23-year ABI-stable major (since 0.1.0, 2002). License: BSD-2-Clause
+  (Erik de Castro Lopo, libsndfile author) — Fedora-acceptable.
+- Upstream-PR follow-on (not in this commit): gate the
+  3rdParty::libsamplerate dependency in Microphone's CMakeLists.txt
+  on a PAL_TRAIT_MICROPHONE_USES_LIBSAMPLERATE flag (FALSE on
+  Linux/None, TRUE elsewhere) — drops the dependency entirely on
+  Linux. Same shape as the AzCore Lua PR (#19733).
+- SBOM bumped 2605.0-35 → 2605.0-36.
+
 * Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-35
 - Stage 1 10-pack: activate system_sqlite. Audit (2026-05-07) confirmed
   SQLite is the cleanest Stage 1 candidate to date — consumers

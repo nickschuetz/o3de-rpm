@@ -113,6 +113,7 @@ spec-parse-experimental:
 	    --define "_with_stabilization 1" \
 	    --define "_with_system_expat 1" \
 	    --define "_with_system_freetype 1" \
+	    --define "_with_system_libsamplerate 1" \
 	    --define "_with_system_lua 1" \
 	    --define "_with_system_mikkelsen 1" \
 	    --define "_with_system_png 1" \
@@ -161,6 +162,7 @@ SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
                           --with stabilization \
                           --with system_expat \
                           --with system_freetype \
+                          --with system_libsamplerate \
                           --with system_lua \
                           --with system_lz4 \
                           --with system_mikkelsen \
@@ -169,6 +171,15 @@ SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
                           --with system_poly2tri \
                           --with system_sqlite \
                           --with system_zlib
+# system_libsamplerate added 2026-05-08 (Stage 1 11-pack). Audit
+# (2026-05-07, /tmp/o3de-assimp-audit/LIBSAMPLERATE_INVESTIGATION_NOTES.md)
+# confirmed lowest-risk Stage 1 swap to date — engine consumes
+# libsamplerate exclusively in Gems/Microphone/, and the Linux PAL is a
+# None stub (do-nothing impl). Zero src_* function calls in the Linux
+# runtime path; the Gem's CMakeLists.txt unconditionally LINKS the lib
+# but no engine code on Linux exercises it at runtime. 0.2.1 → 0.2.2
+# point-version increment within libsamplerate's 23-year ABI-stable major.
+#
 # system_sqlite added 2026-05-08 (Stage 1 10-pack). Audit (2026-05-07,
 # /tmp/o3de-assimp-audit/SQLITE_INVESTIGATION_NOTES.md) found SQLite is
 # the cleanest Stage 1 candidate to date: consumers exclusively in
