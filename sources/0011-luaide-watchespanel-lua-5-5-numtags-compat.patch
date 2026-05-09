@@ -42,7 +42,7 @@ Signed-off-by: Nick Schuetz <nschuetz@redhat.com>
 ---
 --- a/Code/Tools/LuaIDE/Source/LUA/WatchesPanel.cpp
 +++ b/Code/Tools/LuaIDE/Source/LUA/WatchesPanel.cpp
-@@ -12,6 +12,12 @@
+@@ -12,6 +12,14 @@
  #include "LUAEditorDebuggerMessages.h"
  #include <AzCore/Casting/numeric_cast.h>
  #include <AzCore/Script/lua/lua.h>
