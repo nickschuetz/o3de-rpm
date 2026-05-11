@@ -91,8 +91,10 @@ Replaces the retired "Qt 5.15.1 -> 5.15.2-rev9 rebuild" item with the actual str
 
 **Upstream tracking links**:
 - **Feature request**: [o3de/o3de#19081](https://github.com/o3de/o3de/issues/19081) -- "Upgrate O3DE tools to QT6", OPEN, priority/major (sig/content + feature/editor + feature-need/important-soon).
+- **Engine PR**: [o3de/o3de#19567](https://github.com/o3de/o3de/pull/19567) -- "Build against Qt 6.10.2", OPEN, base=development head=qt6, last activity 2026-03-14. The actual merge candidate for the qt6 branch.
 - **3p side**: [o3de/3p-package-source#293](https://github.com/o3de/3p-package-source/pull/293) -- "Update from QT5.15 to QT6.10.2" -- **MERGED 2026-02-13 by sptramer.** Recipe for Qt 6.10.2 builds is now upstream.
-- **Engine side**: `o3de/o3de:qt6` branch at HEAD `b74cbc8` (2026-03-10). 19 commits ahead of development, 35 commits behind, ~300 files changed. NOT merged to development as of 2026-05-11.
+- **Engine branch**: `o3de/o3de:qt6` branch at HEAD `b74cbc8` (2026-03-10). 19 commits ahead of development, 35 commits behind, ~300 files changed. NOT merged to development as of 2026-05-11.
+- **Discord channel**: https://discord.com/channels/805939474655346758/1420144310908616725 -- dedicated channel on the O3DE Discord for Qt 6 effort. Tracked manually by Nick (Claude can't access Discord); valuable for status updates between commit/PR activity windows.
 - **Linked discussion**: [o3de/o3de#14940](https://github.com/o3de/o3de/discussions/14940) -- closed; 2025-era community offer of Qt 6.3.2 work from a 22.05 branch fork.
 
 **Critical for packaging**: Qt 6 will be **VANILLA** (no custom O3DE patches). PR #293's description states *"Nothing, we are using vanilla QT. In the process, we are nuking the custom changes"*. The Qt 5.15 fork's load-bearing patches (PropagateStyleToChildren / ManualStyleSheet / tooltip layouting / TIFF support / tree-view expand) are being dropped, not forward-ported. Means: when Qt 6 migration lands, **Fedora's system qt6 packages CAN substitute** -- the entire `o3de-qt5` bundle (101MB tarball, multi-hour build) can be retired in favor of `BuildRequires: qt6-qtbase-devel qt6-qttools-devel qt6-qtsvg-devel ...` + `system_qt6` Stage 1 swap.
