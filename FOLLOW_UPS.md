@@ -6,6 +6,36 @@ This file is intentionally a living scratchpad. Entries get added or removed as 
 
 ---
 
+## 2026-05-11 evening -- Stabilization 12-pack LIVE + snapshot-ref patch-conflict finding
+
+### Wins from the overnight queue landing
+
+- **10444166 (experimental 18-pack) GREEN** -- system_googlebenchmark Stage 1 swap validated end-to-end. Engine builds clean with Fedora's libbenchmark.so linkage in AzTest/AzTestRunner. 13-swap Stage 1 stack proven.
+- **10444167 (stabilization 12-pack promotion) GREEN** -- the 12-pack is now LIVE for community testers. Adds system_assimp + system_libsamplerate + system_lua + system_poly2tri + system_sqlite to the existing 7-pack. Mike's CDN issue should resolve naturally now (fresh artifact for Pulp to regenerate metadata against).
+- **10444466 (ISPCTexComp drift fix) GREEN** earlier today -- engine pin's `36b80aa-rev1` now matches what we ship. Drift report's 2 out-of-date items now down to 1 (just qt 5.15.2-rev9 vs 5.15.1-10, which is intentional per the Qt 6 migration plan).
+
+### Snapshot-ref patch-conflict finding (10445300 + 10445322 both failed at %prep)
+
+Both dev-branch snapshot builds submitted today (10445300 development, 10445322 qt6) failed at %prep with the same root cause: **Patch0006 doesn't apply cleanly against branches that diverged from stabilization/26050**. Specifically, both branches have modifications to `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` (the qt6 branch updates Qt pin to qt-6.10.2-rev4; development has its own evolution) that conflict with our Patch0006 hunks.
+
+This is expected, not a bug. Our patches were authored against stabilization/26050; `%autosetup -p1` applies all patches unconditionally, so any patch touching a file that diverged in the target branch will fail.
+
+**What worked**: snapshot-ref infrastructure itself -- tarball generation, SRPM build, baked-in snapshot pins (today's spec fix), COPR upload, mock extraction, build-deps install. All those steps validated. The patch step is the friction point.
+
+**Three options for handling this** (deferred, not implemented tonight):
+
+A. **`--with no_patches` bcond** to skip all engine-side patches in snapshot mode. Vanilla upstream source + our packaging structure. Honest "what does this branch compile like?" test. ~30 min spec change.
+
+B. **Per-patch conditional application** via `%patch -P N -p1` inside `%if` blocks, replacing `%autosetup`. Gate Patch0006/Patch0007/etc. behind `--with stabilization` so snapshot-only mode skips them. More invasive.
+
+C. **Accept the limitation, document it.** Dev-branch snapshots may fail at %prep when patches conflict; that's the cost of having local patches. Manual patch refresh per branch tip if we want them to apply.
+
+Recommended: **A**, when bandwidth allows. The snapshot-ref use case is "build the qt6 branch as-is and see if Linux compiles" -- which doesn't benefit from our packaging-side patches, only from our packaging-side structure (spec / Find shims / Makefile glue). Vanilla upstream is the right test surface.
+
+For now: dev-branch snapshot builds are documented as "validates source extracts + SRPM generation + early %prep, NOT engine compile". Library-health Tier 7 + drift workflow + main stabilization/experimental builds remain unaffected.
+
+---
+
 ## 2026-05-11 late afternoon -- Mike-C feedback + Tier 7 deeper reframe + Qt 6 PR tracking
 
 ### Mike-C feedback from 2026-05-07 (caught up 2026-05-11)
