@@ -1274,6 +1274,33 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Mon May 11 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-47
+- system_googlebenchmark Stage 1 swap ACTIVATED in experimental
+  (plumbing landed 2026-05-08 as 2605.0-43 but bcond was OFF). Added
+  to SRPM_EXPERIMENTAL_FLAGS in Makefile and to the o3de-experimental
+  COPR chroot config (F44 + rawhide; CS10 paused per FOLLOW_UPS).
+  Replaces the closed PR #19738's intent in the architecturally-
+  correct shape -- the engine still ships AzTest + AzTestRunner + the
+  googletest/googlemock/googlebenchmark stack (per
+  `project_az_test_runner_architecture.md`), but the linkage now
+  pulls Fedora's `google-benchmark-devel` instead of the bundled
+  fetch. Linkage variance: Fedora ships only libbenchmark.so (no
+  libbenchmark.a), so AzTestRunner ends up dynamically linked rather
+  than statically. gbench's API is stable across the 1.7.0 (engine
+  pin) -> 1.9.5 (Fedora ship) range.
+- Stabilization channel promoted 7-pack -> 12-pack on 2026-05-11
+  (added system_assimp + system_libsamplerate + system_lua +
+  system_poly2tri + system_sqlite to the existing 7). Mirrors what
+  was already validated end-to-end on experimental as of
+  2026-05-08 (builds 10433646 12-pack + later 14-pack at 10442708).
+  Per `project_active_community_testers.md` the 7-pack has had >1
+  week soak with no community-reported regressions. Mechanical:
+  extended `o3de-stabilization` F44 + rawhide chroots' with_opts list
+  + added explicit `SRPM_STABILIZATION_FLAGS` to Makefile so
+  `make srpm-stabilization` produces an SRPM that matches the chroot.
+  Stage 2 swaps (mcpp/dxc/spirvcross) deliberately stay in
+  experimental until they soak longer.
+
 * Sun May 10 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-46
 - CS10 / RPM 4.19 fix (round 2): bulk-escape literal section-keyword
   tokens (%%install / %%build / %%files / %%prep / %%check / %%package /

@@ -150,7 +150,28 @@ srpm-snapshot:
 # from a "one-off development-branch build" (uploaded to o3de-snapshot,
 # plain --with snapshot only).
 srpm-stabilization:
-	rpmbuild -bs --with snapshot --with stabilization $(RPMBUILD_DEFINES) o3de.spec
+	rpmbuild -bs $(SRPM_STABILIZATION_FLAGS) $(RPMBUILD_DEFINES) o3de.spec
+
+# srpm-stabilization: snapshot + stabilization + 12-pack of Stage 1
+# system swaps (promoted from 7-pack to 12-pack on 2026-05-11).
+# Mirrors the o3de-stabilization COPR chroot config exactly so the
+# SRPM faithfully shows what activations the binary build will fire.
+# Stage 2 swaps (mcpp/dxc/spirvcross) are deliberately EXCLUDED here
+# -- they stay in experimental until validated for community shipping.
+SRPM_STABILIZATION_FLAGS = --with snapshot \
+                           --with stabilization \
+                           --with system_assimp \
+                           --with system_expat \
+                           --with system_freetype \
+                           --with system_libsamplerate \
+                           --with system_lua \
+                           --with system_lz4 \
+                           --with system_mikkelsen \
+                           --with system_openexr \
+                           --with system_png \
+                           --with system_poly2tri \
+                           --with system_sqlite \
+                           --with system_zlib
 
 # srpm-experimental: snapshot + every active Stage 1 system-library
 # swap. Add new --with flags here as each migration is activated.
@@ -170,6 +191,7 @@ SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
                           --with system_dxc \
                           --with system_expat \
                           --with system_freetype \
+                          --with system_googlebenchmark \
                           --with system_libsamplerate \
                           --with system_lua \
                           --with system_lz4 \
