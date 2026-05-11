@@ -120,3 +120,30 @@ ignore_engine_packages:
   - glad
   - xxhash
   - cityhash
+
+# Engine packages intentionally bundled (Bundling Library Exception filings
+# in BUNDLED_LIBRARIES.md) -- not in COPR, not behind a spec bcond, BUT
+# documented as deliberately bundled with rationale. The drift script
+# classifies these as `bundled-exception` rather than `gap` so the report
+# distinguishes "investigate this" from "documented + accepted".
+#
+# Add entries here when they get a BUNDLED_LIBRARIES.md justification.
+# Remove entries when they get a system swap (move to copr_packages /
+# spec_bcond_aliases) or get added to the engine's BR/Requires as system
+# library.
+bundling_exception:
+  # Notes per entry (kept above each item since the tiny YAML loader
+  # doesn't strip inline `#` comments):
+  # OpenSSL: Stage 4 -- EOL 1.1.1t needs upstream migration to 3.x.
+  - OpenSSL
+  # openimageio-opencolorio: Stage 2b -- blocked on Stage 3 Python
+  # migration (Python C Module ABI must match editor's embedded Python).
+  - openimageio-opencolorio
+  # pyside2: tied to bundled Python; will substitute when editor moves
+  # to system Python.
+  - pyside2
+  # squish-ccr: restricted -- BC7 patent encumbrance (Fedora cannot ship).
+  - squish-ccr
+  # vulkan-validationlayers: newer in Fedora than engine pin; needs O3DE
+  # loader-interaction verification before flipping.
+  - vulkan-validationlayers

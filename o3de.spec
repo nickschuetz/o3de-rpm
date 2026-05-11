@@ -108,11 +108,17 @@
 %global o3de_pkgname        o3de%{o3de_major_tag}
 %global o3de_install_prefix /opt/O3DE/%{engine_cmake_version}
 
-# Snapshot pin — populated by sources/make-snapshot-tarball.sh.
+# Snapshot pin -- populated by sources/make-snapshot-tarball.sh.
 # Pinned to stabilization/26050 tip for end-to-end build test.
-%global snapshot_commit 246b46f500e06eb819421e12644745e95872bb28
-%global snapshot_date   20260425
-%global snapshot_sha256 80142f1934c3938cf9422f8f4376426084a0443df3ed80c400ff1b0610c98718
+#
+# The %%{?!foo:%%global foo BAR} idiom makes each pin conditional:
+# rpmbuild's --define on the command line takes precedence, the spec's
+# defaults only apply if no --define was passed. Lets parameterized
+# targets like `make srpm-snapshot-ref REF=qt6` override the snapshot
+# pin via --define snapshot_commit=... without editing the spec.
+%{?!snapshot_commit:%global snapshot_commit 246b46f500e06eb819421e12644745e95872bb28}
+%{?!snapshot_date:%global snapshot_date 20260425}
+%{?!snapshot_sha256:%global snapshot_sha256 80142f1934c3938cf9422f8f4376426084a0443df3ed80c400ff1b0610c98718}
 %global shortcommit %(c=%{snapshot_commit}; echo ${c:0:7})
 
 # Channel-identifying suffix for the version strings the GUI displays.

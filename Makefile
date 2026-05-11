@@ -176,7 +176,7 @@ srpm-snapshot:
 srpm-snapshot-ref: REF ?= development
 srpm-snapshot-ref:
 	@echo ">> Generating snapshot tarball from o3de/o3de:$(REF)"
-	@cd sources && ./make-snapshot-tarball.sh "$(REF)" > /tmp/snapshot-vars.$$$$.txt 2>&1; \
+	@( cd sources && ./make-snapshot-tarball.sh "$(REF)" ) > /tmp/snapshot-vars.$$$$.txt 2>&1; \
 	cat /tmp/snapshot-vars.$$$$.txt; \
 	commit=$$(grep -E '^  %global snapshot_commit' /tmp/snapshot-vars.$$$$.txt | awk '{print $$3}'); \
 	date=$$(grep -E '^  %global snapshot_date' /tmp/snapshot-vars.$$$$.txt | awk '{print $$3}'); \
@@ -191,7 +191,7 @@ srpm-snapshot-ref:
 	  --define "snapshot_commit $$commit" \
 	  --define "snapshot_date $$date" \
 	  --define "snapshot_sha256 $$sha" \
-	  $(RPMBUILD_DEFINES) o3de.spec
+	  $(RPMBUILD_DEFINES) $(PWD)/o3de.spec
 
 # Convenience aliases for the two common upstream-migration tracking targets.
 srpm-snapshot-qt6:

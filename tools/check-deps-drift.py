@@ -510,8 +510,9 @@ def render_report(
         "minor-drift": 2,
         "ahead-of-engine": 3,
         "cruft": 4,
-        "covered-by-spec": 5,
-        "in-sync": 6,
+        "bundled-exception": 5,
+        "covered-by-spec": 6,
+        "in-sync": 7,
     }
     for r in sorted(rows, key=lambda r: (order.get(r["status"], 9), r["engine_name"])):
         lines.append(
@@ -526,7 +527,8 @@ def render_report(
     lines.append("- **minor-drift** -- same upstream version, different rev label.")
     lines.append("- **out-of-date** -- COPR trails what the engine pins (workflow fails).")
     lines.append("- **ahead-of-engine** -- COPR is newer than the engine pin (informational).")
-    lines.append("- **gap** -- engine references it, we do not ship in COPR, no system_<X> bcond.")
+    lines.append("- **gap** -- engine references it, we do not ship in COPR, no system_<X> bcond, NOT a documented bundling exception (investigate).")
+    lines.append("- **bundled-exception** -- engine bundles it; intentionally NOT in COPR + NOT a spec swap. Documented in BUNDLED_LIBRARIES.md.")
     lines.append("- **covered-by-spec** -- engine references it; covered by `%bcond_with system_<X>` in o3de.spec.")
     lines.append("- **cruft** -- COPR ships it but the engine no longer references it.")
     return "\n".join(lines) + "\n"
@@ -552,6 +554,7 @@ def main(argv: list[str]) -> int:
     threep_dirs = cfg.get("threep_dirs") or {}
     bcond_aliases = cfg.get("spec_bcond_aliases") or {}
     ignore = set(cfg.get("ignore_engine_packages") or [])
+    bundling_exception = set(cfg.get("bundling_exception") or [])
 
     spec_bconds = read_spec_bconds(Path(args.spec))
 
@@ -587,6 +590,11 @@ def main(argv: list[str]) -> int:
             copr_ver = "(spec swap)"
             threep_ver = threep_versions.get(engine_name, "n/a")
             copr_name = bcond_name
+        elif engine_name in bundling_exception:
+            status = "bundled-exception"
+            copr_ver = "(bundled)"
+            threep_ver = threep_versions.get(engine_name, "n/a")
+            copr_name = ""
         else:
             status = "gap"
             copr_ver = "(none)"
