@@ -53,11 +53,28 @@ If mcpp rev9 builds clean on CS10, the same `%global debug_package %{nil}` macro
 
 ### Reference state at end-of-day 2026-05-10
 
-- **HEAD on main**: `d889edb` ("fix(cs10): rephrase %install-block comment to avoid RPM 4.19 misparse + bump COPR build timeout to 8h")
-- **Spec changelog**: `2605.0-45`
+- **HEAD on main**: `7a31d01` ("fix(cs10): bulk-escape ALL section-keyword tokens in o3de.spec comments/changelog (round 2)")
+- **Spec changelog**: `2605.0-46`
 - **Active in `o3de-experimental` chroot config**: still 17 with_opts entries (snapshot + stabilization + 12 Stage 1 + 3 Stage 2)
-- **Builds in flight overnight**: 10442708 (engine validation, all 3 chroots, ~5-8h ETA) + 10442715 (mcpp rev9 CS10-only, ~2-3 min ETA)
-- **Stage 2 PoC working trees**: unchanged paths (`/home/nschuetz/o3de2605-{dxc-spirv,spirv-cross,mcpp-az}-poc/`); mcpp now at rev9 (debug_package fix), the other two at their 2026-05-08 revs.
+- **Builds in flight overnight**:
+  - 10442708 (engine validation, all 3 chroots, ORIGINAL post-2605.0-45 spec): F44 + rawhide should succeed in ~5-8h; CS10 chroot of THIS build is now known-doomed (will trip at next unescaped section token past line 1087) but not cancelled because F44 + rawhide still produce useful artifacts.
+  - 10442734 (engine CS10-only, ROUND-2 escaped spec at 2605.0-46): queued behind 10442708's CS10 slot; will start when capacity opens. First true CS10 engine compile attempt; expected 5-8h.
+- **Builds that completed during the session**:
+  - 10442715 (mcpp rev9 CS10): FAILED with the second CS10 quirk that drove the round-2 escape work.
+  - 10442733 (mcpp rev10 CS10, post-bulk-escape): SUCCEEDED -- empirical proof the bulk-escape fix works.
+- **Stage 2 PoC working trees**: paths unchanged. mcpp PoC now at rev10 (debug_package + bulk escape), local git up-to-date with HEAD `8167b9f`. dxc-spirv PoC has the prophylactic escape fix applied (no rev bump yet; HEAD `c62581c`). spirv-cross PoC unchanged (no unescaped section tokens; nothing to fix).
+
+### Memory notes refreshed this session
+
+- `project_lua_5_5_newstate_break.md`: hedge "may be MORE Lua 5.5 sites" retired; comprehensive grep audit at `o3de/development @ 706cd0f3` confirmed Patch0010 + Patch0011 are the complete set. Future engine snapshots should re-run the grep.
+- `project_cs10_debuginfo_quirk.md`: renamed + expanded to cover BOTH known CS10/RPM 4.19 quirks (debuginfo double-emission + literal `%install` in comments anywhere). Scope correction: in-comment section tokens trip the parser ANYWHERE in the spec, not just inside the active section block (corrected mid-session after empirical evidence from build 10442715).
+- `MEMORY.md` index entries updated for both.
+
+### Tomorrow morning
+
+1. Check 10442708 (F44 + rawhide RPMs landing) -- if they succeed, that's the validation of the rename + Patch0010 + Patch0011 + system_mcpp full Stage 1+2 stack on F44 + rawhide.
+2. Check 10442734 (CS10 engine compile) -- whatever fails first on CS10 is the next thing to investigate. Likely candidates: clang version skew (CS10 ships clang 19, F44 ships clang 21), system library version mismatches (Qt5 5.15.1 vs different vendor on CS10), or new missing-BR packages CS10 happens not to have.
+3. Stabilization channel still on 7-pack; community testers untouched. No promotions needed until F44 + rawhide validate clean on 10442708.
 
 ---
 
