@@ -3,8 +3,15 @@
 # Common targets:
 #   make lint                         rpmlint + desktop + metainfo + spec parse
 #   make srpm                         build SRPM (stable mode)
-#   make srpm-snapshot                build SRPM (snapshot mode)
+#   make srpm-snapshot                build SRPM (snapshot mode; uses spec's pinned commit)
 #   make snapshot REF=<git-ref>       fetch+build snapshot tarball, paste pins yourself
+#   make srpm-snapshot-ref REF=<ref>  fetch tarball from ref + build SRPM in one step
+#                                     (no spec edits; uses --define overrides). Default REF=development
+#   make srpm-snapshot-qt6            convenience alias: srpm-snapshot-ref REF=qt6
+#   make srpm-snapshot-development    convenience alias: srpm-snapshot-ref REF=development
+#   make copr-snapshot-ref REF=<ref>  srpm-snapshot-ref + submit to hellaenergy/o3de-snapshot
+#   make copr-snapshot-qt6            convenience alias: copr-snapshot-ref REF=qt6
+#   make copr-snapshot-development    convenience alias: copr-snapshot-ref REF=development
 #   make rpm                          full -bb (stable, profile only — main package)
 #   make rpm-snapshot                 full -bb (snapshot, profile only)
 #   make rpm-debug                    full -bb (stable) + o3de-debug subpackage
@@ -66,7 +73,9 @@ RPMBUILD_DEFINES = \
 
 .PHONY: help lint spec-parse spec-parse-snapshot spec-parse-stabilization spec-parse-experimental \
         print-pkgname \
-        snapshot srpm srpm-snapshot srpm-stabilization srpm-experimental \
+        snapshot srpm srpm-snapshot srpm-snapshot-ref srpm-snapshot-qt6 srpm-snapshot-development \
+        srpm-stabilization srpm-experimental \
+        copr-snapshot-ref copr-snapshot-qt6 copr-snapshot-development \
         rpm rpm-snapshot rpm-debug rpm-snapshot-debug rpm-experimental \
         copr-stable copr-snapshot copr-stabilization copr-experimental \
         copr-snapshot-and-test copr-stabilization-and-test copr-experimental-and-test _copr-and-test \
@@ -143,6 +152,68 @@ srpm:
 
 srpm-snapshot:
 	rpmbuild -bs --with snapshot $(RPMBUILD_DEFINES) o3de.spec
+
+# srpm-snapshot-ref: build an SRPM from an arbitrary o3de/o3de branch
+# WITHOUT modifying o3de.spec's hardcoded snapshot_commit/date/sha256.
+# Generates a fresh tarball from REF, parses the printed commit/date/sha
+# values, and overrides the spec macros via --define at rpmbuild time.
+# Doesn't touch the spec on disk so the main stabilization/26050 flow
+# isn't disturbed.
+#
+# Usage:
+#   make srpm-snapshot-ref REF=qt6                       # qt6 migration branch
+#   make srpm-snapshot-ref REF=development               # bleeding-edge HEAD
+#   make srpm-snapshot-ref REF=<commit-sha>              # pinned commit
+#
+# Output: ~/rpmbuild/SRPMS/o3de2605-<NVR>.src.rpm with the snapshot
+# macros pointing at REF's HEAD. Submit to hellaenergy/o3de-snapshot
+# via `copr-cli build hellaenergy/o3de-snapshot ~/rpmbuild/SRPMS/...`.
+#
+# Output of make-snapshot-tarball.sh is parsed via grep -- format:
+#   "  %global snapshot_commit <sha>"
+#   "  %global snapshot_date   <YYYYMMDD>"
+#   "  %global snapshot_sha256 <sha256>"
+srpm-snapshot-ref: REF ?= development
+srpm-snapshot-ref:
+	@echo ">> Generating snapshot tarball from o3de/o3de:$(REF)"
+	@cd sources && ./make-snapshot-tarball.sh "$(REF)" > /tmp/snapshot-vars.$$$$.txt 2>&1; \
+	cat /tmp/snapshot-vars.$$$$.txt; \
+	commit=$$(grep -E '^  %global snapshot_commit' /tmp/snapshot-vars.$$$$.txt | awk '{print $$3}'); \
+	date=$$(grep -E '^  %global snapshot_date' /tmp/snapshot-vars.$$$$.txt | awk '{print $$3}'); \
+	sha=$$(grep -E '^  %global snapshot_sha256' /tmp/snapshot-vars.$$$$.txt | awk '{print $$3}'); \
+	rm -f /tmp/snapshot-vars.$$$$.txt; \
+	if [ -z "$$commit" ] || [ -z "$$date" ] || [ -z "$$sha" ]; then \
+	  echo ">> ERROR: could not parse commit/date/sha from snapshot output" >&2; \
+	  exit 1; \
+	fi; \
+	echo ">> Building SRPM with snapshot_commit=$$commit snapshot_date=$$date"; \
+	rpmbuild -bs --with snapshot \
+	  --define "snapshot_commit $$commit" \
+	  --define "snapshot_date $$date" \
+	  --define "snapshot_sha256 $$sha" \
+	  $(RPMBUILD_DEFINES) o3de.spec
+
+# Convenience aliases for the two common upstream-migration tracking targets.
+srpm-snapshot-qt6:
+	$(MAKE) srpm-snapshot-ref REF=qt6
+
+srpm-snapshot-development:
+	$(MAKE) srpm-snapshot-ref REF=development
+
+# copr-snapshot-ref: submit a snapshot-ref SRPM to hellaenergy/o3de-snapshot.
+# Same parameterization as srpm-snapshot-ref. The snapshot project's
+# chroot config (per `project_snapshot_branch.md`) is intentionally minimal
+# (no system_* swaps) so dev-branch builds aren't masked by our local
+# packaging variations.
+copr-snapshot-ref: srpm-snapshot-ref
+	copr-cli build --timeout 28800 $(COPR_OWNER)/$(COPR_PROJECT_SNAPSHOT) \
+		~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
+
+copr-snapshot-qt6:
+	$(MAKE) copr-snapshot-ref REF=qt6
+
+copr-snapshot-development:
+	$(MAKE) copr-snapshot-ref REF=development
 
 # srpm-stabilization: snapshot + the stabilization channel marker. This
 # is what the community testers' channel ships. The marker is what

@@ -164,6 +164,80 @@ def die(msg: str) -> None:
 # --- data fetchers ---------------------------------------------------------
 
 
+def fetch_tracked_branches(repo: str, branches: list[dict[str, str]]) -> list[dict[str, Any]]:
+    """Fetch state for branches we passively track for upstream migration progress.
+
+    For each entry, query:
+      - Last commit SHA + date on the branch.
+      - Commits ahead/behind compared to the configured base (e.g. development).
+
+    Returns a list of dicts ready for render_branch_tracking().
+    """
+    import datetime
+    out: list[dict[str, Any]] = []
+    now = datetime.datetime.now(datetime.timezone.utc)
+    for entry in branches:
+        name = entry.get("branch") or ""
+        compare_to = entry.get("compare_to") or "development"
+        desc = entry.get("description") or ""
+        issue = entry.get("issue_url") or ""
+        try:
+            raw = run(["gh", "api", f"repos/{repo}/branches/{name}"], check=True)
+            br = json.loads(raw)
+            sha = br["commit"]["sha"][:7]
+            date_str = br["commit"]["commit"]["author"]["date"]
+            last = datetime.datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+            stale_days = (now - last).days
+        except subprocess.CalledProcessError:
+            out.append({"branch": name, "error": "branch not found or API error",
+                        "description": desc, "issue": issue})
+            continue
+        try:
+            raw = run(["gh", "api", f"repos/{repo}/compare/{compare_to}...{name}"], check=True)
+            cmp = json.loads(raw)
+            ahead = cmp.get("ahead_by", "?")
+            behind = cmp.get("behind_by", "?")
+        except (subprocess.CalledProcessError, ValueError):
+            ahead = behind = "?"
+        out.append({
+            "branch": name, "sha": sha, "date": date_str[:10], "stale_days": stale_days,
+            "compare_to": compare_to, "ahead": ahead, "behind": behind,
+            "description": desc, "issue": issue,
+        })
+    return out
+
+
+def render_branch_tracking(branches: list[dict[str, Any]]) -> str:
+    """Render the Qt 6 / dev-branch tracking section."""
+    if not branches:
+        return ""
+    lines: list[str] = []
+    lines.append("")
+    lines.append("## Upstream migration branch tracking")
+    lines.append("")
+    lines.append(
+        "Passive monitoring of upstream branches we plan to react to. Staleness "
+        "(days since last commit) is a soft signal: a branch idle for months "
+        "typically means the migration is parked, not abandoned -- O3DE is "
+        "volunteer-paced. Action items keyed off `stabilization/<release>` "
+        "branch cutovers, not these branch timestamps directly."
+    )
+    lines.append("")
+    lines.append("| Branch | Last commit | Days idle | Ahead | Behind | Compared to | Description |")
+    lines.append("|--------|-------------|-----------|-------|--------|-------------|-------------|")
+    for b in branches:
+        if b.get("error"):
+            lines.append(f"| `{b['branch']}` | error: {b['error']} | - | - | - | - | {b.get('description','')} |")
+            continue
+        lines.append(
+            "| `{branch}` | `{sha}` ({date}) | {stale_days} | {ahead} | {behind} | `{compare_to}` | {description} |".format(**b)
+        )
+        if b.get("issue"):
+            lines.append(f"|        | Tracking issue: {b['issue']} | | | | | |")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def fetch_engine_pins(engine_repo: str, ref: str) -> dict[str, dict[str, str]]:
     """Return {engine_pkg_name: {"version": "...", "raw": "..."}}.
 
@@ -528,6 +602,24 @@ def main(argv: list[str]) -> int:
 
     report = render_report(engine_ref, rows, spec_bconds)
     sys.stdout.write(report)
+
+    # Track upstream migration branches (e.g., Qt 6 qt6 branch).
+    # Hardcoded list -- only one branch to track right now. The
+    # dep-map.yaml loader doesn't support list-of-maps; if this list
+    # grows we can extend the loader or switch dep-map to JSON. Doesn't
+    # affect the workflow's exit code -- this is informational, not gating.
+    tracked_branches = [
+        {
+            "branch": "qt6",
+            "compare_to": "development",
+            "description": "Qt 6 migration target for 26.10.0 (volunteer-paced; not guaranteed)",
+            "issue_url": "https://github.com/o3de/o3de/issues/19081",
+        },
+    ]
+    if tracked_branches:
+        print(f"# Fetching tracked migration branches from {engine_repo}...", file=sys.stderr)
+        tracked = fetch_tracked_branches(engine_repo, tracked_branches)
+        sys.stdout.write(render_branch_tracking(tracked))
 
     has_drift = any(r["status"] == "out-of-date" for r in rows)
     return 1 if has_drift else 0
