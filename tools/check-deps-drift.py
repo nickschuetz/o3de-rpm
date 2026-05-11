@@ -707,6 +707,11 @@ def main(argv: list[str]) -> int:
             "description": "Qt 6 migration target for 26.10.0 (volunteer-paced; not guaranteed)",
             "issue_url": "https://github.com/o3de/o3de/issues/19081",
         },
+        {
+            "branch": "qt6_pyside",
+            "compare_to": "qt6",
+            "description": "PySide6 migration -- WIP sub-branch off qt6, the major blocker per PR #19567",
+        },
     ]
     tracked_prs = [
         {
