@@ -6,6 +6,59 @@ This file is intentionally a living scratchpad. Entries get added or removed as 
 
 ---
 
+## 2026-05-11 afternoon -- F44 consolidation session + Qt 6 strategic clarification
+
+After pausing CS10, ran four-track F44 hardening:
+
+1. **Tier 7 root-cause investigation: ✓ DONE.** Reframed the failure -- not a parallel-jobs SRG-merge race, but a **scan-folder configuration** problem. Test scratch project doesn't include `/opt/O3DE/26.05.0/Gems/` in its scan folders, so `MergeShaderResourceGroupAsset`'s outputs (viewsrg.srgi, scenesrg.srgi) are invisible to `ShaderAssetBuilder`. The `--regset maxJobs=1` validation experiment failed and was reverted (commit `705ea99`). Memory notes `project_tier7_cold_cache_quirk.md` + `project_tier7_serial_pass_option.md` reframed with the corrected understanding. Workflow updated to upload BOTH cold + warm AP logs (`f0ac388`). Actual fix scope (next item in queue, not yet started): pass `--scanfolders=$ENGINE_PATH/Gems` to AP in `tests/asset-bake-test.sh:run_ap_pass()`. Bonus finding from same investigation: SQLite header/library version mismatch produces three `Trace::Assert` blocks at AP startup (system_sqlite swap firing SQLite's built-in version-sanity check). Non-fatal; low priority noise.
+
+2. **Stabilization 7-pack -> 12-pack promotion: ✓ APPLIED + VALIDATING.** o3de-stabilization F44 + rawhide chroots extended from 8 with_opts to 13 (added system_assimp + system_libsamplerate + system_lua + system_poly2tri + system_sqlite). New SRPM_STABILIZATION_FLAGS list in Makefile mirrors the chroot config. Build **10444167** queued (F44+rawhide; CS10 untouched per pause). ETA ~5h each chroot. Will land the 12-pack for community testers if green; rollback is just reverting the chroot edit.
+
+3. **Qt 5.15.1 -> 5.15.2-rev9 rebuild: RETIRED-as-DEAD-WORK.** Investigation revealed the rev9 source isn't published anywhere (only as a binary on packages.o3de.org), so "rebuild" isn't mechanical. Bigger picture: engine team's strategic direction is Qt 6 for 26.10.0, NOT improving Qt 5. Don't invest in o3de-qt5 anymore. See "Qt 6 migration tracking" entry below for the forward plan.
+
+4. **system_googlebenchmark activation: ✓ APPLIED + VALIDATING.** Plumbing landed 2026-05-08 (bcond+Source+Find shim) but was OFF; today's activation adds `--with system_googlebenchmark` to SRPM_EXPERIMENTAL_FLAGS + experimental chroot. Engine still ships AzTest+AzTestRunner+gbench unconditionally (architecturally correct shape per closed PR #19738 redirect); linkage now pulls Fedora's `google-benchmark-devel`. Build **10444166** queued (F44+rawhide). ETA ~5h each. Validates the 18-pack stack in one go.
+
+Reference state at end of session: HEAD `f0ac388` ("test(tier7): upload both cold + warm AP logs..."). Spec changelog `2605.0-47`.
+
+### Builds in flight (overnight)
+- 10444166 (experimental F44+rawhide, 18-pack incl. googlebenchmark)
+- 10444167 (stabilization F44+rawhide, 12-pack promotion)
+
+---
+
+## Upstream PR status (2026-05-11 refresh)
+
+- **#19733 (AzCore Lua include cleanup)** -- MERGED 2026-05-08 by nick-l-o3de. Our Patch0008 becomes redundant on next snapshot rebase.
+- **#19734 (libtiff C99 typedefs)** -- MERGED 2026-05-08 by nick-l-o3de. Our Patch0007 becomes redundant on next snapshot rebase.
+- **#19737 (Microphone libsamplerate PAL-trait gate)** -- **MERGED 2026-05-10 by nick-l-o3de.** When we pull a fresh snapshot from development (or once stabilization/26050 cherry-picks it forward), our local Microphone-related patch hunks become redundant. Action: audit local patches against the merged PR on next snapshot rebase. Three of three upstream PRs this cycle now merged.
+- **#19738 (googlebenchmark gate on LY_DISABLE_TEST_MODULES)** -- CLOSED 2026-05-08 (architecturally wrong premise per nick-l-o3de). Replaced by today's system_googlebenchmark Stage 1 swap activation (build 10444166).
+- **#19740 (libbenchmark.a missing from engine install set)** -- filed as upstream issue 2026-05-08; awaiting volunteer pickup. Memory note `project_az_test_runner_architecture.md`. Not blocking on us.
+
+---
+
+## Qt 6 migration tracking (planned for 26.10.0; NOT guaranteed)
+
+Replaces the retired "Qt 5.15.1 -> 5.15.2-rev9 rebuild" item with the actual strategic shape.
+
+**Upstream tracking links**:
+- **Feature request**: [o3de/o3de#19081](https://github.com/o3de/o3de/issues/19081) -- "Upgrate O3DE tools to QT6", OPEN, priority/major (sig/content + feature/editor + feature-need/important-soon).
+- **3p side**: [o3de/3p-package-source#293](https://github.com/o3de/3p-package-source/pull/293) -- "Update from QT5.15 to QT6.10.2" -- **MERGED 2026-02-13 by sptramer.** Recipe for Qt 6.10.2 builds is now upstream.
+- **Engine side**: `o3de/o3de:qt6` branch at HEAD `b74cbc8` (2026-03-10). 19 commits ahead of development, 35 commits behind, ~300 files changed. NOT merged to development as of 2026-05-11.
+- **Linked discussion**: [o3de/o3de#14940](https://github.com/o3de/o3de/discussions/14940) -- closed; 2025-era community offer of Qt 6.3.2 work from a 22.05 branch fork.
+
+**Critical for packaging**: Qt 6 will be **VANILLA** (no custom O3DE patches). PR #293's description states *"Nothing, we are using vanilla QT. In the process, we are nuking the custom changes"*. The Qt 5.15 fork's load-bearing patches (PropagateStyleToChildren / ManualStyleSheet / tooltip layouting / TIFF support / tree-view expand) are being dropped, not forward-ported. Means: when Qt 6 migration lands, **Fedora's system qt6 packages CAN substitute** -- the entire `o3de-qt5` bundle (101MB tarball, multi-hour build) can be retired in favor of `BuildRequires: qt6-qtbase-devel qt6-qttools-devel qt6-qtsvg-devel ...` + `system_qt6` Stage 1 swap.
+
+**Volunteer-project caveat**: 26.10.0 (fall 2026 stable release) is the goal date, but O3DE is open-source volunteer work. The qt6 branch hasn't received commits since 2026-03-10 -- two months of inactivity. There's a real-but-low chance Qt 6 slips past 26.10.0. **Don't preemptively retire o3de-qt5 packaging.** Wait for empirical merge to development + stabilization/26100 cutover before drafting `system_qt6`.
+
+**Action items (in order)**:
+1. **Nothing right now.** Engine team owns the qt6 branch merge cadence; packaging-side work is contingent on that.
+2. **When stabilization/26100 branch is cut** (typical cadence: ~3-4 months before stable release, so likely mid-July 2026): inspect `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` on the stabilization branch. If `qt-6.10.2-*-linux`: draft system_qt6 swap. If still `qt-5.15.2-rev9-linux`: Qt 6 slipped; keep o3de-qt5 for one more cycle and revisit for 27.05.x.
+3. **Adjacent: PySide6** migration. PR #19361 (Component Creation Class Wizard Expansion) introduces PySide6 dependency. Same shape as Qt 6 -- F44 ships `python3-pyside6`; retire bundled `pyside2-5.15.2.1-py3.10-rev7` when engine migrates.
+
+**Why Qt 6 didn't make 26.05.0** (referenced from the curious question 2026-05-11): timing + scope. The qt6 branch had its substantive activity Jan-Mar 2026; stabilization/26050 was cut ~Feb 2026 (typical 3-month-before-release cadence) and the qt6 work missed that cutoff. The 300-file / 19-commit scope plus 35-commit-behind rebase backlog plus the cross-platform validation cycles (Mac still pins 5.15.2-rev8 in 3p build_config; Mac path lags Linux/Windows) compound. Volunteer cadence means PR #293 merged in February and then nothing has driven the qt6 engine-branch forward since March. Memory note `project_o3de_bundles_custom_qt.md` documents the migration plan + cautions.
+
+---
+
 ## CS10 (CentOS Stream 10) -- PAUSED 2026-05-11
 
 CS10 chroot pivot effort started 2026-05-08, paused 2026-05-11 to consolidate on F44 + rawhide first.
