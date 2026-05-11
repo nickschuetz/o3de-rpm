@@ -1084,7 +1084,9 @@ ln -s ../../../../engine.json %{buildroot}%{o3de_install_prefix}/bin/Linux/debug
 # Source files (sources/o3de-launcher.sh, sources/o3de-cli, sources/
 # o3de.desktop, sources/o3de-editor.desktop) stay statically named and
 # pass desktop-file-validate as-is. Per-version mutation lands here at
-# %install time:
+# install time (note: avoid literal %%install in comments inside this
+# section -- CS10's RPM 4.19 misparses unescaped %%install as a section
+# marker; F44/rawhide RPM 6.x ignores it):
 #   - launcher / o3de-cli paths → %{o3de_install_prefix} via sed
 #   - launcher Qt -name arg → "O3DE-%{o3de_major_tag}" (matches StartupWMClass)
 #   - desktop file Exec / Icon / Name / StartupWMClass keys overridden
@@ -1272,6 +1274,24 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Sun May 10 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-45
+- CS10 RPM 4.19 spec-parse fix: rephrase a comment inside the %install
+  block that contained the literal token "%install" (in the phrase
+  "Per-version mutation lands here at %install time:"). RPM 4.19 (which
+  CentOS Stream 10 ships) parses unescaped "%install" anywhere inside an
+  active %install block as a section-start marker, producing
+  `error: line 1087: second %install` at SRPM build. RPM 6.x (F44 +
+  rawhide) ignores the in-comment token and parses cleanly. Caught on
+  build 10439258 CS10 chroot (failed at SRPM-prep in 134s; F44 +
+  rawhide of the same build instead progressed to the engine-build
+  + packaging finish line before hitting the 5h COPR wall-clock).
+- Comment rephrased to drop the percent sign and now also documents the
+  RPM 4.19 quirk inline so future edits don't reintroduce the pattern.
+- Other "%install" tokens elsewhere in the spec (lines 455, 524, and the
+  changelog itself) sit outside the active %install block and are not
+  affected by the RPM 4.19 parser bug. No change needed there.
+- No code changes; documentation-only fix in the spec.
+
 * Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-44
 - Patch0011: Lua 5.5 LUA_NUMTAGS compat fix in
   Code/Tools/LuaIDE/Source/LUA/WatchesPanel.cpp. Sibling to Patch0010

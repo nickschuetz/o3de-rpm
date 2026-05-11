@@ -493,17 +493,17 @@ copr-init:
 	@echo "# and --contact need the API directly (see CONTRIBUTING.md)."
 
 copr-stable: srpm
-	copr-cli build --timeout 25200 $(COPR_OWNER)/$(COPR_PROJECT_STABLE) \
+	copr-cli build --timeout 28800 $(COPR_OWNER)/$(COPR_PROJECT_STABLE) \
 		~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
 
 copr-snapshot: srpm-snapshot
-	copr-cli build --timeout 25200 $(COPR_OWNER)/$(COPR_PROJECT_SNAPSHOT) \
+	copr-cli build --timeout 28800 $(COPR_OWNER)/$(COPR_PROJECT_SNAPSHOT) \
 		~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
 
 # copr-stabilization: the regular community-tester channel. This is the
 # project the test-installed.yml cron polls for new builds.
 copr-stabilization: srpm-stabilization
-	copr-cli build --timeout 25200 $(COPR_OWNER)/$(COPR_PROJECT_STABILIZATION) \
+	copr-cli build --timeout 28800 $(COPR_OWNER)/$(COPR_PROJECT_STABILIZATION) \
 		~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
 
 # Parallel project for in-flight migration / structural work that isn't
@@ -511,12 +511,17 @@ copr-stabilization: srpm-stabilization
 # and same enable_net + o3de-dependencies repo wiring as the stabilization
 # project; different audience: only us until a change is validated.
 copr-experimental: srpm-experimental
-	copr-cli build --timeout 25200 $(COPR_OWNER)/$(COPR_PROJECT_EXPERIMENTAL) \
+	copr-cli build --timeout 28800 $(COPR_OWNER)/$(COPR_PROJECT_EXPERIMENTAL) \
 		~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
 
-# 25200s = 7 hr. Default COPR project timeout is 5 hr; F44 chroot ate
-# ~4 hr in build 10414894 (which completed all 2173 compile steps), so
-# rawhide — typically 10-30% slower than F44 — would risk timeout.
+# 28800s = 8 hr. Default COPR project timeout is 5 hr (18000s); build
+# 10439258 hit it at exactly 18141s on F44 with the full Stage 1+Stage 2
+# build, despite the Makefile passing --timeout 25200 (the build was
+# resubmitted via raw copr-cli without the flag, defaulting to 5h and
+# being killed at the "Checking for unpackaged file(s)" finalization
+# step). Bumped to 28800 to give rawhide (10-30% slower than F44) and
+# CS10 (compile cost unknown until first successful end-to-end run)
+# usable headroom over F44's 5h2m baseline.
 
 # Submit to COPR, watch until completion, fire a repository_dispatch
 # event at the GitHub Actions test-installed.yml workflow on success.
@@ -540,7 +545,7 @@ copr-experimental-and-test: srpm-experimental
 _copr-and-test:
 	@[ -n "$(COPR_TARGET)" ] || { echo "_copr-and-test requires COPR_TARGET="; exit 2; }
 	@set -e ; \
-	build_output=$$(copr-cli build --timeout 25200 \
+	build_output=$$(copr-cli build --timeout 28800 \
 	    $(COPR_OWNER)/$(COPR_TARGET) \
 	    ~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm) ; \
 	echo "$$build_output" ; \
