@@ -333,22 +333,22 @@ run_ap_pass() {
     local timeout_secs="$2"
     local out_log="$3"
     local start end elapsed
-    # Pass --scanfolders=$ENGINE_PATH/Gems so AP can resolve the
-    # MergeShaderResourceGroupAsset builder's outputs (viewsrg.srgi,
-    # scenesrg.srgi) which land under the installed engine's Gems/
-    # directory. Without this, the scratch project's scan folder list
-    # is just $PROJECT_DIR and AP complains that engine-side SRG paths
-    # "do not appear to be in any input folder", causing the .azmodel
-    # bake to silently produce nothing. Diagnosed 2026-05-11 from the
-    # warm-pass log of run 25669972358 -- see memory note
-    # `project_tier7_cold_cache_quirk.md` for the full trace.
+    # NOTE 2026-05-11: this test currently FAILS in a fundamental way --
+    # not packaging, not parallelism, not scan folders alone. The cube.fbx
+    # bake through SceneAPI has a deep dep chain (resourcepool -> shaders
+    # -> SRG merge) that the empty scratch project can't satisfy. Adding
+    # --scanfolders=$ENGINE_PATH/Gems brought 600 failed engine-asset
+    # bakes into the picture (reverted). Real fix needs Tier 7 redesign:
+    # either (a) test assimp directly at the C++ API level (bypass
+    # SceneAPI/AP entirely) or (b) build the scratch project with full
+    # Atom Gem registration so the dep chain resolves. Both are bigger
+    # than a flag tweak. See `project_tier7_cold_cache_quirk.md`.
     printf '\n[bake:%s] running AssetProcessorBatch (timeout %ss)...\n' \
         "$label" "$timeout_secs"
     start=$(date +%s)
     timeout --preserve-status "$timeout_secs" "$APB" \
             --project-path="$PROJECT_DIR" \
             --platforms=linux \
-            --scanfolders="$ENGINE_PATH/Gems" \
             >"$out_log" 2>&1 || :
     end=$(date +%s)
     elapsed=$((end - start))

@@ -207,34 +207,98 @@ def fetch_tracked_branches(repo: str, branches: list[dict[str, str]]) -> list[di
     return out
 
 
-def render_branch_tracking(branches: list[dict[str, Any]]) -> str:
+def fetch_tracked_prs(repo: str, prs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Fetch state for upstream PRs we passively track (merge candidates
+    for migrations we plan to react to once they land).
+
+    For each entry, query: PR state, mergedAt, last activity, base/head
+    branches, file-change scope, CI status rollup.
+    """
+    import datetime
+    out: list[dict[str, Any]] = []
+    now = datetime.datetime.now(datetime.timezone.utc)
+    for entry in prs:
+        num = entry.get("number")
+        desc = entry.get("description") or ""
+        try:
+            raw = run(["gh", "pr", "view", str(num), "--repo", repo,
+                       "--json", "state,mergedAt,updatedAt,baseRefName,headRefName,"
+                                 "additions,deletions,changedFiles,statusCheckRollup"], check=True)
+            pr = json.loads(raw)
+        except subprocess.CalledProcessError:
+            out.append({"number": num, "error": "PR not found or API error", "description": desc})
+            continue
+        updated = datetime.datetime.fromisoformat(pr["updatedAt"].replace("Z", "+00:00"))
+        idle_days = (now - updated).days
+        # Summarize CI for the platforms we care about (Linux first).
+        ci_summary: list[str] = []
+        for sc in pr.get("statusCheckRollup", []):
+            name = sc.get("name", "")
+            concl = sc.get("conclusion") or sc.get("status") or "?"
+            if "linux" in name.lower():
+                ci_summary.append(f"{name}={concl}")
+        out.append({
+            "number": num, "state": pr["state"], "merged": pr.get("mergedAt"),
+            "updated": pr["updatedAt"][:10], "idle_days": idle_days,
+            "base": pr["baseRefName"], "head": pr["headRefName"],
+            "changed_files": pr["changedFiles"],
+            "additions": pr["additions"], "deletions": pr["deletions"],
+            "ci_linux": " / ".join(ci_summary) or "no Linux checks",
+            "description": desc,
+        })
+    return out
+
+
+def render_branch_tracking(branches: list[dict[str, Any]], prs: list[dict[str, Any]] = None) -> str:
     """Render the Qt 6 / dev-branch tracking section."""
-    if not branches:
+    prs = prs or []
+    if not branches and not prs:
         return ""
     lines: list[str] = []
     lines.append("")
-    lines.append("## Upstream migration branch tracking")
+    lines.append("## Upstream migration tracking")
     lines.append("")
     lines.append(
-        "Passive monitoring of upstream branches we plan to react to. Staleness "
-        "(days since last commit) is a soft signal: a branch idle for months "
-        "typically means the migration is parked, not abandoned -- O3DE is "
-        "volunteer-paced. Action items keyed off `stabilization/<release>` "
-        "branch cutovers, not these branch timestamps directly."
+        "Passive monitoring of upstream branches + PRs we plan to react to. "
+        "Staleness (days since last commit / activity) is a soft signal: a "
+        "branch or PR idle for months typically means the migration is parked, "
+        "not abandoned -- O3DE is volunteer-paced. Action items keyed off "
+        "`stabilization/<release>` branch cutovers and PR merges, not these "
+        "timestamps directly."
     )
     lines.append("")
-    lines.append("| Branch | Last commit | Days idle | Ahead | Behind | Compared to | Description |")
-    lines.append("|--------|-------------|-----------|-------|--------|-------------|-------------|")
-    for b in branches:
-        if b.get("error"):
-            lines.append(f"| `{b['branch']}` | error: {b['error']} | - | - | - | - | {b.get('description','')} |")
-            continue
-        lines.append(
-            "| `{branch}` | `{sha}` ({date}) | {stale_days} | {ahead} | {behind} | `{compare_to}` | {description} |".format(**b)
-        )
-        if b.get("issue"):
-            lines.append(f"|        | Tracking issue: {b['issue']} | | | | | |")
-    lines.append("")
+    if branches:
+        lines.append("### Branches")
+        lines.append("")
+        lines.append("| Branch | Last commit | Days idle | Ahead | Behind | Compared to | Description |")
+        lines.append("|--------|-------------|-----------|-------|--------|-------------|-------------|")
+        for b in branches:
+            if b.get("error"):
+                lines.append(f"| `{b['branch']}` | error: {b['error']} | - | - | - | - | {b.get('description','')} |")
+                continue
+            lines.append(
+                "| `{branch}` | `{sha}` ({date}) | {stale_days} | {ahead} | {behind} | `{compare_to}` | {description} |".format(**b)
+            )
+            if b.get("issue"):
+                lines.append(f"|        | Tracking issue: {b['issue']} | | | | | |")
+        lines.append("")
+    if prs:
+        lines.append("### Pull requests")
+        lines.append("")
+        lines.append("| PR | State | Idle | Files | +/- | Base | Head | Linux CI | Description |")
+        lines.append("|----|-------|------|-------|-----|------|------|----------|-------------|")
+        for p in prs:
+            if p.get("error"):
+                lines.append(f"| #{p['number']} | error: {p['error']} | - | - | - | - | - | - | {p.get('description','')} |")
+                continue
+            merged_note = f"MERGED {p['merged'][:10]}" if p.get("merged") else p["state"]
+            lines.append(
+                "| #{number} | {state} | {idle_days}d | {changed_files} | +{additions}/-{deletions} | "
+                "`{base}` | `{head}` | {ci_linux} | {description} |".format(
+                    state=merged_note, **{k: v for k, v in p.items() if k != "state"}
+                )
+            )
+        lines.append("")
     return "\n".join(lines)
 
 
@@ -630,11 +694,12 @@ def main(argv: list[str]) -> int:
     report = render_report(engine_ref, rows, spec_bconds)
     sys.stdout.write(report)
 
-    # Track upstream migration branches (e.g., Qt 6 qt6 branch).
-    # Hardcoded list -- only one branch to track right now. The
-    # dep-map.yaml loader doesn't support list-of-maps; if this list
-    # grows we can extend the loader or switch dep-map to JSON. Doesn't
-    # affect the workflow's exit code -- this is informational, not gating.
+    # Track upstream migration branches + PRs (e.g., Qt 6 qt6 branch +
+    # PR #19567 merging qt6 -> development). Hardcoded lists -- only a
+    # handful to track right now. The dep-map.yaml loader doesn't support
+    # list-of-maps; if these lists grow we can extend the loader or
+    # switch dep-map to JSON. Doesn't affect the workflow's exit code --
+    # this is informational, not gating.
     tracked_branches = [
         {
             "branch": "qt6",
@@ -643,10 +708,24 @@ def main(argv: list[str]) -> int:
             "issue_url": "https://github.com/o3de/o3de/issues/19081",
         },
     ]
-    if tracked_branches:
-        print(f"# Fetching tracked migration branches from {engine_repo}...", file=sys.stderr)
-        tracked = fetch_tracked_branches(engine_repo, tracked_branches)
-        sys.stdout.write(render_branch_tracking(tracked))
+    tracked_prs = [
+        {
+            "number": 19081,
+            "description": "Feature request: Qt 6 migration (tracking issue, not a PR)",
+        },
+        {
+            "number": 19567,
+            "description": "Build against Qt 6.10.2 (qt6 -> development merge PR; Linux-Profile GREEN)",
+        },
+    ]
+    # Note: 19081 is an issue not a PR; the gh pr view call will fail
+    # gracefully via the error path. Keeping it in the list for now as
+    # documentation of the relationship; refactor later if useful.
+    if tracked_branches or tracked_prs:
+        print(f"# Fetching tracked migration branches + PRs from {engine_repo}...", file=sys.stderr)
+        tracked_b = fetch_tracked_branches(engine_repo, tracked_branches)
+        tracked_p = fetch_tracked_prs(engine_repo, [p for p in tracked_prs if p["number"] == 19567])
+        sys.stdout.write(render_branch_tracking(tracked_b, tracked_p))
 
     has_drift = any(r["status"] == "out-of-date" for r in rows)
     return 1 if has_drift else 0

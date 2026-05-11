@@ -6,6 +6,55 @@ This file is intentionally a living scratchpad. Entries get added or removed as 
 
 ---
 
+## 2026-05-11 late afternoon -- Mike-C feedback + Tier 7 deeper reframe + Qt 6 PR tracking
+
+### Mike-C feedback from 2026-05-07 (caught up 2026-05-11)
+
+Mike posted to Discord on 5/7 with three observations testing the then-current stabilization build. Surfaced late; addressed:
+
+1. **`libAzGameFramework.a` missing during native project build.** Downstream of #3 below. The static archive lives in `o3de2605-devel` subpackage (carved out 2026-05-04 via commit `285d924`). When the COPR Pulp CDN bug bailed his `o3de2605-devel` install mid-stream, the .so's and runtime tooling landed but the .a's never did. Resolution path: in-flight build **10444167** (12-pack stabilization promotion, due ~5h from 2026-05-11 mid-afternoon) will publish a fresh artifact to Pulp, regenerating the metadata and resolving the Content-Length inconsistency naturally. Mike doesn't need to do anything except retry `sudo dnf install o3de2605-devel` after the new build lands.
+
+2. **CMake bundling question** (he noted Project Manager downloaded bundled CMake 4.2.3 but our path `/opt/O3DE/26.05.0/cmake/runtime/` is empty; asked if removed for licensing). Answer: no, BSD-3-Clause -- not licensing. Per Fedora packaging guideline 12 ("don't bundle libraries Fedora ships"), we depend on system CMake via `Recommends: cmake`. The empty `cmake/runtime/` tree stays declared as a placeholder for future in case the engine ever pins a patched CMake; today engine just uses whichever cmake is on PATH. Spec comment is accurate.
+
+3. **COPR Pulp CDN Content-Length inconsistency** (501,315,746 advertised vs 501,182,865 in repodata for o3de2605-devel). Pulp/S3 storage-layer bug on COPR's side; not our packaging. Retry sometimes clears it; the in-flight build above will give Pulp a fresh artifact to regenerate metadata against.
+
+Side note from the same investigation: o3de2605-devel is ~500MB compressed (~4GB expanded; 178 static archives). Only relevant for native C++ Gem development against engine internals -- end users running games or Lua/ScriptCanvas project authors don't need it. Worth noting in user docs at some point.
+
+### Tier 7 deeper reframe (post `--scanfolders` experiment)
+
+Earlier today's `--scanfolders=$ENGINE_PATH/Gems` fix (commit `832689e`) was validated against the failing run and didn't actually fix it. Cold log analysis revealed the deeper truth: even a single-file cube.fbx bake through SceneAPI declares a `JobDependency` on `DefaultVertexBufferPool.resourcepool`, which transitively requires shaders + SRG merge + Atom RPI gem. The empty scratch project can't satisfy that dep chain. Adding engine Gems to scan folders made it worse (600 engine-asset bakes failed for the same chain reasons, drowning out the cube.fbx signal).
+
+**Implication**: the original Tier 7 test premise ("single-file scratch project that just exercises assimp's import path") was conceptually wrong. FBX -> azmodel through SceneAPI is NOT standalone from the Atom rendering pipeline.
+
+`--scanfolders` change reverted. Test script stays in tree as a known-broken record of the dep-chain finding. Real fix options documented in updated `project_tier7_cold_cache_quirk.md`:
+- **(a)** Skip AP entirely; test assimp at C++ API level (compile small binary against system_assimp, assert mesh count etc.). Recommended.
+- **(b)** Use AutomatedTesting project structure (heavy; touches whole engine asset library).
+- **(c)** Drop Tier 7 entirely.
+
+Tier 7 cron stays OFF; rebuild won't happen until (a)-style direct-assimp test is implemented. This is a fundamental redesign, NOT a quick fix; defer until next sprint.
+
+### Qt 6 tracking now includes PR #19567
+
+User pointed at PR [o3de/o3de#19567](https://github.com/o3de/o3de/pull/19567) -- this is the actual merge candidate (qt6 -> development). Updated `tools/check-deps-drift.py` to also track PR state in the drift report's "Upstream migration tracking" section. Drift report now shows:
+
+```
+| #19567 | OPEN | 57d | 1662 | +2547/-5075 | development | qt6 | Linux-Profile=SUCCESS / Linux-Asset=FAILURE |
+```
+
+**Key insight from PR scope review**: Linux-Profile builds GREEN on Qt 6.10.2. Engine compiles cleanly on Linux against vanilla Qt 6 -- empirical proof that `system_qt6` Stage 1 swap is feasible the day this PR merges. Mac-Profile + Windows-Profile + Windows-Release all FAIL (Mac toolchain + Windows VS2019 -> 2022 toolset bump issues). PySide2 not yet migrated (major author-flagged blocker). AP/APB hangs on exit (caught by nick-l-o3de 2026-02-18).
+
+Stalled since 2026-03-14; nick-l-o3de's earlier "hold merging until stabilization/26050 is cut" gate is long since released (26050 cut weeks ago). PR is now just waiting on review + work bandwidth.
+
+### Other items wrapped this session
+
+- **Tier 7 actual fix attempt** -- reverted (didn't work; see above).
+- **`make srpm-snapshot-qt6` smoke test** -- caught 2 infra bugs (cd-scoping in Makefile + %global override in spec); both fixed. SRPM now generates end-to-end against the qt6 branch tip.
+- **Cruft cleanup** -- deleted PhysX + aws-gamelift-server-sdk from o3de-dependencies (engine no longer references either).
+- **ISPCTexComp drift fix** -- rebuilt from commit 36b80aa (the engine-pinned source) instead of 691513b. Build 10444466 GREEN on F44+rawhide.
+- **Drift report `bundled-exception` classification** -- 5 documented bundles (OpenSSL/openimageio-opencolorio/pyside2/squish-ccr/vulkan-validationlayers) moved out of "gap" bucket. Drift report now: 0 gap, 0 minor-drift, 2 out-of-date (ISPCTexComp resolving + Qt intentional).
+
+---
+
 ## 2026-05-11 afternoon -- F44 consolidation session + Qt 6 strategic clarification
 
 After pausing CS10, ran four-track F44 hardening:
