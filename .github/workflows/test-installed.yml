@@ -372,8 +372,15 @@ jobs:
         with:
           name: asset-bake-log-${{ matrix.chroot }}
           # The bake script (with --keep-tmp) leaves its scratch
-          # project plus log under mktemp's standard location.
-          path: /tmp/o3de-bake-test-*/asset-processor.log
+          # project plus logs under mktemp's standard location. Upload
+          # BOTH cold + warm logs so investigators can diagnose
+          # cold-pass-specific failures (the warm log alone misses
+          # cold-cache-only events). Caught during 2026-05-11 Tier 7
+          # investigation: only-warm-log uploads meant the cold-pass
+          # behavior was invisible to artifact consumers.
+          path: |
+            /tmp/o3de-bake-test-*/asset-processor.log
+            /tmp/o3de-bake-test-*/asset-processor.cold.log
           if-no-files-found: ignore
 
   record:
