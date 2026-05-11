@@ -81,7 +81,7 @@ flowchart TB
         T1["tests/integration-test.sh<br/>Tiers 1-5 (rpm / install / setup /<br/>engine smoke / project end-to-end)"]
         T2["tests/ui-smoke-test.sh<br/>Tier 6: Project Manager + Editor<br/>under Xvfb"]
         T4["tests/asset-bake-test.sh<br/>Tier 7: AssetProcessorBatch<br/>FBX-bake (catches assimp 5-to-6<br/>behavior deltas)"]
-        T3[".github/workflows/test-installed.yml<br/>matrix: F44, rawhide, F45+, ...<br/>+ check-deps-drift.yml weekly cron"]
+        T3[".github/workflows/test-installed.yml<br/>matrix: F44, rawhide, CS10, F45+, ...<br/>+ check-deps-drift.yml weekly cron"]
         DC1B -.-> T1
         DC1B -.-> T2
         DC1B -.-> T4
@@ -94,6 +94,8 @@ flowchart TB
 ```
 
 ## Eight separations to notice
+
+> **Distro coverage note**: builds run against three chroots: **F44** (stable Fedora, primary production target), **fedora-rawhide** (forward-looking for the next Fedora release), and **CentOS Stream 10** (added 2026-05-08; upstream of RHEL 10, enables RHEL-derivative consumers). Each chroot exposes the engine to a different toolchain combination (F44: gcc 15 / clang 21 / glibc 2.42 / Lua 5.4; rawhide: same plus Lua 5.5; CS10: gcc 14 / clang 19+ / glibc 2.39 / Lua 5.4 / RPM 4.19 vs. F44+rawhide's RPM 6.x). Patches gated on `LUA_VERSION_NUM >= 505` (Patch0010 + Patch0011) fire only on rawhide; spec authoring conventions (e.g. escape `%%install` in comments) are driven by CS10's stricter RPM 4.19 parser. See [`project_cs10_engine_build_blockers.md`](../personal/projects/-home-nschuetz-o3de-rpm/memory/project_cs10_engine_build_blockers.md) memory note for the running CS10 toolchain compat list.
 
 1. **Source-mode toggle** decides between a stable tarball and a reproducible snapshot tarball, but the rest of the spec is identical for both.
 2. **3rdParty bundle toggles** are independent of source mode -- each `--with thirdparty_<pkg>` extracts its `Source10x` tarball into `LY_3RDPARTY_PATH` before configure.
