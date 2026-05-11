@@ -6,6 +6,38 @@ This file is intentionally a living scratchpad. Entries get added or removed as 
 
 ---
 
+## CS10 (CentOS Stream 10) -- PAUSED 2026-05-11
+
+CS10 chroot pivot effort started 2026-05-08, paused 2026-05-11 to consolidate on F44 + rawhide first.
+
+**Why paused:** The remaining CS10 work isn't bounded. `ispc` (Intel SPMD compiler) has no `epel10` branch in Fedora -- ISPCTexComp can't be built on CS10 without either us packaging ispc ourselves (significant scope creep) or adding an engine-side cmake gate. The heavier deps (Qt5, PhysX, AWSNativeSDK) haven't been CS10-tested and likely surface their own per-spec quirks. F44 + rawhide just went green end-to-end yesterday on the full 14-pack + Patch0010 + Patch0011 stack (build 10442708); that foundation should harden before splitting attention. Tier 7 still fails on F44 + rawhide (the `--regset maxJobs=1` hypothesis was wrong -- see `project_tier7_serial_pass_option.md`); that's a higher-leverage F44 win than CS10 grinding.
+
+**Stance**: leave the CS10 chroots configured but stop submitting to them. Nothing gets torn down; nothing gets added. The work that landed is correct and harmless; it just sits idle.
+
+**What landed that's keeper-state (do NOT revert)**:
+- All 4 engine COPR projects + o3de-dependencies have `centos-stream-10-x86_64` chroot enabled. Empty + idle is fine.
+- `o3de-experimental` CS10 chroot has the full 17 with_opts + EPEL-10 + o3de-dependencies repo wired. Will be picked up unchanged when CS10 work resumes.
+- Spec-side: o3de.spec round-1 + round-2 escape fixes (2605.0-45 + 2605.0-46), Makefile timeout bump to 8h (28800s). All behavior-preserving on F44/rawhide.
+- mcpp PoC rev10 (debug_package + bulk escape), dxc-spirv PoC rev14 (prophylactic escape). Both have CS10-green RPMs in o3de-dependencies.
+- 5 CS10-green dep RPMs in o3de-dependencies: mikkelsen, azslc, astc-encoder, aws-iot-device-sdk-cpp-v2, aws-gamelift-server-sdk (built 2026-05-11 from F44 SRPMs).
+
+**What's known-blocked when we resume**:
+- ISPCTexComp CS10 build needs `ispc` for EL10. No upstream solution. Resume options:
+  - (a) Package ispc ourselves in `hellaenergy/o3de-dependencies` as a CS10-targeted SRPM.
+  - (b) Engine-side cmake gate to skip ISPCTexComp on CS10 builds.
+  - (c) Drop CS10 support indefinitely if neither (a) nor (b) lands.
+- Qt5 + PhysX + AWSNativeSDK haven't been CS10-built yet. Multi-hour each.
+- Engine compile on CS10 has never reached the build phase (always blocked at BR resolution so far). Once deps are sorted, expect to surface clang 19 vs F44's clang 21 diagnostic differences and libstdc++ 14.3 vs 15.x deprecation deltas.
+
+**Resume-from-here ledger**: memory notes `project_cs10_engine_build_blockers.md` (incremental discovery list), `project_cs10_with_opts_gap.md` (chroot config fix recipe -- already applied; documents the gotcha for future chroot additions), `project_cs10_debuginfo_quirk.md` (the two known RPM 4.19 quirks + escape pattern).
+
+**Resume conditions** (any one is enough to revisit):
+- An external user requests CS10 / RHEL 10 support (would shift priority from speculative to real-demand).
+- F44 + rawhide are at a stable "no critical pending work" state (Tier 7 fixed, stabilization channel at 12-pack or 14-pack, drift items at zero, upstream PR backlog cleared).
+- ispc lands an `epel10` branch in Fedora (eliminates the biggest unbounded chunk).
+
+---
+
 ## End-of-day 2026-05-10 -- what landed
 
 Short evening session focused on diagnosing build 10439258 (the post-Patch0011 validation rebuild) and clearing the next round of blockers.
