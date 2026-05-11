@@ -42,14 +42,14 @@ copr_project: o3de-dependencies
 copr_packages:
   AWSNativeSDK: o3de-AWSNativeSDK
   AwsIotDeviceSdkCpp: aws-iot-device-sdk-cpp-v2
-  DirectXShaderCompilerDxc: o3de-dxc-spirv
+  DirectXShaderCompilerDxc: o3de2605-dxc-spirv
   ISPCTexComp: ISPCTexComp
   PhysX: PhysX
-  SPIRVCross: o3de-spirv-cross
+  SPIRVCross: o3de2605-spirv-cross
   astc-encoder: astc-encoder
   aws-gamelift-server-sdk: aws-gamelift-server-sdk
   azslc: azslc
-  mcpp: o3de-mcpp-az
+  mcpp: o3de2605-mcpp-az
   mikkelsen: mikkelsen
   qt: o3de-qt5
 

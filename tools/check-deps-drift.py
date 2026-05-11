@@ -432,15 +432,34 @@ def classify(engine_ver: str, copr_ver: str) -> str:
     en = normalize_version(engine_ver)
     cp = normalize_version(copr_ver)
     if en == cp:
-        # exact label match? in-sync. Otherwise minor-drift.
+        # exact label match? in-sync. Otherwise check rev labels.
         if engine_ver.split("-linux")[0] == copr_ver:
             return "in-sync"
-        # if the rev token matches too, in-sync
-        en_rev = re.search(r"rev\d+", engine_ver)
-        cp_rev = re.search(r"rev\d+", copr_ver)
-        if en_rev and cp_rev and en_rev.group(0) == cp_rev.group(0):
-            return "in-sync"
-        return "minor-drift"
+        # Compare rev labels ONLY when they refer to the same kind of
+        # iteration counter on both sides. Two distinct forms exist:
+        #   - Engine/3p form: "-rev<N>" attached directly to the
+        #     upstream version (e.g. "1.15.2-rev1") -- O3DE's
+        #     upstream-package revision counter.
+        #   - COPR form: "-<R>.rev<N>" where -<R> is the RPM release
+        #     counter and .rev<N> is our LOCAL spec iteration counter
+        #     (how many times we rebuilt this recipe on Fedora;
+        #     unrelated to upstream's revisioning).
+        # Comparing engine's rev3 to COPR's rev14 is meaningless
+        # because they measure different things. Only flag minor-drift
+        # when both sides expose a comparable rev token.
+        en_rev = re.search(r"(?<!\.)\brev(\d+)", engine_ver)  # not preceded by '.'
+        cp_rev = re.search(r"(?<!\.)\brev(\d+)", copr_ver)
+        if en_rev and cp_rev:
+            # Both sides have engine-style rev labels; compare them.
+            if en_rev.group(0) == cp_rev.group(0):
+                return "in-sync"
+            return "minor-drift"
+        # One or both sides use the COPR `.rev<N>` form (spec iteration
+        # counter) which isn't directly comparable to the engine's
+        # upstream-rev counter. Treat as in-sync: normalize_version
+        # confirmed the underlying upstream version matches, and the
+        # rev label forms aren't meaningfully comparable.
+        return "in-sync"
     # If either side looks like a git-commit pin (hex sha) and they
     # don't match literally, treat as out-of-date -- numeric ordering
     # is meaningless across commits.

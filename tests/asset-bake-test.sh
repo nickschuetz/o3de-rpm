@@ -333,12 +333,22 @@ run_ap_pass() {
     local timeout_secs="$2"
     local out_log="$3"
     local start end elapsed
+    # Pass --scanfolders=$ENGINE_PATH/Gems so AP can resolve the
+    # MergeShaderResourceGroupAsset builder's outputs (viewsrg.srgi,
+    # scenesrg.srgi) which land under the installed engine's Gems/
+    # directory. Without this, the scratch project's scan folder list
+    # is just $PROJECT_DIR and AP complains that engine-side SRG paths
+    # "do not appear to be in any input folder", causing the .azmodel
+    # bake to silently produce nothing. Diagnosed 2026-05-11 from the
+    # warm-pass log of run 25669972358 -- see memory note
+    # `project_tier7_cold_cache_quirk.md` for the full trace.
     printf '\n[bake:%s] running AssetProcessorBatch (timeout %ss)...\n' \
         "$label" "$timeout_secs"
     start=$(date +%s)
     timeout --preserve-status "$timeout_secs" "$APB" \
             --project-path="$PROJECT_DIR" \
             --platforms=linux \
+            --scanfolders="$ENGINE_PATH/Gems" \
             >"$out_log" 2>&1 || :
     end=$(date +%s)
     elapsed=$((end - start))
