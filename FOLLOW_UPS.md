@@ -82,6 +82,7 @@ Reference state at end of session: HEAD `f0ac388` ("test(tier7): upload both col
 - **#19737 (Microphone libsamplerate PAL-trait gate)** -- **MERGED 2026-05-10 by nick-l-o3de.** When we pull a fresh snapshot from development (or once stabilization/26050 cherry-picks it forward), our local Microphone-related patch hunks become redundant. Action: audit local patches against the merged PR on next snapshot rebase. Three of three upstream PRs this cycle now merged.
 - **#19738 (googlebenchmark gate on LY_DISABLE_TEST_MODULES)** -- CLOSED 2026-05-08 (architecturally wrong premise per nick-l-o3de). Replaced by today's system_googlebenchmark Stage 1 swap activation (build 10444166).
 - **#19740 (libbenchmark.a missing from engine install set)** -- filed as upstream issue 2026-05-08; awaiting volunteer pickup. Memory note `project_az_test_runner_architecture.md`. Not blocking on us.
+- **#19743 (AP minimal-scope flag request)** -- filed as upstream discussion-quality issue 2026-05-11. Documents the empty-scratch-project workflow gap surfaced by today's Tier 7 investigation (cube.fbx declares JobDependency on `DefaultVertexBufferPool.resourcepool` -> transitively needs full Atom RPI gem registration; AP has no `--single-asset` / `--minimal-scope` flag to break the chain). Awaiting engine-team feedback on API shape; happy to contribute implementation once design settled. Resolution unlocks proper Tier 7 SceneAPI-integration coverage (current Tier 7 is library-health only).
 
 ---
 
