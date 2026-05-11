@@ -6,6 +6,61 @@ This file is intentionally a living scratchpad. Entries get added or removed as 
 
 ---
 
+## End-of-day 2026-05-10 -- what landed
+
+Short evening session focused on diagnosing build 10439258 (the post-Patch0011 validation rebuild) and clearing the next round of blockers.
+
+### Build 10439258 outcome (the post-Patch0011 validation rebuild)
+
+Mixed result with one new gotcha:
+
+- **F44 chroot**: ran 5h02m, **engine compiled fully**, packaging emitted Provides/Requires for both `o3de2605` and `o3de2605-devel` subpackages, killed at the final `Checking for unpackaged file(s)` step by the COPR default 5h wall-clock timeout (`!! Copr timeout => sending INT`). Build essentially "done" -- binaries were generated, just couldn't finish RPM finalization. Underlying cause: Makefile passes `--timeout 25200` (7h) but the rebuild was submitted via raw copr-cli without the flag, defaulting to 5h (18000s) and being killed at 18141s.
+- **rawhide chroot**: same 5h timeout pattern; same compiled-fully + packaging-emitted state. Crucially, the Requires list shows `liblua-5.5.so` -- meaning **Patch0010 + Patch0011 cleared all Lua 5.5 sites and the engine compiled clean on Lua 5.5**. No third break site emerged.
+- **CS10 chroot**: failed at SRPM-prep in 134s with a NEW RPM 4.19 quirk -- `error: line 1087: second %install`. Different from the mcpp debuginfo quirk caught on 2026-05-08. Root cause: the o3de.spec had a comment inside the `%install` block reading `# Per-version mutation lands here at %install time:` -- RPM 4.19 (CS10) parses the unescaped literal `%install` token inside that comment as a section-start marker; RPM 6.x (F44 + rawhide) ignores it.
+
+### Fixes landed today
+
+- **CS10 spec quirk fix** (commit `d889edb`) -- rephrased the line-1087 comment to drop the percent sign + added an inline note documenting the RPM 4.19 quirk so future edits don't reintroduce it. Swept the rest of the active `%install` block: no other comments in that block contain the token, so the fix is local. Other `%install` references elsewhere in o3de.spec (lines 455, 524, the changelog) sit outside the active `%install` block and are unaffected by the parser bug.
+- **Makefile COPR timeout bump 25200 -> 28800** (same commit) -- 8h ceiling for all four `copr-cli build` invocations (stable / snapshot / stabilization / experimental) + the internal `_copr-and-test` helper. F44's empirical 5h02m baseline + rawhide's typical 10-30% slowdown could overflow even 7h on a worst-case run; 8h gives usable headroom for rawhide AND CS10 (CS10 build time unknown until first end-to-end run completes). Updated the inline comment block explaining the choice.
+- **Validation rebuild submitted as build 10442708** (o3de-experimental, all 3 chroots, 8h timeout). https://copr.fedorainfracloud.org/coprs/build/10442708 -- expected to land sometime overnight depending on rawhide + CS10 compile times.
+
+### Lua 5.5 break-site pre-flight audit (concluded: Patch0010 + Patch0011 are sufficient)
+
+Per the existing `project_lua_5_5_newstate_break.md` memory note's hedge ("there may be MORE Lua 5.5 break sites we haven't tripped on yet"), ran the recommended comprehensive grep against `o3de/development @ 706cd0f3` (head of upstream development) to enumerate ALL potential Lua 5.5 break sites prophylactically:
+
+- `LUA_NUMTAGS`: exactly 2 sites, both in `Code/Tools/LuaIDE/Source/LUA/WatchesPanel.cpp:834,838`. **Both covered by Patch0011.**
+- `lua_newstate`: exactly 1 site in `Code/Framework/AzCore/AzCore/Script/ScriptContext.cpp:4360`. **Covered by Patch0010.**
+- Other Lua 5.5-vulnerable symbols swept (`luaL_register`, `lua_open`, `lua_resume`, `LUAI_FUNC`): zero hits across `Code/` + `Gems/`.
+
+Conclusion matches the empirical evidence (rawhide compiled the full engine in 10439258 with `liblua-5.5.so` linkage). **No Patch0012 needed.** The "may be MORE sites" hedge in the memory note can retire when next updated. If a future engine snapshot adds new Lua surface area, re-run the same grep before assuming the patches are still complete.
+
+### Stage 2 dep spec sweep (CS10 quirks)
+
+Swept the three Stage 2 dep specs (`o3de2605-mcpp-az`, `o3de2605-dxc-spirv`, `o3de2605-spirv-cross`) for the `%install`-in-comment pattern that broke o3de.spec on CS10: **all three clean** (none contain `%install` text inside their `%install` blocks). The o3de engine spec was unique in having that comment.
+
+Separately applied the known mcpp `%global debug_package %{nil}` fix per memory note `project_cs10_debuginfo_quirk.md`:
+
+- **mcpp rev9 spec change**: added `%global debug_package %{nil}` near the top with an inline comment explaining the RPM 4.19 vs RPM 6.x asymmetry. Bumped `mcpp_pkgrev` to rev9 + added a changelog entry.
+- **mcpp rev9 SRPM built** at `/home/nschuetz/o3de2605-mcpp-az-poc/o3de2605-mcpp-az-2.7.2-1.rev9.fc44.src.rpm`.
+- **CS10-only mcpp validation build submitted as build 10442715** (`o3de-dependencies`, CS10 chroot only via `-r centos-stream-10-x86_64`). Should complete in ~2-3 min and either confirm the debug_package fix works, or surface the next CS10 quirk. Independent of the engine build so doesn't compete for builder slots. https://copr.fedorainfracloud.org/coprs/build/10442715
+
+If mcpp rev9 builds clean on CS10, the same `%global debug_package %{nil}` macro can be propagated prophylactically to `o3de2605-spirv-cross` and `o3de2605-dxc-spirv` specs as belt-and-suspenders before their first CS10 build attempts (currently only mcpp has had a CS10 attempt; spirv-cross's CS10 result on 2026-05-08 was a different non-debuginfo SRPM, so debuginfo quirk wasn't tested there yet).
+
+### Other notes
+
+- The `o3de2605-devel` subpackage split appears to have landed at some point during 2026-05-08's work; confirmed by 10439258's packaging output showing both `o3de2605` and `o3de2605-devel` Provides lists. Not in scope for this session's investigation; flagged here for visibility.
+- The mcpp PoC working tree's git history doesn't include the rev6-rev8 commits (those were spec edits without local commits). Today's rev9 edit also not committed to the PoC's local git -- pure SRPM build + COPR submit. If the PoC eventually graduates to a real repo, the changelog entries in the spec ARE the canonical history.
+
+### Reference state at end-of-day 2026-05-10
+
+- **HEAD on main**: `d889edb` ("fix(cs10): rephrase %install-block comment to avoid RPM 4.19 misparse + bump COPR build timeout to 8h")
+- **Spec changelog**: `2605.0-45`
+- **Active in `o3de-experimental` chroot config**: still 17 with_opts entries (snapshot + stabilization + 12 Stage 1 + 3 Stage 2)
+- **Builds in flight overnight**: 10442708 (engine validation, all 3 chroots, ~5-8h ETA) + 10442715 (mcpp rev9 CS10-only, ~2-3 min ETA)
+- **Stage 2 PoC working trees**: unchanged paths (`/home/nschuetz/o3de2605-{dxc-spirv,spirv-cross,mcpp-az}-poc/`); mcpp now at rev9 (debug_package fix), the other two at their 2026-05-08 revs.
+
+---
+
 ## End-of-day 2026-05-08 -- what landed
 
 Bigger day than yesterday. Fifteen commits on `main` plus three PoC dirs plus two upstream PRs.

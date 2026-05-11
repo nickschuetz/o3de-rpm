@@ -393,13 +393,13 @@ BuildRequires:  ninja-build
 # clang 21+ warnings-as-errors, and the engine's bundled FetchContent
 # subprojects (libogg's CheckSizes etc.) have been observed to break
 # under GCC's stricter Fedora hardening defaults. CC/CXX are forced to
-# clang in %build below to match. gcc-c++ stays in BR because some
+# clang in %%build below to match. gcc-c++ stays in BR because some
 # host-build tools (ispc, pre-built shaders) still expect a GCC stub.
 BuildRequires:  clang
 BuildRequires:  gcc-c++
 BuildRequires:  git
 BuildRequires:  python3-devel
-# `python3 setup.py sdist` (used in %build to pre-build the three Python
+# `python3 setup.py sdist` (used in %%build to pre-build the three Python
 # packages O3DE would otherwise pip-install editable into the read-only
 # engine root — see Patch0004) requires setuptools at host build time.
 # Local Fedora pulls it transitively via the workstation Python stack;
@@ -452,7 +452,7 @@ BuildRequires:  assimp-devel
 # Stage 2 binary-only dependency: o3de2605-dxc-spirv from
 # hellaenergy/o3de-dependencies COPR (sibling project, auto-enabled
 # alongside this one). Ships /usr/bin/dxc, /usr/bin/dxsc,
-# /usr/lib64/libdxcompiler.so. The %install step below symlinks the
+# /usr/lib64/libdxcompiler.so. The %%install step below symlinks the
 # engine's expected runtime paths
 # (Builders/DirectXShaderCompiler/{bin/dxc,bin/dxsc,lib/libdxcompiler.so}
 # under the install prefix) to the system locations, so the engine's
@@ -521,7 +521,7 @@ BuildRequires:  sqlite-devel
 %if %{with system_spirvcross}
 # Stage 2 binary-only dependency: o3de2605-spirv-cross from
 # hellaenergy/o3de-dependencies COPR (sibling project, auto-enabled
-# alongside this one). Ships /usr/bin/spirv-cross. The %install step
+# alongside this one). Ships /usr/bin/spirv-cross. The %%install step
 # below symlinks the engine's expected runtime path
 # (Builders/SPIRVCross/spirv-cross under the install prefix) to
 # /usr/bin/spirv-cross, so the engine's asset-build pipeline shells
@@ -1274,21 +1274,40 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Sun May 10 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-46
+- CS10 / RPM 4.19 fix (round 2): bulk-escape literal section-keyword
+  tokens (%%install / %%build / %%files / %%prep / %%check / %%package /
+  %%description / %%post / %%postun / %%clean / %%changelog) ANYWHERE
+  they appear in comments + changelog, not just inside the active
+  %%install block. The 2605.0-45 fix only addressed the one comment at
+  line 1087 that was tripping CS10 build 10439258. Empirical evidence
+  from mcpp CS10 build 10442715 (rev9, post-fix-attempt) shows RPM 4.19
+  misparses unescaped section tokens ANYWHERE in the spec -- the next
+  build would have tripped on my own 2605.0-45 changelog entry which
+  itself contained six unescaped %%install references while describing
+  the fix. RPM 6.x (F44 + rawhide) is lax about in-comment tokens and
+  parses cleanly. 26 lines total bulk-escaped in this pass via a regex
+  transform that preserves real section headers (lines starting with
+  `%%<keyword>` followed by whitespace or EOL).
+- This commit is companion to the mcpp rev10 spec change (same shape,
+  same root cause). Memory note `project_cs10_debuginfo_quirk.md`
+  updated with the broader scope.
+
 * Sun May 10 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-45
-- CS10 RPM 4.19 spec-parse fix: rephrase a comment inside the %install
-  block that contained the literal token "%install" (in the phrase
-  "Per-version mutation lands here at %install time:"). RPM 4.19 (which
-  CentOS Stream 10 ships) parses unescaped "%install" anywhere inside an
-  active %install block as a section-start marker, producing
-  `error: line 1087: second %install` at SRPM build. RPM 6.x (F44 +
+- CS10 RPM 4.19 spec-parse fix: rephrase a comment inside the %%install
+  block that contained the literal token "%%install" (in the phrase
+  "Per-version mutation lands here at %%install time:"). RPM 4.19 (which
+  CentOS Stream 10 ships) parses unescaped "%%install" anywhere inside an
+  active %%install block as a section-start marker, producing
+  `error: line 1087: second %%install` at SRPM build. RPM 6.x (F44 +
   rawhide) ignores the in-comment token and parses cleanly. Caught on
   build 10439258 CS10 chroot (failed at SRPM-prep in 134s; F44 +
   rawhide of the same build instead progressed to the engine-build
   + packaging finish line before hitting the 5h COPR wall-clock).
 - Comment rephrased to drop the percent sign and now also documents the
   RPM 4.19 quirk inline so future edits don't reintroduce the pattern.
-- Other "%install" tokens elsewhere in the spec (lines 455, 524, and the
-  changelog itself) sit outside the active %install block and are not
+- Other "%%install" tokens elsewhere in the spec (lines 455, 524, and the
+  changelog itself) sit outside the active %%install block and are not
   affected by the RPM 4.19 parser bug. No change needed there.
 - No code changes; documentation-only fix in the spec.
 
@@ -1331,7 +1350,7 @@ EOF
   fetch for Fedora's google-benchmark-devel.
 - Plumbing wired: %bcond_with system_googlebenchmark, OR-chain extension,
   Source45 declaration of FindGoogleBenchmark-system.cmake, conditional
-  cp in %prep, BR google-benchmark-devel, Requires google-benchmark,
+  cp in %%prep, BR google-benchmark-devel, Requires google-benchmark,
   cmake -DLY_USE_SYSTEM_GOOGLEBENCHMARK=ON, Patch0006 hunk gating the
   ly_associate_package(googlebenchmark-1.7.0-rev1-linux). Hunk header
   bumped -17,30 +17,82 -> -17,30 +17,86 (+4 lines for the gate).
@@ -1436,7 +1455,7 @@ EOF
   Findmcpp module exists (mcpp is abandonware-class) so direct lookup
   is the only option.
 - Spec wires: %bcond_with system_mcpp, OR-chain extension, Source44
-  declaration, conditional cp in %prep, BuildRequires o3de-mcpp-az-devel,
+  declaration, conditional cp in %%prep, BuildRequires o3de-mcpp-az-devel,
   Requires o3de-mcpp-az, conditional cmake -DLY_USE_SYSTEM_MCPP=ON.
 - Makefile: add system_mcpp to spec-parse-experimental's --define list,
   to SRPM_EXPERIMENTAL_FLAGS, and to copr-init's chroot --rpmbuild-with
@@ -1454,7 +1473,7 @@ EOF
   (sibling COPR project hellaenergy/o3de-dependencies, license-clean
   NCSA + Apache-2.0 with LLVM-exception, ✓ green PoC build 10435628
   since 2026-05-08).
-- Implementation: %install creates symlinks at the engine's expected
+- Implementation: %%install creates symlinks at the engine's expected
   runtime paths (Builders/DirectXShaderCompiler/{bin/dxc, bin/dxsc,
   lib/libdxcompiler.so} under the install prefix) to the system
   locations. Same install-overlay pattern as system_spirvcross
@@ -1466,7 +1485,7 @@ EOF
   sig-build comment, the engine doesn't link DXC -- shells out to the
   binary. So binary swap at install time is sufficient.
 - Spec wires: %bcond_with system_dxc, OR-chain extension, conditional
-  BR/Requires o3de-dxc-spirv, conditional %install symlinks (3 paths
+  BR/Requires o3de-dxc-spirv, conditional %%install symlinks (3 paths
   for profile config + 3 for debug under --with debug).
 - This completes the Stage 2 binary-only set (SPIRV-Cross + DXC).
   Both PoC builds in hellaenergy/o3de-dependencies now have engine-side
@@ -1481,7 +1500,7 @@ EOF
   /usr/bin/spirv-cross from the o3de-spirv-cross package
   (sibling COPR project hellaenergy/o3de-dependencies, license-clean
   Apache-2.0 OR MIT, ✓ green PoC build 10434617 since 2026-05-07).
-- Implementation: %install creates a symlink at the engine's expected
+- Implementation: %%install creates a symlink at the engine's expected
   runtime path
   (%{o3de_install_prefix}/bin/Linux/profile/Default/Builders/SPIRVCross/spirv-cross)
   to /usr/bin/spirv-cross. Engine's path resolution
@@ -1500,7 +1519,7 @@ EOF
   entirely. For the PoC, the install-time overlay is enough to validate
   the engine -> COPR PoC integration path end-to-end.
 - Spec wires: %bcond_with system_spirvcross, OR-chain extension,
-  conditional BR/Requires o3de-spirv-cross, conditional %install
+  conditional BR/Requires o3de-spirv-cross, conditional %%install
   symlink (profile + debug configs).
 - This is the FIRST Stage 2 binary-only swap activation. DXC PoC
   rev12 (✓ green 2026-05-08) follows the same shape; engine-side
@@ -1535,7 +1554,7 @@ EOF
 - Spec wires: %bcond_with system_assimp, OR-chain extension, Source43
   declaration, conditional BR/Recommends assimp-devel, conditional
   Requires assimp, conditional cmake -DLY_USE_SYSTEM_ASSIMP=ON,
-  conditional %prep cp.
+  conditional %%prep cp.
 - License: assimp is BSD-3-Clause, Fedora-acceptable.
 - SBOM bumped 2605.0-36 → 2605.0-37.
 
@@ -1559,7 +1578,7 @@ EOF
 - Spec wires: %bcond_with system_libsamplerate, OR-chain extension,
   Source42 declaration, conditional BR/Recommends libsamplerate-devel,
   conditional Requires libsamplerate, conditional cmake -DLY_USE_SYSTEM_LIBSAMPLERATE=ON,
-  conditional %prep cp.
+  conditional %%prep cp.
 - 0.2.1 → 0.2.2 is patch-version increment within libsamplerate's
   23-year ABI-stable major (since 0.1.0, 2002). License: BSD-2-Clause
   (Erik de Castro Lopo, libsndfile author) — Fedora-acceptable.
@@ -1593,7 +1612,7 @@ EOF
 - Spec wires: `%bcond_with system_sqlite`, OR-chain extension, Source41
   declaration, conditional BR/Recommends `sqlite-devel`, conditional
   Requires `sqlite-libs`, conditional `cmake -DLY_USE_SYSTEM_SQLITE=ON`,
-  conditional %prep cp.
+  conditional %%prep cp.
 - Engine has an exact-match `sqlite3_libversion_number() ==
   SQLITE_VERSION_NUMBER` runtime assertion in
   AzToolsFramework/SQLite/SQLiteConnection.cpp — automatically satisfied
@@ -1692,7 +1711,7 @@ EOF
   consumer syntax resolves cleanly against Fedora's layout.
 - Activates --with system_poly2tri (BR poly2tri-devel,
   Recommends poly2tri-devel, Requires poly2tri,
-  -DLY_USE_SYSTEM_POLY2TRI=ON, %prep cp). Per-chroot
+  -DLY_USE_SYSTEM_POLY2TRI=ON, %%prep cp). Per-chroot
   --rpmbuild-with system_poly2tri applied separately in COPR.
 - Channel-marker OR-chain extended; --with system_poly2tri now
   triggers experimental channel labeling.
@@ -1713,7 +1732,7 @@ EOF
   with only public Lua headers. Carry-patch applies unconditionally
   (bundled-Lua builds also benefit). Activates `system_lua` on
   Fedora — Stage 1 scaffolding (bcond, FindLua-system.cmake,
-  Source36, conditional BR/Recommends/Requires/cmake -D, %prep cp)
+  Source36, conditional BR/Recommends/Requires/cmake -D, %%prep cp)
   was already in place; only the engine-side patch was missing.
   Upstream PR drafted; submission to o3de/o3de gated on
   fully-baked signal per project_no_upstream_until_baked memory.
@@ -1866,7 +1885,7 @@ EOF
     * %{o3de_install_prefix}/lib64/
       — 5 .a files (~2 MB) plus pkgconfig metadata for Recast/Detour
       from the RecastNavigation gem
-  Fulfills the long-standing TODO(devel-split) block above %package
+  Fulfills the long-standing TODO(devel-split) block above %%package
   debug. Roughly halves on-disk size of %{name} for runtime-only
   users (CI test containers, game distribution servers, Lua/ScriptCanvas
   project authors). Native C++ gem developers writing static-link
@@ -1882,7 +1901,7 @@ EOF
   archives. Keeping these on main means `dnf install %{name}` (with
   default weak deps) gets the build experience working for the
   common case; %{name}-devel layers on the static-archive scenario.
-- Update %post user-facing message to mention %{name}-devel alongside
+- Update %%post user-facing message to mention %{name}-devel alongside
   the existing %{name}-debug pointer.
 
 * Mon May 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-22
@@ -2051,7 +2070,7 @@ EOF
   rawhide would risk hitting the default 5 hr timeout.
 
 * Fri May 01 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-12
-- Add `BuildRequires: python3-setuptools`. The %build sdist-builder
+- Add `BuildRequires: python3-setuptools`. The %%build sdist-builder
   step (introduced for Patch0004) runs `python3 setup.py sdist` for
   three engine-side Python packages, which requires setuptools at
   build time. Local Fedora workstations pull it in transitively; COPR
