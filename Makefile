@@ -186,12 +186,20 @@ srpm-snapshot-ref:
 	  echo ">> ERROR: could not parse commit/date/sha from snapshot output" >&2; \
 	  exit 1; \
 	fi; \
-	echo ">> Building SRPM with snapshot_commit=$$commit snapshot_date=$$date"; \
+	echo ">> Baking snapshot_commit=$$commit snapshot_date=$$date into a temp spec copy"; \
+	cp $(PWD)/o3de.spec /tmp/o3de-snapshot-ref.$$$$.spec; \
+	sed -i \
+	    -e "s|^%{?!snapshot_commit:%global snapshot_commit .*$$|%{?!snapshot_commit:%global snapshot_commit $$commit}|" \
+	    -e "s|^%{?!snapshot_date:%global snapshot_date .*$$|%{?!snapshot_date:%global snapshot_date $$date}|" \
+	    -e "s|^%{?!snapshot_sha256:%global snapshot_sha256 .*$$|%{?!snapshot_sha256:%global snapshot_sha256 $$sha}|" \
+	    /tmp/o3de-snapshot-ref.$$$$.spec; \
+	echo ">> Building SRPM (--define overrides apply at SRPM-build; baked values survive COPR's re-eval)"; \
 	rpmbuild -bs --with snapshot \
 	  --define "snapshot_commit $$commit" \
 	  --define "snapshot_date $$date" \
 	  --define "snapshot_sha256 $$sha" \
-	  $(RPMBUILD_DEFINES) $(PWD)/o3de.spec
+	  $(RPMBUILD_DEFINES) /tmp/o3de-snapshot-ref.$$$$.spec; \
+	rm -f /tmp/o3de-snapshot-ref.$$$$.spec
 
 # Convenience aliases for the two common upstream-migration tracking targets.
 srpm-snapshot-qt6:

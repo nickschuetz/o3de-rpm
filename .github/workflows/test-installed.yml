@@ -55,9 +55,9 @@ on:
         default: false
         type: boolean
       run_asset_bake:
-        description: 'Run Tier 7 (FBX asset-bake regression; assimp 5->6 guard) -- opt-in until two-pass design verified in CI'
+        description: 'Run Tier 7 (system-swap library-health check across all Stage 1 swaps; fast)'
         required: false
-        default: false
+        default: true
         type: boolean
       o3de_pkgname:
         description: 'Explicit package name override (e.g. o3de2605). Leave blank to auto-detect from the RPM URL.'
@@ -229,7 +229,7 @@ jobs:
           # Pass/fail grading uses the warm-pass log. Default flips to
           # true once a manual workflow_dispatch run confirms the
           # two-pass shape works end-to-end.
-          [ -z "$run_asset_bake" ] && run_asset_bake=false
+          [ -z "$run_asset_bake" ] && run_asset_bake=true
           {
             echo "run_setup=$run_setup"
             echo "run_project=$run_project"
