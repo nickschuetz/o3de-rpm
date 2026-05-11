@@ -70,11 +70,75 @@ If mcpp rev9 builds clean on CS10, the same `%global debug_package %{nil}` macro
 - `project_cs10_debuginfo_quirk.md`: renamed + expanded to cover BOTH known CS10/RPM 4.19 quirks (debuginfo double-emission + literal `%install` in comments anywhere). Scope correction: in-comment section tokens trip the parser ANYWHERE in the spec, not just inside the active section block (corrected mid-session after empirical evidence from build 10442715).
 - `MEMORY.md` index entries updated for both.
 
-### Tomorrow morning
+### Autonomous overnight continuation (added 2026-05-10 22:35 CST)
 
-1. Check 10442708 (F44 + rawhide RPMs landing) -- if they succeed, that's the validation of the rename + Patch0010 + Patch0011 + system_mcpp full Stage 1+2 stack on F44 + rawhide.
-2. Check 10442734 (CS10 engine compile) -- whatever fails first on CS10 is the next thing to investigate. Likely candidates: clang version skew (CS10 ships clang 19, F44 ships clang 21), system library version mismatches (Qt5 5.15.1 vs different vendor on CS10), or new missing-BR packages CS10 happens not to have.
-3. Stabilization channel still on 7-pack; community testers untouched. No promotions needed until F44 + rawhide validate clean on 10442708.
+Five more tracks completed after the initial "ALL" go-ahead:
+
+1. **Drift workflow re-triggered** (run 25648396886) -- conclusion: failure (intentional design; red dot surfaces drift items). Issue #9 still surfacing the 5 drift items from 2026-05-08: ISPCTexComp commit drift, qt5 5.15.1 vs .2, AWSNativeSDK .288 vs .361, astc-encoder 3.2 vs 5.3, mikkelsen label-form. Plus 2 cruft (aws-gamelift, PhysX). No new actionable items beyond what we already had.
+
+2. **Stage 2 dep CS10 audit + prophylactic escape**:
+   - mcpp PoC: rev10 ✓ GREEN on CS10 (build 10442733). Validated the bulk-escape pattern.
+   - dxc-spirv PoC: rev14 in flight as CS10-only (build 10442739, started 22:18 CST, running). Prophylactic escape applied at 4 lines; no debuginfo suppression added yet (large library binaries may warrant debug symbols).
+   - spirv-cross PoC: no unescaped tokens; already empirically green on CS10 (build 10438108 from 2026-05-08). No action needed.
+
+3. **CS10 engine source compat pre-flight** (`grep -rn` against `o3de/development @ 706cd0f3`):
+   - Zero hits for: C23 reserved-word collisions, OpenSSL 3 deprecated APIs, glibc symbol-version assumptions, boost deps, `<experimental/...>` includes.
+   - Engine sets `CMAKE_CXX_STANDARD 20`. Requires clang >= 19 (CS10 boundary).
+   - One special handling: clang >= 21 branch for googletest workaround (CS10 won't trigger; harmless).
+   - **CS10 toolchain confirmed from build 10442734 dnf logs**: clang version not visible but expected 19+; gcc/libstdc++ 14.3.1 (F44 ships 15.x); glibc 2.39 (F44 ships 2.42); **lua 5.4.8** (Patch0010+0011 are NO-OPS on CS10 -- gated on `LUA_VERSION_NUM >= 505`); openssl 3.5.5.
+   - All findings + predictive next-blockers documented in new memory note `project_cs10_engine_build_blockers.md`.
+
+4. **Doc drift identification (NOT updated, only enumerated)**:
+   - **Patch0010 + Patch0011 (Lua 5.5 compat) -- ZERO mention in user-facing docs (README, ARCHITECTURE, BUNDLED_LIBRARIES, FEDORA_ROADMAP, CONTRIBUTING).** Major gap. These are the most significant engine-side patches added in the last week.
+   - **CS10 chroot -- mentioned in README, CONTRIBUTING, FEDORA_ROADMAP; NOT mentioned in ARCHITECTURE.md or BUNDLED_LIBRARIES.md.** Minor gap.
+   - **-devel subpackage + system_googlebenchmark + versioned-major naming**: all well-covered across docs.
+
+5. **Tier 7 design research**:
+   - **MAJOR FIND: AssetProcessor supports `--regset` CLI flag** (Code/Tools/AssetProcessor/native/utilities/ApplicationManagerBase.cpp:303).
+   - Hypothesis: `AssetProcessorBatch --regset "/Amazon/AssetProcessor/Settings/Jobs/maxJobs=1"` forces serial processing, which should sidestep the cold-cache parallel SRG-merge ordering quirk without ANY engine code change.
+   - If validated, Tier 7 can switch from the current two-pass design to a simple single-pass-serialized-on-cold design.
+   - Documented as new memory note `project_tier7_serial_pass_option.md` with the predicted validation plan.
+
+### BIG SECONDARY FINDING (caught while investigating 10442734)
+
+**CS10 chroot has empty `with_opts` across all engine COPR projects.** When CS10 chroot was added 2026-05-08, the `--rpmbuild-with` flags didn't propagate; CS10 currently runs builds with all bconds at default (bundled libs, NOT system swaps). This is the inverse-side of the REPLACE-not-append memory rule -- `add-chroot` defaults `with_opts` to empty.
+
+Empirical state (verified 22:30 CST):
+- `o3de`: F44=0, CS10=0 (both intentionally clean stable channels; no gap).
+- `o3de-snapshot`: F44=0, CS10=0 (same).
+- `o3de-stabilization`: F44=8, **CS10=0 (GAP -- 8 flags missing)**.
+- `o3de-experimental`: F44=17, **CS10=0 (GAP -- 17 flags missing)**.
+
+This means: **all CS10 build attempts so far have NOT exercised any Stage 1/2 swap.** When CS10 engine compile eventually succeeds, it'll be a bundled-libs validation, not Stage 1/2 validation. Documented in new memory note `project_cs10_with_opts_gap.md` with the fix recipe (copr-cli edit-chroot with the FULL list per chroot, per the REPLACE-not-append rule). NOT auto-fixed -- chroot config edits need your judgment.
+
+### 10442734 progress (the CS10 engine attempt with round-2 spec)
+
+Failed at BR resolution after 147s: `No matching package to install: 'pkgconfig(libunwind)'`. Crucially: **cleared the spec-parse hurdle** -- the round-2 bulk-escape fix works for the engine spec at scale.
+
+`libunwind-devel` exists in EPEL-10 (verified at https://dl.fedoraproject.org/pub/epel/10/Everything/x86_64/Packages/l/) but NOT in base CS10 repos. Fix recipe: enable EPEL-10 as an additional_repo on the CS10 chroot config. Per `project_cs10_engine_build_blockers.md`, deferred until your morning review since chroot config is yours to decide.
+
+### Reference state at end-of-autonomous-session 2026-05-10 22:35 CST
+
+- **HEAD on main**: `99fcc38` ("docs(follow-ups): capture round-2 CS10 escape work + mcpp rev10 validation")
+- **Spec changelog**: `2605.0-46`
+- **Builds in flight (still running overnight)**:
+  - 10442708 (engine all 3 chroots, 2605.0-45 spec): F44 + rawhide expected to succeed by morning; CS10 known-doomed at next unescaped token (~3-4 hours wasted CS10 runtime, accepted).
+  - 10442739 (dxc-spirv rev14 CS10-only): running ~15+ min so far; first CS10 attempt for this spec, may surface more CS10 quirks.
+- **Builds completed during autonomous session**:
+  - 10442715 (mcpp rev9 CS10): FAILED -> drove round-2 fix.
+  - 10442733 (mcpp rev10 CS10, post-bulk-escape): SUCCEEDED ✓.
+  - 10442734 (engine CS10-only, round-2 spec): FAILED at BR-resolution on libunwind-devel; cleared spec-parse ✓.
+- **New memory notes (3)**: `project_cs10_with_opts_gap.md`, `project_cs10_engine_build_blockers.md`, `project_tier7_serial_pass_option.md`. All indexed in MEMORY.md.
+- **PoC working tree commits (2, local-only, not pushed)**: mcpp `8167b9f` (rev9 + rev10), dxc-spirv `c62581c` (prophylactic escape).
+
+### Morning priority queue
+
+1. **Check 10442708 F44 + rawhide** -- if both succeed, full Stage 1+2 stack is validated on those chroots.
+2. **Check 10442739 (dxc-spirv CS10)** -- likely success unless a new CS10-specific issue surfaces for this spec shape.
+3. **Decide CS10 chroot config fixes**: enable EPEL-10 + propagate with_opts. Both per-project per-chroot, both require explicit copr-cli invocations with full lists.
+4. **Doc drift fixes** if time permits: add Patch0010/0011 mention to BUNDLED_LIBRARIES.md (the natural home); CS10 mention to ARCHITECTURE.md's Mermaid diagram + paragraph.
+5. **Tier 7 `--regset` validation**: low-effort experiment; one workflow_dispatch run with `run_asset_bake=true` after manually modifying the test to add `--regset maxJobs=1`. If it works, the cold-cache quirk gets a clean fix.
+6. **Stabilization channel still on 7-pack**; community testers untouched. No promotions needed until F44 + rawhide validate clean on 10442708.
 
 ---
 
