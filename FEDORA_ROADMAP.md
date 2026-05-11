@@ -8,6 +8,31 @@ This document is the staged plan, dependency map, and decision log. It lives in 
 
 ---
 
+## Current state (2026-05-11 snapshot)
+
+Quick TL;DR of where each stage stands as of this snapshot. Per-stage detail in sections below; this header gets refreshed as state advances.
+
+| Stage | Status |
+|---|---|
+| 0 -- COPR distribution | Active. Four engine channels (o3de stable, o3de-stabilization community, o3de-snapshot dev-branch, o3de-experimental Stage 1 in-flight). Versioned multi-install architecture live (o3de2605 etc., /opt/O3DE/<v>/). o3de2605-devel subpackage split landed 2026-05-04. |
+| 1 -- System swap migration | **12-pack ACTIVE in stabilization (promoted 2026-05-11)**: zlib, freetype, libpng, expat, lz4, mikkelsen, openexr, poly2tri, lua, assimp, sqlite, libsamplerate. **13th swap (system_googlebenchmark) activated in experimental 2026-05-11**. Patch0010 + Patch0011 cover Lua 5.5 forward-compat (rawhide); engine compiles green on Lua 5.5. |
+| 2 -- Binary/library deps not in Fedora | **Three Stage 2 PoCs ALL GREEN as of 2026-05-08**: o3de2605-spirv-cross (binary shellout), o3de2605-dxc-spirv (binary shellout), o3de2605-mcpp-az (library link, first of its kind). All three swaps active in experimental. |
+| 3 -- Python migration | Blocked. Bundled Python 3.10 hardcoded in cmake/3rdParty/Platform/Linux/Python_linux_x86_64.cmake. F44 ships 3.13. Unblocks Stage 2b (OpenImageIO + OpenColorIO blocked on Python C Module ABI). Engine-team owns. |
+| 4 -- OpenSSL 3 migration | Blocked. Bundled OpenSSL 1.1.1t (EOL 2023-09-11) needs upstream migration to 3.x. Engine-team owns. |
+| 5 -- Bundling Library Exception filings | In prep. Five documented exceptions: Qt 5.15 (custom-rev9 patches), libtiff (CryCommon int64 collision), squish-ccr (BC7 patent encumbrance), DXC binary (license-clean source rebuild path), NvCloth (NVIDIA license). |
+
+### Notable changes since this doc was last comprehensively updated
+
+- **Qt 5 -> Qt 6 strategic pivot.** O3DE engine team is migrating to vanilla Qt 6.10.2 for 26.10.0 (goal date, not guaranteed). [o3de/o3de#19567](https://github.com/o3de/o3de/pull/19567) is the merge candidate; Linux-Profile builds GREEN. Means: when this lands, our o3de-qt5 101MB bundled package retires in favor of a Stage 1 system_qt6 swap against Fedora's qt6-qtbase-devel etc. -- the entire Qt 5.15.2-rev9 line of work becomes obsolete. Tracking automation in tools/check-deps-drift.py. See memory note project_o3de_bundles_custom_qt.md for the migration plan.
+- **CS10 (CentOS Stream 10) effort paused** 2026-05-11 to consolidate F44+rawhide first. Chroots stay configured; no active builds. Resumes after F44 hardening + Qt 6 migration land. See FOLLOW_UPS "CS10 PAUSED" section.
+- **Upstream PR engagement**: three merged in this cycle -- [#19733](https://github.com/o3de/o3de/pull/19733) (AzCore Lua include cleanup), [#19734](https://github.com/o3de/o3de/pull/19734) (libtiff C99 typedefs), [#19737](https://github.com/o3de/o3de/pull/19737) (Microphone libsamplerate PAL gate). Each lets our corresponding local patch retire on next snapshot rebase.
+- **Two upstream issues filed**: [#19740](https://github.com/o3de/o3de/issues/19740) (libbenchmark.a missing from engine install set), [#19743](https://github.com/o3de/o3de/issues/19743) (AssetProcessorBatch lacks a "minimal scope" mode for single-asset testing).
+- **Drift-detection workflow** (tools/check-deps-drift.py + .github/workflows/check-deps-drift.yml) live since 2026-05-08, weekly cron. Tracks engine pins vs COPR vs 3p-package-source vs spec bconds. Also tracks upstream migration branches (qt6, qt6_pyside) and PRs (#19567) under "Upstream migration tracking" section. Report cleaned 2026-05-11: 0 gap, 0 minor-drift, 5 in-sync, 5 bundled-exception, 2 out-of-date (1 intentional Qt drift + 1 ISPCTexComp commit fix landed).
+- **Tier 7 test infrastructure rewrite** (2026-05-11). Original FBX asset-bake design discovered to be conceptually wrong (SceneAPI has a hidden hard dependency on Atom RPI gem chain). Rewritten as system-swap library-health check (per-swap SONAME + symbol + engine linkage smoke); 14/14 PASS in production. Filed upstream issue #19743 asking for `--minimal-scope` flag that would unlock proper SceneAPI-integration testing.
+- **Engine forward-compatibility audit** completed 2026-05-11 (memory note project_engine_forward_compat_audit.md). Swept stabilization/26050 for OpenSSL 3 deprecations, glibc 2.39+ symbols, C++23 removals, Python C API, Vulkan version, Wayland. Zero concerning hits across all categories. Lua 5.5 was the exception, not a pattern.
+
+---
+
 ## Stage 0 — COPR (interim, today)
 
 **Status:** ✅ unblocked, in progress. Continues indefinitely as the user-facing distribution while later stages land.

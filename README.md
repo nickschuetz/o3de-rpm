@@ -282,10 +282,16 @@ sudo dnf install o3de2605                              # ~2 GB download (compres
 o3de2605                                               # launch Project Manager (GUI)
 o3de2605-cli --help                                    # CLI for project / gem / engine management
 
-sudo dnf install o3de2605-devel                        # OPTIONAL: add static-archive surface
-                                                       # for native C++ gem development. End users
-                                                       # and Lua/ScriptCanvas authors don't need it.
-                                                       # See "Subpackages overview" below.
+sudo dnf install o3de2605-devel                        # OPTIONAL: add ~178 static archives
+                                                       # (~4 GB, lib/Linux/profile/Default/*.a) for
+                                                       # native C++ gem development. REQUIRED if your
+                                                       # project's native target links AzGameFramework /
+                                                       # AzCore / SceneCore etc. directly (e.g. a
+                                                       # .GameLauncher project produced by Project
+                                                       # Manager). End users running games and
+                                                       # Lua/ScriptCanvas authors don't need it. See
+                                                       # "Subpackages overview" below for the full
+                                                       # split rationale.
 ```
 
 The package name follows a `o3deNNNN` convention (postgresql-style): `NNNN` is the upstream major as `YYMM` (`2605` for 26.05.x, `2610` for the next major). The install path under `/opt/O3DE/<DISPLAY_VERSION>/` matches what the upstream `.deb` and Windows `.msi` installers ship — same path mental model across distros and OSes.

@@ -20,7 +20,7 @@ Each tier requires more state from the prior. You can run any subset.
 | **4** | Engine binary smoke (launcher, vulkan loader) | nothing extra | <1 s |
 | **5** | Project end-to-end (`o3de create-project` + `cmake -B build/linux -S .`) | Tier 3 done, network for 3rdParty CDN | ~5–10 min |
 | **6** | UI smoke (Project Manager + Editor launch under Xvfb, don't crash) | Xvfb, scrot, software Vulkan (lavapipe) for CI | ~30 s (PM only) / ~90 s (with --editor) |
-| **7** | Asset-bake regression (bake a known FBX, smoke the `.azmodel` + `.azmaterial` output). Catches `assimp` 5 -> 6 behavior deltas from the Stage 1 system swap. | Tier 3 done; AssetProcessorBatch installed | ~1-4 min |
+| **7** | System-swap library-health check (per-swap SONAME + sample-symbol verification + engine-binary linkage smoke). Catches Fedora-version SONAME rolls + broken engine-side system-swap linkage. Does NOT cover behavior deltas (was originally an end-to-end FBX asset-bake test; rewritten 2026-05-11 after discovering SceneAPI's hard dependency on Atom RPI gem chain made the empty-scratch-project approach unworkable -- see memory `project_tier7_cold_cache_quirk.md` + upstream issue [o3de/o3de#19743](https://github.com/o3de/o3de/issues/19743) for the proper-fix design space). | RPM installed | <1 s |
 | **8** *(future)* | Visual regression (pixel-diff screenshots vs baseline) | maintained baselines per Fedora version | varies |
 | **9** *(future)* | Render correctness (compare rendered scene to reference) | GPU-equipped runner | varies |
 
@@ -43,10 +43,10 @@ tests/ui-smoke-test.sh                             # Project Manager smoke
 tests/ui-smoke-test.sh --editor                    # also Editor scripted run
 tests/ui-smoke-test.sh --editor --screenshot      # with screenshots
 
-# Asset-bake regression (tier 7) -- bake a known FBX, smoke .azmodel/.azmaterial
-tests/asset-bake-test.sh                           # default cube.fbx
-tests/asset-bake-test.sh --fbx /path/to/your.fbx   # arbitrary FBX
-tests/asset-bake-test.sh --keep-tmp                # keep scratch project for inspection
+# System-swap library-health check (tier 7) -- per-swap SONAME + symbol +
+# engine linkage smoke for all active Stage 1 swaps. Runs in seconds.
+tests/asset-bake-test.sh                           # default: auto-detect installed pkg
+O3DE_PKGNAME=o3de2605 tests/asset-bake-test.sh     # explicit pkg override
 ```
 
 `make test`, `make test-setup`, `make test-full`, `make test-ui`, `make test-ui-full`, `make test-asset-bake` are shortcuts for the above.
