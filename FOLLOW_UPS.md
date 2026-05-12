@@ -30,10 +30,26 @@ Kernel sends SIGTERM when AP dies. Linux-only but resident mode IS Linux/macOS-r
 
 **Action items**:
 - File upstream issue at `o3de/o3de` describing the orphan pattern + reproduction steps (`pkill -9 <AP-pid>` then `ps -o pid,ppid,comm -C AssetBuilder` shows orphans with PPID 1 or systemd-user PID).
-- Draft a PR with the `prctl` patch + a getppid()-polling fallback for non-Linux platforms.
-- Low-risk, well-scoped, ~10 file changes max. Good first-PR material.
+- Open PR with the `m_tetherLifetime` change (`Code/Tools/AssetProcessor/native/utilities/Builder.cpp`). Engine already plumbs this through ProcessLauncher cross-platform; AP just never opted in.
+- Low-risk, well-scoped, single-file change. Good first-PR material.
 
-**Status**: queued, not yet filed. After Nick's "fully baked" green-light (per upstream-PR memory rule). Diagnosis memory note saved at `project_assetbuilder_orphan_lifecycle_bug.md` -- has the full reproduction + diagnosis playbook.
+**Status (2026-05-12 08:45)**: **v1 WITHDRAWN after runtime validation caught a thread-lifecycle bug.** COPR 10447331 built green on F44 + rawhide; on `dnf reinstall` + AP launch, every spawned builder received SIGTERM within ~21 ms of fork and AP could never establish a resident pool. Editor hung at "Asset Processor working...".
+
+**Root cause:** `PR_SET_PDEATHSIG` (the kernel mechanism behind `m_tetherLifetime` on Linux) fires when the **THREAD that called fork()** terminates, not when the parent process terminates. AssetProcessor's BuilderManager forks builders from short-lived TaskWorker threads -- the launching thread retires as soon as the child is spawned, the kernel sees the forking-thread die, signals the freshly-spawned builder, builder dies in <21 ms, AP gives up. The Multiplayer gem's use of `m_tetherLifetime` works fine because it forks from a long-lived UI thread; the prctl footgun is documented in `prctl(2)` but easy to miss when reading just the engine API.
+
+**Spec state:** Patch0012 directive commented out, patch file retained in sources/ as reference. Changelog 2605.0-51 documents the withdrawal. Engine fork branch `assetbuilder-tether-lifetime` (commit d18027540) NOT pushed -- effectively abandoned in current form.
+
+**Replacement approach under design (v2):**
+
+1. **Watchdog poll inside the builder's main loop.** Each AssetBuilder spawns a background thread that calls `getppid()` every N seconds. If it returns 1 (or systemd-user PID), `_exit(0)`. Cross-platform safe. Doesn't depend on the parent's threading model. Costs one extra thread per builder + N seconds of orphan-lifetime on AP death; both are negligible.
+2. **Have AP fork builders from a dedicated long-lived thread** (e.g., a single Builder-launcher service thread). Engine-side BuilderManager refactor. Cleaner architecturally but more invasive. Could still use `m_tetherLifetime` on top once the threading is fixed.
+3. **Avoid in-process orphan-prevention entirely.** Wrap the engine with a small launcher script that tracks AP's PID and reaps stragglers if AP dies. Packaging-side workaround; no engine change required. Worth evaluating as an option for shipping without upstream cooperation.
+
+Recommended sequence: (1) v2 patch with watchdog (simplest engine-side win). If upstream resists, (3) packaging-side fallback.
+
+**Validation lesson for the memory log:** runtime test caught a bug that ALL static analysis + build-time tests missed. Spec parsed clean, compile was clean, F44/rawhide RPMs built clean, the patch even applied correctly. The bug only surfaced when AP actually ran. Build-validated != runtime-validated; the Tier 7 library-health check doesn't catch this class (it tests SONAME + symbol presence, not process-lifecycle interactions). Worth noting in CONTRIBUTING.md test-tier section.
+
+Diagnosis memory notes: `project_assetbuilder_orphan_lifecycle_bug.md` (the underlying bug), and a new note on the prctl-PDEATHSIG-thread-vs-process gotcha.
 
 ---
 

@@ -422,7 +422,7 @@ Re-generate the static SBOM when bumping the version: edit `sources/o3deNNNN.cdx
 
 ## Patches
 
-Twelve patches applied via `%autosetup -p1`. See [`CONTRIBUTING.md`](CONTRIBUTING.md#patches) for the full table including each patch's upstream-worthy assessment. Quick summary:
+Eleven patches applied via `%autosetup -p1` (Patch0012 withdrawn 2026-05-12; row preserved below for the runtime-validation lesson). See [`CONTRIBUTING.md`](CONTRIBUTING.md#patches) for the full table including each patch's upstream-worthy assessment. Quick summary:
 
 | # | Target | Purpose |
 |---|---|---|
@@ -437,7 +437,7 @@ Twelve patches applied via `%autosetup -p1`. See [`CONTRIBUTING.md`](CONTRIBUTIN
 | 0009 | `Gems/PhysX/.../physx-pal-platform.cmake` | Gate the upstream `poly2tri` association on the `system_poly2tri` swap |
 | 0010 | `Code/Framework/AzCore/Script/ScriptContext.cpp` | Add a Lua 5.5 `lua_newstate` signature shim (warnflag arg added in 5.5) |
 | 0011 | `Code/Tools/LuaIDE/.../WatchesPanel.cpp` | Restore `LUA_NUMTAGS` macro for the LuaIDE compile path under Lua 5.5 |
-| 0012 | `Code/Tools/AssetProcessor/native/utilities/Builder.cpp` | Tether resident AssetBuilder lifetime to AssetProcessor (uses the engine's existing `m_tetherLifetime` infrastructure) so the kernel cleans them up on AP crash instead of leaving orphans |
+| ~~0012~~ | ~~`Code/Tools/AssetProcessor/native/utilities/Builder.cpp`~~ | **WITHDRAWN 2026-05-12** -- `m_tetherLifetime` enables `prctl(PR_SET_PDEATHSIG)` which fires on **forking-thread** death, not parent-process death. AP forks from short-lived worker threads, so every spawned builder gets SIGTERM within ~21 ms. Replacement design (watchdog `getppid()` poll) tracked in `FOLLOW_UPS.md`. |
 
 Each patch carries a `From:`/`Subject:` header with the rationale. Stage 1 system-library swaps additionally ship companion `Find<X>-system.cmake` shims in `sources/` (`Findmikkelsen-system.cmake`, `Findexpat-system.cmake`, `FindZLIB-system.cmake`, etc.) — installed into `cmake/3rdParty/Find<X>.cmake` during `%prep` when the matching `--with system_<lib>` is enabled.
 

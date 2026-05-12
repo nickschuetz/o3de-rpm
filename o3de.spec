@@ -350,18 +350,30 @@ Patch0010:      0010-azcore-script-lua-5-5-newstate-signature-compat.patch
 # Memory: project_lua_5_5_newstate_break.md.
 Patch0011:      0011-luaide-watchespanel-lua-5-5-numtags-compat.patch
 
-# Patch0012 -- AssetProcessor leaves orphan AssetBuilder children when it dies
-# uncleanly. The engine's ProcessLauncher already supports tethering child
-# lifetime to the parent (m_tetherLifetime -> prctl(PR_SET_PDEATHSIG) on
-# Linux, equivalent on Windows/Mac), but AssetProcessor's Builder::LaunchProcess
-# never opted in. Without it, an AP crash leaves resident builders with PPID 1
-# or the user systemd PID; they keep running forever, accumulating ~300 MB RSS
-# each across restarts. One-line fix in the engine. Pitched upstream as a
-# cross-platform tidy-up rather than a Linux-only workaround.
-# Caught 2026-05-12 during ROS2_Project bake cycles -- 18 orphans seen in
-# one batch, then 3 more on the next AP-restart cycle.
-# Memory: project_assetbuilder_orphan_lifecycle_bug.md.
-Patch0012:      0012-assetprocessor-tether-resident-builders.patch
+# Patch0012 -- WITHDRAWN 2026-05-12 after empirical runtime validation. The
+# patch attempted to fix the AssetBuilder-orphan-on-AP-death bug by enabling
+# the engine's existing m_tetherLifetime mechanism (which calls
+# prctl(PR_SET_PDEATHSIG, SIGTERM) on Linux). It compiled cleanly and the
+# F44 + rawhide builds went green, but on first run the freshly-installed
+# AssetProcessor could not keep a builder alive: every spawned AssetBuilder
+# received SIGTERM within ~21 ms of fork and AP could never start its
+# resident pool, hanging Editor at "Asset Processor working..."
+#
+# Root cause: PR_SET_PDEATHSIG fires when the THREAD that called fork()
+# terminates, not when the parent process terminates. AssetProcessor forks
+# builders from short-lived worker threads (BuilderManager's TaskWorker
+# pool); the launching thread retires as soon as the builder is spawned,
+# the kernel sees the forking thread die, and signals the freshly-spawned
+# builder. The Multiplayer gem's use of m_tetherLifetime works because it
+# forks from a long-lived UI thread. The footgun is documented in the
+# prctl(2) man page but easy to miss when reading just the engine API.
+#
+# Replacement path under design: a watchdog approach (poll getppid() inside
+# the AssetBuilder's main loop and exit when reparented to PID 1), which is
+# cross-platform safe and doesn't depend on the launching thread's lifetime.
+# Tracked in FOLLOW_UPS.md + project_assetbuilder_orphan_lifecycle_bug.md.
+# The patch file stays in sources/ as a reference for the v2 attempt.
+# Patch0012:      0012-assetprocessor-tether-resident-builders.patch
 
 # Stage 1 system-library find modules. Copied into cmake/3rdParty/
 # during %%prep when the matching `--with system_<lib>` is enabled.
@@ -1305,6 +1317,28 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Tue May 12 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-51
+- WITHDRAW Patch0012 after empirical runtime validation. Build was green
+  on F44 + rawhide (COPR 10447331), but on `dnf reinstall` + AP launch
+  the kernel killed every spawned AssetBuilder with SIGTERM within ~21 ms
+  of fork. AP could never establish its resident pool; Editor hung at
+  "Asset Processor working...".
+- Root cause: PR_SET_PDEATHSIG (which m_tetherLifetime sets on Linux)
+  fires when the THREAD that called fork() terminates, not when the
+  parent process terminates. AssetProcessor forks builders from
+  short-lived BuilderManager worker threads; the launching thread
+  retires as soon as the builder is spawned, the kernel signals the
+  freshly-spawned builder, builder dies, AP gives up. The Multiplayer
+  gem's use of m_tetherLifetime works because it forks from a long-lived
+  UI thread.
+- Spec keeps the Patch0012 file in sources/ for reference; the directive
+  is commented out so %autosetup skips it. README + CONTRIBUTING patch
+  tables annotated as WITHDRAWN.
+- Replacement under design: watchdog approach -- have AssetBuilder poll
+  getppid() in its main loop and exit when it returns 1 (reparented).
+  Cross-platform safe and independent of the launching thread's
+  lifetime. Tracked in FOLLOW_UPS.md.
+
 * Tue May 12 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-50
 - Add Patch0012: AssetProcessor tethers its resident AssetBuilder
   children via ProcessLauncher's existing m_tetherLifetime flag, so

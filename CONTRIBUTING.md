@@ -52,7 +52,7 @@ Read `o3de.spec` top-to-bottom. The shape is:
 5. **Name / Version / Release** with conditional logic for snapshot mode (`Name: %{o3de_pkgname}`)
 6. **Source0** (the upstream tarball — release URL or local snapshot)
 7. **Source10–25** (auxiliary files: launcher, desktops, metainfo, icons, SBOM, snapshot helper)
-8. **Patch0001-0012** applied via `%autosetup -p1` (Lua 5.5 compat hits Patch0008/0010/0011 conditionally on the rawhide chroot)
+8. **Patch0001-0011** applied via `%autosetup -p1` (Patch0012 withdrawn 2026-05-12; Lua 5.5 compat hits Patch0008/0010/0011 conditionally on the rawhide chroot)
 9. **BuildRequires / Requires** — minimal, validated against auto-Requires
 10. **`%prep`, `%build`, `%install`, `%check`, `%files`** — standard rpm sections
 11. **Scriptlets** (`%post`, `%postun`)
@@ -64,7 +64,7 @@ If you change *anything* in the spec or sources/, **update the README's layout b
 
 ## Patches
 
-Twelve patches in `sources/`. Each carries a `From: Nick Schuetz <nschuetz@redhat.com>` and `Subject:` header explaining why the patch exists.
+Eleven applied patches in `sources/`, plus Patch0012 retained as a withdrawn reference (build-green but runtime-broken; see row below). Each carries a `From: Nick Schuetz <nschuetz@redhat.com>` and `Subject:` header explaining why the patch exists.
 
 | # | Target | Purpose | Upstream-worthy? |
 |---|---|---|---|
@@ -79,7 +79,7 @@ Twelve patches in `sources/`. Each carries a `From: Nick Schuetz <nschuetz@redha
 | 0009 | `Gems/PhysX/.../physx_pal_platform.cmake` | gate the upstream `ly_associate_package(... poly2tri ...)` line on `system_poly2tri` so the PhysX gem can resolve via Fedora's `poly2tri-devel` when the swap is active | **as part of the umbrella PR alongside Patch0006** |
 | 0010 | `Code/Framework/AzCore/Script/ScriptContext.cpp` | Lua 5.5 introduced an extra `warnflag` argument to `lua_newstate`; provide a `#if LUA_VERSION_NUM >= 505` shim that adapts the call sites. Behavior-preserving on 5.4. | **yes** -- mechanical compat; upstream will want this when they bump the bundled Lua |
 | 0011 | `Code/Tools/LuaIDE/.../WatchesPanel.cpp` | Lua 5.5 removed the `LUA_NUMTAGS` public macro; restore it under the same guard pattern as Patch0010 for the LuaIDE compile path | **yes** -- partner patch to 0010; ditto upstream-worthy |
-| 0012 | `Code/Tools/AssetProcessor/native/utilities/Builder.cpp` | set `processLaunchInfo.m_tetherLifetime = true` so the kernel reaps resident AssetBuilder children on AP death instead of leaving orphans with PPID 1 / systemd-user. Uses the engine's existing cross-platform ProcessLauncher infrastructure (already exercised by the Multiplayer gem). | **yes** -- one-line cross-platform fix to an observable orphan-process bug; clean repro (`kill -9 <AP-pid>`; before: ~6 orphans, after: zero) |
+| ~~0012~~ | ~~`Code/Tools/AssetProcessor/native/utilities/Builder.cpp`~~ | **WITHDRAWN 2026-05-12.** Set `m_tetherLifetime = true` so the kernel reaps resident AssetBuilder children on AP death. Built green on F44 + rawhide (COPR 10447331). On runtime test (dnf reinstall + AP launch), every spawned AssetBuilder got SIGTERM within ~21 ms of fork because `PR_SET_PDEATHSIG` fires on **forking-thread** death, not parent-process death. AssetProcessor's BuilderManager forks builders from short-lived TaskWorker threads (Multiplayer gem works because it forks from a long-lived UI thread). | **no, as written.** The fix is sound for processes that fork from long-lived threads; AP isn't one of them. A watchdog approach (poll `getppid()` inside the builder's main loop) is the replacement under design. Patch file retained in sources/ as reference. |
 
 ### Upstream PR backlog
 
