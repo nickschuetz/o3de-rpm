@@ -749,6 +749,15 @@ test-ui-full:
 test-asset-bake:
 	tests/asset-bake-test.sh
 
+# AssetProcessor runtime smoke (Tier 8): spawn AP, verify at least one
+# AssetBuilder reaches and sustains "alive" state across a 5s
+# persistence window. Catches process-lifecycle bugs that build-time
+# + linkage checks miss. Motivating example: Patch0012 v1
+# (m_tetherLifetime / prctl) was build-green on three chroots but
+# every AssetBuilder got SIGTERM'd within 21 ms of fork at runtime.
+test-ap-spawn:
+	tests/ap-spawn-smoke-test.sh
+
 # End-to-end driver: build a snapshot RPM from <REF> and test it.
 # Usage: make test-branch REF=stabilization/26050
 test-branch:

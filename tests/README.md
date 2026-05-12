@@ -21,8 +21,9 @@ Each tier requires more state from the prior. You can run any subset.
 | **5** | Project end-to-end (`o3de create-project` + `cmake -B build/linux -S .`) | Tier 3 done, network for 3rdParty CDN | ~5–10 min |
 | **6** | UI smoke (Project Manager + Editor launch under Xvfb, don't crash) | Xvfb, scrot, software Vulkan (lavapipe) for CI | ~30 s (PM only) / ~90 s (with --editor) |
 | **7** | System-swap library-health check (per-swap SONAME + sample-symbol verification + engine-binary linkage smoke). Catches Fedora-version SONAME rolls + broken engine-side system-swap linkage. Does NOT cover behavior deltas (was originally an end-to-end FBX asset-bake test; rewritten 2026-05-11 after discovering SceneAPI's hard dependency on Atom RPI gem chain made the empty-scratch-project approach unworkable -- see memory `project_tier7_cold_cache_quirk.md` + upstream issue [o3de/o3de#19743](https://github.com/o3de/o3de/issues/19743) for the proper-fix design space). | RPM installed | <1 s |
-| **8** *(future)* | Visual regression (pixel-diff screenshots vs baseline) | maintained baselines per Fedora version | varies |
-| **9** *(future)* | Render correctness (compare rendered scene to reference) | GPU-equipped runner | varies |
+| **8** | AssetProcessor runtime smoke -- spawn AP, verify at least one AssetBuilder child reaches "alive" state and sustains it across a 5s persistence window. Catches process-lifecycle bugs that pass build-time + linkage checks but fail at runtime. Caught its motivating bug retroactively: Patch0012 v1 (m_tetherLifetime / prctl) built green and shipped, then every spawned AssetBuilder got SIGTERM'd within 21 ms of fork -- this dual-sample design would have shown PIDs in sample 1 but none surviving to sample 2, failing the persistence phase immediately. | Tier 3 done (manifest exists), regular user | ~10-15 s |
+| **9** *(future)* | Visual regression (pixel-diff screenshots vs baseline) | maintained baselines per Fedora version | varies |
+| **10** *(future)* | Render correctness (compare rendered scene to reference) | GPU-equipped runner | varies |
 
 Tiers 1, 2, 4 are read-only and safe on a developer machine. Tier 3 modifies `~/.o3de/` (creates the per-user venv). Tier 5 creates a temporary project that's cleaned up on exit.
 
@@ -47,6 +48,13 @@ tests/ui-smoke-test.sh --editor --screenshot      # with screenshots
 # engine linkage smoke for all active Stage 1 swaps. Runs in seconds.
 tests/asset-bake-test.sh                           # default: auto-detect installed pkg
 O3DE_PKGNAME=o3de2605 tests/asset-bake-test.sh     # explicit pkg override
+
+# AssetProcessor runtime smoke (tier 8) -- spawn AP against a registered
+# project + verify a builder reaches and sustains "alive" state across a
+# 5s persistence window. Catches process-lifecycle bugs that build-time
+# checks miss (e.g., Patch0012 v1's thread-death prctl misuse).
+tests/ap-spawn-smoke-test.sh                       # auto-pick first manifest project
+O3DE_TEST_PROJECT_PATH=/path tests/ap-spawn-smoke-test.sh   # explicit
 ```
 
 `make test`, `make test-setup`, `make test-full`, `make test-ui`, `make test-ui-full`, `make test-asset-bake` are shortcuts for the above.
