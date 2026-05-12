@@ -147,10 +147,21 @@ snapshot:
 
 # ── SRPM builds ─────────────────────────────────────────────────────────────
 
+# Clean stale SRPMs for THIS package before each rpmbuild -bs so the
+# downstream "~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm" glob in our COPR
+# targets can only match the freshly-built one. Without this, prior
+# snapshot SRPMs sitting in ~/rpmbuild/SRPMS/ get swept into the same
+# copr-cli build invocation and produce spurious "failed" builds on
+# stale source trees. (Caught 2026-05-12 -- builds 10447330/32 were
+# such accidents from older SRPMs lying around.)
+SRPM_CLEAN := rm -f ~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
+
 srpm:
+	$(SRPM_CLEAN)
 	rpmbuild -bs $(RPMBUILD_DEFINES) o3de.spec
 
 srpm-snapshot:
+	$(SRPM_CLEAN)
 	rpmbuild -bs --with snapshot $(RPMBUILD_DEFINES) o3de.spec
 
 # srpm-snapshot-ref: build an SRPM from an arbitrary o3de/o3de branch
@@ -175,6 +186,7 @@ srpm-snapshot:
 #   "  %global snapshot_sha256 <sha256>"
 srpm-snapshot-ref: REF ?= development
 srpm-snapshot-ref:
+	$(SRPM_CLEAN)
 	@echo ">> Generating snapshot tarball from o3de/o3de:$(REF)"
 	@( cd sources && ./make-snapshot-tarball.sh "$(REF)" ) > /tmp/snapshot-vars.$$$$.txt 2>&1; \
 	cat /tmp/snapshot-vars.$$$$.txt; \
@@ -229,6 +241,7 @@ copr-snapshot-development:
 # from a "one-off development-branch build" (uploaded to o3de-snapshot,
 # plain --with snapshot only).
 srpm-stabilization:
+	$(SRPM_CLEAN)
 	rpmbuild -bs $(SRPM_STABILIZATION_FLAGS) $(RPMBUILD_DEFINES) o3de.spec
 
 # srpm-stabilization: snapshot + stabilization + 12-pack of Stage 1
@@ -424,6 +437,7 @@ SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
 # that lands, our Patch0008 becomes redundant and can drop.
 
 srpm-experimental:
+	$(SRPM_CLEAN)
 	rpmbuild -bs $(SRPM_EXPERIMENTAL_FLAGS) $(RPMBUILD_DEFINES) o3de.spec
 
 # ── RPM builds ──────────────────────────────────────────────────────────────

@@ -1,3 +1,6 @@
 
 # Python bytecode from tools/
 tools/__pycache__/
+
+# Claude Code per-checkout state (scheduled-task locks, local settings, etc.)
+.claude/
