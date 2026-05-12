@@ -52,7 +52,7 @@ Read `o3de.spec` top-to-bottom. The shape is:
 5. **Name / Version / Release** with conditional logic for snapshot mode (`Name: %{o3de_pkgname}`)
 6. **Source0** (the upstream tarball — release URL or local snapshot)
 7. **Source10–25** (auxiliary files: launcher, desktops, metainfo, icons, SBOM, snapshot helper)
-8. **Patch0001–0006** applied via `%autosetup -p1`
+8. **Patch0001-0012** applied via `%autosetup -p1` (Lua 5.5 compat hits Patch0008/0010/0011 conditionally on the rawhide chroot)
 9. **BuildRequires / Requires** — minimal, validated against auto-Requires
 10. **`%prep`, `%build`, `%install`, `%check`, `%files`** — standard rpm sections
 11. **Scriptlets** (`%post`, `%postun`)
@@ -64,17 +64,22 @@ If you change *anything* in the spec or sources/, **update the README's layout b
 
 ## Patches
 
-Six patches in `sources/`. Each carries a `From: Nick Schuetz <nschuetz@redhat.com>` and `Subject:` header explaining why the patch exists.
+Twelve patches in `sources/`. Each carries a `From: Nick Schuetz <nschuetz@redhat.com>` and `Subject:` header explaining why the patch exists.
 
 | # | Target | Purpose | Upstream-worthy? |
 |---|---|---|---|
-| 0001 | `cmake/Platform/Common/Clang/Configurations_clang.cmake` | suppress clang 21+ warnings-as-errors that O3DE's `-Werror` would otherwise fail on | **yes** — affects every Linux user on a recent distro; conservative (specific `-Wno-error=` only, doesn't disable warnings) |
-| 0002 | `scripts/o3de/o3de/manifest.py` | honor `O3DE_ENGINE_PATH` env var for engine-root detection in venv-installed setups | **yes** — clean addition for any package-based install (deb/rpm/snap/flatpak); upstream code currently assumes git-checkout layout |
-| 0003 | `python/get_python.sh` | per-engine venv linkage + engine-id reconciliation + manifest.py refresh | **probably** — helps multi-engine and read-only-engine installs; more involved than 0001/0002, more rebase-fragile |
-| 0004 | `cmake/LYPython.cmake` | install Python packages from sdists (not editable) when `INSTALLED_ENGINE` | **yes** — `pip install -e` against a read-only directory is straightforwardly broken; this is the right fix |
-| 0005 | `Code/Framework/AzQtComponents/.../WindowDecorationWrapper.cpp` | propagate guest's initial title to wrapper in `OptionDisabled` mode (Linux/Mac) so Project Manager's WM-drawn titlebar shows the engine version | **yes** — one-line fix to a real bug; clear test case (titlebar shows full version string vs. just "O3DE") |
-| 0007 | `Gems/Atom/Asset/ImageProcessingAtom/.../TIFFLoader.cpp` + `Code/Editor/Util/ImageTIF.cpp` | replace every remaining legacy libtiff `uint8` / `uint16` / `uint32` typedef use with the standard C99 `*_t` form across both `<tiffio.h>` consumers (the third — `Gems/Atom/Feature/Common/.../FrameCaptureSystemComponent.cpp` — is already on standard types). libtiff 4.5+ marks the legacy typedef `__attribute__((deprecated))`; with O3DE's `-Werror` every stale use is a hard build failure. Mechanical type rename; same underlying types. | **yes** — required for any build against modern libtiff (Fedora 44+, Ubuntu 24.04+, Arch, etc.); conservative; finishes a migration upstream already started in the modern file |
-| 0006 | `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` | gate the upstream `ly_associate_package(... mikkelsen-1.0.0.4-linux ...)` line on a new `LY_USE_SYSTEM_MIKKELSEN` cmake variable, so distro packagers can opt out of the upstream fetcher in favor of a system mikktspace. First Stage 1 system-library swap. | **as part of an umbrella PR** — see backlog note below |
+| 0001 | `cmake/Platform/Common/Clang/Configurations_clang.cmake` | suppress clang 21+ warnings-as-errors that O3DE's `-Werror` would otherwise fail on | **yes** -- affects every Linux user on a recent distro; conservative (specific `-Wno-error=` only, doesn't disable warnings) |
+| 0002 | `scripts/o3de/o3de/manifest.py` | honor `O3DE_ENGINE_PATH` env var for engine-root detection in venv-installed setups | **yes** -- clean addition for any package-based install (deb/rpm/snap/flatpak); upstream code currently assumes git-checkout layout |
+| 0003 | `python/get_python.sh` | per-engine venv linkage + engine-id reconciliation + manifest.py refresh | **probably** -- helps multi-engine and read-only-engine installs; more involved than 0001/0002, more rebase-fragile |
+| 0004 | `cmake/LYPython.cmake` | install Python packages from sdists (not editable) when `INSTALLED_ENGINE` | **yes** -- `pip install -e` against a read-only directory is straightforwardly broken; this is the right fix |
+| 0005 | `Code/Framework/AzQtComponents/.../WindowDecorationWrapper.cpp` | propagate guest's initial title to wrapper in `OptionDisabled` mode (Linux/Mac) so Project Manager's WM-drawn titlebar shows the engine version | **yes** -- one-line fix to a real bug; clear test case (titlebar shows full version string vs. just "O3DE") |
+| 0006 | `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` | gate the upstream `ly_associate_package(... mikkelsen-1.0.0.4-linux ...)` line on a new `LY_USE_SYSTEM_MIKKELSEN` cmake variable, so distro packagers can opt out of the upstream fetcher in favor of a system mikktspace. First Stage 1 system-library swap. | **as part of an umbrella PR** -- see backlog note below |
+| 0007 | `Gems/Atom/Asset/ImageProcessingAtom/.../TIFFLoader.cpp` + `Code/Editor/Util/ImageTIF.cpp` | replace every remaining legacy libtiff `uint8` / `uint16` / `uint32` typedef use with the standard C99 `*_t` form across both `<tiffio.h>` consumers (the third -- `Gems/Atom/Feature/Common/.../FrameCaptureSystemComponent.cpp` -- is already on standard types). libtiff 4.5+ marks the legacy typedef `__attribute__((deprecated))`; with O3DE's `-Werror` every stale use is a hard build failure. Mechanical type rename; same underlying types. | **yes** -- required for any build against modern libtiff (Fedora 44+, Ubuntu 24.04+, Arch, etc.); conservative; finishes a migration upstream already started in the modern file |
+| 0008 | `Code/Framework/AzCore/Script/ScriptContext.cpp` | drop a redundant `<lua/lobject.h>` include whose member-access layout breaks under Lua 5.5 (the header was already pulled in transitively via lua.h; the explicit include was vestigial) | **yes** -- pure cleanup; behavior-preserving on 5.4 and unblocking on 5.5 |
+| 0009 | `Gems/PhysX/.../physx_pal_platform.cmake` | gate the upstream `ly_associate_package(... poly2tri ...)` line on `system_poly2tri` so the PhysX gem can resolve via Fedora's `poly2tri-devel` when the swap is active | **as part of the umbrella PR alongside Patch0006** |
+| 0010 | `Code/Framework/AzCore/Script/ScriptContext.cpp` | Lua 5.5 introduced an extra `warnflag` argument to `lua_newstate`; provide a `#if LUA_VERSION_NUM >= 505` shim that adapts the call sites. Behavior-preserving on 5.4. | **yes** -- mechanical compat; upstream will want this when they bump the bundled Lua |
+| 0011 | `Code/Tools/LuaIDE/.../WatchesPanel.cpp` | Lua 5.5 removed the `LUA_NUMTAGS` public macro; restore it under the same guard pattern as Patch0010 for the LuaIDE compile path | **yes** -- partner patch to 0010; ditto upstream-worthy |
+| 0012 | `Code/Tools/AssetProcessor/native/utilities/Builder.cpp` | set `processLaunchInfo.m_tetherLifetime = true` so the kernel reaps resident AssetBuilder children on AP death instead of leaving orphans with PPID 1 / systemd-user. Uses the engine's existing cross-platform ProcessLauncher infrastructure (already exercised by the Multiplayer gem). | **yes** -- one-line cross-platform fix to an observable orphan-process bug; clean repro (`kill -9 <AP-pid>`; before: ~6 orphans, after: zero) |
 
 ### Upstream PR backlog
 

@@ -1,0 +1,64 @@
+From d18027540e43d4f5f9aa2112d2a5ed7710ddfe73 Mon Sep 17 00:00:00 2001
+From: Nick Schuetz <nschuetz@redhat.com>
+Date: Tue, 12 May 2026 00:12:29 -0500
+Subject: [PATCH] AssetBuilder: tether lifetime to AssetProcessor to prevent
+ orphans
+
+When AssetProcessor dies (crash, SIGKILL, ungraceful shutdown), its
+spawned AssetBuilder children get reparented to PID 1 (or the user's
+systemd instance) and keep running indefinitely. Each AP restart
+spawns a fresh resident pool without adopting the orphans, so they
+accumulate across restarts -- roughly 300 MB RSS each, plus held file
+descriptors and shared-memory segments.
+
+The engine's ProcessLauncher already exposes m_tetherLifetime, which
+arranges for the kernel to signal each child with SIGTERM when its
+parent dies (via prctl(PR_SET_PDEATHSIG) on Linux, equivalent
+mechanisms on Windows and Mac). AssetProcessor's Builder::LaunchProcess
+just never opted in. Setting the flag here fixes orphan accumulation
+across all three platforms with no behavior change to the clean
+shutdown path (AP still shuts builders down via IPC first; the tether
+is a backstop for crashes).
+
+Reproduction:
+  1. Open Editor in a project; let AP spawn its resident builder pool.
+  2. kill -9 <AssetProcessor-pid>
+  3. ps -o pid,ppid,comm -C AssetBuilder
+
+Before this patch: the resident builders persist with PPID 1 (or the
+user systemd PID) and keep running until manually killed.
+
+After this patch: the kernel sends SIGTERM to each resident builder as
+soon as AP dies and they exit cleanly.
+
+Seen in the field across a single 3-hour session: 18 orphans in one
+batch, then 3 more in a subsequent AP-restart cycle. Easy to miss
+because the pool quietly grows in the background until users notice
+high memory pressure or hit shared-resource contention with the live
+AP's pool.
+
+Signed-off-by: Nick Schuetz <nschuetz@redhat.com>
+---
+ Code/Tools/AssetProcessor/native/utilities/Builder.cpp | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/Code/Tools/AssetProcessor/native/utilities/Builder.cpp b/Code/Tools/AssetProcessor/native/utilities/Builder.cpp
+index 5ef24567..f2c36f3e 100644
+--- a/Code/Tools/AssetProcessor/native/utilities/Builder.cpp
++++ b/Code/Tools/AssetProcessor/native/utilities/Builder.cpp
+@@ -250,6 +250,12 @@ namespace AssetProcessor
+         processLaunchInfo.m_commandlineParameters = AZStd::move(commandLineArray);
+         processLaunchInfo.m_showWindow = false;
+         processLaunchInfo.m_processPriority = AzFramework::ProcessPriority::PROCESSPRIORITY_IDLE;
++        // Tether the builder's lifetime to this AssetProcessor process. If AP dies
++        // (crash, SIGKILL, ungraceful shutdown), the kernel will send SIGTERM to the
++        // builder so it exits instead of being reparented to PID 1 and running
++        // forever. Without this, an AP crash leaves resident builders as orphans
++        // that accumulate across restarts.
++        processLaunchInfo.m_tetherLifetime = true;
+ 
+         AZ_TracePrintf(
+             AssetProcessor::DebugChannel,
+-- 
+2.54.0
+

@@ -422,7 +422,7 @@ Re-generate the static SBOM when bumping the version: edit `sources/o3deNNNN.cdx
 
 ## Patches
 
-Seven patches applied via `%autosetup -p1`. See [`CONTRIBUTING.md`](CONTRIBUTING.md#patches) for the full table including each patch's upstream-worthy assessment. Quick summary:
+Twelve patches applied via `%autosetup -p1`. See [`CONTRIBUTING.md`](CONTRIBUTING.md#patches) for the full table including each patch's upstream-worthy assessment. Quick summary:
 
 | # | Target | Purpose |
 |---|---|---|
@@ -433,6 +433,11 @@ Seven patches applied via `%autosetup -p1`. See [`CONTRIBUTING.md`](CONTRIBUTING
 | 0005 | `Code/Framework/AzQtComponents/.../WindowDecorationWrapper.cpp` | Propagate guest title to WM-drawn titlebar in `OptionDisabled` mode |
 | 0006 | `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` | Establish the `LY_USE_SYSTEM_<X>` gating convention used by Stage 1 system-library swaps |
 | 0007 | `.../TIFFLoader.cpp` + `Code/Editor/Util/ImageTIF.cpp` | Migrate legacy libtiff `uint8`/`uint16`/`uint32` typedefs to standard C99 (libtiff 4.5+ deprecates the legacy names) |
+| 0008 | `Code/Framework/AzCore/.../ScriptContext.cpp` | Drop the redundant `<lua/lobject.h>` include broken by Lua 5.5 layout changes |
+| 0009 | `Gems/PhysX/.../physx-pal-platform.cmake` | Gate the upstream `poly2tri` association on the `system_poly2tri` swap |
+| 0010 | `Code/Framework/AzCore/Script/ScriptContext.cpp` | Add a Lua 5.5 `lua_newstate` signature shim (warnflag arg added in 5.5) |
+| 0011 | `Code/Tools/LuaIDE/.../WatchesPanel.cpp` | Restore `LUA_NUMTAGS` macro for the LuaIDE compile path under Lua 5.5 |
+| 0012 | `Code/Tools/AssetProcessor/native/utilities/Builder.cpp` | Tether resident AssetBuilder lifetime to AssetProcessor (uses the engine's existing `m_tetherLifetime` infrastructure) so the kernel cleans them up on AP crash instead of leaving orphans |
 
 Each patch carries a `From:`/`Subject:` header with the rationale. Stage 1 system-library swaps additionally ship companion `Find<X>-system.cmake` shims in `sources/` (`Findmikkelsen-system.cmake`, `Findexpat-system.cmake`, `FindZLIB-system.cmake`, etc.) — installed into `cmake/3rdParty/Find<X>.cmake` during `%prep` when the matching `--with system_<lib>` is enabled.
 

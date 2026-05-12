@@ -350,6 +350,19 @@ Patch0010:      0010-azcore-script-lua-5-5-newstate-signature-compat.patch
 # Memory: project_lua_5_5_newstate_break.md.
 Patch0011:      0011-luaide-watchespanel-lua-5-5-numtags-compat.patch
 
+# Patch0012 -- AssetProcessor leaves orphan AssetBuilder children when it dies
+# uncleanly. The engine's ProcessLauncher already supports tethering child
+# lifetime to the parent (m_tetherLifetime -> prctl(PR_SET_PDEATHSIG) on
+# Linux, equivalent on Windows/Mac), but AssetProcessor's Builder::LaunchProcess
+# never opted in. Without it, an AP crash leaves resident builders with PPID 1
+# or the user systemd PID; they keep running forever, accumulating ~300 MB RSS
+# each across restarts. One-line fix in the engine. Pitched upstream as a
+# cross-platform tidy-up rather than a Linux-only workaround.
+# Caught 2026-05-12 during ROS2_Project bake cycles -- 18 orphans seen in
+# one batch, then 3 more on the next AP-restart cycle.
+# Memory: project_assetbuilder_orphan_lifecycle_bug.md.
+Patch0012:      0012-assetprocessor-tether-resident-builders.patch
+
 # Stage 1 system-library find modules. Copied into cmake/3rdParty/
 # during %%prep when the matching `--with system_<lib>` is enabled.
 # Most Stage 1 swaps don't need a custom find module (cmake ships
@@ -1292,6 +1305,22 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Tue May 12 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-50
+- Add Patch0012: AssetProcessor tethers its resident AssetBuilder
+  children via ProcessLauncher's existing m_tetherLifetime flag, so
+  the kernel sends SIGTERM to each builder when AP dies. Fixes orphan
+  accumulation across AP restarts (saw 18 in one batch + 3 more in the
+  next AP-restart cycle during the 2026-05-12 ROS2_Project session).
+- The engine's ProcessWatcher already implements this on Linux
+  (prctl(PR_SET_PDEATHSIG)), Windows, and Mac; only the Multiplayer
+  gem was opting in. AssetProcessor's Builder::LaunchProcess just
+  needed the same single-line opt-in.
+- One-line cross-platform engine change; no Linux-specific guards in
+  our carry-patch. Memory note:
+  project_assetbuilder_orphan_lifecycle_bug.md.
+- Pitched upstream as a tidy-up rather than a Linux-only workaround;
+  if accepted, this carry-patch retires.
+
 * Mon May 11 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-49
 - Add missing `Recommends: o3de2605-mcpp-az-devel` for the system_mcpp
   gate. Same class of issue as 2605.0-48 (system_googlebenchmark

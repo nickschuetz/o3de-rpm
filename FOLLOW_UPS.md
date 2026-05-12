@@ -6,6 +6,37 @@ This file is intentionally a living scratchpad. Entries get added or removed as 
 
 ---
 
+## Upstream issue backlog (technical, no TSC needed)
+
+### AssetBuilder.resident orphans on AssetProcessor death (raised 2026-05-12)
+
+Seen repeatedly during ROS2_Project bake cycles: when AP dies (crash, GUI close, SIGKILL), its `AssetBuilder --resident` children get reparented to PID 1 / systemd-user and keep running indefinitely. Each AP restart leaves another ~3-6 ghost workers. Saw 18 accumulate in one batch, then 3 more in the next AP-restart cycle, in a single session.
+
+Wastes ~300MB RSS per orphan + holds file descriptors / shared-memory segments. Eventually contends with newly-launched AP's own resident pool.
+
+**Root cause**: AssetBuilder's main loop has no parent-death detection. Doesn't call `prctl(PR_SET_PDEATHSIG)`, doesn't poll `getppid()` for reparenting (a return of 1 means original parent died), doesn't treat IPC channel close as fatal.
+
+**Fix is mechanically trivial -- 5 lines of C++**:
+
+In the AssetBuilder resident main():
+```cpp
+#if defined(AZ_PLATFORM_LINUX)
+#include <sys/prctl.h>
+prctl(PR_SET_PDEATHSIG, SIGTERM);
+#endif
+```
+
+Kernel sends SIGTERM when AP dies. Linux-only but resident mode IS Linux/macOS-relevant; macOS would need a different approach (kqueue NOTE_EXIT on parent pid).
+
+**Action items**:
+- File upstream issue at `o3de/o3de` describing the orphan pattern + reproduction steps (`pkill -9 <AP-pid>` then `ps -o pid,ppid,comm -C AssetBuilder` shows orphans with PPID 1 or systemd-user PID).
+- Draft a PR with the `prctl` patch + a getppid()-polling fallback for non-Linux platforms.
+- Low-risk, well-scoped, ~10 file changes max. Good first-PR material.
+
+**Status**: queued, not yet filed. After Nick's "fully baked" green-light (per upstream-PR memory rule). Diagnosis memory note saved at `project_assetbuilder_orphan_lifecycle_bug.md` -- has the full reproduction + diagnosis playbook.
+
+---
+
 ## Backlog -- pending TSC conversation
 
 ### AssetProcessor desktop-menu entry (raised by Nick 2026-05-11 night)
