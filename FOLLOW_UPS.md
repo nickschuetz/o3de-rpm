@@ -6,6 +6,19 @@ This file is intentionally a living scratchpad. Entries get added or removed as 
 
 ---
 
+## 26.05.0 release: 2026-05-27 (set 2026-05-12)
+
+Sig-release chair (Nick) set the release date 2026-05-12. 15-day window. See memory `project_2605_release_date.md` for the full pre-release checklist; high-level packaging work:
+
+- Watch o3de-extras#1052 + canonical.o3de.org#38 merge into stabilization/26050 + sync into the central catalog.
+- Re-run the four-step retirement check on Patch0007 (libtiff) + Patch0008 (lobject) once stabilization/26050 absorbs the upstream merges of #19734 + #19733.
+- Bump snapshot pin in o3de.spec to the release-tagged commit once 2605.0 is tagged; full COPR experimental + stabilization rebuild from the new pin.
+- Update test-installed.yml cron target to the release-tagged build before May 27 to catch surprises.
+- Announce version flip on `hellaenergy/o3de-stabilization` (community-tester COPR) and any tester Discord channels.
+- Today's 6 upstream PRs (#19746-19752) sit on the 15-day review window. If maintainers review fast they land in 26.05.0; otherwise they slip to a backport or to 26.10.x. Either is fine; track but don't push.
+
+---
+
 ## Upstream issue backlog (technical, no TSC needed)
 
 ### AssetBuilder.resident orphans on AssetProcessor death (raised 2026-05-12)
