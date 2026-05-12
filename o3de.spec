@@ -465,6 +465,24 @@ BuildRequires:  pkgconfig(fontconfig)
 BuildRequires:  pkgconfig(libunwind)
 BuildRequires:  pkgconfig(libzstd)
 
+# libatomic dev symlink. F44+rawhide ship the `libatomic.so` symlink
+# inside the base `libatomic` (or `libatomic-static`) package and the
+# linker finds it automatically. CS10 with the gcc-toolset-15 SCL puts
+# its SCL-prefixed linker on the build path, and the SCL's linker can't
+# resolve `-latomic` from the base CS10 install -- the symlink under
+# /opt/rh/gcc-toolset-15/root/usr/lib64/libatomic.so isn't shipped by
+# the SCL's runtime package. Pulling the SCL's -libatomic-devel pulls
+# in the missing symlink. Gated on %{?rhel} so we don't add the
+# package to Fedora chroots that don't need it (or have it named
+# differently).
+# Reference: COPR build 10447331 CS10 chroot, first time CS10 got past
+# dnf-builddep -- failed at libAzCore.so link step with
+# "ld: cannot find -latomic". See
+# project_cs10_engine_build_blockers.md, blocker #5.
+%if 0%{?rhel}
+BuildRequires:  gcc-toolset-15-libatomic-devel
+%endif
+
 # Vulkan — engine dlopen()s the loader, but headers/loader-devel are
 # needed at configure time for find_package(Vulkan).
 BuildRequires:  vulkan-headers
@@ -1316,6 +1334,16 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Tue May 12 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-53
+- Add `BuildRequires: gcc-toolset-15-libatomic-devel` gated on
+  `%%if 0%%{?rhel}`. CS10 engine compile reached step 44/2173
+  (libAzCore.so link) in build 10447331 for the first time and failed
+  with `ld: cannot find -latomic` -- the SCL's linker can't resolve
+  the bare -latomic without the SCL's libatomic dev symlink, which
+  ships in the -libatomic-devel package. Fedora chroots don't need
+  this gate (base libatomic / libatomic-static covers the bare -l).
+- Memory: project_cs10_engine_build_blockers.md blocker #5.
+
 * Tue May 12 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-52
 - Reapply Patch0012 with v2 approach: child-side parent-death watchdog
   in AssetBuilder/main.cpp instead of the engine's m_tetherLifetime /
