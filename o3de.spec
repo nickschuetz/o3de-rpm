@@ -730,6 +730,9 @@ Recommends:     libtiff-devel
 %if %{with system_lua}
 Recommends:     lua-devel
 %endif
+%if %{with system_googlebenchmark}
+Recommends:     google-benchmark-devel
+%endif
 
 %description
 The Open 3D Engine (O3DE) is an Apache-licensed, real-time, multi-platform
@@ -1280,6 +1283,20 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Mon May 11 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-48
+- Add missing `Recommends: google-benchmark-devel` for the
+  system_googlebenchmark gate. Caught when a tester's CMake configure
+  failed with `FindGoogleBenchmark (system stub): could not locate
+  benchmark/benchmark.h` against the freshly-installed 18-pack
+  (build 10444166); the spec already had BuildRequires (for the
+  engine's own build) and Requires (for runtime libbenchmark.so.1)
+  but NOT Recommends, so end users got the runtime .so via auto-
+  Requires but were missing the headers needed for native gem
+  cmake-configure (which uses Fedora's google-benchmark-devel via
+  FindGoogleBenchmark-system.cmake). The other 12 active Stage 1
+  swaps all have Recommends entries for their *-devel packages;
+  this is the parallel entry for the 13th swap.
+
 * Mon May 11 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-47
 - system_googlebenchmark Stage 1 swap ACTIVATED in experimental
   (plumbing landed 2026-05-08 as 2605.0-43 but bcond was OFF). Added
