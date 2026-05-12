@@ -288,20 +288,15 @@ Patch0005:      0005-windowdecorationwrapper-propagate-initial-title.patch
 # and pairs with a corresponding system Find<X>.cmake (Source30+ below).
 Patch0006:      0006-builtinpackages-gate-mikkelsen-on-system.patch
 
-# Drop AzCore's redundant `#include <Lua/lobject.h>` in ScriptContext.cpp.
-# The only thing it pulls in is the `LUAI_MAXALIGN` macro, which is
-# already public Lua API — defined in `luaconf.h` and used in `lauxlib.h`'s
-# `luaL_Buffer`. AzCore already includes <Lua/lualib.h> and <Lua/lauxlib.h>
-# in the same extern "C" block, both of which transitively include
-# luaconf.h, so LUAI_MAXALIGN is in scope without lobject.h. This is the
-# single blocker for system_lua activation on Fedora (Fedora's lua-devel
-# only ships the public API headers — lua.h, lualib.h, lauxlib.h,
-# luaconf.h — never lobject.h, lstate.h, etc.). Behavior-preserving;
-# upstream-track candidate (proposed/drafted; submission gated on Nick's
-# fully-baked signal per the no-upstream-until-baked memory rule).
-# Applies unconditionally — bundled-Lua builds also benefit (one fewer
-# brittle internal-header dependency).
-Patch0008:      0008-azcore-drop-lua-lobject-include.patch
+# Patch0008 -- RETIRED 2026-05-12 (upstream landed PR o3de/o3de#19733,
+# commit 3e715c61, "AzCore/Script: drop redundant <Lua/lobject.h>
+# include", merged 2026-05-08). Our carry-patch is dead code; directive
+# removed so %%autosetup skips it. Patch file retained in sources/ for
+# historical reference + as the second example today (after Patch0007)
+# of "carry-patch retired by upstream merge."
+# Discovered 2026-05-12 during the Lua 5.5 patch-status sweep alongside
+# the deps-drift / upstream-pitch preparation pass.
+# Patch0008:      0008-azcore-drop-lua-lobject-include.patch
 
 # Gate poly2tri's bundled fetcher in the PhysX Gem PAL files (PhysX4 + PhysX5,
 # Linux x86_64) on `LY_USE_SYSTEM_POLY2TRI`. Pairs with Findpoly2tri-system.cmake
@@ -1336,6 +1331,20 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Tue May 12 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-55
+- Retire Patch0008 (AzCore/Script drop redundant Lua/lobject.h
+  include). Upstream landed PR o3de/o3de#19733 (commit 3e715c61) on
+  2026-05-08 with the identical change. Our carry-patch is now dead
+  code; directive commented out in spec so %%autosetup skips it.
+  Patch file retained in sources/ for historical reference.
+- Discovered during a sweep for already-upstreamed carry-patches
+  alongside today's deps-drift + upstream-pitch preparation. Second
+  retirement today after Patch0007 (libtiff C99 typedefs) earlier;
+  both upstream landings were on 2026-05-08 -- a productive day for
+  the Fedora-packaging compatibility track. README + CONTRIBUTING
+  patch tables updated to mark 0008 RETIRED with cross-link to
+  #19733.
+
 * Tue May 12 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-54
 - Retire Patch0007 (libtiff C99 typedef migration). Upstream landed
   the equivalent change on 2026-05-08 as PR o3de/o3de#19734

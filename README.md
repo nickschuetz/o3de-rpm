@@ -422,7 +422,7 @@ Re-generate the static SBOM when bumping the version: edit `sources/o3deNNNN.cdx
 
 ## Patches
 
-Eleven patches applied via `%autosetup -p1` (Patch0007 RETIRED 2026-05-12 -- upstream landed the equivalent libtiff migration; Patch0012 is the v2 child-side watchdog after the v1 prctl approach was withdrawn earlier the same day; see CONTRIBUTING.md for both diagnosis lessons). See [`CONTRIBUTING.md`](CONTRIBUTING.md#patches) for the full table including each patch's upstream-worthy assessment. Quick summary:
+Ten patches applied via `%autosetup -p1` (Patch0007 + Patch0008 RETIRED 2026-05-12 -- upstream landed both equivalents on 2026-05-08; Patch0012 is the v2 child-side watchdog after the v1 prctl approach was withdrawn earlier 2026-05-12; see CONTRIBUTING.md for the diagnosis lessons). See [`CONTRIBUTING.md`](CONTRIBUTING.md#patches) for the full table including each patch's upstream-worthy assessment. Quick summary:
 
 | # | Target | Purpose |
 |---|---|---|
@@ -433,7 +433,7 @@ Eleven patches applied via `%autosetup -p1` (Patch0007 RETIRED 2026-05-12 -- ups
 | 0005 | `Code/Framework/AzQtComponents/.../WindowDecorationWrapper.cpp` | Propagate guest title to WM-drawn titlebar in `OptionDisabled` mode |
 | 0006 | `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` | Establish the `LY_USE_SYSTEM_<X>` gating convention used by Stage 1 system-library swaps |
 | ~~0007~~ | ~~`.../TIFFLoader.cpp` + `Code/Editor/Util/ImageTIF.cpp`~~ | **RETIRED 2026-05-12** -- upstream landed the equivalent migration as [o3de/o3de#19734](https://github.com/o3de/o3de/pull/19734) (commit dda736e0, 2026-05-08). Carry-patch dropped from spec; file kept in `sources/` as reference. |
-| 0008 | `Code/Framework/AzCore/.../ScriptContext.cpp` | Drop the redundant `<lua/lobject.h>` include broken by Lua 5.5 layout changes |
+| ~~0008~~ | ~~`Code/Framework/AzCore/.../ScriptContext.cpp`~~ | **RETIRED 2026-05-12** -- upstream landed the equivalent as [o3de/o3de#19733](https://github.com/o3de/o3de/pull/19733) (commit 3e715c61, 2026-05-08). Carry-patch dropped from spec; file kept in `sources/` as reference. |
 | 0009 | `Gems/PhysX/.../physx-pal-platform.cmake` | Gate the upstream `poly2tri` association on the `system_poly2tri` swap |
 | 0010 | `Code/Framework/AzCore/Script/ScriptContext.cpp` | Add a Lua 5.5 `lua_newstate` signature shim (warnflag arg added in 5.5) |
 | 0011 | `Code/Tools/LuaIDE/.../WatchesPanel.cpp` | Restore `LUA_NUMTAGS` macro for the LuaIDE compile path under Lua 5.5 |
