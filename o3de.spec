@@ -733,6 +733,15 @@ Recommends:     lua-devel
 %if %{with system_googlebenchmark}
 Recommends:     google-benchmark-devel
 %endif
+%if %{with system_mcpp}
+# Stage 2 library-link swap: end-user cmake-configure of native projects
+# needs mcpp_lib.h headers via Findmcpp-system.cmake. The Requires line
+# below pulls in libmcpp.so.0 (runtime); this Recommends pulls in the
+# headers for project-build use. (dxc + spirvcross are binary shellouts
+# -- no header surface for downstream consumers -- so they don't need
+# parallel -devel Recommends entries.)
+Recommends:     o3de2605-mcpp-az-devel
+%endif
 
 %description
 The Open 3D Engine (O3DE) is an Apache-licensed, real-time, multi-platform
@@ -1283,6 +1292,24 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Mon May 11 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-49
+- Add missing `Recommends: o3de2605-mcpp-az-devel` for the system_mcpp
+  gate. Same class of issue as 2605.0-48 (system_googlebenchmark
+  Recommends gap) -- caught when Nick's cmake-configure of his ROS2
+  project hit `Findmcpp (system stub): could not locate mcpp_lib.h`.
+  The mcpp Stage 2 swap is a LIBRARY-LINK variant (engine #includes
+  <mcpp_lib.h>); end-user cmake-configure of native projects that go
+  through Findmcpp-system.cmake needs the headers. The runtime
+  libmcpp.so.0 was already pulled via Requires; this fills the
+  parallel Recommends gap.
+- The other two Stage 2 swaps (system_dxc + system_spirvcross) are
+  BINARY-SHELLOUT variants -- they ship CLI executables (dxc,
+  spirv-cross) that the engine invokes as subprocesses; no header
+  surface for downstream consumers; no parallel -devel Recommends
+  needed.
+- Quick unblock for users hitting this on 18-pack installed before
+  this commit: `sudo dnf install o3de2605-mcpp-az-devel`.
+
 * Mon May 11 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-48
 - Add missing `Recommends: google-benchmark-devel` for the
   system_googlebenchmark gate. Caught when a tester's CMake configure
