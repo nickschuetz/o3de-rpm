@@ -104,9 +104,11 @@ Submission stays parked until Nick signals the project is past the experimental 
 ```bash
 make snapshot REF=<git-ref>      # produce sources/o3de-<commit>.tar.gz, print pin values
 $EDITOR o3de.spec                # paste snapshot_commit / snapshot_date / snapshot_sha256
-make rpm-snapshot                # full -bb (profile only, ~70 min on a 32GB workstation)
+make rpm-snapshot                # full -bb (profile only, ~30 min on a 32GB workstation)
 make rpm-snapshot-debug          # full -bb + o3deNNNN-debug subpackage (~2x build time)
 ```
+
+**A note on local-vs-COPR build times.** The "~30 min" above reflects the current Stage 1 + Stage 2 swap stack (13 Stage 1 system swaps + 3 Stage 2 -- mcpp/dxc/spirvcross -- as of 2026-05-12). Each swap removes a bundled-3p compile from the build, so build times have shortened substantially as the swap stack grew (was "~3-4 hours" in early-stage docs, "~70 min" by mid-2026). COPR builds still take 4-6 hours: shared hardware, no persistent ccache between builds, fresh mock chroot per submission. Use local rebuilds for the development iteration loop (test a spec change, rebuild, dnf reinstall, re-test in ~35 min total); use COPR for promotion of validated artifacts to testers.
 
 Or run the test harness end-to-end:
 

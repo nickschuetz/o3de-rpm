@@ -367,7 +367,7 @@ cd o3de-rpm
 make test-branch REF=stabilization/26050   # or any git ref / release tag
 ```
 
-This builds the snapshot tarball, patches the spec with the right pin values, runs `rpmbuild`, installs the resulting RPM, then runs the full test suite. Plan ~3–4 hours per run, ~70 GB free disk space.
+This builds the snapshot tarball, patches the spec with the right pin values, runs `rpmbuild`, installs the resulting RPM, then runs the full test suite. Plan ~30-40 minutes for the build on a 32 GB workstation (Stage 1 + Stage 2 swaps removed ~13 bundled-3p compiles from the engine build), plus ~10 minutes for install + test. ~70 GB free disk space required for the build tree + cached packages.
 
 ### CI for community use
 
