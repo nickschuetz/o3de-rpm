@@ -33,7 +33,20 @@ Kernel sends SIGTERM when AP dies. Linux-only but resident mode IS Linux/macOS-r
 - Open PR with the `m_tetherLifetime` change (`Code/Tools/AssetProcessor/native/utilities/Builder.cpp`). Engine already plumbs this through ProcessLauncher cross-platform; AP just never opted in.
 - Low-risk, well-scoped, single-file change. Good first-PR material.
 
-**Status (2026-05-12 08:45)**: **v1 WITHDRAWN after runtime validation caught a thread-lifecycle bug.** COPR 10447331 built green on F44 + rawhide; on `dnf reinstall` + AP launch, every spawned builder received SIGTERM within ~21 ms of fork and AP could never establish a resident pool. Editor hung at "Asset Processor working...".
+**Status (2026-05-12 10:30)**: **v2 watchdog approach RUNTIME-VALIDATED.** v1 (prctl-based) was withdrawn earlier today after the kernel-binds-PDEATHSIG-to-forking-thread footgun was diagnosed. v2 (child-side getppid() polling in AssetBuilder/main.cpp) was committed as Patch0012 in spec 2605.0-52, built locally in ~34 min, dnf-reinstalled, and verified end-to-end:
+
+- Editor launches cleanly (no SIGTERM-cascade like v1)
+- AP spawns its resident builder pool normally
+- `kill -9 <AP-pid>` with 2 alive builders attached -> both builders self-exited within 4 seconds of AP death
+- Zero alive orphans at T+4s and T+8s
+- No regression in clean-shutdown path
+
+v2 patch shipping as `sources/0012-v2-assetbuilder-parent-watchdog.patch`. Engine commit on branch `assetbuilder-parent-death-watchdog` (62fdd36e) in nickschuetz/o3de fork. Doc-comment companion commit on `processwatcher-pdeathsig-doc` (2f95c7af).
+
+**Upstream submission**: STAGED (`upstream-drafts/`), NOT FILED. Awaiting Nick's "fully baked" green-light per memory rule. The three artifacts ready to file as a coordinated trio: design issue framing the BuilderManager threading constraint + watchdog PR + doc-comment PR.
+
+**Original v1 failure history (kept for context):**
+v1 COPR 10447331 built green on F44 + rawhide; on `dnf reinstall` + AP launch, every spawned builder received SIGTERM within ~21 ms of fork and AP could never establish a resident pool. Editor hung at "Asset Processor working...".
 
 **Root cause:** `PR_SET_PDEATHSIG` (the kernel mechanism behind `m_tetherLifetime` on Linux) fires when the **THREAD that called fork()** terminates, not when the parent process terminates. AssetProcessor's BuilderManager forks builders from short-lived TaskWorker threads -- the launching thread retires as soon as the child is spawned, the kernel sees the forking-thread die, signals the freshly-spawned builder, builder dies in <21 ms, AP gives up. The Multiplayer gem's use of `m_tetherLifetime` works fine because it forks from a long-lived UI thread; the prctl footgun is documented in `prctl(2)` but easy to miss when reading just the engine API.
 
