@@ -24,7 +24,14 @@ The package follows a **versioned-major naming convention** (`o3deNNNN` where NN
 **What is this:** Builds from O3DE upstream's **stabilization branch** (currently `stabilization/26050`, the pre-release branch for the upcoming 26.05 release). This is *not* a nightly bleeding-edge build — when O3DE tags 2605.0, this branch's tip becomes the release. Quality target: near-RC. If something breaks here, we want to know before it ships to users.
 
 **Currently active in this channel (Stage 1 / Fedora-track):**
-- **Stage 1/2a 7-pack** — engine links to system `expat`, `freetype`, `liblz4`, `libpng`, `mikkelsen` (`libmikktspace.so.0`), `openexr` (+ `imath`), `zlib` instead of bundled copies. Promoted to this channel 2026-05-07 (build 10433491 succeeded on F44 + rawhide; CI passed Tiers 1+2+4+6 on both chroots). The 9-pack (adds `system_lua` + `system_poly2tri`) is currently exercised in `o3de-experimental` and will graduate to this channel once we've collected community feedback on the 7-pack.
+- **Stage 1 12-pack** -- engine links to system `expat`, `freetype`, `liblz4`, `libpng`, `mikkelsen` (`libmikktspace.so.0`), `openexr` (+ `imath`), `zlib`, `lua-libs`, `poly2tri`, `assimp`, `sqlite-libs`, `libsamplerate` instead of bundled copies. Promoted to this channel 2026-05-11 (build 10444167 succeeded on F44 + rawhide); the 7-pack subset had >1 week of community soak before this promotion. The 13th swap (`system_googlebenchmark`) is currently exercised in `o3de-experimental` and awaits a separate soak window before graduating here.
+
+**Upstream patches MERGED this cycle** (will retire from our local patch series on next snapshot rebase):
+- **[PR #19733](https://github.com/o3de/o3de/pull/19733)** (AzCore Lua include cleanup; MERGED 2026-05-08) -- our Patch0008 becomes redundant.
+- **[PR #19734](https://github.com/o3de/o3de/pull/19734)** (libtiff C99 typedefs; MERGED 2026-05-08) -- our Patch0007 becomes redundant.
+- **[PR #19737](https://github.com/o3de/o3de/pull/19737)** (Microphone libsamplerate PAL-trait gate; MERGED 2026-05-10) -- corresponding local patch becomes redundant.
+
+**Lua 5.5 forward-compat** (Patch0010 + Patch0011) carries the engine through Fedora rawhide's Lua 5.5 transition. Behavior-preserving on Lua 5.4 (F44); engine compiles green on Lua 5.5 (rawhide) with `liblua-5.5.so` linkage confirmed via build 10442708 (2026-05-11).
 
 **For bleeding-edge `development`-branch builds**, see `hellaenergy/o3de-snapshot` (one-off, ad-hoc cadence).
 

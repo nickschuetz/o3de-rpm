@@ -110,6 +110,10 @@ SWAPS=(
     "mikkelsen:libmikktspace.so.0:genTangSpaceDefault:0"
     "openexr:libOpenEXR-3_2.so.31:ImfApplyLut:0"
     "poly2tri:libpoly2tri.so.1.0:_ZN3p2t12SweepContext12GetTrianglesEv:0"
+    # googlebenchmark: activated 2026-05-11 in experimental (build 10444166 GREEN).
+    # SONAME libbenchmark.so.1; sample symbol is the mangled C++ entrypoint
+    # benchmark::Initialize(int*, char**) which has been ABI-stable since 1.7.0.
+    "googlebenchmark:libbenchmark.so.1:_ZN9benchmark10InitializeEPiPPc:0"
 )
 
 ldcache_path() {
