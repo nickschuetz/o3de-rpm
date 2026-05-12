@@ -111,9 +111,11 @@ SWAPS=(
     "openexr:libOpenEXR-3_2.so.31:ImfApplyLut:0"
     "poly2tri:libpoly2tri.so.1.0:_ZN3p2t12SweepContext12GetTrianglesEv:0"
     # googlebenchmark: activated 2026-05-11 in experimental (build 10444166 GREEN).
-    # SONAME libbenchmark.so.1; sample symbol is the mangled C++ entrypoint
-    # benchmark::Initialize(int*, char**) which has been ABI-stable since 1.7.0.
-    "googlebenchmark:libbenchmark.so.1:_ZN9benchmark10InitializeEPiPPc:0"
+    # SONAME libbenchmark.so.1. Sample symbol is benchmark::Initialize -- but
+    # the 1.9.x ABI added a help-callback function pointer parameter, so the
+    # mangled name is the 4-arg form (not the 1.7.x 2-arg form):
+    # benchmark::Initialize(int*, char**, void(*)()).
+    "googlebenchmark:libbenchmark.so.1:_ZN9benchmark10InitializeEPiPPcPFvvE:0"
 )
 
 ldcache_path() {
