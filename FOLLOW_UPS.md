@@ -6,6 +6,34 @@ This file is intentionally a living scratchpad. Entries get added or removed as 
 
 ---
 
+## Backlog -- pending TSC conversation
+
+### AssetProcessor desktop-menu entry (raised by Nick 2026-05-11 night)
+
+Surfaced when Nick tried to launch AP standalone from the apps menu (no entry exists; ran the binary directly and hit "Path '/opt/O3DE/<v>/bin/Linux/profile/Default' is not a valid project path" -- the engine binary path was used as cwd because no project context was provided). Today, the only way to standalone-launch AP is from terminal with `--project-path=<path>`. The normal UX path is "open Editor in Project Manager, which spawns AP as a child process" -- AP is a side-effect, not a destination.
+
+**The case for adding a menu entry**: standalone AP launch has legitimate use cases (1) pre-bake assets BEFORE opening Editor, avoiding the race-condition crashes we just hit on ROS2_Project; (2) re-launch AP after a crash without restarting Editor; (3) monitor asset processing while Editor is busy with other work.
+
+**Three implementation shapes considered**:
+
+(A) Wrapper script (`/usr/bin/o3de2605-ap`) that reads `~/.o3de/o3de_manifest.json` for the most-recently-active project and execs AssetProcessor with `--project-path=<that>`. Single-click "open AP for the project you were just working in." Works for the common single/few-project case. ~30 min spec change.
+
+(B) Wrapper that prompts via zenity/Qt for project path if multiple projects are registered. More work; supports multi-project workflows cleanly.
+
+(C) Raw exec of AssetProcessor in the .desktop file; user has to launch from a project directory. Cheapest, worst UX.
+
+**Why this needs TSC conversation rather than unilateral implementation**: AssetProcessor's role in the UX (destination vs. side-effect) is a cross-platform design question. Windows .msi installer and Mac .pkg may already have AP entries; if so, the Linux/Fedora packaging should match the established pattern, not invent its own. If not, this is an opportunity to propose a unified cross-platform AP-launcher pattern that upstream can adopt across all installers. Either way, Nick wants TSC alignment before our Fedora packaging diverges.
+
+**Discussion topics for the TSC**:
+- Should AP be a top-level launch destination at all, or always-spawned-by-Editor?
+- If yes, what's the cross-platform UX pattern? (Windows Start Menu, Mac Applications, Linux .desktop)
+- Project-context resolution: manifest most-recent, interactive prompt, default-to-cwd, or some new mechanism?
+- Should we implement on Fedora first as a proof-of-concept + then propose upstreaming, or wait for cross-platform alignment before any work?
+
+**Status**: blocked on TSC conversation. Nothing implemented in our packaging. After TSC direction, this becomes an actionable ~30 min - 2 hour spec change depending on which shape is chosen.
+
+---
+
 ## 2026-05-11 evening -- Stabilization 12-pack LIVE + snapshot-ref patch-conflict finding
 
 ### Wins from the overnight queue landing
