@@ -6,6 +6,21 @@ This file is intentionally a living scratchpad. Entries get added or removed as 
 
 ---
 
+## CS10 engine build: FIRST EVER SUCCESS 2026-05-12 (build 10450340)
+
+Major CS10 milestone: build 10450340 (`o3de-experimental`, `centos-stream-10-x86_64` chroot only, SRPM from spec 2605.0-53 with the `gcc-toolset-15-libatomic-devel` BR fix) completed end-to-end at 16:42 CDT and produced `o3de2605` + `o3de2605-devel` + SRPM artifacts tagged `1.el10`. First time any CS10 engine build has cleanly succeeded.
+
+Caveat: this build ran with empty `--rpmbuild-with` flags (per `project_cs10_with_opts_gap.md` memory), so it shipped bundled-3p everywhere. Zero Stage 1 or Stage 2 swaps were exercised. Proves the engine COMPILES on CS10 once -latomic is in place, but the Stage 1/2 swap stack still hasn't been validated on CS10.
+
+To make CS10 genuinely viable for end users:
+- Trigger CS10 builds of the `o3de-dependencies` COPR project's packages (mikkelsen, azslc, ISPCTexComp, astc-encoder, PhysX, AWSNativeSDK, Qt5).
+- Propagate `--rpmbuild-with` flags to the CS10 chroot via `copr-cli edit-chroot`.
+- Re-build CS10 with the full Stage 1+2 swap stack and confirm it stays green.
+
+These three steps are chained (deps need to exist before with_opts can fire). The release-day window is tight; CS10 viability with swaps may slip to post-release work.
+
+---
+
 ## 26.05.0 release: 2026-05-27 (set 2026-05-12)
 
 Sig-release chair (Nick) set the release date 2026-05-12. 15-day window. See memory `project_2605_release_date.md` for the full pre-release checklist; high-level packaging work:
