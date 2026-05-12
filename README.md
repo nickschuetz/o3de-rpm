@@ -422,7 +422,7 @@ Re-generate the static SBOM when bumping the version: edit `sources/o3deNNNN.cdx
 
 ## Patches
 
-Twelve patches applied via `%autosetup -p1` (Patch0012 v2 child-side watchdog after v1 prctl approach was withdrawn 2026-05-12; see CONTRIBUTING.md for the diagnosis lesson). See [`CONTRIBUTING.md`](CONTRIBUTING.md#patches) for the full table including each patch's upstream-worthy assessment. Quick summary:
+Eleven patches applied via `%autosetup -p1` (Patch0007 RETIRED 2026-05-12 -- upstream landed the equivalent libtiff migration; Patch0012 is the v2 child-side watchdog after the v1 prctl approach was withdrawn earlier the same day; see CONTRIBUTING.md for both diagnosis lessons). See [`CONTRIBUTING.md`](CONTRIBUTING.md#patches) for the full table including each patch's upstream-worthy assessment. Quick summary:
 
 | # | Target | Purpose |
 |---|---|---|
@@ -432,7 +432,7 @@ Twelve patches applied via `%autosetup -p1` (Patch0012 v2 child-side watchdog af
 | 0004 | `cmake/LYPython.cmake` | Non-editable pip install for read-only engine roots |
 | 0005 | `Code/Framework/AzQtComponents/.../WindowDecorationWrapper.cpp` | Propagate guest title to WM-drawn titlebar in `OptionDisabled` mode |
 | 0006 | `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` | Establish the `LY_USE_SYSTEM_<X>` gating convention used by Stage 1 system-library swaps |
-| 0007 | `.../TIFFLoader.cpp` + `Code/Editor/Util/ImageTIF.cpp` | Migrate legacy libtiff `uint8`/`uint16`/`uint32` typedefs to standard C99 (libtiff 4.5+ deprecates the legacy names) |
+| ~~0007~~ | ~~`.../TIFFLoader.cpp` + `Code/Editor/Util/ImageTIF.cpp`~~ | **RETIRED 2026-05-12** -- upstream landed the equivalent migration as [o3de/o3de#19734](https://github.com/o3de/o3de/pull/19734) (commit dda736e0, 2026-05-08). Carry-patch dropped from spec; file kept in `sources/` as reference. |
 | 0008 | `Code/Framework/AzCore/.../ScriptContext.cpp` | Drop the redundant `<lua/lobject.h>` include broken by Lua 5.5 layout changes |
 | 0009 | `Gems/PhysX/.../physx-pal-platform.cmake` | Gate the upstream `poly2tri` association on the `system_poly2tri` swap |
 | 0010 | `Code/Framework/AzCore/Script/ScriptContext.cpp` | Add a Lua 5.5 `lua_newstate` signature shim (warnflag arg added in 5.5) |

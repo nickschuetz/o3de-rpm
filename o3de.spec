@@ -270,16 +270,18 @@ Patch0003:      0003-get-python-sh-rpm-venv-fixes.patch
 Patch0004:      0004-lypython-non-editable-pip-for-installed-engine.patch
 Patch0005:      0005-windowdecorationwrapper-propagate-initial-title.patch
 
-# Migrate every remaining legacy libtiff typedef use (uint8/uint16/uint32)
-# to the standard C99 (`*_t`) names across O3DE's two <tiffio.h> consumers:
-#   - Gems/Atom/Asset/ImageProcessingAtom/.../TIFFLoader.cpp (modern Atom)
-#   - Code/Editor/Util/ImageTIF.cpp (legacy Editor)
-# libtiff 4.5+ marks the legacy typedef as __attribute__((deprecated));
-# combined with O3DE's -Werror, every stale use becomes a hard build
-# failure. Mechanical type rename; behavior unchanged. Applies
-# unconditionally so the source tree stays consistent whether libtiff
-# resolves from the upstream CDN bundle or from system tiff-devel.
-Patch0007:      0007-libtiff-c99-typedefs.patch
+# Patch0007 -- RETIRED 2026-05-12 (upstream landed the equivalent on
+# 2026-05-08 as PR o3de/o3de#19734, commit dda736e0, "libtiff: migrate
+# legacy typedefs to C99 standard types"). Our carry-patch became
+# dead code; directive removed so %%autosetup no longer applies it.
+# Patch file kept in sources/ for historical reference + as a template
+# pattern for other "finish a partial migration" upstream pitches.
+# Discovered during the 2026-05-12 deps-drift / upstream-pitch
+# preparation pass: a rebase of our libtiff-c99-typedef-migration
+# branch onto upstream/development reported "skipped previously
+# applied commit ec422767" because git's cherry-pick detection
+# recognized the equivalent change had landed.
+# Patch0007:      0007-libtiff-c99-typedefs.patch
 
 # Stage 1 system-library swap patches — each gates one upstream
 # ly_associate_package(...) line on a new LY_USE_SYSTEM_<X> cmake var,
@@ -1334,6 +1336,21 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Tue May 12 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-54
+- Retire Patch0007 (libtiff C99 typedef migration). Upstream landed
+  the equivalent change on 2026-05-08 as PR o3de/o3de#19734
+  (dda736e0, "libtiff: migrate legacy typedefs to C99 standard
+  types"); our carry-patch is now dead code. Directive commented out
+  in spec so %autosetup skips it. Patch file retained in sources/ as
+  historical reference.
+- Discovered during the upstream-pitch preparation pass: rebasing our
+  libtiff-c99-typedef-migration branch onto current upstream/development
+  caused git to report "skipped previously applied commit" via
+  cherry-pick equivalence detection. Verified by grepping
+  upstream/development for the legacy uint8/uint16/uint32 typedefs
+  (none remain) + reading the resulting upstream commit message.
+- README + CONTRIBUTING patch tables updated to show 0007 RETIRED.
+
 * Tue May 12 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-53
 - Add `BuildRequires: gcc-toolset-15-libatomic-devel` gated on
   `%%if 0%%{?rhel}`. CS10 engine compile reached step 44/2173
