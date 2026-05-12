@@ -43,7 +43,15 @@ Kernel sends SIGTERM when AP dies. Linux-only but resident mode IS Linux/macOS-r
 
 v2 patch shipping as `sources/0012-v2-assetbuilder-parent-watchdog.patch`. Engine commit on branch `assetbuilder-parent-death-watchdog` (62fdd36e) in nickschuetz/o3de fork. Doc-comment companion commit on `processwatcher-pdeathsig-doc` (2f95c7af).
 
-**Upstream submission**: STAGED (`upstream-drafts/`), NOT FILED. Awaiting Nick's "fully baked" green-light per memory rule. The three artifacts ready to file as a coordinated trio: design issue framing the BuilderManager threading constraint + watchdog PR + doc-comment PR.
+**Upstream submission**: FILED 2026-05-12 10:40. Three artifacts as a coordinated trio:
+
+- **Issue [o3de/o3de#19745](https://github.com/o3de/o3de/issues/19745)** -- "BuilderManager forks AssetBuilders from short-lived TaskWorker threads, silently breaking m_tetherLifetime". Frames the architectural cause + proposes four fix directions (doc / watchdog / BuilderManager refactor / ProcessLauncher refactor).
+- **PR [o3de/o3de#19746](https://github.com/o3de/o3de/pull/19746)** -- "ProcessWatcher: document prctl(PR_SET_PDEATHSIG) threading constraint". 20-line warning comment next to the prctl call. Doc-only, smallest piece, expected to land first.
+- **PR [o3de/o3de#19747](https://github.com/o3de/o3de/pull/19747)** -- "AssetBuilder: add child-side parent-death watchdog". The v2 watchdog patch itself. Cross-references both #19745 and #19746.
+
+Branches in nickschuetz/o3de fork: `assetbuilder-parent-death-watchdog` (62fdd36e) and `processwatcher-pdeathsig-doc` (2f95c7af). Both DCO-signed, ASCII-clean, single-commit, against fresh `upstream/development`.
+
+Drafts retained in `upstream-drafts/` as historical reference for the body content + design conversation.
 
 **Original v1 failure history (kept for context):**
 v1 COPR 10447331 built green on F44 + rawhide; on `dnf reinstall` + AP launch, every spawned builder received SIGTERM within ~21 ms of fork and AP could never establish a resident pool. Editor hung at "Asset Processor working...".
