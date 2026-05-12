@@ -270,33 +270,52 @@ Patch0003:      0003-get-python-sh-rpm-venv-fixes.patch
 Patch0004:      0004-lypython-non-editable-pip-for-installed-engine.patch
 Patch0005:      0005-windowdecorationwrapper-propagate-initial-title.patch
 
-# Patch0007 -- RETIRED 2026-05-12 (upstream landed the equivalent on
-# 2026-05-08 as PR o3de/o3de#19734, commit dda736e0, "libtiff: migrate
-# legacy typedefs to C99 standard types"). Our carry-patch became
-# dead code; directive removed so %%autosetup no longer applies it.
-# Patch file kept in sources/ for historical reference + as a template
-# pattern for other "finish a partial migration" upstream pitches.
-# Discovered during the 2026-05-12 deps-drift / upstream-pitch
-# preparation pass: a rebase of our libtiff-c99-typedef-migration
-# branch onto upstream/development reported "skipped previously
-# applied commit ec422767" because git's cherry-pick detection
-# recognized the equivalent change had landed.
-# Patch0007:      0007-libtiff-c99-typedefs.patch
+# Migrate every remaining legacy libtiff typedef use (uint8/uint16/uint32)
+# to the standard C99 (`*_t`) names across O3DE's two <tiffio.h> consumers:
+#   - Gems/Atom/Asset/ImageProcessingAtom/.../TIFFLoader.cpp (modern Atom)
+#   - Code/Editor/Util/ImageTIF.cpp (legacy Editor)
+# libtiff 4.5+ marks the legacy typedef as __attribute__((deprecated));
+# combined with O3DE's -Werror, every stale use becomes a hard build
+# failure. Mechanical type rename; behavior unchanged. Applies
+# unconditionally so the source tree stays consistent whether libtiff
+# resolves from the upstream CDN bundle or from system tiff-devel.
+#
+# TIMEBOMB: upstream MERGED PR o3de/o3de#19734 (commit dda736e0,
+# 2026-05-08) into `development` but NOT into `stabilization/26050`.
+# Our snapshot pin currently sources from stabilization/26050 (commit
+# 246b46f), which still has the legacy typedefs. When stabilization
+# absorbs #19734 (either via cherry-pick to 26050 or when a new
+# stabilization branch is cut from development with #19734 in it),
+# this patch becomes dead code and retires. Until then it must stay.
+# Earlier-2026-05-12 retirement attempt was reverted after grepping
+# stabilization/26050 still showed 9+33 legacy typedef hits in the
+# two target files. See project_branch_alignment_before_retirement.md
+# memory note for the gotcha pattern.
+Patch0007:      0007-libtiff-c99-typedefs.patch
 
 # Stage 1 system-library swap patches — each gates one upstream
 # ly_associate_package(...) line on a new LY_USE_SYSTEM_<X> cmake var,
 # and pairs with a corresponding system Find<X>.cmake (Source30+ below).
 Patch0006:      0006-builtinpackages-gate-mikkelsen-on-system.patch
 
-# Patch0008 -- RETIRED 2026-05-12 (upstream landed PR o3de/o3de#19733,
-# commit 3e715c61, "AzCore/Script: drop redundant <Lua/lobject.h>
-# include", merged 2026-05-08). Our carry-patch is dead code; directive
-# removed so %%autosetup skips it. Patch file retained in sources/ for
-# historical reference + as the second example today (after Patch0007)
-# of "carry-patch retired by upstream merge."
-# Discovered 2026-05-12 during the Lua 5.5 patch-status sweep alongside
-# the deps-drift / upstream-pitch preparation pass.
-# Patch0008:      0008-azcore-drop-lua-lobject-include.patch
+# Drop AzCore's redundant `#include <Lua/lobject.h>` in ScriptContext.cpp.
+# The only thing it pulls in is the `LUAI_MAXALIGN` macro, which is
+# already public Lua API -- defined in `luaconf.h` and used in `lauxlib.h`'s
+# `luaL_Buffer`. AzCore already includes <Lua/lualib.h> and <Lua/lauxlib.h>
+# in the same extern "C" block, both of which transitively include
+# luaconf.h, so LUAI_MAXALIGN is in scope without lobject.h. This is the
+# single blocker for system_lua activation on Fedora (Fedora's lua-devel
+# only ships the public API headers -- lua.h, lualib.h, lauxlib.h,
+# luaconf.h -- never lobject.h, lstate.h, etc.). Behavior-preserving.
+# Applies unconditionally -- bundled-Lua builds also benefit (one fewer
+# brittle internal-header dependency).
+#
+# TIMEBOMB: upstream MERGED PR o3de/o3de#19733 (commit 3e715c61,
+# 2026-05-08) into `development` but NOT into `stabilization/26050`.
+# Same retirement-gating story as Patch0007 -- stays active until
+# stabilization absorbs the upstream change. See
+# project_branch_alignment_before_retirement.md memory note.
+Patch0008:      0008-azcore-drop-lua-lobject-include.patch
 
 # Gate poly2tri's bundled fetcher in the PhysX Gem PAL files (PhysX4 + PhysX5,
 # Linux x86_64) on `LY_USE_SYSTEM_POLY2TRI`. Pairs with Findpoly2tri-system.cmake
@@ -1331,6 +1350,38 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Tue May 12 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-56
+- REVERT the same-turn retirements of Patch0007 (libtiff C99 migration)
+  and Patch0008 (drop Lua/lobject.h include) made in 2605.0-54 and
+  2605.0-55. Both retirements were premature: upstream merged PRs
+  #19734 and #19733 into `development` on 2026-05-08, but neither was
+  cherry-picked to `stabilization/26050`, which is the branch our
+  snapshot pin (246b46f) sources from.
+- Verified by grepping `upstream/stabilization/26050`: TIFFLoader.cpp
+  still has 9 legacy uint8/uint16/uint32 typedef hits, ImageTIF.cpp
+  has 33, and ScriptContext.cpp still has `#include <Lua/lobject.h>`
+  on line 28. Without these patches, our builds against the
+  stabilization snapshot would hit the original compile failures
+  (clang -Werror on the deprecated typedefs + system_lua activation
+  blocker on the bundled-Lua internal header).
+- Patch directives restored; spec is back to 12 active patches. Both
+  patch bodies now carry TIMEBOMB notes documenting the merge-but-
+  not-backported situation and the retirement condition (when
+  stabilization/26050 absorbs the upstream change, OR when our
+  snapshot pin advances onto a development-based commit that
+  includes both PRs).
+- Gotcha captured as memory note
+  project_branch_alignment_before_retirement.md so future "carry-
+  patch retired by upstream merge" decisions verify the merge
+  landed on the SAME branch the snapshot sources from -- not just
+  in `development`. Sweep order for safe retirement:
+  (1) confirm PR merged upstream -> (2) confirm the merge commit is
+  reachable from the branch our snapshot pin is on -> (3) grep the
+  target file on that branch to confirm the change is present ->
+  (4) only then retire the carry-patch.
+- README + CONTRIBUTING patch tables restored to show 0007 + 0008
+  ACTIVE with TIMEBOMB notes. Active patch count back to 12.
+
 * Tue May 12 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-55
 - Retire Patch0008 (AzCore/Script drop redundant Lua/lobject.h
   include). Upstream landed PR o3de/o3de#19733 (commit 3e715c61) on
