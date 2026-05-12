@@ -52,7 +52,7 @@ Read `o3de.spec` top-to-bottom. The shape is:
 5. **Name / Version / Release** with conditional logic for snapshot mode (`Name: %{o3de_pkgname}`)
 6. **Source0** (the upstream tarball — release URL or local snapshot)
 7. **Source10–25** (auxiliary files: launcher, desktops, metainfo, icons, SBOM, snapshot helper)
-8. **Patch0001-0011** applied via `%autosetup -p1` (Patch0012 withdrawn 2026-05-12; Lua 5.5 compat hits Patch0008/0010/0011 conditionally on the rawhide chroot)
+8. **Patch0001-0012** applied via `%autosetup -p1` (Patch0012 is the v2 child-side watchdog after the v1 prctl approach was withdrawn 2026-05-12; Lua 5.5 compat hits Patch0008/0010/0011 conditionally on the rawhide chroot)
 9. **BuildRequires / Requires** — minimal, validated against auto-Requires
 10. **`%prep`, `%build`, `%install`, `%check`, `%files`** — standard rpm sections
 11. **Scriptlets** (`%post`, `%postun`)
@@ -64,7 +64,7 @@ If you change *anything* in the spec or sources/, **update the README's layout b
 
 ## Patches
 
-Eleven applied patches in `sources/`, plus Patch0012 retained as a withdrawn reference (build-green but runtime-broken; see row below). Each carries a `From: Nick Schuetz <nschuetz@redhat.com>` and `Subject:` header explaining why the patch exists.
+Twelve patches in `sources/`. Patch0012 is the v2 child-side watchdog; the v1 file (`0012-assetprocessor-tether-resident-builders.patch`, withdrawn 2026-05-12 after the runtime-broken prctl approach was diagnosed) is retained in the same directory as reference. Each carries a `From: Nick Schuetz <nschuetz@redhat.com>` and `Subject:` header explaining why the patch exists.
 
 | # | Target | Purpose | Upstream-worthy? |
 |---|---|---|---|
@@ -79,7 +79,7 @@ Eleven applied patches in `sources/`, plus Patch0012 retained as a withdrawn ref
 | 0009 | `Gems/PhysX/.../physx_pal_platform.cmake` | gate the upstream `ly_associate_package(... poly2tri ...)` line on `system_poly2tri` so the PhysX gem can resolve via Fedora's `poly2tri-devel` when the swap is active | **as part of the umbrella PR alongside Patch0006** |
 | 0010 | `Code/Framework/AzCore/Script/ScriptContext.cpp` | Lua 5.5 introduced an extra `warnflag` argument to `lua_newstate`; provide a `#if LUA_VERSION_NUM >= 505` shim that adapts the call sites. Behavior-preserving on 5.4. | **yes** -- mechanical compat; upstream will want this when they bump the bundled Lua |
 | 0011 | `Code/Tools/LuaIDE/.../WatchesPanel.cpp` | Lua 5.5 removed the `LUA_NUMTAGS` public macro; restore it under the same guard pattern as Patch0010 for the LuaIDE compile path | **yes** -- partner patch to 0010; ditto upstream-worthy |
-| ~~0012~~ | ~~`Code/Tools/AssetProcessor/native/utilities/Builder.cpp`~~ | **WITHDRAWN 2026-05-12.** Set `m_tetherLifetime = true` so the kernel reaps resident AssetBuilder children on AP death. Built green on F44 + rawhide (COPR 10447331). On runtime test (dnf reinstall + AP launch), every spawned AssetBuilder got SIGTERM within ~21 ms of fork because `PR_SET_PDEATHSIG` fires on **forking-thread** death, not parent-process death. AssetProcessor's BuilderManager forks builders from short-lived TaskWorker threads (Multiplayer gem works because it forks from a long-lived UI thread). | **no, as written.** The fix is sound for processes that fork from long-lived threads; AP isn't one of them. A watchdog approach (poll `getppid()` inside the builder's main loop) is the replacement under design. Patch file retained in sources/ as reference. |
+| 0012 | `Code/Tools/AssetProcessor/AssetBuilder/main.cpp` | **v2 (active).** Adds `StartParentDeathWatchdog()` to AssetBuilder's `main()` -- detached thread polls `getppid()` every 2 seconds, calls `_exit(0)` when the parent PID changes (reparented to PID 1 / systemd-user because AP died). Independent of caller threading. POSIX (Linux + Mac) only; Windows port deferred. v1 (`m_tetherLifetime = true` enabling `prctl(PR_SET_PDEATHSIG)`) was withdrawn 2026-05-12 after runtime test showed every builder SIGTERM'd within ~21 ms of fork because BuilderManager forks from short-lived TaskWorker threads. v1 patch file kept in `sources/` as reference. Memory: `project_prctl_pdeathsig_thread_gotcha.md`. | **yes** -- focused fix, ~12 LOC, clear repro (kill -9 AP; before: builders persist with PPID 1 indefinitely; after: builders detect reparenting and exit within 2 s). Companion artifacts under `upstream-drafts/` stage the GitHub issue + cross-linked PR drafts. |
 
 ### Upstream PR backlog
 

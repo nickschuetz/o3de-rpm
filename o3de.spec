@@ -350,30 +350,29 @@ Patch0010:      0010-azcore-script-lua-5-5-newstate-signature-compat.patch
 # Memory: project_lua_5_5_newstate_break.md.
 Patch0011:      0011-luaide-watchespanel-lua-5-5-numtags-compat.patch
 
-# Patch0012 -- WITHDRAWN 2026-05-12 after empirical runtime validation. The
-# patch attempted to fix the AssetBuilder-orphan-on-AP-death bug by enabling
-# the engine's existing m_tetherLifetime mechanism (which calls
-# prctl(PR_SET_PDEATHSIG, SIGTERM) on Linux). It compiled cleanly and the
-# F44 + rawhide builds went green, but on first run the freshly-installed
-# AssetProcessor could not keep a builder alive: every spawned AssetBuilder
-# received SIGTERM within ~21 ms of fork and AP could never start its
-# resident pool, hanging Editor at "Asset Processor working..."
+# Patch0012 v2 -- AssetBuilder child-side parent-death watchdog.
 #
-# Root cause: PR_SET_PDEATHSIG fires when the THREAD that called fork()
-# terminates, not when the parent process terminates. AssetProcessor forks
-# builders from short-lived worker threads (BuilderManager's TaskWorker
-# pool); the launching thread retires as soon as the builder is spawned,
-# the kernel sees the forking thread die, and signals the freshly-spawned
-# builder. The Multiplayer gem's use of m_tetherLifetime works because it
-# forks from a long-lived UI thread. The footgun is documented in the
-# prctl(2) man page but easy to miss when reading just the engine API.
+# Original v1 attempt (2605.0-50) enabled the engine's existing
+# m_tetherLifetime mechanism, which uses prctl(PR_SET_PDEATHSIG, SIGTERM)
+# on Linux. Built clean but on runtime test every spawned AssetBuilder
+# received SIGTERM within ~21 ms of fork: the kernel binds PDEATHSIG to
+# the THREAD that called fork(), not the parent PROCESS, and
+# BuilderManager forks builders from short-lived TaskWorker threads.
+# Documented in detail in project_prctl_pdeathsig_thread_gotcha.md.
 #
-# Replacement path under design: a watchdog approach (poll getppid() inside
-# the AssetBuilder's main loop and exit when reparented to PID 1), which is
-# cross-platform safe and doesn't depend on the launching thread's lifetime.
-# Tracked in FOLLOW_UPS.md + project_assetbuilder_orphan_lifecycle_bug.md.
-# The patch file stays in sources/ as a reference for the v2 attempt.
-# Patch0012:      0012-assetprocessor-tether-resident-builders.patch
+# v2 (this patch) takes a child-side approach: AssetBuilder's main()
+# starts a detached watchdog thread that polls getppid() every 2
+# seconds; when the parent PID changes (reparented to PID 1 / systemd-
+# user because AP died), the builder _exit(0)'s cleanly. Independent of
+# the launching thread's lifetime; ~12 LOC of watchdog + ~5 LOC of
+# call-in; POSIX (Linux/Mac) implementation only (Windows port can
+# follow).
+#
+# Original v1 patch file 0012-assetprocessor-tether-resident-builders.patch
+# is retained in sources/ as a reference for the failed approach.
+# Memory: project_assetbuilder_orphan_lifecycle_bug.md +
+# project_prctl_pdeathsig_thread_gotcha.md.
+Patch0012:      0012-v2-assetbuilder-parent-watchdog.patch
 
 # Stage 1 system-library find modules. Copied into cmake/3rdParty/
 # during %%prep when the matching `--with system_<lib>` is enabled.
@@ -1317,6 +1316,24 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Tue May 12 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-52
+- Reapply Patch0012 with v2 approach: child-side parent-death watchdog
+  in AssetBuilder/main.cpp instead of the engine's m_tetherLifetime /
+  prctl(PR_SET_PDEATHSIG) mechanism.
+- v1 (2605.0-50) misused prctl which binds the death signal to the
+  forking thread's TID rather than the parent process; AssetProcessor
+  forks builders from short-lived TaskWorker threads, so v1 SIGTERM'd
+  every spawned builder within ~21 ms of fork. Editor hung at "Asset
+  Processor working...".
+- v2 sidesteps the thread-lifetime trap entirely: the spawned
+  AssetBuilder polls getppid() on a detached thread every 2 seconds
+  and _exit(0)s when reparented. ~12 LOC of watchdog in
+  Code/Tools/AssetProcessor/AssetBuilder/main.cpp. Cross-platform
+  POSIX (Linux + Mac); Windows port deferred.
+- Upstream-drafts (issue + 2 PRs) staged in upstream-drafts/ -- not
+  filed until v2 passes the kill -9 + orphan-count runtime test
+  locally.
+
 * Tue May 12 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-51
 - WITHDRAW Patch0012 after empirical runtime validation. Build was green
   on F44 + rawhide (COPR 10447331), but on `dnf reinstall` + AP launch

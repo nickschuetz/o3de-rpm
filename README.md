@@ -422,7 +422,7 @@ Re-generate the static SBOM when bumping the version: edit `sources/o3deNNNN.cdx
 
 ## Patches
 
-Eleven patches applied via `%autosetup -p1` (Patch0012 withdrawn 2026-05-12; row preserved below for the runtime-validation lesson). See [`CONTRIBUTING.md`](CONTRIBUTING.md#patches) for the full table including each patch's upstream-worthy assessment. Quick summary:
+Twelve patches applied via `%autosetup -p1` (Patch0012 v2 child-side watchdog after v1 prctl approach was withdrawn 2026-05-12; see CONTRIBUTING.md for the diagnosis lesson). See [`CONTRIBUTING.md`](CONTRIBUTING.md#patches) for the full table including each patch's upstream-worthy assessment. Quick summary:
 
 | # | Target | Purpose |
 |---|---|---|
@@ -437,7 +437,7 @@ Eleven patches applied via `%autosetup -p1` (Patch0012 withdrawn 2026-05-12; row
 | 0009 | `Gems/PhysX/.../physx-pal-platform.cmake` | Gate the upstream `poly2tri` association on the `system_poly2tri` swap |
 | 0010 | `Code/Framework/AzCore/Script/ScriptContext.cpp` | Add a Lua 5.5 `lua_newstate` signature shim (warnflag arg added in 5.5) |
 | 0011 | `Code/Tools/LuaIDE/.../WatchesPanel.cpp` | Restore `LUA_NUMTAGS` macro for the LuaIDE compile path under Lua 5.5 |
-| ~~0012~~ | ~~`Code/Tools/AssetProcessor/native/utilities/Builder.cpp`~~ | **WITHDRAWN 2026-05-12** -- `m_tetherLifetime` enables `prctl(PR_SET_PDEATHSIG)` which fires on **forking-thread** death, not parent-process death. AP forks from short-lived worker threads, so every spawned builder gets SIGTERM within ~21 ms. Replacement design (watchdog `getppid()` poll) tracked in `FOLLOW_UPS.md`. |
+| 0012 | `Code/Tools/AssetProcessor/AssetBuilder/main.cpp` | Child-side parent-death watchdog. AssetBuilder polls `getppid()` every 2s; when reparented (AP died), `_exit(0)`. Replaces a withdrawn v1 attempt that used `m_tetherLifetime`/`prctl(PR_SET_PDEATHSIG)` -- that approach broke because the kernel binds PDEATHSIG to the forking thread, not the parent process, and AP forks from short-lived TaskWorker threads. v1 patch file retained in `sources/0012-assetprocessor-tether-resident-builders.patch` as reference; v2 is what ships. |
 
 Each patch carries a `From:`/`Subject:` header with the rationale. Stage 1 system-library swaps additionally ship companion `Find<X>-system.cmake` shims in `sources/` (`Findmikkelsen-system.cmake`, `Findexpat-system.cmake`, `FindZLIB-system.cmake`, etc.) — installed into `cmake/3rdParty/Find<X>.cmake` during `%prep` when the matching `--with system_<lib>` is enabled.
 
