@@ -472,7 +472,7 @@ BuildRequires:  pkgconfig(libzstd)
 # resolve `-latomic` from the base CS10 install -- the symlink under
 # /opt/rh/gcc-toolset-15/root/usr/lib64/libatomic.so isn't shipped by
 # the SCL's runtime package. Pulling the SCL's -libatomic-devel pulls
-# in the missing symlink. Gated on %{?rhel} so we don't add the
+# in the missing symlink. Gated on %%{?rhel} so we don't add the
 # package to Fedora chroots that don't need it (or have it named
 # differently).
 # Reference: COPR build 10447331 CS10 chroot, first time CS10 got past
