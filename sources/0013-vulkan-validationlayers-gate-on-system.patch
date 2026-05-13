@@ -1,6 +1,6 @@
-From 8599517ba3e04fb25987378495c358e9784355c3 Mon Sep 17 00:00:00 2001
+From 056f48e99f25d56b80f08e7a16ea7745b09a781c Mon Sep 17 00:00:00 2001
 From: Nick Schuetz <nschuetz@redhat.com>
-Date: Wed, 13 May 2026 09:22:58 -0500
+Date: Wed, 13 May 2026 09:46:40 -0500
 Subject: [PATCH] BuiltInPackages + Atom/RHI/Vulkan: gate
  vulkan-validationlayers on system
 
@@ -66,10 +66,10 @@ index 418193c2..1916a89d 100644
                  RawStringList validationLayers = Debug::GetValidationLayers();
                  m_descriptor.m_optionalLayers.insert(m_descriptor.m_optionalLayers.end(), validationLayers.begin(), validationLayers.end());
 diff --git a/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake b/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake
-index 9292f3f9..c315a5cd 100644
+index 9643bf9d..5c4a9952 100644
 --- a/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake
 +++ b/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake
-@@ -42,4 +42,15 @@ ly_associate_package(PACKAGE_NAME lz4-1.9.4-rev2-linux
+@@ -43,4 +43,15 @@ ly_associate_package(PACKAGE_NAME lz4-1.9.4-rev2-linux
  ly_associate_package(PACKAGE_NAME pyside2-5.15.2.1-py3.10-rev7-linux                TARGETS pyside2                     PACKAGE_HASH bae4598cb5579d835e90e8435181bb3c5222449ce9c2665143a618dac6122be7)
  ly_associate_package(PACKAGE_NAME SQLite-3.37.2-rev1-linux                          TARGETS SQLite                      PACKAGE_HASH bee80d6c6db3e312c1f4f089c90894436ea9c9b74d67256d8c1fb00d4d81fe46)
  ly_associate_package(PACKAGE_NAME AwsIotDeviceSdkCpp-1.15.2-rev1-linux              TARGETS AwsIotDeviceSdkCpp          PACKAGE_HASH 83fc1711404d3e5b2faabb1134e97cc92b748d8b87ff4ea99599d8c750b8eff0)
