@@ -53,6 +53,20 @@ fi
 
 export O3DE_ENGINE_PATH="$ENGINE_PATH"
 
+# Vulkan validation layers: when the RPM activates system_vulkan_validation_layers
+# (Patch0013 + LY_USE_SYSTEM_VULKAN_VALIDATION_LAYERS cmake gate), the bundled
+# layer .so + manifest are NOT installed alongside the engine binary. Point the
+# Vulkan loader at Fedora's standard layer-discovery directory if it isn't
+# already set; the engine's Instance.cpp uses overwrite=0 on its own VK_LAYER_PATH
+# SetEnv (Patch0013 second hunk), so this pre-set wins. Bundled-engine installs
+# (system_vulkan_validation_layers OFF) ignore this -- the loader's default
+# discovery still finds /usr/share/vulkan/explicit_layer.d/ entries in addition
+# to whatever the engine SetEnv puts there. No-op when VK_LAYER_PATH is already
+# user-set, which preserves developer overrides.
+if [ -z "${VK_LAYER_PATH:-}" ] && [ -d /usr/share/vulkan/explicit_layer.d ]; then
+    export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d
+fi
+
 # manifest.py uses O3DE_ENGINE_PATH to bypass the venv-relative __file__ logic.
 # Engine-id calculation must match how get_python.sh computes it (via $DIR/..).
 #

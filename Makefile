@@ -295,6 +295,7 @@ SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
                           --with system_poly2tri \
                           --with system_spirvcross \
                           --with system_sqlite \
+                          --with system_vulkan_validation_layers \
                           --with system_zlib
 # system_dxc added 2026-05-08 (Stage 2 binary-only swap, sibling to
 # system_spirvcross). Engine treats DXC as a binary executable

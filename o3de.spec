@@ -80,6 +80,7 @@
 %bcond_with system_spirvcross
 %bcond_with system_sqlite
 %bcond_with system_tiff
+%bcond_with system_vulkan_validation_layers
 %bcond_with system_zlib
 
 # ── Version pinning ──────────────────────────────────────────────────────────
@@ -390,6 +391,22 @@ Patch0011:      0011-luaide-watchespanel-lua-5-5-numtags-compat.patch
 # project_prctl_pdeathsig_thread_gotcha.md.
 Patch0012:      0012-v2-assetbuilder-parent-watchdog.patch
 
+# Patch0013 -- Stage 1 system_vulkan_validation_layers swap.
+# Gates the bundled vulkan-validationlayers ly_associate_package line
+# on a new LY_USE_SYSTEM_VULKAN_VALIDATION_LAYERS cmake variable AND
+# fixes a companion VK_LAYER_PATH-overwrite bug in
+# Gems/Atom/RHI/Vulkan/.../Instance.cpp so that distro-packager-set
+# VK_LAYER_PATH (pointing at system loader paths like
+# /usr/share/vulkan/explicit_layer.d) is respected. The two changes
+# travel together because the cmake gate alone leaves engine code
+# clobbering the system VK_LAYER_PATH. Validation layers are
+# runtime-only (no headers, no compile-time linkage); Fedora's
+# vulkan-validation-layers ships
+# /usr/lib64/libVkLayer_khronos_validation.so +
+# /usr/share/vulkan/explicit_layer.d/VkLayer_khronos_validation.json.
+# Pitched upstream for the convention to land cleanly.
+Patch0013:      0013-vulkan-validationlayers-gate-on-system.patch
+
 # Stage 1 system-library find modules. Copied into cmake/3rdParty/
 # during %%prep when the matching `--with system_<lib>` is enabled.
 # Most Stage 1 swaps don't need a custom find module (cmake ships
@@ -596,6 +613,14 @@ BuildRequires:  o3de2605-spirv-cross
 %if %{with system_tiff}
 BuildRequires:  libtiff-devel
 %endif
+%if %{with system_vulkan_validation_layers}
+# No BuildRequires -- validation layers are runtime-only (no headers,
+# no compile-time linkage). The Patch0013 cmake gate skips the
+# bundled package fetcher; the engine never find_packages or
+# target_link_libraries against the validation layers (they are
+# loader-discovered at runtime). vulkan-validation-layers-devel does
+# not exist in Fedora for the same reason.
+%endif
 %if %{with system_zlib}
 BuildRequires:  zlib-devel
 %endif
@@ -677,6 +702,9 @@ Requires:       imath
 %endif
 %if %{with system_tiff}
 Requires:       libtiff
+%endif
+%if %{with system_vulkan_validation_layers}
+Requires:       vulkan-validation-layers
 %endif
 %if %{with system_zlib}
 Requires:       zlib
@@ -1008,6 +1036,7 @@ cmake \
     %{?with_system_poly2tri:-DLY_USE_SYSTEM_POLY2TRI=ON} \
     %{?with_system_sqlite:-DLY_USE_SYSTEM_SQLITE=ON} \
     %{?with_system_tiff:-DLY_USE_SYSTEM_TIFF=ON} \
+    %{?with_system_vulkan_validation_layers:-DLY_USE_SYSTEM_VULKAN_VALIDATION_LAYERS=ON} \
     %{?with_system_zlib:-DLY_USE_SYSTEM_ZLIB=ON}
 
 # googletest is fetched via FetchContent during cmake configure and so
@@ -1350,6 +1379,26 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Wed May 13 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-57
+- Add Patch0013 + system_vulkan_validation_layers Stage 1 swap. Engine
+  gets a two-hunk carry-patch (gate the bundled vulkan-validationlayers
+  ly_associate_package on LY_USE_SYSTEM_VULKAN_VALIDATION_LAYERS, plus
+  flip the Atom RHI Vulkan Instance.cpp SetEnv("VK_LAYER_PATH", ..., 1)
+  to overwrite=0 so packager-set VK_LAYER_PATH is respected). Validation
+  layers are runtime-only -- no BuildRequires needed; only Requires
+  vulkan-validation-layers when the bcond is active.
+- Launcher wrapper (sources/o3de-launcher.sh) now sets
+  VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d when not already set
+  AND that directory exists. Pairs with the Patch0013 overwrite=0 fix
+  so the system Vulkan loader's standard layer-discovery path wins
+  over the engine's exeDirectory default. No-op when VK_LAYER_PATH is
+  user-set (preserves developer overrides) or the system path doesn't
+  exist (bundled-engine installs unaffected).
+- 14th Stage 1 system swap candidate. NOT activated in stabilization
+  by default for the mid-release-window rule; ships as bcond, opt-in
+  via `--with system_vulkan_validation_layers` on experimental chroot.
+  Upstream pitch pending Nick's "fully baked" green-light.
+
 * Tue May 12 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-56
 - REVERT the same-turn retirements of Patch0007 (libtiff C99 migration)
   and Patch0008 (drop Lua/lobject.h include) made in 2605.0-54 and

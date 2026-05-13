@@ -1,0 +1,91 @@
+From 8599517ba3e04fb25987378495c358e9784355c3 Mon Sep 17 00:00:00 2001
+From: Nick Schuetz <nschuetz@redhat.com>
+Date: Wed, 13 May 2026 09:22:58 -0500
+Subject: [PATCH] BuiltInPackages + Atom/RHI/Vulkan: gate
+ vulkan-validationlayers on system
+
+Stage 1 system-library swap convention extended to the bundled Vulkan
+validation layers. Two-hunk change:
+
+1. cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake:
+   wrap the `ly_associate_package(... vulkan-validationlayers ...)`
+   line in `if(NOT LY_USE_SYSTEM_VULKAN_VALIDATION_LAYERS)`. Nothing
+   in the engine target_link_libraries against the cmake target; it
+   is purely a runtime-discovery artifact. When packagers opt in
+   (`-DLY_USE_SYSTEM_VULKAN_VALIDATION_LAYERS=ON`), the engine skips
+   the bundled-package fetch and the system Vulkan loader's default
+   discovery from /usr/share/vulkan/explicit_layer.d (or equivalent)
+   provides the layer.
+
+2. Gems/Atom/RHI/Vulkan/Code/Source/RHI/Instance.cpp: change the
+   VK_LAYER_PATH SetEnv overwrite flag from 1 to 0. The previous
+   unconditional overwrite was clobbering any packager-set
+   VK_LAYER_PATH pointing at system loader paths, defeating the
+   purpose of system layers. Bundled-engine installs with
+   VK_LAYER_PATH unset get the previous behavior (set to
+   exeDirectory). Distro/Flatpak/Snap launcher wrappers can now
+   pre-set VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d to let
+   the system loader find Fedora's
+   /usr/lib64/libVkLayer_khronos_validation.so and friends.
+
+Verified Fedora 44 ships vulkan-validation-layers-1.4.341.0; layer
+discovery is loader-managed and version-agnostic at the engine API
+surface (engine references the layer only by name string
+"VK_LAYER_KHRONOS_validation", stable across SDK versions). The
+package has no -devel sub-package because validation layers are
+runtime-only -- no headers to consume.
+
+Validation: this is a debug-only feature (RHI::ValidationMode must
+be enabled, default Disabled). Impact is on developer workflow, not
+end users. Carry-patch in the Fedora packaging (o3de-rpm) with a
+companion `system_vulkan_validation_layers` bcond; pitched upstream
+for the convention to land cleanly.
+
+Signed-off-by: Nick Schuetz <nschuetz@redhat.com>
+---
+ Gems/Atom/RHI/Vulkan/Code/Source/RHI/Instance.cpp   |  7 ++++++-
+ .../Linux/BuiltInPackages_linux_x86_64.cmake        | 13 ++++++++++++-
+ 2 files changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/Gems/Atom/RHI/Vulkan/Code/Source/RHI/Instance.cpp b/Gems/Atom/RHI/Vulkan/Code/Source/RHI/Instance.cpp
+index 418193c2..1916a89d 100644
+--- a/Gems/Atom/RHI/Vulkan/Code/Source/RHI/Instance.cpp
++++ b/Gems/Atom/RHI/Vulkan/Code/Source/RHI/Instance.cpp
+@@ -70,7 +70,12 @@ namespace AZ
+                 AZ::Utils::GetExecutableDirectory(exeDirectory, AZ_ARRAY_SIZE(exeDirectory));
+ 
+                 //This env var (VK_LAYER_PATH) is used by the drivers to look for VkLayer_khronos_validation.dll
+-                AZ::Utils::SetEnv("VK_LAYER_PATH", exeDirectory, 1);
++                //Use overwrite=0 (respect pre-set value) so distro/flatpak/snap packagers
++                //pointing VK_LAYER_PATH at a system loader-discovery path
++                //(e.g. /usr/share/vulkan/explicit_layer.d on Linux) win over the bundled
++                //exeDirectory default. Bundled-engine installs with VK_LAYER_PATH unset
++                //fall through to the previous behavior (set to exeDirectory).
++                AZ::Utils::SetEnv("VK_LAYER_PATH", exeDirectory, 0);
+ 
+                 RawStringList validationLayers = Debug::GetValidationLayers();
+                 m_descriptor.m_optionalLayers.insert(m_descriptor.m_optionalLayers.end(), validationLayers.begin(), validationLayers.end());
+diff --git a/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake b/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake
+index 9292f3f9..c315a5cd 100644
+--- a/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake
++++ b/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake
+@@ -42,4 +42,15 @@ ly_associate_package(PACKAGE_NAME lz4-1.9.4-rev2-linux
+ ly_associate_package(PACKAGE_NAME pyside2-5.15.2.1-py3.10-rev7-linux                TARGETS pyside2                     PACKAGE_HASH bae4598cb5579d835e90e8435181bb3c5222449ce9c2665143a618dac6122be7)
+ ly_associate_package(PACKAGE_NAME SQLite-3.37.2-rev1-linux                          TARGETS SQLite                      PACKAGE_HASH bee80d6c6db3e312c1f4f089c90894436ea9c9b74d67256d8c1fb00d4d81fe46)
+ ly_associate_package(PACKAGE_NAME AwsIotDeviceSdkCpp-1.15.2-rev1-linux              TARGETS AwsIotDeviceSdkCpp          PACKAGE_HASH 83fc1711404d3e5b2faabb1134e97cc92b748d8b87ff4ea99599d8c750b8eff0)
+-ly_associate_package(PACKAGE_NAME vulkan-validationlayers-1.2.198-rev1-linux        TARGETS vulkan-validationlayers     PACKAGE_HASH 9195c7959695bcbcd1bc1dc5c425c14639a759733b3abe2ffa87eb3915b12c71)
++# LY_USE_SYSTEM_VULKAN_VALIDATION_LAYERS gates the bundled validation
++# layer fetcher in favor of a system install (Fedora's
++# vulkan-validation-layers ships /usr/lib64/libVkLayer_khronos_validation.so
++# + /usr/share/vulkan/explicit_layer.d/VkLayer_khronos_validation.json,
++# discovered by the Vulkan loader's default search paths). Nothing in
++# the engine target_link_libraries against the validation-layer cmake
++# target; it is purely a runtime-discovery artifact. The companion
++# Instance.cpp change (overwrite=0 on the VK_LAYER_PATH SetEnv) makes
++# the engine respect a packager-set VK_LAYER_PATH.
++if(NOT LY_USE_SYSTEM_VULKAN_VALIDATION_LAYERS)
++    ly_associate_package(PACKAGE_NAME vulkan-validationlayers-1.2.198-rev1-linux        TARGETS vulkan-validationlayers     PACKAGE_HASH 9195c7959695bcbcd1bc1dc5c425c14639a759733b3abe2ffa87eb3915b12c71)
++endif()
+-- 
+2.54.0
+
