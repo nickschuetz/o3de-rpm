@@ -6,6 +6,40 @@ This file is intentionally a living scratchpad. Entries get added or removed as 
 
 ---
 
+## 2026-05-13 session capture
+
+Work delivered today:
+
+- **Stabilization 13-pack promotion landed early morning** -- `hellaenergy/o3de-stabilization` build 10452477 GREEN across F44 + rawhide + CS10. Adds googlebenchmark + Patch0012 v2 watchdog to the community-tester channel. CS10 included as a chroot.
+- **Patch0013 (`system_vulkan_validation_layers` Stage 1 swap)** -- 14th system swap candidate. Engine fork branch + spec wiring + launcher pre-set of `VK_LAYER_PATH`. Three experimental build attempts: builds 10455992 + 10456041 both failed at %prep with "1 out of 1 hunk FAILED" because the patch context was generated against pre-Patch0006 state but %autosetup runs Patch0006 first. Fixed by rebuilding Patch0013 on top of a Patch0006-applied tree; v3 build 10456101 in flight (state: running as of 10:06).
+- **Upstream stabilization-branch-locked context captured** (`project_2605_stabilization_branch_locked.md`). `o3de/o3de:stabilization/26050` is in pre-release lockdown until 2026-05-27 release; non-critical merges land on `development` only. Re-frames Patches 0007/0008 retirement timing (they stay until post-release snapshot pin re-pin) and reinforces the "no upstream PRs mid-window" stance.
+- **`o3de/o3de:stabilization/26050` vs `hellaenergy/o3de-stabilization` naming-collision doc sweep** -- tightened the bare-"stabilization" framing in `FEDORA_ROADMAP.md` (4 spots) and `copr-metadata/o3de-experimental/instructions.md` (1 spot). Naming-collision concern memory-noted in the locked-branch memory.
+- **AR / sig-build F44-builder Discord ping** -- drafted, pressure-tested twice for missed counter-questions (Ubuntu version selection; runner cost), final shape reframes the ask as "we can take this on (workflow PR ready)" rather than "please add F44 to AR for us". Nick will send when he gets to it.
+- **Three new feedback-memory rules** captured from today's pressure-tests by Nick:
+  - `feedback_gut_check_before_drafting_messages.md` -- pressure-test outgoing drafts for obvious counter-questions before suggesting
+  - (Reinforced) `feedback_no_fabricated_timeframes_in_upstream.md`
+  - (Reinforced) `feedback_check_prior_art_before_drafting_upstream.md`
+- **Scope-creep walkbacks** (twice on the same topic) -- the engine-side validation-error issue I'd planned to file was tied to a `Requires`->`Recommends` demotion we're not doing. Dropped entirely.
+- **`vulkan-validation-layers` Requires-vs-Recommends audit** -- decided to keep as `Requires` to avoid the RTFM-user silent-failure path (user runs `dnf autoremove`, layer removed, enables validation later, silent fail). Rest of system_X audit: correctly classified, no changes needed.
+
+State of the in-flight work at end of session:
+
+- Build 10456101 (Patch0013 v3) is running. Monitor `bq1zneskt` armed. Expected ~5h to terminal state.
+- Pre-release sweep agent scheduled for 2026-05-25 09:00 CDT.
+- Spec at 2605.0-57 (vulkan-validation-layers bcond + Patch0013 directive + launcher pre-set).
+- 13 active patches in the spec (would be 14 once Patch0013 build is validated and we keep it active; or 13 still if we walk back).
+- 7 upstream artifacts open in `o3de/o3de` -- no new review activity since this morning's nick-l-o3de + amzn-changml comments. Per the stabilization-locked memory, only #19748 (clang21) has a plausible 2605.0 cherry-pick case.
+
+Open next-session items:
+
+- If Patch0013 v3 lands green: update README + CONTRIBUTING patch tables 12 -> 13 (or 13 -> 14 if we kept the count), update `copr-metadata/o3de-experimental/instructions.md` to reflect the 14th Stage 1 swap as active.
+- If Patch0013 v3 lands red: triage logs, identify cause.
+- Engine fork branch `builtinpackages-gate-vulkan-validation-on-system` has 2 commits (Patch0006 intermediate + Patch0013) -- needs squash-to-1-commit cleanup BEFORE we file the upstream PR (which is post-release territory anyway).
+- Patch0013 upstream PR -- post-release (stabilization locked + no-upstream-until-baked rule).
+- AR-builder Discord ping -- Nick to send when he gets to it.
+
+---
+
 ## CS10 engine build: FIRST EVER SUCCESS 2026-05-12 (build 10450340)
 
 Major CS10 milestone: build 10450340 (`o3de-experimental`, `centos-stream-10-x86_64` chroot only, SRPM from spec 2605.0-53 with the `gcc-toolset-15-libatomic-devel` BR fix) completed end-to-end at 16:42 CDT and produced `o3de2605` + `o3de2605-devel` + SRPM artifacts tagged `1.el10`. First time any CS10 engine build has cleanly succeeded.
