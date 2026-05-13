@@ -255,6 +255,7 @@ SRPM_STABILIZATION_FLAGS = --with snapshot \
                            --with system_assimp \
                            --with system_expat \
                            --with system_freetype \
+                           --with system_googlebenchmark \
                            --with system_libsamplerate \
                            --with system_lua \
                            --with system_lz4 \
