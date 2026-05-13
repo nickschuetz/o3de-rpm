@@ -120,13 +120,13 @@ These are the Stage 1 bundles where outside-the-packager visibility would unbloc
 
 **Status:** **two sub-tracks** with different blocking conditions, per Nick_L's 2026-05-05 sig-build response (see [#5](https://github.com/nickschuetz/o3de-rpm/issues/5)).
 
-### Stage 2a — OpenEXR + Imath (Stage-1.5; independent of Stage 3)
+### Stage 2a — OpenEXR + Imath -- ABSORBED INTO STAGE 1 (2026-05-07)
 
-**Status:** **staged 2026-05-06; awaiting local + COPR validation.** Implementation lives in commit (TBD) — Patch0006 extended with `LY_USE_SYSTEM_OPENEXR` gate, new `FindOpenEXR-system.cmake` mikkelsen-pattern shim, spec wiring, Makefile + lockstep docs. Pre-validation: spec parses cleanly under all bcond modes, patch dry-run applies on a fresh tarball.
+**Status:** **DONE.** Absorbed into the Stage 1 system-swap track as `system_openexr` (two-shim variant -- `FindOpenEXR-system.cmake` + `FindImath-system.cmake`). Active in 13-pack stabilization as of 2026-05-12 promotion (build 10452477).
 
-O3DE bundles `OpenEXR-3.1.3-rev4-linux`. F44 ships `openexr-devel-3.2.4` + `imath-devel-3.1.12`. The [O3DE build_config.json](https://github.com/o3de/3p-package-source/blob/main/package-system/OpenEXR/build_config.json) **does not patch OpenEXR**; per Nick_L 2026-05-05 ([#5](https://github.com/nickschuetz/o3de-rpm/issues/5)), version pins aren't hard. OpenEXR's only dependencies are Imath (sibling project, separate Fedora package) and zlib (already system-swapped in our 6-pack).
+O3DE bundles `OpenEXR-3.1.3-rev4-linux`. F44 ships `openexr-devel-3.2.4` + `imath-devel-3.1.12`. Per Nick_L 2026-05-05 ([#5](https://github.com/nickschuetz/o3de-rpm/issues/5)), version pins aren't hard; OpenEXR has no Python C Module so it never had the Stage 2b ABI constraint. The original "Stage 2a / Stage 1.5" framing was a sub-track classification that ended up being unnecessary -- once the find-shim pattern was generalized, OpenEXR slotted in as another Stage 1 swap alongside the other 12.
 
-**No Python C Module** — pure C++. So Stage 2a ships independently of Stage 3 (Python migration). Effectively this is "Stage 1.5 — extends the 6-pack to 7-pack" rather than a hard Stage-2 boundary.
+Section retained here for the historical breadcrumb to issue [#5](https://github.com/nickschuetz/o3de-rpm/issues/5) and Nick_L's pin-strictness response. Current swap details live in the Stage 1 per-package table above.
 
 ### Stage 2b — OpenImageIO + OpenColorIO (blocked on Stage 3)
 
