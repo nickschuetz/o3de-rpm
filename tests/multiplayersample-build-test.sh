@@ -183,21 +183,37 @@ else
     exit 1
 fi
 
-# ─── Step 4: ninja build (game launcher only -- server is identical pipeline) ─
-printf "\n${BOLD}-- Step 4: ninja build (MultiplayerSample.GameLauncher) --${RST}\n"
+# ─── Step 4: ninja build (game launcher + bare project gem) ─────────────────
+# Build TWO targets:
+#   1. MultiplayerSample.GameLauncher -- the client-side runnable game (used
+#      by the smoke step below). Pulls in libMultiplayerSample.Client.so as
+#      a side effect.
+#   2. MultiplayerSample (bare phony target) -- produces libMultiplayerSample.so
+#      with no variant suffix. This is the .so AssetProcessorBatch tries to
+#      load to populate BehaviorContext for ScriptCanvas processing. Without
+#      it, AP fails on .scriptcanvas files that reference the project's own
+#      multiplayer components (e.g., NetworkHealthComponent), producing
+#      "Failed to load dynamic library at path 'libMultiplayerSample.so'"
+#      errors followed by CreateJobs failures on the affected scriptcanvas
+#      files. Caught 2026-05-14 while diagnosing 8 .scriptcanvas job failures
+#      that disappeared once the bare target was built.
+printf "\n${BOLD}-- Step 4: ninja build (MultiplayerSample.GameLauncher + MultiplayerSample) --${RST}\n"
 build_log=/tmp/tier9-ninja-build.log
 parallel_arg=""
 if [ -n "${MPSAMPLE_PARALLEL:-}" ]; then
     parallel_arg="--parallel $MPSAMPLE_PARALLEL"
-    info "building MultiplayerSample.GameLauncher (throttled to $MPSAMPLE_PARALLEL parallel workers for RAM)"
+    info "building MultiplayerSample.GameLauncher + bare MultiplayerSample (throttled to $MPSAMPLE_PARALLEL parallel workers for RAM)"
 else
     parallel_arg="--parallel"
-    info "building MultiplayerSample.GameLauncher (full parallelism, this is the slow step)"
+    info "building MultiplayerSample.GameLauncher + bare MultiplayerSample (full parallelism)"
 fi
-if env CC=clang CXX=clang++ cmake --build "$BUILD_DIR" --target MultiplayerSample.GameLauncher $parallel_arg \
+if env CC=clang CXX=clang++ cmake --build "$BUILD_DIR" \
+        --target MultiplayerSample.GameLauncher \
+        --target MultiplayerSample \
+        $parallel_arg \
     >"$build_log" 2>&1
 then
-    ok "MultiplayerSample.GameLauncher built"
+    ok "MultiplayerSample.GameLauncher + libMultiplayerSample.so built"
 else
     nope "ninja build" "see $build_log (tail printed below)"
     tail -50 "$build_log"
