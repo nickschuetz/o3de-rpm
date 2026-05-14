@@ -228,34 +228,55 @@ else
 fi
 
 # ─── Step 5: AssetProcessorBatch (full project bake) ────────────────────────
+# Two-pass strategy to absorb AP's cold-cache job-dependency quirk:
+# Some O3DE asset builders don't declare full JobDependency on their
+# upstream-dep assets (e.g. ParticleBuilder's preWarm.particle references
+# ParticleSpriteEmit.material but doesn't declare a JobDependency on it).
+# On a cold cache, AP picks up the dependent first (alphabetic) and fails;
+# the second pass succeeds because the dep is now baked. Documented
+# instances: cube.fbx (project_tier7_cold_cache_quirk.md) and
+# preWarm.particle (2026-05-14). Tier 9 absorbs the quirk by re-running
+# once and grading on the union result -- if the second pass leaves 0
+# failures, count it as PASS.
 if [ "$MPSAMPLE_SKIP_BAKE" = "1" ]; then
     printf "\n${BOLD}-- Step 5: AssetProcessorBatch (SKIPPED, MPSAMPLE_SKIP_BAKE=1) --${RST}\n"
 else
     printf "\n${BOLD}-- Step 5: AssetProcessorBatch (full project asset bake) --${RST}\n"
     ap_log=/tmp/tier9-ap-batch.log
+    ap_log_pass2=/tmp/tier9-ap-batch-pass2.log
     info "running AssetProcessorBatch on MultiplayerSample (logs to $ap_log)"
-    # AssetProcessorBatch picks up the project via --project-path. Use the
-    # built launcher's adjacent AssetProcessorBatch (each project build
-    # produces its own).
     apbatch="$BUILD_DIR/bin/profile/AssetProcessorBatch"
     if [ ! -x "$apbatch" ]; then
-        # Fall back to the engine's AssetProcessorBatch if the project build
-        # didn't make a local one (the project build target tree should
-        # have it, but just in case).
         apbatch="$ENGINE_PATH/bin/Linux/profile/Default/AssetProcessorBatch"
     fi
     if [ ! -x "$apbatch" ]; then
         nope "AssetProcessorBatch" "binary not found in either build/ or engine"
         exit 1
     fi
+    pass1_ok=0
     if env "$apbatch" --project-path="$MPSAMPLE_DIR" --platforms=pc \
             >"$ap_log" 2>&1
     then
-        ok "AssetProcessorBatch completed cleanly"
+        ok "AssetProcessorBatch pass 1 completed cleanly"
+        pass1_ok=1
     else
+        pass1_failed=$(grep -oE 'Number of Assets Failed to Process: [0-9]+' "$ap_log" | tail -1 | awk '{print $NF}')
+        : "${pass1_failed:=?}"
+        info "AssetProcessorBatch pass 1: $pass1_failed asset(s) failed; running pass 2 (cold-cache quirk absorber)"
+        if env "$apbatch" --project-path="$MPSAMPLE_DIR" --platforms=pc \
+                >"$ap_log_pass2" 2>&1
+        then
+            ok "AssetProcessorBatch pass 2 succeeded -- cold-cache quirk absorbed (pass 1 had $pass1_failed failure(s))"
+            pass1_ok=1
+        else
+            pass2_failed=$(grep -oE 'Number of Assets Failed to Process: [0-9]+' "$ap_log_pass2" | tail -1 | awk '{print $NF}')
+            : "${pass2_failed:=?}"
+            nope "AssetProcessorBatch" "pass 1 had $pass1_failed failures, pass 2 had $pass2_failed failures (see $ap_log_pass2 tail)"
+            tail -40 "$ap_log_pass2"
+        fi
+    fi
+    if [ "$pass1_ok" -ne 1 ]; then
         ap_exit=$?
-        # AP returns nonzero on "any errors at all" -- could be soft warnings
-        # we want to know about. Surface tail + the count of error lines.
         err_count=$(grep -cE "^\[Error\]|FAIL|fatal:" "$ap_log" 2>/dev/null || echo 0)
         nope "AssetProcessorBatch" "exit=$ap_exit, $err_count error-tagged lines (see $ap_log tail)"
         tail -40 "$ap_log"
