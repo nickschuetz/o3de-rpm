@@ -6,6 +6,59 @@ This file is intentionally a living scratchpad. Entries get added or removed as 
 
 ---
 
+## 2026-05-14 session capture (busy day)
+
+Built on yesterday's Patch0013 v4 GREEN result. Today was promotion + upstream-merge + Tier 9 day.
+
+### Wins
+
+- **5 of 6 filed upstream PRs MERGED.** Three landed today (2026-05-14 ~13:42-13:44 UTC) on `o3de/o3de:development`:
+  - [#19748](https://github.com/o3de/o3de/pull/19748) (clang21 -Wno-error=) -- 2 approvals, CI clean. nick-l-o3de flagged for 26.05.0 cherry-pick consideration ("we may need this one for this release").
+  - [#19750](https://github.com/o3de/o3de/pull/19750) (AzQtComponents title propagation) -- approved, clean.
+  - [#19751](https://github.com/o3de/o3de/pull/19751) (manifest.py O3DE_ENGINE_PATH) -- approved, clean.
+  Plus the two from 2026-05-08: [#19733](https://github.com/o3de/o3de/pull/19733) (Lua include) + [#19734](https://github.com/o3de/o3de/pull/19734) (libtiff C99). Still open: [#19746](https://github.com/o3de/o3de/pull/19746) (ProcessWatcher doc-only, no review activity), [#19747](https://github.com/o3de/o3de/pull/19747) (watchdog, nick-l-o3de "okay with accepting this for now"), [#19752](https://github.com/o3de/o3de/pull/19752) (LYPython sdist, nick-l-o3de actively investigating).
+- **TIMEBOMB doc sweep** -- 5 carry-patches now formally marked TIMEBOMB in README + CONTRIBUTING patch tables: Patch0001/0002/0005 (today's merges) + Patch0007/0008 (last week's). All stay active until our snapshot pin re-pins post-release.
+- **Stage 2 (`system_dxc` + `system_spirvcross` + `system_mcpp`) promoted to o3de-stabilization** alongside the Stage 1 14-pack. Spec changelog 2605.0-60. Build 10460860 in flight (resubmitted after the EPEL-10 CS10 gotcha -- see below).
+- **CS10 with_opts gap FULLY CLOSED 2026-05-14 AM.** experimental CS10 = 19/19 matches F44+rawhide. stabilization CS10 = 14/14 (15 post-Stage-2 promotion) matches F44+rawhide. All 7 prior-missing packages confirmed in CS10 base + EPEL-10 via `dnf repoquery`.
+- **Snapshot 10460369 SUCCEEDED** -- clean stabilization/26050-source build via `make copr-snapshot`. Restored o3de-snapshot channel to non-failed state. (Note: `make copr-snapshot-development` is still expected to fail against dev tip due to Patch0001 TIMEBOMB reject -- deferred to post-release.)
+- **Tier 9 implemented** -- `tests/multiplayersample-build-test.sh` + `make test-multiplayer-sample`. Validates the full project-build pipeline against the installed o3de2605 RPM (clone o3de-multiplayersample + companion -assets, register, cmake configure + ninja build, AssetProcessorBatch full project bake, GameLauncher smoke). Tier 10/11 (visual regression / render correctness) bumped to future entries. tests/README.md updated.
+- **Snapshot helper /home tmpfs fix** -- `sources/make-snapshot-tarball.sh` now uses `$HOME/.cache/o3de-snapshot-tarball` (was `/tmp`). The O3DE LFS checkout overflows the default 16GiB tmpfs and triggered `disk quota exceeded` mid-clone. Trap-cleanup preserved.
+- **Documented Gmail-MCP draft-only limitation** -- Gmail connector creates drafts but doesn't send. PushNotification is the right mechanism for build-state alerts. Remote Control + Claude mobile app is the path for "interact from phone while keeping session on workstation."
+
+### Gotchas caught + memory'd
+
+- **COPR `--repos` REPLACE semantics** -- same gotcha shape as `--rpmbuild-with`. While wiring up Stage 2 stabilization promotion, I set `--repos copr://hellaenergy/o3de-dependencies` on the CS10 chroot which REPLACED an implicit EPEL-10 setting. Build 10459758 then failed CS10 at BR resolution (assimp-devel, google-benchmark-devel, poly2tri-devel, pkgconfig(libunwind) all missing). Fc44 + rawhide dragged down with CS10 (COPR kills the whole build when any chroot fails). ~3h compute wasted. Fix: full intended repo list in one shot: `--repos "https://dl.fedoraproject.org/pub/epel/10/Everything/x86_64/ copr://hellaenergy/o3de-dependencies"`. Memory `feedback_copr_edit_chroot_replaces.md` expanded.
+- **Tier 9 RAM-hungry link step** -- two host crashes (32 GB workstation) during ninja's parallel C++ link phase. Each large engine/gem .so link consumes 6-10 GB; default `--parallel $(nproc)` OOMs on tight systems. Script now auto-throttles via `MPSAMPLE_PARALLEL=max(2, MemTotal_GiB/8)` on <48GB hosts. Memory: `project_tier9_ram_constraint.md`. RAM upgrade 32GB -> 64GB landed afternoon 2026-05-14; throttle no longer kicks in.
+- **Release blocker [#19754](https://github.com/o3de/o3de/issues/19754)** -- MSVC 2026 dropped `stdext::make_checked_array_iterator`; bundled Qt 5.15 unconditionally uses it on MSVC. nick-l-o3de filed today as a release blocker for 26.05.0. **Windows-only**; Linux Fedora packaging unaffected. 2026-05-27 release date now at-risk; the 5 TIMEBOMB carry-patches stay active longer if release slips. Memory `project_2605_release_date.md` updated.
+
+### Tier 9 local validation (Step 5 result)
+
+End-to-end run on the 64 GB machine post-RAM-upgrade:
+
+- Steps 1-4: PASS (clone, register, cmake configure, ninja build of MultiplayerSample.GameLauncher).
+- Step 5 (AssetProcessorBatch): **1593 of 1612 assets baked clean** through the full O3DE asset pipeline (PNG/EXR/DDS/JPG image compilation, Material Builder, Scene Builder, Script Canvas Builder, Shader Asset Builder). Total: 2h 37m. **19 failures, all in one directory** (`level_art_mps/Assets/Pick_Ups/Gems/skins/*.material` -- gem-pickup variants). Root cause: `MaterialUtils: Failed to open '/opt/O3DE/26.05.0/Gems/Atom/Feature/Common/Assets/Materials/Types/standardpbr.materialtype'`. Either file missing from installed RPM or development-branch materials reference schema not in 26.05.x. NOT a Stage 1/2 swap regression (hundreds of other PBR materials baked fine through the same path).
+- Step 6 (GameLauncher smoke): PASS -- launcher ran 15s without crash markers.
+
+Next step on the .material failures: investigate whether `/opt/O3DE/26.05.0/Gems/Atom/Feature/Common/Assets/Materials/Types/standardpbr.materialtype` exists in the installed RPM, and whether the development-branch multiplayersample-assets need a newer-version material type.
+
+### State of in-flight work at end of session
+
+- **Build 10460860 (stabilization 14+3 pack)**: running on COPR, fc44 at ~40% ninja last check. 2-3h to terminal. CI test trigger chained via `make copr-stabilization-and-test`.
+- **Build 10460369 (snapshot, clean stabilization/26050 source)**: SUCCEEDED.
+- **Tier 9 local**: validated end-to-end (with the 19 material-type failures noted above).
+- **Remote Control session**: armed (Nick ran `/remote-control` to expose this CLI session to claude.ai/code + the Claude mobile app).
+- **Spec at 2605.0-61.** 13 active patches (5 TIMEBOMBs marked).
+
+### Loaded for next session
+
+- Watch 10460860 terminal state; if green, the 14+3 + Patch0012 v2 + CS10-parity promotion is officially live in o3de-stabilization. Draft community announcement.
+- Investigate the 19 .material failures from Tier 9: missing `standardpbr.materialtype` in our RPM install layout? Or a development-branch schema feature?
+- Optional: pokes for [#19746](https://github.com/o3de/o3de/pull/19746) (silent) and [#19747](https://github.com/o3de/o3de/pull/19747) (informal-approval-not-formalized).
+- Post-release-day work: snapshot pin re-pin to 2605.0 tag, Patch0001/0002/0005/0007/0008 retirement re-check, COPR rebuild from release tag, tester announcement. **Note 2026-05-27 release date is AT RISK per [#19754](https://github.com/o3de/o3de/issues/19754).**
+- snapshot-against-development TIMEBOMB-skip path: deferred until post-release (`make copr-snapshot-development` will keep failing on Patch0001 reject until then).
+
+---
+
 ## 2026-05-13/14 overnight: Patch0013 v4 lands GREEN
 
 Build 10457745 (Patch0013 v4, experimental, 5.5h runtime) **SUCCEEDED on all three chroots** (fc44 + rawhide + CS10) at 04:03 UTC on 2026-05-14. Outcomes:
