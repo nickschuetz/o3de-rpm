@@ -116,7 +116,20 @@ SWAPS=(
     # mangled name is the 4-arg form (not the 1.7.x 2-arg form):
     # benchmark::Initialize(int*, char**, void(*)()).
     "googlebenchmark:libbenchmark.so.1:_ZN9benchmark10InitializeEPiPPcPFvvE:0"
+    # mcpp (Stage 2 library-link swap; promoted to stabilization 2026-05-14).
+    # Linked into Gems/Atom/Asset/Shader/Code (Preprocessor.cpp consumes
+    # mcpp_lib_main / mcpp_set_out_func / mcpp_set_report_include_callback).
+    # SONAME libmcpp.so.0 (from o3de2605-mcpp-az COPR build, mcpp 2.7.2 + _az.2 patches).
+    "mcpp:libmcpp.so.0:mcpp_lib_main:0"
 )
+
+# Stage 2 binary-shellout swaps (dxc, spirv-cross) and Stage 1
+# runtime-only swap (vulkan_validation_layers) don't fit the
+# SONAME+symbol matrix above (DXC and SPIRV-Cross are CLI binaries the
+# engine shells out to at asset-build time, not linked libraries;
+# vulkan_validation_layers is a Vulkan loader plugin discovered via
+# JSON manifest and VK_LAYER_PATH, not linked into the engine). These
+# are exercised end-to-end by the FBX bake step below.
 
 ldcache_path() {
     ldconfig -p 2>/dev/null | awk -v s="$1" '$1==s{print $NF; exit}'

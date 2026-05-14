@@ -244,27 +244,35 @@ srpm-stabilization:
 	$(SRPM_CLEAN)
 	rpmbuild -bs $(SRPM_STABILIZATION_FLAGS) $(RPMBUILD_DEFINES) o3de.spec
 
-# srpm-stabilization: snapshot + stabilization + 14-pack of Stage 1
-# system swaps (12-pack -> 13-pack on 2026-05-11 with googlebenchmark;
-# 13-pack -> 14-pack on 2026-05-14 with vulkan_validation_layers after
-# experimental build 10457745 went GREEN with Patch0013 v4).
+# srpm-stabilization: snapshot + stabilization + Stage 1 14-pack +
+# Stage 2 3-pack (mcpp/dxc/spirvcross). Stage 2 promoted 2026-05-14
+# after experimental soak from 2026-05-08; all three PoCs ✓ GREEN in
+# experimental builds since 2026-05-08. Promotion timeline:
+#   7-pack -> 12-pack: 2026-05-11
+#   12-pack -> 13-pack: 2026-05-11 (googlebenchmark)
+#   13-pack -> 14-pack: 2026-05-14 (vulkan_validation_layers via Patch0013 v4)
+#   14-pack + Stage 2 3-pack: 2026-05-14
 # Mirrors the o3de-stabilization COPR chroot config exactly so the
 # SRPM faithfully shows what activations the binary build will fire.
-# Stage 2 swaps (mcpp/dxc/spirvcross) are deliberately EXCLUDED here
-# -- they stay in experimental until validated for community shipping.
+# The Stage 2 swaps require additional_repos=copr://hellaenergy/o3de-dependencies
+# on each stabilization chroot (one-time copr-cli edit-chroot --repos call;
+# done 2026-05-14).
 SRPM_STABILIZATION_FLAGS = --with snapshot \
                            --with stabilization \
                            --with system_assimp \
+                           --with system_dxc \
                            --with system_expat \
                            --with system_freetype \
                            --with system_googlebenchmark \
                            --with system_libsamplerate \
                            --with system_lua \
                            --with system_lz4 \
+                           --with system_mcpp \
                            --with system_mikkelsen \
                            --with system_openexr \
                            --with system_png \
                            --with system_poly2tri \
+                           --with system_spirvcross \
                            --with system_sqlite \
                            --with system_vulkan_validation_layers \
                            --with system_zlib

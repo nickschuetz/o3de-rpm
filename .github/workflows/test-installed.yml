@@ -55,7 +55,7 @@ on:
         default: false
         type: boolean
       run_asset_bake:
-        description: 'Run Tier 7 (system-swap library-health check across all Stage 1 swaps; fast)'
+        description: 'Run Tier 7 (system-swap library-health check; exercises Stage 1 14-pack + Stage 2 3-pack via FBX bake which shells out to system dxc/spirv-cross and links system mcpp; fast)'
         required: false
         default: true
         type: boolean
@@ -287,9 +287,12 @@ jobs:
           useradd -m runner
 
       - name: Enable hellaenergy/o3de-dependencies COPR
-        # Provides the system-library packages our Stage 1 swaps depend on
-        # (mikkelsen, etc.) until those land in Fedora proper. Safe no-op
-        # for snapshot builds that haven't activated any swaps.
+        # Provides the system-library packages our Stage 1 + Stage 2
+        # swaps depend on (Stage 1: mikkelsen until it lands in Fedora;
+        # Stage 2: o3de2605-dxc-spirv + o3de2605-spirv-cross +
+        # o3de2605-mcpp-az promoted to o3de-stabilization 2026-05-14).
+        # Safe no-op for snapshot/stable builds that haven't activated
+        # any of these swaps.
         run: dnf copr enable -y hellaenergy/o3de-dependencies
 
       - uses: actions/checkout@v4

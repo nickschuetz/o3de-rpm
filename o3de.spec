@@ -1379,14 +1379,29 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Thu May 14 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-60
+- Promote Stage 1 14-pack + Stage 2 3-pack to stabilization in one push.
+  First superseded attempt (10459564, Stage 1 only) was cancelled when
+  the decision shifted to bundle Stage 2 in the same promotion.
+- Stage 1 14-pack: system_vulkan_validation_layers added on top of the
+  13-pack already in stabilization (Patch0013 v4 + experimental build
+  10457745 GREEN across all three chroots 2026-05-14 04:03 UTC).
+- Stage 2 3-pack: system_dxc + system_spirvcross + system_mcpp promoted
+  from experimental after 6+ days of green soak (all three PoCs ✓ GREEN
+  since 2026-05-08). Requires the o3de-dependencies COPR repo to be
+  pulled in via additional_repos at chroot config (set 2026-05-14 via
+  one-time `copr-cli edit-chroot --repos copr://hellaenergy/o3de-dependencies`
+  on all three stabilization chroots).
+- Net stabilization chroot state: 18 with_opts per chroot (stabilization
+  + 14 Stage 1 + 3 Stage 2); F44/rawhide/CS10 all in parity. CS10
+  with_opts gap fully closed earlier today.
+- CI updates landed in same commit to keep test workflows consuming the
+  expanded build correctly.
+
 * Thu May 14 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-59
-- Promote 14-pack to stabilization. Adds system_vulkan_validation_layers
-  to SRPM_STABILIZATION_FLAGS (Makefile) + all three o3de-stabilization
-  chroots' with_opts (F44 + rawhide + CS10) via copr-cli edit-chroot.
-  Validation evidence: experimental build 10457745 (Patch0013 v4) went
-  GREEN across all three chroots on 2026-05-14 04:03 UTC. CS10 with_opts
-  gap on stabilization also fully closed today (8 -> 15 swaps, matches
-  F44/rawhide). All 7 packages confirmed available in CS10 base + EPEL-10.
+- (Superseded by 2605.0-60.) Stage 1 14-pack only stabilization promotion;
+  build 10459564 cancelled before terminal state when decision shifted
+  to bundle Stage 2 in the same push.
 
 * Wed May 13 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-58
 - Patch0013 v4: add third hunk gating the

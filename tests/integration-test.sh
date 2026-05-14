@@ -255,8 +255,22 @@ for swap in \
     "libpng:libpng16.so.16" \
     "libtiff:libtiff.so.6" \
     "zlib:libz.so.1" \
+    "assimp:libassimp.so.6" \
+    "lua-libs:liblua-5.4.so" \
+    "lz4-libs:liblz4.so.1" \
+    "openexr-libs:libOpenEXR-3_2.so.31" \
+    "libsamplerate:libsamplerate.so.0" \
+    "sqlite-libs:libsqlite3.so.0" \
+    "poly2tri:libpoly2tri.so.1.0" \
+    "google-benchmark:libbenchmark.so.1" \
+    "o3de2605-mcpp-az:libmcpp.so.0" \
 ; do
-    # lua-libs row deferred — see Makefile SRPM_EXPERIMENTAL_FLAGS for why.
+    # Stage 2 binary-shellout swaps (o3de2605-dxc-spirv, o3de2605-spirv-cross)
+    # don't appear in auto-Requires (engine shells out to the binaries at
+    # asset-build time; no link-time dep). vulkan-validation-layers is a
+    # runtime-discovered Vulkan layer plugin (not linked); the binary just
+    # needs the Vulkan loader to find /usr/share/vulkan/explicit_layer.d/*.json.
+    # imath: openexr-libs auto-pulls imath transitively, no separate check needed.
     pkg="${swap%%:*}"
     soname="${swap#*:}"
     if rpm -q --requires "$O3DE_PKGNAME" 2>/dev/null | grep -qE "^${pkg}(\\s|\$|>|=)"; then
