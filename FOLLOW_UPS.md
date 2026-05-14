@@ -31,29 +31,58 @@ Built on yesterday's Patch0013 v4 GREEN result. Today was promotion + upstream-m
 - **Tier 9 RAM-hungry link step** -- two host crashes (32 GB workstation) during ninja's parallel C++ link phase. Each large engine/gem .so link consumes 6-10 GB; default `--parallel $(nproc)` OOMs on tight systems. Script now auto-throttles via `MPSAMPLE_PARALLEL=max(2, MemTotal_GiB/8)` on <48GB hosts. Memory: `project_tier9_ram_constraint.md`. RAM upgrade 32GB -> 64GB landed afternoon 2026-05-14; throttle no longer kicks in.
 - **Release blocker [#19754](https://github.com/o3de/o3de/issues/19754)** -- MSVC 2026 dropped `stdext::make_checked_array_iterator`; bundled Qt 5.15 unconditionally uses it on MSVC. nick-l-o3de filed today as a release blocker for 26.05.0. **Windows-only**; Linux Fedora packaging unaffected. 2026-05-27 release date now at-risk; the 5 TIMEBOMB carry-patches stay active longer if release slips. Memory `project_2605_release_date.md` updated.
 
-### Tier 9 local validation (Step 5 result)
+### Tier 9 investigation arc -- full breakdown of the 19 failures
 
-End-to-end run on the 64 GB machine post-RAM-upgrade:
+The day went deep on Tier 9 step 5 after the initial 19-failure observation. Final attribution + resolution:
 
-- Steps 1-4: PASS (clone, register, cmake configure, ninja build of MultiplayerSample.GameLauncher).
-- Step 5 (AssetProcessorBatch): **1593 of 1612 assets baked clean** through the full O3DE asset pipeline (PNG/EXR/DDS/JPG image compilation, Material Builder, Scene Builder, Script Canvas Builder, Shader Asset Builder). Total: 2h 37m. **19 failures, all in one directory** (`level_art_mps/Assets/Pick_Ups/Gems/skins/*.material` -- gem-pickup variants). Root cause: `MaterialUtils: Failed to open '/opt/O3DE/26.05.0/Gems/Atom/Feature/Common/Assets/Materials/Types/standardpbr.materialtype'`. Either file missing from installed RPM or development-branch materials reference schema not in 26.05.x. NOT a Stage 1/2 swap regression (hundreds of other PBR materials baked fine through the same path).
-- Step 6 (GameLauncher smoke): PASS -- launcher ran 15s without crash markers.
+**Round 1 (1593/1612 cold-bake, 19 failures attributed to "Pick_Ups/Gems materials")**
 
-Next step on the .material failures: investigate whether `/opt/O3DE/26.05.0/Gems/Atom/Feature/Common/Assets/Materials/Types/standardpbr.materialtype` exists in the installed RPM, and whether the development-branch multiplayersample-assets need a newer-version material type.
+Initial superficial grep showed all 19 in `level_art_mps/Assets/Pick_Ups/Gems[/skins]/*.material`. Real composition turned out to be 11 + 8, three distinct root causes.
+
+**11 .material failures -- real upstream bug** (fixed by [PR #177](https://github.com/o3de/o3de-multiplayersample-assets/pull/177))
+
+Eleven files reference `standardpbr.materialtype` (lowercase) but engine ships `StandardPBR.materialtype` (CamelCase). Linux case-sensitive FS fails; Windows/macOS case-insensitive FS silently folds. Bug latent on `development`, `main`, AND `stabilization/25100` -- present since the assets were authored. Mechanical fix: rename the reference in all 11 files. Filed as:
+
+- Issue: [o3de/o3de-multiplayersample-assets#176](https://github.com/o3de/o3de-multiplayersample-assets/issues/176)
+- PR: [o3de/o3de-multiplayersample-assets#177](https://github.com/o3de/o3de-multiplayersample-assets/pull/177) -- 11 files, 11 lines, all mechanical, DCO-signed, validation evidence on PR
+
+**8 .scriptcanvas failures -- Tier 9 harness bug, NOT upstream**
+
+`WeaponImpactDecal.scriptcanvas` + `ShieldGeneratorRoundEffects.scriptcanvas` (2 source files * per-platform job variants = 8 failed jobs). Reference `NetworkHealthComponent` + `SendHealthDelta` + `Network Match Component Requests` -- MultiplayerSample's own multiplayer components. AP failed to load `libMultiplayerSample.so` (`ComponentApplication: Failed to load dynamic library at path "libMultiplayerSample.so"`), so the BehaviorContext didn't have these components reflected, so the scriptcanvas couldn't deserialize, so deserialization hit a rapidjson assert. Root cause: Tier 9 only built `MultiplayerSample.GameLauncher` which produces `libMultiplayerSample.Client.so`; AP needs the bare (no-suffix) `libMultiplayerSample.so` to load the gem at build time. Fix: also build the bare `MultiplayerSample` target (commit `7a0e547`).
+
+**Clean re-run with both fixes**: 6010 successfully processed (up from 1593 -- because AP could now process gem-dependent assets it previously couldn't), **1 remaining failure**. Different class:
+
+**1 preWarm.particle failure -- engine-side AP JobDependency declaration gap** (filed as [o3de/o3de#19755](https://github.com/o3de/o3de/issues/19755))
+
+`OpenParticleSystem/Assets/Particles/preWarm.particle` failed cold-cache with `ParticleAssetData: Cannot create particle data - no material assigned to render in emitter Emitter`. The .particle file's `material` reference is well-formed (`ParticleSpriteEmit.material`); the referenced material is in our RPM and bakes cleanly elsewhere in the same run -- just AFTER preWarm.particle in AP's processing order. preWarm's alphabetic position puts it before its dep. Second AP pass succeeds (material is now cached). Same shape as the original Tier 7 ShaderAssetBuilder/SRG-merge ordering quirk: builder's `CreateJobs` doesn't declare `JobDependency` on the referenced upstream asset.
+
+Filed at o3de/o3de#19755 with diagnostic + repro + workaround + proposed fix direction. Mechanical fix would be ~5 lines in `ParticleBuilder::CreateJobs` -- offered to PR if sig/graphics-audio wants the help. Memory note: `project_ap_jobdep_cold_cache_pattern.md` (recurring pattern; likely more instances exist).
+
+**Tier 9 hardened with 2-pass AP absorber** (commit `dab77ab`)
+
+Step 5 now runs AP batch once; if pass 1 had failures, runs a second pass; counts overall PASS if pass 2 is clean (with a log line noting the cold-cache quirk was absorbed). This makes Tier 9 robust against the JobDependency gap class without false-flagging the test. Real failures (failures that persist into pass 2) still fail loudly.
+
+**Final Tier 9 state**: validated end-to-end, 0 failures with case-fix branch active + bare-target built + 2-pass absorber, GameLauncher smoke PASS. Committed `tests/multiplayersample-build-test.sh` with full doc comments explaining all three findings.
 
 ### State of in-flight work at end of session
 
-- **Build 10460860 (stabilization 14+3 pack)**: running on COPR, fc44 at ~40% ninja last check. 2-3h to terminal. CI test trigger chained via `make copr-stabilization-and-test`.
-- **Build 10460369 (snapshot, clean stabilization/26050 source)**: SUCCEEDED.
-- **Tier 9 local**: validated end-to-end (with the 19 material-type failures noted above).
+- **Build 10460860 (stabilization 14+3 pack, EPEL-10 fix)**: running on COPR, fc44 at ~54-60% ninja last check. ~1-2h to terminal. CI test trigger chained via `make copr-stabilization-and-test`. If green, ships the Stage 1 14-pack + Stage 2 3-pack + Patch0012 v2 + CS10-parity all in one promotion.
+- **Build 10460369 (snapshot, clean stabilization/26050 source)**: SUCCEEDED. Restored o3de-snapshot channel to non-failed state.
+- **Tier 9 local**: VALIDATED end-to-end. 6010 assets baked clean on the case-fix branch with bare-target built; 2-pass AP absorber added to handle cold-cache JobDependency quirk. Zero remaining failures.
 - **Remote Control session**: armed (Nick ran `/remote-control` to expose this CLI session to claude.ai/code + the Claude mobile app).
 - **Spec at 2605.0-61.** 13 active patches (5 TIMEBOMBs marked).
 
+### Filed today
+
+- Issue: [o3de/o3de-multiplayersample-assets#176](https://github.com/o3de/o3de-multiplayersample-assets/issues/176) (case-sensitivity bug)
+- PR: [o3de/o3de-multiplayersample-assets#177](https://github.com/o3de/o3de-multiplayersample-assets/pull/177) (mechanical 11-file fix; validation evidence in comments)
+- Issue: [o3de/o3de#19755](https://github.com/o3de/o3de/issues/19755) (ParticleBuilder JobDependency gap, sig/graphics-audio)
+
 ### Loaded for next session
 
-- Watch 10460860 terminal state; if green, the 14+3 + Patch0012 v2 + CS10-parity promotion is officially live in o3de-stabilization. Draft community announcement.
-- Investigate the 19 .material failures from Tier 9: missing `standardpbr.materialtype` in our RPM install layout? Or a development-branch schema feature?
+- Watch 10460860 terminal state; if green, the 14+3 + Stage 2 + Patch0012 v2 + CS10-parity promotion is officially live in o3de-stabilization. Draft community announcement (mention the Tier 9 validation as confidence-builder).
 - Optional: pokes for [#19746](https://github.com/o3de/o3de/pull/19746) (silent) and [#19747](https://github.com/o3de/o3de/pull/19747) (informal-approval-not-formalized).
+- Tier 9 follow-ups (low priority): more AP audits will likely surface more JobDependency-gap instances; add rows to `project_ap_jobdep_cold_cache_pattern.md` as they appear. If sig/graphics-audio engages on #19755, offer the ParticleBuilder PR.
 - Post-release-day work: snapshot pin re-pin to 2605.0 tag, Patch0001/0002/0005/0007/0008 retirement re-check, COPR rebuild from release tag, tester announcement. **Note 2026-05-27 release date is AT RISK per [#19754](https://github.com/o3de/o3de/issues/19754).**
 - snapshot-against-development TIMEBOMB-skip path: deferred until post-release (`make copr-snapshot-development` will keep failing on Patch0001 reject until then).
 
