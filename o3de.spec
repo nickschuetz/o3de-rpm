@@ -1379,6 +1379,23 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Wed May 13 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-58
+- Patch0013 v4: add third hunk gating the
+  Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/PAL_linux.cmake
+  VULKAN_VALIDATION_LAYER variable on LY_USE_SYSTEM_VULKAN_VALIDATION_LAYERS.
+  Build 10456101 (v3) failed at cmake configure with
+  "Findvulkan-validationlayers.cmake must either be part of this project
+  itself..." because the gem's BUILD_DEPENDENCIES list referenced
+  ${VULKAN_VALIDATION_LAYER} which was still set to
+  3rdParty::vulkan-validationlayers. ly_parse_third_party_dependencies
+  walked the list and called find_package(vulkan-validationlayers), no
+  shim found, configure aborted. v4 leaves VULKAN_VALIDATION_LAYER unset
+  in system mode so the BUILD_DEPENDENCIES list expansion has no
+  validation-layer entry at all.
+- Bonus: build 10456101's CS10 chroot went GREEN with 17 system swaps
+  active (first end-to-end CS10 validation of the Stage 1 + Stage 2
+  stack). Stage 1 viability on CentOS Stream 10 confirmed.
+
 * Wed May 13 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-57
 - Add Patch0013 + system_vulkan_validation_layers Stage 1 swap. Engine
   gets a two-hunk carry-patch (gate the bundled vulkan-validationlayers

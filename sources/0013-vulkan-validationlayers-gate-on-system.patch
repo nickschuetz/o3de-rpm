@@ -1,19 +1,28 @@
-From b5d4d6a3ad08eb7bb1f595dfc942ed8857fc9a71 Mon Sep 17 00:00:00 2001
+From 56e5a208a570651e17a164cb1593c9bef6d01aa0 Mon Sep 17 00:00:00 2001
 From: Nick Schuetz <nschuetz@redhat.com>
 Date: Wed, 13 May 2026 10:03:21 -0500
 Subject: [PATCH] BuiltInPackages + Atom/RHI/Vulkan: gate
  vulkan-validationlayers on system
 
 Stage 1 system-library swap convention extended to the bundled Vulkan
-validation layers. Two-hunk change:
+validation layers. Three-hunk change:
 
 1. cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake:
    wrap the `ly_associate_package(... vulkan-validationlayers ...)`
-   line in `if(NOT LY_USE_SYSTEM_VULKAN_VALIDATION_LAYERS)`. Nothing
-   in the engine target_link_libraries against the cmake target; it
-   is purely a runtime-discovery artifact.
+   line in `if(NOT LY_USE_SYSTEM_VULKAN_VALIDATION_LAYERS)`. In system
+   mode, no cmake target gets created.
 
-2. Gems/Atom/RHI/Vulkan/Code/Source/RHI/Instance.cpp: change the
+2. Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/PAL_linux.cmake:
+   gate the `VULKAN_VALIDATION_LAYER` variable assignment on the same
+   flag. In system mode, leave the variable empty so
+   `${VULKAN_VALIDATION_LAYER}` in the gem's BUILD_DEPENDENCIES list
+   expands to nothing. (Without this, the gem still declares
+   `3rdParty::vulkan-validationlayers` as a build dep,
+   `ly_parse_third_party_dependencies` walks the list, and cmake
+   configure fails with "Findvulkan-validationlayers.cmake must
+   either be part of this project itself...".)
+
+3. Gems/Atom/RHI/Vulkan/Code/Source/RHI/Instance.cpp: change the
    VK_LAYER_PATH SetEnv overwrite flag from 1 to 0. Bundled-engine
    installs with VK_LAYER_PATH unset get the previous behavior
    (set to exeDirectory). Distro/Flatpak/Snap launcher wrappers can
@@ -27,10 +36,32 @@ context and rejected at %prep.
 
 Signed-off-by: Nick Schuetz <nschuetz@redhat.com>
 ---
+ .../Code/Source/Platform/Linux/PAL_linux.cmake      | 13 ++++++++++++-
  Gems/Atom/RHI/Vulkan/Code/Source/RHI/Instance.cpp   |  7 ++++++-
  .../Linux/BuiltInPackages_linux_x86_64.cmake        | 13 ++++++++++++-
- 2 files changed, 18 insertions(+), 2 deletions(-)
+ 3 files changed, 30 insertions(+), 3 deletions(-)
 
+diff --git a/Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/PAL_linux.cmake b/Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/PAL_linux.cmake
+index 5db12d7b..314b0497 100644
+--- a/Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/PAL_linux.cmake
++++ b/Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/PAL_linux.cmake
+@@ -8,4 +8,15 @@
+ 
+ set(PAL_TRAIT_ATOM_RHI_VULKAN_SUPPORTED TRUE)
+ set(PAL_TRAIT_AFTERMATH_AVAILABLE FALSE)
+-set(VULKAN_VALIDATION_LAYER 3rdParty::vulkan-validationlayers)
++if(LY_USE_SYSTEM_VULKAN_VALIDATION_LAYERS)
++    # Distro packagers (Fedora, etc.) installing the system
++    # vulkan-validation-layers package: the Vulkan loader discovers
++    # libVkLayer_khronos_validation.so via its default search paths or
++    # via VK_LAYER_PATH (which Instance.cpp now respects when pre-set).
++    # No cmake-side dep needed, so VULKAN_VALIDATION_LAYER is left
++    # empty -- ${VULKAN_VALIDATION_LAYER} in BUILD_DEPENDENCIES expands
++    # to nothing.
++    set(VULKAN_VALIDATION_LAYER)
++else()
++    set(VULKAN_VALIDATION_LAYER 3rdParty::vulkan-validationlayers)
++endif()
 diff --git a/Gems/Atom/RHI/Vulkan/Code/Source/RHI/Instance.cpp b/Gems/Atom/RHI/Vulkan/Code/Source/RHI/Instance.cpp
 index 418193c2..1916a89d 100644
 --- a/Gems/Atom/RHI/Vulkan/Code/Source/RHI/Instance.cpp
