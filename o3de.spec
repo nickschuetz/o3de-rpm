@@ -1379,6 +1379,15 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Thu May 14 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-59
+- Promote 14-pack to stabilization. Adds system_vulkan_validation_layers
+  to SRPM_STABILIZATION_FLAGS (Makefile) + all three o3de-stabilization
+  chroots' with_opts (F44 + rawhide + CS10) via copr-cli edit-chroot.
+  Validation evidence: experimental build 10457745 (Patch0013 v4) went
+  GREEN across all three chroots on 2026-05-14 04:03 UTC. CS10 with_opts
+  gap on stabilization also fully closed today (8 -> 15 swaps, matches
+  F44/rawhide). All 7 packages confirmed available in CS10 base + EPEL-10.
+
 * Wed May 13 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-58
 - Patch0013 v4: add third hunk gating the
   Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/PAL_linux.cmake

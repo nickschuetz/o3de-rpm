@@ -244,8 +244,10 @@ srpm-stabilization:
 	$(SRPM_CLEAN)
 	rpmbuild -bs $(SRPM_STABILIZATION_FLAGS) $(RPMBUILD_DEFINES) o3de.spec
 
-# srpm-stabilization: snapshot + stabilization + 12-pack of Stage 1
-# system swaps (promoted from 7-pack to 12-pack on 2026-05-11).
+# srpm-stabilization: snapshot + stabilization + 14-pack of Stage 1
+# system swaps (12-pack -> 13-pack on 2026-05-11 with googlebenchmark;
+# 13-pack -> 14-pack on 2026-05-14 with vulkan_validation_layers after
+# experimental build 10457745 went GREEN with Patch0013 v4).
 # Mirrors the o3de-stabilization COPR chroot config exactly so the
 # SRPM faithfully shows what activations the binary build will fire.
 # Stage 2 swaps (mcpp/dxc/spirvcross) are deliberately EXCLUDED here
@@ -264,6 +266,7 @@ SRPM_STABILIZATION_FLAGS = --with snapshot \
                            --with system_png \
                            --with system_poly2tri \
                            --with system_sqlite \
+                           --with system_vulkan_validation_layers \
                            --with system_zlib
 
 # srpm-experimental: snapshot + every active Stage 1 system-library
