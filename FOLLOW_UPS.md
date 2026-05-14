@@ -6,6 +6,31 @@ This file is intentionally a living scratchpad. Entries get added or removed as 
 
 ---
 
+## 2026-05-13/14 overnight: Patch0013 v4 lands GREEN
+
+Build 10457745 (Patch0013 v4, experimental, 5.5h runtime) **SUCCEEDED on all three chroots** (fc44 + rawhide + CS10) at 04:03 UTC on 2026-05-14. Outcomes:
+
+- **14th Stage 1 system swap (`system_vulkan_validation_layers`) is validated end-to-end** -- experimental now runs Stage 1 14-pack + Stage 2 3-pack on F44 + rawhide; CS10 runs Stage 1 12-pack + Stage 2 3-pack (CS10 with_opts missing googlebenchmark + vulkan_validation_layers, presumed unavailable in CS10 base + EPEL-10 -- unverified, low priority).
+- **CS10 viability reconfirmed** -- second consecutive green CS10 build with 17 swaps active (10456101 then 10457745). Memory note `project_cs10_with_opts_gap.md` updated to reflect mostly-closed gap.
+- **Patch0013 v3 -> v4 diagnosis** -- v3 failed at cmake configure with `Findvulkan-validationlayers.cmake must either be part of this project itself...` because the patch gated `ly_associate_package` in `BuiltInPackages_linux_x86_64.cmake` but didn't gate `VULKAN_VALIDATION_LAYER` in `Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/PAL_linux.cmake` -- the gem still expanded `${VULKAN_VALIDATION_LAYER}` to `3rdParty::vulkan-validationlayers` in BUILD_DEPENDENCIES and `ly_parse_third_party_dependencies` walked the list. v4 adds the third hunk to gate the variable assignment (left unset in system mode so `${VULKAN_VALIDATION_LAYER}` expands to nothing in the BUILD_DEPENDENCIES list).
+- **Docs sweep** -- README + CONTRIBUTING patch tables 12 -> 13; copr-experimental instructions reflect 14-pack; FEDORA_ROADMAP + BUNDLED_LIBRARIES + ARCHITECTURE + FLATPAK_NOTES mirror the same.
+
+State of in-flight work:
+
+- Build 10457745 succeeded; spec at 2605.0-58; 13 active patches (Patch0001-0013).
+- Pre-release sweep agent scheduled 2026-05-25 09:00 America/Chicago (trig_01Sd4hj6uh1J8ZQgADPNj7zi).
+- Engine fork branch `builtinpackages-gate-vulkan-validation-on-system` has 2 commits (Patch0006 intermediate + Patch0013 v4). Squash before any upstream pitch (post-release).
+
+Loaded for next session:
+
+- Optional: propagate `system_vulkan_validation_layers` to CS10 chroot (verify pkg availability in CS10 base + EPEL-10 first).
+- Optional: propagate `system_googlebenchmark` to CS10 chroot (same check).
+- Optional: propagate the 6 missing Stage 1 swaps to o3de-stabilization CS10 chroot.
+- Held: F44 AR builder pitch (per resource-constraints memory; offer only if sig-build signals felt need).
+- Post-release: re-pin snapshot to 2605.0 release tag; re-run four-step retirement check on Patch0007 + Patch0008 against the re-pinned base.
+
+---
+
 ## 2026-05-13 session capture
 
 Work delivered today:
