@@ -1379,6 +1379,23 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Thu May 14 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-61
+- Tag three more carry-patches as TIMEBOMB after upstream merges
+  landed on development today (2026-05-14):
+  - Patch0001 (clang21 -Wno-error=) <- o3de/o3de#19748 (commit c2486d165441)
+  - Patch0002 (manifest.py O3DE_ENGINE_PATH) <- o3de/o3de#19751 (commit 0281a9bbc492)
+  - Patch0005 (AzQtComponents title) <- o3de/o3de#19750 (commit d8d1c9aeb1c6)
+  All three target `development`; none has been cherry-picked into
+  `stabilization/26050` (our snapshot source branch), so the local
+  patches stay active until our snapshot pin re-pins post-2605.0
+  release. nick-l-o3de informally flagged #19748 (Patch0001) as a
+  possible stabilization cherry-pick for 2605.0 ("we may need this one
+  for this release"); if that cherry-pick lands, Patch0001 retires
+  early once we re-snapshot stabilization tip.
+- TIMEBOMB total goes from 2 (Patch0007 + Patch0008, from 2026-05-08
+  merges) to 5. README + CONTRIBUTING patch tables updated with the
+  new TIMEBOMB notes + merge-commit cross-refs.
+
 * Thu May 14 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-60
 - Promote Stage 1 14-pack + Stage 2 3-pack to stabilization in one push.
   First superseded attempt (10459564, Stage 1 only) was cancelled when
