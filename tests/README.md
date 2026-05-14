@@ -22,8 +22,9 @@ Each tier requires more state from the prior. You can run any subset.
 | **6** | UI smoke (Project Manager + Editor launch under Xvfb, don't crash) | Xvfb, scrot, software Vulkan (lavapipe) for CI | ~30 s (PM only) / ~90 s (with --editor) |
 | **7** | System-swap library-health check (per-swap SONAME + sample-symbol verification + engine-binary linkage smoke). Catches Fedora-version SONAME rolls + broken engine-side system-swap linkage. Does NOT cover behavior deltas (was originally an end-to-end FBX asset-bake test; rewritten 2026-05-11 after discovering SceneAPI's hard dependency on Atom RPI gem chain made the empty-scratch-project approach unworkable -- see memory `project_tier7_cold_cache_quirk.md` + upstream issue [o3de/o3de#19743](https://github.com/o3de/o3de/issues/19743) for the proper-fix design space). | RPM installed | <1 s |
 | **8** | AssetProcessor runtime smoke -- spawn AP, verify at least one AssetBuilder child reaches "alive" state and sustains it across a 5s persistence window. Catches process-lifecycle bugs that pass build-time + linkage checks but fail at runtime. Caught its motivating bug retroactively: Patch0012 v1 (m_tetherLifetime / prctl) built green and shipped, then every spawned AssetBuilder got SIGTERM'd within 21 ms of fork -- this dual-sample design would have shown PIDs in sample 1 but none surviving to sample 2, failing the persistence phase immediately. | Tier 3 done (manifest exists), regular user | ~10-15 s |
-| **9** *(future)* | Visual regression (pixel-diff screenshots vs baseline) | maintained baselines per Fedora version | varies |
-| **10** *(future)* | Render correctness (compare rendered scene to reference) | GPU-equipped runner | varies |
+| **9** | MultiplayerSample build+bake smoke -- clone `o3de-multiplayersample` + companion `o3de-multiplayersample-assets`, register gems+project against the installed engine, cmake configure + ninja-build the GameLauncher, run AssetProcessorBatch over the full project, smoke the launcher binary (under DISPLAY/Xvfb). Catches regressions that the cube.fbx Tier 7 health-check can't: project-build pipeline (cmake configure against installed engine, gem resolution, AzslcCompile, ShaderAssetBuilder), multi-level asset tree, and a real community game with networking/replication/gameplay scripting. Branch alignment: multiplayersample tracks O3DE's `development`; no `stabilization/26050` branch exists in multiplayersample (last was `stabilization/25100`), so the 26.05.x engine + multiplayersample-dev pairing is a known directional mismatch -- still the best signal until multiplayersample cuts a 26.05 release branch. **NOT** part of `make test` (build/disk footprint); explicit-only via `make test-multiplayer-sample`. | RPM installed, ~10 GB disk, network, `git lfs`, clang/cmake/ninja | ~10-30 min cold / ~5-15 min warm |
+| **10** *(future)* | Visual regression (pixel-diff screenshots vs baseline) | maintained baselines per Fedora version | varies |
+| **11** *(future)* | Render correctness (compare rendered scene to reference) | GPU-equipped runner | varies |
 
 Tiers 1, 2, 4 are read-only and safe on a developer machine. Tier 3 modifies `~/.o3de/` (creates the per-user venv). Tier 5 creates a temporary project that's cleaned up on exit.
 
@@ -55,9 +56,20 @@ O3DE_PKGNAME=o3de2605 tests/asset-bake-test.sh     # explicit pkg override
 # checks miss (e.g., Patch0012 v1's thread-death prctl misuse).
 tests/ap-spawn-smoke-test.sh                       # auto-pick first manifest project
 O3DE_TEST_PROJECT_PATH=/path tests/ap-spawn-smoke-test.sh   # explicit
+
+# MultiplayerSample build+bake smoke (tier 9) -- clone the
+# o3de-multiplayersample project + its companion -assets gem repo,
+# register both against the installed engine, cmake configure + ninja
+# build the GameLauncher, run AssetProcessorBatch for the project,
+# smoke the GameLauncher under DISPLAY (when available). Long-running
+# (~10-30 min cold); NOT part of `make test`.
+tests/multiplayersample-build-test.sh                      # full run
+MPSAMPLE_SKIP_BAKE=1 tests/multiplayersample-build-test.sh # skip the slow asset bake
+MPSAMPLE_BRANCH=stabilization/25100 tests/multiplayersample-build-test.sh   # pin branch
+MPSAMPLE_DIR=/path tests/multiplayersample-build-test.sh   # custom clone dir
 ```
 
-`make test`, `make test-setup`, `make test-full`, `make test-ui`, `make test-ui-full`, `make test-asset-bake` are shortcuts for the above.
+`make test`, `make test-setup`, `make test-full`, `make test-ui`, `make test-ui-full`, `make test-asset-bake`, `make test-ap-spawn`, `make test-multiplayer-sample` are shortcuts for the above.
 
 The test scripts auto-detect which versioned package is installed (matching `^o3de[0-9]+$` from `rpm -qa`) and derive `$ENGINE_PATH` from its installed `engine.json`. To force a specific package when multiple majors are installed (e.g., both `o3de2605` and `o3de2610`):
 

@@ -82,7 +82,7 @@ RPMBUILD_DEFINES = \
         trigger-tests copr-init \
         copr-metadata-pull copr-metadata-diff copr-metadata-push \
         check-deps-drift \
-        test test-setup test-full test-ui test-ui-full test-asset-bake test-branch clean
+        test test-setup test-full test-ui test-ui-full test-asset-bake test-ap-spawn test-multiplayer-sample test-branch clean
 
 help:
 	@awk '/^# / { sub(/^# /,"",$$0); print } /^[a-z][a-z0-9_-]*:/ && $$0 !~ /^\./' Makefile | head -40
@@ -770,6 +770,18 @@ test-asset-bake:
 # every AssetBuilder got SIGTERM'd within 21 ms of fork at runtime.
 test-ap-spawn:
 	tests/ap-spawn-smoke-test.sh
+
+# MultiplayerSample build smoke (Tier 9): clone o3de-multiplayersample,
+# register against installed engine, cmake configure + ninja build the
+# GameLauncher, full project asset bake, headless launcher smoke (when
+# DISPLAY available). Catches regressions that the cube.fbx Tier 7 bake
+# can't see -- this exercises the project-build pipeline + multi-level
+# asset tree on a real community project. Cost: ~10-30 min cold, ~5-15
+# min warm. NOT part of `make test`; explicit-only because of the
+# build/disk footprint. Env overrides documented at the top of the
+# script.
+test-multiplayer-sample:
+	tests/multiplayersample-build-test.sh
 
 # End-to-end driver: build a snapshot RPM from <REF> and test it.
 # Usage: make test-branch REF=stabilization/26050

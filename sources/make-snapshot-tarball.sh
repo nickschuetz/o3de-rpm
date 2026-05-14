@@ -28,7 +28,13 @@ command -v git >/dev/null || { echo "error: git not found" >&2; exit 1; }
 command -v git-lfs >/dev/null || { echo "error: git-lfs not found (dnf install git-lfs)" >&2; exit 1; }
 command -v sha256sum >/dev/null || { echo "error: sha256sum not found" >&2; exit 1; }
 
-WORK="$(mktemp -d)"
+# O3DE checkout including LFS content is ~5-8 GB; tmpfs /tmp (default
+# mktemp target on most Fedora installs) is typically too small. Prefer
+# $TMPDIR if set, otherwise $HOME/.cache/o3de-snapshot-tarball which
+# lives on the user's home filesystem.
+SNAPSHOT_TMP="${TMPDIR:-$HOME/.cache/o3de-snapshot-tarball}"
+mkdir -p "$SNAPSHOT_TMP"
+WORK="$(mktemp -d -p "$SNAPSHOT_TMP")"
 trap 'rm -rf "$WORK"' EXIT
 
 echo ">> cloning $REPO_URL @ $REF"
