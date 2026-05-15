@@ -52,7 +52,7 @@ Read `o3de.spec` top-to-bottom. The shape is:
 5. **Name / Version / Release** with conditional logic for snapshot mode (`Name: %{o3de_pkgname}`)
 6. **Source0** (the upstream tarball — release URL or local snapshot)
 7. **Source10–25** (auxiliary files: launcher, desktops, metainfo, icons, SBOM, snapshot helper)
-8. **Patch0001-0013 all active** via `%autosetup -p1`. Five carry-patches now have TIMEBOMB notes (upstream-equivalent merged into `development` but not into `stabilization/26050`; they retire when stabilization absorbs the changes): Patch0001 + Patch0002 + Patch0005 (all merged 2026-05-14), Patch0007 + Patch0008 (merged 2026-05-08). Patch0012 is the v2 child-side watchdog after the v1 prctl approach was withdrawn 2026-05-12. Patch0013 v4 gates the vulkan-validationlayers Stage 1 swap in three places (BuiltInPackages, PAL_linux, Instance.cpp). Lua 5.5 compat hits Patch0008/0010/0011 conditionally on the rawhide chroot.
+8. **Patch0001-0013 all active** via `%autosetup -p1`. Six carry-patches now have TIMEBOMB notes (upstream-equivalent merged into `development` but not into `stabilization/26050`; they retire when stabilization absorbs the changes): Patch0001 + Patch0002 + Patch0005 (merged 2026-05-14), Patch0007 + Patch0008 (merged 2026-05-08), Patch0012 v2 (merged 2026-05-15). Patch0012 is the v2 child-side watchdog after the v1 prctl approach was withdrawn 2026-05-12; v1 patch file retained in `sources/` as reference. Patch0013 v4 gates the vulkan-validationlayers Stage 1 swap in three places (BuiltInPackages, PAL_linux, Instance.cpp). Lua 5.5 compat hits Patch0008/0010/0011 conditionally on the rawhide chroot.
 9. **BuildRequires / Requires** — minimal, validated against auto-Requires
 10. **`%prep`, `%build`, `%install`, `%check`, `%files`** — standard rpm sections
 11. **Scriptlets** (`%post`, `%postun`)
@@ -64,13 +64,14 @@ If you change *anything* in the spec or sources/, **update the README's layout b
 
 ## Patches
 
-Thirteen active patches in `sources/`. **Five TIMEBOMBs** -- upstream-equivalents merged to `development` but not to `stabilization/26050` (our snapshot source branch); they retire when stabilization absorbs the changes:
+Thirteen active patches in `sources/`. **Six TIMEBOMBs** -- upstream-equivalents merged to `development` but not to `stabilization/26050` (our snapshot source branch); they retire when stabilization absorbs the changes:
 
 - Patch0001 (clang21 `-Wno-error=`) <- [#19748](https://github.com/o3de/o3de/pull/19748) merged 2026-05-14
 - Patch0002 (manifest.py `O3DE_ENGINE_PATH`) <- [#19751](https://github.com/o3de/o3de/pull/19751) merged 2026-05-14
 - Patch0005 (AzQtComponents title propagation) <- [#19750](https://github.com/o3de/o3de/pull/19750) merged 2026-05-14
 - Patch0007 (libtiff C99 typedefs) <- [#19734](https://github.com/o3de/o3de/pull/19734) merged 2026-05-08
 - Patch0008 (drop AzCore Lua/lobject.h include) <- [#19733](https://github.com/o3de/o3de/pull/19733) merged 2026-05-08
+- Patch0012 v2 (AssetBuilder parent-death watchdog) <- [#19747](https://github.com/o3de/o3de/pull/19747) merged 2026-05-15
 
 Patch0012 is the v2 child-side watchdog after the v1 prctl approach was withdrawn 2026-05-12; the v1 patch file is retained in `sources/` as reference. Patch0013 is v4 of the vulkan-validationlayers Stage 1 gate; v3 failed cmake configure because the gem still expanded `${VULKAN_VALIDATION_LAYER}` in BUILD_DEPENDENCIES, v4 gates the variable assignment in PAL_linux.cmake. Each carries a `From: Nick Schuetz <nschuetz@redhat.com>` and `Subject:` header explaining why the patch exists.
 
@@ -87,7 +88,7 @@ Patch0012 is the v2 child-side watchdog after the v1 prctl approach was withdraw
 | 0009 | `Gems/PhysX/.../physx_pal_platform.cmake` | gate the upstream `ly_associate_package(... poly2tri ...)` line on `system_poly2tri` so the PhysX gem can resolve via Fedora's `poly2tri-devel` when the swap is active | **as part of the umbrella PR alongside Patch0006** |
 | 0010 | `Code/Framework/AzCore/Script/ScriptContext.cpp` | Lua 5.5 introduced an extra `warnflag` argument to `lua_newstate`; provide a `#if LUA_VERSION_NUM >= 505` shim that adapts the call sites. Behavior-preserving on 5.4. | **yes** -- mechanical compat; upstream will want this when they bump the bundled Lua |
 | 0011 | `Code/Tools/LuaIDE/.../WatchesPanel.cpp` | Lua 5.5 removed the `LUA_NUMTAGS` public macro; restore it under the same guard pattern as Patch0010 for the LuaIDE compile path | **yes** -- partner patch to 0010; ditto upstream-worthy |
-| 0012 | `Code/Tools/AssetProcessor/AssetBuilder/main.cpp` | **v2 (active).** Adds `StartParentDeathWatchdog()` to AssetBuilder's `main()` -- detached thread polls `getppid()` every 2 seconds, calls `_exit(0)` when the parent PID changes (reparented to PID 1 / systemd-user because AP died). Independent of caller threading. POSIX (Linux + Mac) only; Windows port deferred. v1 (`m_tetherLifetime = true` enabling `prctl(PR_SET_PDEATHSIG)`) was withdrawn 2026-05-12 after runtime test showed every builder SIGTERM'd within ~21 ms of fork because BuilderManager forks from short-lived TaskWorker threads. v1 patch file kept in `sources/` as reference. Memory: `project_prctl_pdeathsig_thread_gotcha.md`. | **yes** -- focused fix, ~12 LOC, clear repro (kill -9 AP; before: builders persist with PPID 1 indefinitely; after: builders detect reparenting and exit within 2 s). Companion artifacts under `upstream-drafts/` stage the GitHub issue + cross-linked PR drafts. |
+| 0012 | `Code/Tools/AssetProcessor/AssetBuilder/main.cpp` | **v2 (active).** Adds `StartParentDeathWatchdog()` to AssetBuilder's `main()` -- detached thread polls `getppid()` every 2 seconds, calls `_exit(0)` when the parent PID changes (reparented to PID 1 / systemd-user because AP died). Independent of caller threading. POSIX (Linux + Mac) only; Windows port deferred. v1 (`m_tetherLifetime = true` enabling `prctl(PR_SET_PDEATHSIG)`) was withdrawn 2026-05-12 after runtime test showed every builder SIGTERM'd within ~21 ms of fork because BuilderManager forks from short-lived TaskWorker threads. v1 patch file kept in `sources/` as reference. Memory: `project_prctl_pdeathsig_thread_gotcha.md`. **TIMEBOMB:** upstream merged equivalent as [o3de/o3de#19747](https://github.com/o3de/o3de/pull/19747) (commit 6fd830546c72) into `development` on 2026-05-15 but NOT into `stabilization/26050`; retires when stabilization absorbs the change. | **landed in development** (waiting on stabilization) |
 | 0013 | `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` + `Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/PAL_linux.cmake` + `Gems/Atom/RHI/Vulkan/Code/Source/RHI/Instance.cpp` | three-hunk Stage 1 gate for the vulkan-validationlayers swap (`LY_USE_SYSTEM_VULKAN_VALIDATION_LAYERS`): skip the `ly_associate_package` line, leave `VULKAN_VALIDATION_LAYER` unset (so `${VULKAN_VALIDATION_LAYER}` in the gem's BUILD_DEPENDENCIES expands to nothing), and flip the `VK_LAYER_PATH` SetEnv overwrite flag from 1 to 0 so distro/Flatpak launchers pre-setting that env var win over the engine's exeDirectory default. Validated end-to-end on build 10457745 (2026-05-13/14, all three chroots green). | **as part of the umbrella PR alongside Patch0006/0009** -- same pattern, runtime-only dep so the system_X gate is a single-flag distro-packager convenience |
 
 ### Upstream PR backlog -- status
@@ -100,12 +101,12 @@ This section was originally pre-flight planning. As of 2026-05-14/15 several PRs
 - Patch0005 (AzQtComponents title propagation) -- [o3de/o3de#19750](https://github.com/o3de/o3de/pull/19750)
 - Patch0007 (libtiff C99 typedefs) -- [o3de/o3de#19734](https://github.com/o3de/o3de/pull/19734)
 - Patch0008 (drop AzCore `<Lua/lobject.h>` include) -- [o3de/o3de#19733](https://github.com/o3de/o3de/pull/19733)
+- Patch0012 v2 (AssetBuilder parent-death watchdog) -- [o3de/o3de#19747](https://github.com/o3de/o3de/pull/19747) merged 2026-05-15
 - Also: Microphone PAL libsamplerate gate -- [o3de/o3de#19737](https://github.com/o3de/o3de/pull/19737)
 - Plus an AR-unblocker we filed during integration testing: ParticleBuilder cold-cache JobDependency fix -- [o3de/o3de#19756](https://github.com/o3de/o3de/pull/19756) merged 2026-05-15 (not a carry-patch; a new engine-side fix discovered via Tier 9)
 
 **Still open / in review**:
 - Patch0004 / [o3de/o3de#19752](https://github.com/o3de/o3de/pull/19752) (LYPython sdist for INSTALLED_ENGINE) -- nick-l-o3de investigating "larger problem"; let him lead.
-- Patch0012 v2 / [o3de/o3de#19747](https://github.com/o3de/o3de/pull/19747) (AssetBuilder parent-death watchdog) -- nick-l-o3de said "okay with accepting this for now" 2026-05-13; gentle poke if quiet.
 - [o3de/o3de#19746](https://github.com/o3de/o3de/pull/19746) (ProcessWatcher prctl doc comment) -- doc-only; CI flaky pending #19756's effect across AR.
 - Issue [o3de/o3de#19745](https://github.com/o3de/o3de/issues/19745) (BuilderManager design discussion).
 

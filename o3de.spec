@@ -1379,6 +1379,19 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Fri May 15 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-62
+- Tag Patch0012 v2 (AssetBuilder parent-death watchdog) as TIMEBOMB
+  after upstream merge: o3de/o3de#19747 landed on development
+  2026-05-15 (commit 6fd830546c72). nick-l-o3de said "okay with
+  accepting this for now" on 2026-05-13 informally; formal approval
+  + merge today.
+- TIMEBOMB count goes from 5 to 6 (Patch0001/0002/0005/0007/0008/0012).
+  All six retire when our snapshot pin moves to a base that contains
+  these merges, expected post-2605.0 release (date AT RISK per
+  o3de/o3de#19754; see project_2605_release_date.md).
+- README + CONTRIBUTING patch tables + ARCHITECTURE Mermaid all
+  updated.
+
 * Thu May 14 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-61
 - Tag three more carry-patches as TIMEBOMB after upstream merges
   landed on development today (2026-05-14):
