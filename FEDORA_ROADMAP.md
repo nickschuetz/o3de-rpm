@@ -122,7 +122,7 @@ These are the Stage 1 bundles where outside-the-packager visibility would unbloc
 
 ### Stage 2a — OpenEXR + Imath -- ABSORBED INTO STAGE 1 (2026-05-07)
 
-**Status:** **DONE.** Absorbed into the Stage 1 system-swap track as `system_openexr` (two-shim variant -- `FindOpenEXR-system.cmake` + `FindImath-system.cmake`). Active in the 13-pack live in the `hellaenergy/o3de-stabilization` COPR channel as of the 2026-05-12 promotion (build 10452477).
+**Status:** **DONE.** Absorbed into the Stage 1 system-swap track as `system_openexr` (two-shim variant -- `FindOpenEXR-system.cmake` + `FindImath-system.cmake`). Active in the 14-pack live in the `hellaenergy/o3de-stabilization` COPR channel as of the 2026-05-14 promotion (build 10460860).
 
 O3DE bundles `OpenEXR-3.1.3-rev4-linux`. F44 ships `openexr-devel-3.2.4` + `imath-devel-3.1.12`. Per Nick_L 2026-05-05 ([#5](https://github.com/nickschuetz/o3de-rpm/issues/5)), version pins aren't hard; OpenEXR has no Python C Module so it never had the Stage 2b ABI constraint. The original "Stage 2a / Stage 1.5" framing was a sub-track classification that ended up being unnecessary -- once the find-shim pattern was generalized, OpenEXR slotted in as another Stage 1 swap alongside the other 12.
 

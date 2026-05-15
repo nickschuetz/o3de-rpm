@@ -14,18 +14,18 @@ flowchart TB
     end
 
     subgraph DEPS["Build-time dependencies"]
-        DPK1["Fedora repos<br/>(13 Stage 1 system swaps:<br/>zlib, freetype, libpng, expat, lz4,<br/>mikkelsen, openexr, poly2tri, lua,<br/>assimp, sqlite, libsamplerate,<br/>googlebenchmark)"]
-        DPK2["COPR<br/>hellaenergy/o3de-dependencies<br/>(Qt5-rev9, PhysX, AWS SDK, azslc,<br/>ISPCTexComp, astc-encoder, mikkelsen,<br/>o3de2605-spirv-cross + o3de2605-dxc-spirv + o3de2605-mcpp-az<br/>(Stage 2 PoCs, all green; o3deNNNN-<dep> naming))"]
+        DPK1["Fedora repos<br/>(14 Stage 1 system swaps:<br/>zlib, freetype, libpng, expat, lz4,<br/>mikkelsen, openexr, poly2tri, lua,<br/>assimp, sqlite, libsamplerate,<br/>googlebenchmark, vulkan-validation-layers)"]
+        DPK2["COPR<br/>hellaenergy/o3de-dependencies<br/>(Qt5-rev9, PhysX, AWS SDK, azslc,<br/>ISPCTexComp, astc-encoder, mikkelsen,<br/>o3de2605-spirv-cross + o3de2605-dxc-spirv + o3de2605-mcpp-az<br/>(Stage 2 3-pack, ACTIVE in stabilization 2026-05-14;<br/>o3deNNNN-<dep> naming))"]
         DPK3["packages.o3de.org CDN<br/>(remaining bundled 3rdParty:<br/>restricted bundles + as-yet-unmigrated)"]
     end
 
     subgraph SPEC["o3de.spec"]
         BC{"--with snapshot ?"}
         SHA["sha256sum -c verify"]
-        AUTO["%autosetup -p1<br/>+ Patch0001..0009"]
+        AUTO["%autosetup -p1<br/>+ Patch0001..0013<br/>(5 TIMEBOMB: 0001/0002/0005/0007/0008)"]
         TP["%bcond_with thirdparty_*<br/>extract bundles to LY_3RDPARTY_PATH"]
         BUILD["cmake Ninja Multi-Config<br/>profile + (debug if --with debug)"]
-        INST["cmake --install<br/>+ shebang normalization<br/>+ Stage 2 binary-overlay symlinks<br/>(system_spirvcross, system_dxc)"]
+        INST["cmake --install<br/>+ shebang normalization<br/>+ Stage 2 binary-overlay symlinks<br/>(system_spirvcross, system_dxc)<br/>+ Stage 2 library-link (system_mcpp)"]
         DBG{"--with debug ?"}
         BC -->|no| S1
         BC -->|yes| SNAP
@@ -80,15 +80,21 @@ flowchart TB
     subgraph TEST["Test gate (community-shared)"]
         T1["tests/integration-test.sh<br/>Tiers 1-5 (rpm / install / setup /<br/>engine smoke / project end-to-end)"]
         T2["tests/ui-smoke-test.sh<br/>Tier 6: Project Manager + Editor<br/>under Xvfb"]
-        T4["tests/asset-bake-test.sh<br/>Tier 7: AssetProcessorBatch<br/>FBX-bake (catches assimp 5-to-6<br/>behavior deltas)"]
+        T4["tests/asset-bake-test.sh<br/>Tier 7: system-swap library-health<br/>(SONAME + symbol + linkage smoke<br/>across all 14 Stage 1 swaps)"]
+        T5["tests/ap-spawn-smoke-test.sh<br/>Tier 8: AP+builder runtime smoke<br/>(catches process-lifecycle bugs)"]
+        T6["tests/multiplayersample-build-test.sh<br/>Tier 9: full MultiplayerSample build<br/>+ AP batch + GameLauncher smoke<br/>(opt-in; ~10-30 min)"]
         T3[".github/workflows/test-installed.yml<br/>matrix: F44, rawhide, CS10, F45+, ...<br/>+ check-deps-drift.yml weekly cron"]
         DC1B -.-> T1
         DC1B -.-> T2
         DC1B -.-> T4
+        DC1B -.-> T5
+        DC1B -.-> T6
         DC1B -.-> T3
         DC1C -.-> T1
         DC1C -.-> T2
         DC1C -.-> T4
+        DC1C -.-> T5
+        DC1C -.-> T6
         DC1C -.-> T3
     end
 ```
@@ -103,7 +109,7 @@ flowchart TB
 4. **Read-only engine + writable user state** -- `/opt/O3DE/<version>/` is owned by root, all writable state lives in `~/.o3de/`. The launcher wrapper is the only piece that bridges them.
 5. **One spec, multiple distribution channels** -- the same spec produces the binary for four COPR projects (`o3de` stable / `o3de-stabilization` community-tester / `o3de-snapshot` one-off dev builds / `o3de-experimental` in-flight migration), the upstream submission to o3debinaries.org, and (eventually) Fedora; the future Flatpak shares ~80% of the source tree (patches, launcher, snapshot helper) but uses its own manifest. The channel marker baked into the GUI version string (`-stabilization.<commit>`, `-snapshot.<commit>`, `-experimental.<commit>`, or none for stable) lets testers identify which channel a build came from at a glance.
 6. **Versioned multi-install (postgresql-style at the package level; upstream-aligned at the engine level)** -- the spec parameterizes `Name:` as `o3deNNNN` (e.g. `o3de2605` for 26.05.x, `o3de2610` for the next major, derived from the spec's `stable_tag` macro) and the install prefix as `/opt/O3DE/<DISPLAY_VERSION>/` (matching upstream's `.deb` and Windows `.msi` exactly). Bumping `stable_tag` automatically produces the next major's package name and path with no other changes. Two majors install side-by-side on disk: `dnf install o3de2605 o3de2610` lands at `/opt/O3DE/26.05.0/` and `/opt/O3DE/26.10.0/` with no overlap; per-engine venvs in `~/.o3de/Python/venv/<engine-id>/` stay isolated automatically because cmake's `CalculateEnginePathId` hashes the engine root path. Subpackages (`o3deNNNN-debug`, `o3deNNNN-devel`) inherit the versioning via the standard `%{name}-debug` shorthand. **`engine.json`'s `engine_name` field is intentionally NOT versioned** -- it stays `"o3de"` (matching upstream's `.deb` default) so third-party gems' `compatible_engines` lists resolve correctly. The manifest at `~/.o3de/o3de_manifest.json` keys engine registrations by `engine_name`, so simultaneous active registration is single-slot -- users switch between installed majors via `scripts/o3de.sh register --this-engine`. Cross-major upgrades are NOT automatic -- different majors are different engine lines; users opt in explicitly.
-7. **Three-source build-time dependency graph** -- Stage 1 system swaps pull from Fedora repos directly (14-pack ACTIVE in stabilization as of 2026-05-14: zlib, freetype, libpng, expat, lz4, mikkelsen, openexr, poly2tri, lua, assimp, sqlite, libsamplerate, googlebenchmark, vulkan-validation-layers). Stage 2 3-pack (`o3de2605-spirv-cross`, `o3de2605-dxc-spirv`, `o3de2605-mcpp-az`) ALSO active in stabilization as of 2026-05-14 (promoted from experimental after 6+ days of green soak). CS10 (CentOS Stream 10) chroot achieved its first-ever successful engine build 2026-05-12 via the `gcc-toolset-15-libatomic-devel` BR gated on `%if 0%{?rhel}`; CS10 with_opts gap fully closed 2026-05-14 -- all three stabilization chroots now run 18 swap activations (stabilization + 14 Stage 1 + 3 Stage 2), and the experimental chroots run 19. Custom-rebuilt deps that aren't in Fedora live in the [`hellaenergy/o3de-dependencies`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-dependencies/) COPR project: 9 production deps (Qt 5.15-rev9 with O3DE patches, PhysX 5.x, AWS SDK 1.11.361, azslc, ISPCTexComp, astc-encoder, mikkelsen, etc.) plus the three Stage 2 PoCs all ✓ green as of 2026-05-08: `o3de2605-spirv-cross` (binary shellout), `o3de2605-dxc-spirv` (binary shellout), `o3de2605-mcpp-az` (library link; first library-link variant of the Stage 2 pattern). All license-clean (Apache/BSD/MIT) but not packaged in Fedora proper, COPR-rebuilt as license-clean SRPMs for redistribution. Restricted bundles (NvCloth's NVIDIA license, squish-ccr's BC7 patent encumbrance) and the few engine deps not yet covered by either path (OpenSSL, openimageio-opencolorio, pyside2 per `tools/check-deps-drift.py`'s gap report) continue to flow from `packages.o3de.org`'s CDN at cmake-config time (requires `enable_net=true` on the COPR engine projects). Each Stage 1 swap that lands shifts one bundle from path #3 (CDN) -> path #1 (Fedora). Each Stage 2 PoC that lands in `o3de-dependencies` shifts one bundle from path #3 -> path #2. The endgame is path #3 holding only the genuinely-restricted bundles. Drift between paths is monitored by `tools/check-deps-drift.py` (weekly GHA cron at `.github/workflows/check-deps-drift.yml`) which posts a sticky issue on detected mismatches.
+7. **Three-source build-time dependency graph** -- Stage 1 system swaps pull from Fedora repos directly (14-pack ACTIVE in stabilization as of 2026-05-14: zlib, freetype, libpng, expat, lz4, mikkelsen, openexr, poly2tri, lua, assimp, sqlite, libsamplerate, googlebenchmark, vulkan-validation-layers). Stage 2 3-pack (`o3de2605-spirv-cross`, `o3de2605-dxc-spirv`, `o3de2605-mcpp-az`) ALSO active in stabilization as of 2026-05-14 (promoted from experimental after 6+ days of green soak). CS10 (CentOS Stream 10) chroot achieved its first-ever successful engine build 2026-05-12 via the `gcc-toolset-15-libatomic-devel` BR gated on `%if 0%{?rhel}`; CS10 with_opts gap fully closed 2026-05-14 -- all three stabilization chroots now run 18 swap activations (stabilization + 14 Stage 1 + 3 Stage 2), and the experimental chroots run 19. Custom-rebuilt deps that aren't in Fedora live in the [`hellaenergy/o3de-dependencies`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-dependencies/) COPR project: 9 production deps (Qt 5.15-rev9 with O3DE patches, PhysX 5.x, AWS SDK 1.11.361, azslc, ISPCTexComp, astc-encoder, mikkelsen, etc.) plus the three Stage 2 packages now ACTIVE in `o3de-stabilization` as of the 2026-05-14 promotion: `o3de2605-spirv-cross` (binary shellout), `o3de2605-dxc-spirv` (binary shellout), `o3de2605-mcpp-az` (library link; first library-link variant of the Stage 2 pattern). All license-clean (Apache/BSD/MIT) but not packaged in Fedora proper, COPR-rebuilt as license-clean SRPMs for redistribution. Restricted bundles (NvCloth's NVIDIA license, squish-ccr's BC7 patent encumbrance) and the few engine deps not yet covered by either path (OpenSSL, openimageio-opencolorio, pyside2 per `tools/check-deps-drift.py`'s gap report) continue to flow from `packages.o3de.org`'s CDN at cmake-config time (requires `enable_net=true` on the COPR engine projects). Each Stage 1 swap that lands shifts one bundle from path #3 (CDN) -> path #1 (Fedora). Each Stage 2 PoC that lands in `o3de-dependencies` shifts one bundle from path #3 -> path #2. The endgame is path #3 holding only the genuinely-restricted bundles. Drift between paths is monitored by `tools/check-deps-drift.py` (weekly GHA cron at `.github/workflows/check-deps-drift.yml`) which posts a sticky issue on detected mismatches.
 
 8. **Versioned-major COPR dep packages mirror upstream's CDN model** -- our `hellaenergy/o3de-dependencies` Stage 2 packages are named `o3deNNNN-<dep>` (e.g. `o3de2605-spirv-cross`, `o6de2605-dxc-spirv`, `o3de2605-mcpp-az`), with NNNN matching the engine package's `o3deNNNN` major. Each engine major's spec has `Requires:` lines for its own version of these packages, so installing `o3de2605` and a future `o3de2610` side-by-side gives each engine its own dep set without ABI skew. Mirrors Fedora's postgresql10/postgresql10-server family pattern in the main repo.
 

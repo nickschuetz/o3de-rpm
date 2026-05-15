@@ -90,13 +90,29 @@ Patch0012 is the v2 child-side watchdog after the v1 prctl approach was withdraw
 | 0012 | `Code/Tools/AssetProcessor/AssetBuilder/main.cpp` | **v2 (active).** Adds `StartParentDeathWatchdog()` to AssetBuilder's `main()` -- detached thread polls `getppid()` every 2 seconds, calls `_exit(0)` when the parent PID changes (reparented to PID 1 / systemd-user because AP died). Independent of caller threading. POSIX (Linux + Mac) only; Windows port deferred. v1 (`m_tetherLifetime = true` enabling `prctl(PR_SET_PDEATHSIG)`) was withdrawn 2026-05-12 after runtime test showed every builder SIGTERM'd within ~21 ms of fork because BuilderManager forks from short-lived TaskWorker threads. v1 patch file kept in `sources/` as reference. Memory: `project_prctl_pdeathsig_thread_gotcha.md`. | **yes** -- focused fix, ~12 LOC, clear repro (kill -9 AP; before: builders persist with PPID 1 indefinitely; after: builders detect reparenting and exit within 2 s). Companion artifacts under `upstream-drafts/` stage the GitHub issue + cross-linked PR drafts. |
 | 0013 | `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` + `Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/PAL_linux.cmake` + `Gems/Atom/RHI/Vulkan/Code/Source/RHI/Instance.cpp` | three-hunk Stage 1 gate for the vulkan-validationlayers swap (`LY_USE_SYSTEM_VULKAN_VALIDATION_LAYERS`): skip the `ly_associate_package` line, leave `VULKAN_VALIDATION_LAYER` unset (so `${VULKAN_VALIDATION_LAYER}` in the gem's BUILD_DEPENDENCIES expands to nothing), and flip the `VK_LAYER_PATH` SetEnv overwrite flag from 1 to 0 so distro/Flatpak launchers pre-setting that env var win over the engine's exeDirectory default. Validated end-to-end on build 10457745 (2026-05-13/14, all three chroots green). | **as part of the umbrella PR alongside Patch0006/0009** -- same pattern, runtime-only dep so the system_X gate is a single-flag distro-packager convenience |
 
-### Upstream PR backlog
+### Upstream PR backlog -- status
 
-Submission stays parked until Nick signals the project is past the experimental stage (see `MEMORY.md`), but the candidates above are pre-vetted. When Nick is ready:
+This section was originally pre-flight planning. As of 2026-05-14/15 several PRs have actually been filed and merged. Current state:
 
-- **0001, 0002, 0004, 0005, 0007** are ready to submit as individual PRs. Each is small, has clear motivation, and a maintainer can review it in 10 minutes. Recommend submitting these *first* — they have the least carrying cost for the upstream maintainers and unlock the most "we can stop carrying this" wins for o3de-rpm. (0007 in particular finishes a migration upstream already started in the same file — even cleaner pitch.)
-- **0003** would benefit from a maintainer conversation first — the patch touches the bundled-Python lifecycle which is sensitive territory. Pitch it as an issue ("here's the read-only-engine venv problem, here's our solution shape") before the PR.
-- **0006** should *not* go upstream as a one-package change. Instead, when the next several Stage 1 migrations have been activated and validated, propose a single "Add `LY_USE_SYSTEM_<X>` opt-out convention for Linux distro packagers" PR that introduces the gating pattern across all the packages with system equivalents. That's a coherent design proposal upstream can evaluate; one-package gating is harder to motivate.
+**Merged to `o3de/o3de:development`** (carry-patches retire post-release when our snapshot pin moves):
+- Patch0001 (clang21 `-Wno-error=`) -- [o3de/o3de#19748](https://github.com/o3de/o3de/pull/19748)
+- Patch0002 (manifest.py `O3DE_ENGINE_PATH`) -- [o3de/o3de#19751](https://github.com/o3de/o3de/pull/19751)
+- Patch0005 (AzQtComponents title propagation) -- [o3de/o3de#19750](https://github.com/o3de/o3de/pull/19750)
+- Patch0007 (libtiff C99 typedefs) -- [o3de/o3de#19734](https://github.com/o3de/o3de/pull/19734)
+- Patch0008 (drop AzCore `<Lua/lobject.h>` include) -- [o3de/o3de#19733](https://github.com/o3de/o3de/pull/19733)
+- Also: Microphone PAL libsamplerate gate -- [o3de/o3de#19737](https://github.com/o3de/o3de/pull/19737)
+- Plus an AR-unblocker we filed during integration testing: ParticleBuilder cold-cache JobDependency fix -- [o3de/o3de#19756](https://github.com/o3de/o3de/pull/19756) merged 2026-05-15 (not a carry-patch; a new engine-side fix discovered via Tier 9)
+
+**Still open / in review**:
+- Patch0004 / [o3de/o3de#19752](https://github.com/o3de/o3de/pull/19752) (LYPython sdist for INSTALLED_ENGINE) -- nick-l-o3de investigating "larger problem"; let him lead.
+- Patch0012 v2 / [o3de/o3de#19747](https://github.com/o3de/o3de/pull/19747) (AssetBuilder parent-death watchdog) -- nick-l-o3de said "okay with accepting this for now" 2026-05-13; gentle poke if quiet.
+- [o3de/o3de#19746](https://github.com/o3de/o3de/pull/19746) (ProcessWatcher prctl doc comment) -- doc-only; CI flaky pending #19756's effect across AR.
+- Issue [o3de/o3de#19745](https://github.com/o3de/o3de/issues/19745) (BuilderManager design discussion).
+
+**Held until post-release** (per `MEMORY.md` upstream-baking rule + `project_2605_stabilization_branch_locked.md`):
+- Patch0003 (per-engine venv linkage / engine-id reconciliation in `get_python.sh`) -- sensitive bundled-Python territory; pitch as an issue first when bandwidth allows.
+- Patch0006 + Patch0009 + Patch0013 (LY_USE_SYSTEM_<X> cmake gates -- mikkelsen, poly2tri, vulkan-validation-layers) -- propose as a single umbrella "distro packager opt-out convention" PR with all activated swaps documented.
+- Patch0010 + Patch0011 (Lua 5.5 forward-compat) -- pitch as one Lua 5.5 compat bundle when upstream's bundled-Lua bump arrives.
 
 **Regeneration** when an upstream change makes a patch fail to apply (we hit this once on patch 0001):
 
@@ -117,7 +133,7 @@ make rpm-snapshot                # full -bb (profile only, ~30 min on a 32GB wor
 make rpm-snapshot-debug          # full -bb + o3deNNNN-debug subpackage (~2x build time)
 ```
 
-**A note on local-vs-COPR build times.** The "~30 min" above reflects the current Stage 1 + Stage 2 swap stack (13 Stage 1 system swaps + 3 Stage 2 -- mcpp/dxc/spirvcross -- as of 2026-05-12). Each swap removes a bundled-3p compile from the build, so build times have shortened substantially as the swap stack grew (was "~3-4 hours" in early-stage docs, "~70 min" by mid-2026). COPR builds still take 4-6 hours: shared hardware, no persistent ccache between builds, fresh mock chroot per submission. Use local rebuilds for the development iteration loop (test a spec change, rebuild, dnf reinstall, re-test in ~35 min total); use COPR for promotion of validated artifacts to testers.
+**A note on local-vs-COPR build times.** The "~30 min" above reflects the current Stage 1 + Stage 2 swap stack (14 Stage 1 system swaps + 3 Stage 2 -- mcpp/dxc/spirvcross -- as of 2026-05-14). Each swap removes a bundled-3p compile from the build, so build times have shortened substantially as the swap stack grew (was "~3-4 hours" in early-stage docs, "~70 min" by mid-2026). COPR builds still take 4-6 hours: shared hardware, no persistent ccache between builds, fresh mock chroot per submission. Use local rebuilds for the development iteration loop (test a spec change, rebuild, dnf reinstall, re-test in ~35 min total); use COPR for promotion of validated artifacts to testers.
 
 Or run the test harness end-to-end:
 
