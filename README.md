@@ -274,6 +274,10 @@ What needs to happen: align the spec with O3DE's existing packaging conventions,
 
 See [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) for the staged plan. Six stages from system-lib migration through OpenSSL 3.x port, license-clean DXC rebuild, debuginfo subpackages, and Bundling Library Exception filing, before the package review submission.
 
+### Other Fedora-derivative downstreams (option-value)
+
+The spec is RPM / DNF / mock-conformant with no Fedora-edition-specific assumptions, so it should build on any Fedora-derivative that consumes Fedora sources via the standard packaging pipeline. We don't currently target any beyond the three covered above (F44, rawhide, CS10), and we won't pre-emptively add chroots, but if a downstream community (e.g. the [Fedora Hummingbird SIG](https://fedoraproject.org/wiki/Hummingbird) targeting cloud-native builders, or any other RPM-based derivative) signals a felt need for an O3DE-on-X variant, the spec is ready to be a starting point. Likely-narrow shapes for those follow-ons: headless server-launcher containers, or asset-bake CI images that ship `o3de2605` without the Editor/UI subset. The wider Editor + GUI workload is a poor fit for distroless / minimal-image targets.
+
 To consume (end users):
 
 ```bash
