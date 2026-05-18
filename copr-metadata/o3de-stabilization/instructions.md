@@ -29,6 +29,11 @@ The package follows a **versioned-major naming convention** (`o3deNNNN` where NN
 - **Patch0012 v2 (AssetBuilder watchdog)** -- child-side parent-death watchdog in `AssetBuilder/main.cpp` that prevents `AssetBuilder` orphans from accumulating across `AssetProcessor` crashes / restarts. The watchdog polls `getppid()` every 2 seconds; when the parent process changes (the builder has been reparented because AP died), the builder exits cleanly. Active in this channel as of the 2026-05-12 promotion; upstream-tracked as [o3de/o3de#19747](https://github.com/o3de/o3de/pull/19747).
 - **CS10 (CentOS Stream 10) chroot** -- with_opts gap fully closed 2026-05-14; CS10 now runs the same 18 swap activations as F44 + rawhide. **First CS10 stabilization build with the full pack: 10460860 GREEN** (2026-05-14). CS10's `additional_repos` includes both `https://dl.fedoraproject.org/pub/epel/10/Everything/x86_64/` (for `assimp-devel`, `google-benchmark-devel`, `poly2tri-devel`, `libunwind-devel`) and `copr://hellaenergy/o3de-dependencies` (for Stage 2 packages).
 
+**Cherry-picks landed in stabilization/26050 on 2026-05-18** (absorbed in builds from 2026-05-18 forward, NVR `2605.0^20260518git2956111` and later):
+- **[PR #19758](https://github.com/o3de/o3de/pull/19758)** (MSVC 2026 compile fixes) -- the 26.05.0 Windows release-blocker per [issue #19754](https://github.com/o3de/o3de/issues/19754) has been mitigated.
+- **[PR #19757](https://github.com/o3de/o3de/pull/19757)** (preWarm particle migrated to new OPS formats) -- 2026-05-16 land.
+- **[PR #19739](https://github.com/o3de/o3de/pull/19739)** (project-local AzTestRunner for SDK-installed builds).
+
 **Upstream patches MERGED this cycle** (will retire from our local patch series on next snapshot rebase):
 - **[PR #19733](https://github.com/o3de/o3de/pull/19733)** (AzCore Lua include cleanup; MERGED 2026-05-08) -- our Patch0008 becomes redundant.
 - **[PR #19734](https://github.com/o3de/o3de/pull/19734)** (libtiff C99 typedefs; MERGED 2026-05-08) -- our Patch0007 becomes redundant.

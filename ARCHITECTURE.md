@@ -22,7 +22,7 @@ flowchart TB
     subgraph SPEC["o3de.spec"]
         BC{"--with snapshot ?"}
         SHA["sha256sum -c verify"]
-        AUTO["%autosetup -p1<br/>+ Patch0001..0013<br/>(6 TIMEBOMB: 0001/0002/0005/0007/0008/0012)"]
+        AUTO["%autosetup -p1<br/>+ Patch0001..0013 (default 13 applied)<br/>(6 TIMEBOMB: 0001/0002/0005/0007/0008/0012)<br/>--with development_snapshot -> 7 applied<br/>(gates the 6 merged-upstream)"]
         TP["%bcond_with thirdparty_*<br/>extract bundles to LY_3RDPARTY_PATH"]
         BUILD["cmake Ninja Multi-Config<br/>profile + (debug if --with debug)"]
         INST["cmake --install<br/>+ shebang normalization<br/>+ Stage 2 binary-overlay symlinks<br/>(system_spirvcross, system_dxc)<br/>+ Stage 2 library-link (system_mcpp)"]

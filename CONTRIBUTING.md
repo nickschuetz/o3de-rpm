@@ -45,7 +45,7 @@ Two files **deliberately excluded from git** as working notes (see `.git/info/ex
 
 Read `o3de.spec` top-to-bottom. The shape is:
 
-1. **Build-mode toggles** (`%bcond_with`) — `snapshot`, `debug`, `thirdparty_*`
+1. **Build-mode toggles** (`%bcond_with`) — `snapshot`, `stabilization`, `debug`, `thirdparty_*`, plus `development_snapshot` (added 2026-05-18; gates the 6 carry-patches whose upstream equivalents have merged into `o3de/development` so they don't fail-to-apply when building against dev-branch tip; default OFF so stabilization channel builds are unchanged; requires a matching `--rpmbuild-with development_snapshot` on the COPR project's chroots because `--with` flags don't propagate through SRPM rebuild — see [[feedback_copr_with_propagation]])
 2. **Version pinning** — `stable_tag`, `engine_cmake_version` (derived 3-component for cmake), snapshot pins
 3. **Versioned-naming macros** (derived from `stable_tag`) — `o3de_major_tag` (e.g. `2605`), `o3de_pkgname` (e.g. `o3de2605`), `o3de_install_prefix` (e.g. `/opt/O3DE/26.05.0`). Bump `stable_tag` to `2610.0` and the spec automatically produces an `o3de2610` package at `/opt/O3DE/26.10.0/` — no other edits needed. Subpackages (`%{name}-debug`, `%{name}-devel`) inherit the versioning automatically. **NOT versioned: `engine.json`'s `engine_name` field.** The cmake `-DO3DE_INSTALL_ENGINE_NAME=o3de` literal sets engine.json's identity to upstream's default — that's what gem manifests' `compatible_engines` lists check against (e.g. `["o3de-sdk>=2.3.0", "o3de>=2.3.0"]`). Setting engine_name to a versioned form would reject every existing third-party gem. See the comment block above the `cmake \\` invocation in the spec for the trade-off detail.
 4. **rpm build behavior** — `debug_package`, payload compression, `__requires_exclude` (load-bearing for DXC's bundled libclang/libtinfo — see in-spec comment + `MEMORY.md` if applicable)
@@ -64,7 +64,7 @@ If you change *anything* in the spec or sources/, **update the README's layout b
 
 ## Patches
 
-Thirteen active patches in `sources/`. **Six TIMEBOMBs** -- upstream-equivalents merged to `development` but not to `stabilization/26050` (our snapshot source branch); they retire when stabilization absorbs the changes:
+Thirteen active patches in `sources/`. **Six TIMEBOMBs** -- upstream-equivalents merged to `development` but not to `stabilization/26050` (our snapshot source branch); they retire when stabilization absorbs the changes. The new `--with development_snapshot` bcond (2026-05-18) gates all six off so `make copr-snapshot-development` can build against dev-branch tip without `%prep` failing to apply them — local SRPM-build only; for COPR you also need `--rpmbuild-with development_snapshot` on the chroot:
 
 - Patch0001 (clang21 `-Wno-error=`) <- [#19748](https://github.com/o3de/o3de/pull/19748) merged 2026-05-14
 - Patch0002 (manifest.py `O3DE_ENGINE_PATH`) <- [#19751](https://github.com/o3de/o3de/pull/19751) merged 2026-05-14

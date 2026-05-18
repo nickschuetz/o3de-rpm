@@ -6,6 +6,52 @@ This file is intentionally a living scratchpad. Entries get added or removed as 
 
 ---
 
+## 2026-05-18 session capture
+
+Cherry-picks landed + release blocker mitigated + new bcond shipped.
+
+### Wins
+
+- **Release blocker [#19754](https://github.com/o3de/o3de/issues/19754) mitigated.** [PR #19758](https://github.com/o3de/o3de/pull/19758) (MSVC 2026 compile fixes) merged directly to `stabilization/26050` by nick-l-o3de at 2026-05-18 14:42 UTC. Issue #19754 still technically OPEN (probably paperwork) but the fix has landed. 2026-05-27 release date no longer AT RISK.
+- **Three cherry-picks landed in stabilization/26050 today.** Tip moved `246b46f` -> `295611159e6b`:
+  - [#19757](https://github.com/o3de/o3de/pull/19757) preWarm particle migrated to new OPS formats (2026-05-16, Mateusz Zak)
+  - [#19758](https://github.com/o3de/o3de/pull/19758) MSVC 2026 compile fixes (2026-05-18, the release-blocker)
+  - [#19739](https://github.com/o3de/o3de/pull/19739) project-local AzTestRunner for SDK-installed builds (2026-05-18, Mateusz Zak)
+- **[PR #19746](https://github.com/o3de/o3de/pull/19746) merged into development** by nick-l-o3de this morning (2026-05-17 11:40 UTC; review + merge within 30s of the commit landing). ProcessWatcher prctl threading doc -- our (a) of the four-level [#19745](https://github.com/o3de/o3de/issues/19745) fix sequence. Total upstream merges in May now stands at **9 PRs**.
+- **Issue [#19745](https://github.com/o3de/o3de/issues/19745) status update posted.** Body edited to flip `Status: draft PR ready` -> `Status: MERGED` lines for (a) and (b); status comment posted noting both #19746 + #19747 merged, (c) BuilderManager refactor + (d) ProcessLauncher refactor remain as future architectural work. Lifecycle decision deferred to nick-l.
+- **New `--with development_snapshot` bcond shipped.** Gates 6 carry-patches whose upstream equivalents have merged into o3de/development but NOT into stabilization/26050:
+  - Patch0001 (#19748 clang21), Patch0002 (#19751 manifest.py engine path), Patch0005 (#19750 AzQtComponents title), Patch0007 (#19734 libtiff C99), Patch0008 (#19733 Lua lobject), Patch0012 (#19747 AssetBuilder watchdog).
+  - Default OFF so stabilization / snapshot / experimental channels apply all 13 patches as before.
+  - `Makefile`'s `copr-snapshot-development` target sets the flag automatically via `SNAPSHOT_REF_EXTRA_BCOND`.
+  - Verified spec parse: 13 patches default, 7 with `--with development_snapshot`.
+- **PR [#19752](https://github.com/o3de/o3de/pull/19752) thread advanced.** Posted two further clarifications (Windows MSI scope question + setup.py vs PEP 660 / `.egg-info`-into-source-tree mechanism). nick-l replied confirming MSI ships everything (not just binaries); diagnosis matches our EROFS empirically. Discord side-thread (2026-05-18) had nick-l writing he was "under the impression" that `pip install -e` doesn't modify the source folder -- which holds for PEP 660 packages but NOT legacy setup.py packages. Discord follow-up draft ready (single-paragraph form); declined to send pending nick-l circling back to the PR.
+- **PR #19725 (UV transform Vulkan fix) validation initiated.** Author Styx-Hc, merged to development 2026-05-08 by nick-l-o3de. NOT in stabilization yet (verified via blob-SHA mismatch on Transform2DFunctor.cpp). Linux is exclusively Vulkan so the bug actively affected Linux users for any UV-transformed material. JT [SCB_GameDesign] clarified Mac/iOS are not officially supported per SIG-Platform; Qt 6 migration is the path to "fully usable" by Fall release -- so Mac validation deferred to 26.10.0. Linux test per nick-l-o3de: "go into mat editor and mess with uv offset" -- if it does nothing, broken; if it transforms, fixed. We fired `make copr-snapshot-development` against dev tip; the new bcond makes this build path actually work.
+- **Stabilization rebuild 10476214 is running** (absorbs cherry-picks; supersedes the canceled 10476087). Build ID surfaced via `copr-cli list-builds hellaenergy/o3de-stabilization`.
+- **Snapshot-development rebuild 10476223 FAILED at SRPM rebuild** -- the local SRPM (built with `--with development_snapshot` and only 7 patches) was rejected by COPR's mock chroot because COPR re-evaluated the spec with the chroot's default bconds (all OFF) and tried to apply all 13 patches; the 6 gated-off patches threw `Bad file: /builddir/build/SOURCES/00NN-*.patch: No such file or directory`. **This is a manifestation of [[feedback_copr_with_propagation]]** -- `--with` flags don't carry through SRPM rebuild. Recovery requires setting `--rpmbuild-with development_snapshot` on the chroot config via `copr-cli edit-chroot`. **Captured in commit `6187fb1` doc updates** but not yet resubmitted.
+
+### Gotchas caught
+
+- **`make copr-stabilization-and-test` uses spec's hardcoded `snapshot_commit`, not a fresh fetch.** First attempt this morning re-built against old `246b46f` (the pre-cherry-pick commit), which would have produced the same content as build 10460860 (no value added). Caught after build 10476087 already started running on COPR; canceled via `copr-cli cancel` per [[feedback_cancel_doomed_copr_builds]] (saved ~5h CI runner time). The right workflow is: bump `snapshot_commit` in the spec FIRST, then run `make copr-stabilization-and-test`. Recovery sequence: `cd sources && ./make-snapshot-tarball.sh stabilization/26050` -> paste new commit/date/sha into spec macros at lines 133-135 -> commit -> run stabilization target.
+- **Snapshot-against-development is structurally broken without the new bcond.** First `copr-snapshot-development` attempt (build 10475746) failed at `%prep` in ~4 minutes with `1 out of 1 hunk FAILED -- saving rejects to file cmake/Platform/Common/Clang/Configurations_clang.cmake.rej` -- Patch0001's upstream equivalent ([#19748](https://github.com/o3de/o3de/pull/19748)) is already in development tip, so the patch fails to apply. Six of our 13 carry-patches are in this state. The new `--with development_snapshot` bcond is the fix.
+- **NEW (2026-05-18): `--with` flags don't propagate through COPR's SRPM rebuild even with the spec-side bcond gate in place.** Build 10476223 failed because COPR ignored the local `--with development_snapshot` flag baked into the SRPM (only 7 patches inside) and re-evaluated the spec under chroot defaults (all 13 expected). The full fix is two-sided: (a) the spec-side `%bcond_with development_snapshot` is the SRPM-build half (✓ shipped in commit `6187fb1`); (b) the chroot-config-side `--rpmbuild-with development_snapshot` is the COPR-rebuild half (NOT shipped yet -- requires `copr-cli edit-chroot --rpmbuild-with development_snapshot hellaenergy/o3de-snapshot/fedora-44-x86_64` etc. per chroot). Also: this needs to be UNSET when subsequent builds in the same project target a non-development ref like the `qt6` branch (those still want all 13 patches).
+
+### Doc updates this session
+
+- spec: `%changelog 2605.0-63` + new bcond `%bcond_with development_snapshot` + six `%if %{without development_snapshot}` blocks around merged-upstream patches
+- Makefile: `SNAPSHOT_REF_EXTRA_BCOND` variable + wired into `srpm-snapshot-ref` + `copr-snapshot-development`
+- SBOM bumped 62 -> 63
+- This entry + bcond mentions in README / CONTRIBUTING / ARCHITECTURE / FLATPAK_NOTES (mirror)
+- Memory: `user_discord_handle.md` (Nick = "Hellaenergy [Red Hat]" on Discord)
+
+### Loaded for next session
+
+- Wait for stabilization rebuild (4-6 hours) -- new COPR build ID will surface when submission completes; if green, that's the 26.05.0-readiness baseline with cherry-picks absorbed.
+- Wait for snapshot-development rebuild (4-6 hours) -- if green, install + open Material Editor + modify UV offset on a material; visual confirmation that PR #19725 fix transferred to Linux. If broken, file finding back on the PR thread.
+- Open question on what to do with [PR #19725](https://github.com/o3de/o3de/pull/19725): not cherry-picked into stabilization today. Either nick-l doesn't consider it critical enough for 26.05.0, or it's coming in a later batch. Either way, our validation result feeds back to the cherry-pick decision.
+- nick-l's Discord question about `pip install -e` setup.py vs PEP 660 still open; he hasn't circled back to PR #19752 since the 2026-05-16 thread.
+
+---
+
 ## 2026-05-14 session capture (busy day)
 
 Built on yesterday's Patch0013 v4 GREEN result. Today was promotion + upstream-merge + Tier 9 day.
