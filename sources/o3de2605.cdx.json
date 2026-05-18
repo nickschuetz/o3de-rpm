@@ -10,7 +10,7 @@
         {
           "type": "application",
           "name": "o3de-rpm",
-          "version": "2605.0-62",
+          "version": "2605.0-63",
           "description": "O3DE RPM packaging spec (versioned package: o3de2605)"
         }
       ]
@@ -19,7 +19,7 @@
       "bom-ref": "pkg:rpm/fedora/o3de2605@2605.0-62",
       "type": "application",
       "name": "o3de2605",
-      "version": "2605.0-62",
+      "version": "2605.0-63",
       "description": "Open 3D Engine 26.05 line \u2014 real-time, multi-platform 3D engine",
       "licenses": [
         {

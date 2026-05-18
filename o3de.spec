@@ -83,6 +83,19 @@
 %bcond_with system_vulkan_validation_layers
 %bcond_with system_zlib
 
+# Snapshot-against-o3de/development builds must skip the carry-patches whose
+# upstream equivalents have already landed in development. Each such patch is
+# wrapped below in `%%if %%{without development_snapshot}` so its declaration
+# (and %%autosetup application) drops out when this flag is set. Default OFF
+# so stabilization / snapshot / experimental channels (which build against
+# stabilization/26050, where these merges have NOT yet been cherry-picked)
+# remain unchanged. Wired into the Makefile's `copr-snapshot-development`
+# target only -- other ref-based snapshot builds (e.g., qt6) still apply
+# every patch unless their own audit says otherwise. See
+# project_branch_alignment_before_retirement.md for the gotcha pattern that
+# motivated this gate.
+%bcond_with development_snapshot
+
 # ── Version pinning ──────────────────────────────────────────────────────────
 %global stable_tag      2605.0
 # Compute with: sha256sum o3de_<tag>_lfs.tar.gz
@@ -117,9 +130,9 @@
 # defaults only apply if no --define was passed. Lets parameterized
 # targets like `make srpm-snapshot-ref REF=qt6` override the snapshot
 # pin via --define snapshot_commit=... without editing the spec.
-%{?!snapshot_commit:%global snapshot_commit 246b46f500e06eb819421e12644745e95872bb28}
-%{?!snapshot_date:%global snapshot_date 20260425}
-%{?!snapshot_sha256:%global snapshot_sha256 80142f1934c3938cf9422f8f4376426084a0443df3ed80c400ff1b0610c98718}
+%{?!snapshot_commit:%global snapshot_commit 295611159e6bea462d65871bc03b35aa52f48da2}
+%{?!snapshot_date:%global snapshot_date 20260518}
+%{?!snapshot_sha256:%global snapshot_sha256 96a04e5b7a23a6b4386bf070eb8d216371388979643865d41d661ca1812d141a}
 %global shortcommit %(c=%{snapshot_commit}; echo ${c:0:7})
 
 # Channel-identifying suffix for the version strings the GUI displays.
@@ -265,11 +278,23 @@ Source24:       o3de-128x128.png
 Source25:       o3de-256x256.png
 
 # Patches against the upstream tree (apply with -p1).
+# Patch0001 -- merged upstream as o3de/o3de#19748 (in development, NOT in
+# stabilization/26050). Active for stabilization builds; gated off when
+# building development snapshots so it doesn't fail-to-apply against a tree
+# that already contains the change.
+%if %{without development_snapshot}
 Patch0001:      0001-clang21-warning-suppressions.patch
+%endif
+# Patch0002 -- merged upstream as o3de/o3de#19751 (development only).
+%if %{without development_snapshot}
 Patch0002:      0002-manifest-py-engine-path-detection.patch
+%endif
 Patch0003:      0003-get-python-sh-rpm-venv-fixes.patch
 Patch0004:      0004-lypython-non-editable-pip-for-installed-engine.patch
+# Patch0005 -- merged upstream as o3de/o3de#19750 (development only).
+%if %{without development_snapshot}
 Patch0005:      0005-windowdecorationwrapper-propagate-initial-title.patch
+%endif
 
 # Migrate every remaining legacy libtiff typedef use (uint8/uint16/uint32)
 # to the standard C99 (`*_t`) names across O3DE's two <tiffio.h> consumers:
@@ -292,7 +317,9 @@ Patch0005:      0005-windowdecorationwrapper-propagate-initial-title.patch
 # stabilization/26050 still showed 9+33 legacy typedef hits in the
 # two target files. See project_branch_alignment_before_retirement.md
 # memory note for the gotcha pattern.
+%if %{without development_snapshot}
 Patch0007:      0007-libtiff-c99-typedefs.patch
+%endif
 
 # Stage 1 system-library swap patches — each gates one upstream
 # ly_associate_package(...) line on a new LY_USE_SYSTEM_<X> cmake var,
@@ -316,7 +343,9 @@ Patch0006:      0006-builtinpackages-gate-mikkelsen-on-system.patch
 # Same retirement-gating story as Patch0007 -- stays active until
 # stabilization absorbs the upstream change. See
 # project_branch_alignment_before_retirement.md memory note.
+%if %{without development_snapshot}
 Patch0008:      0008-azcore-drop-lua-lobject-include.patch
+%endif
 
 # Gate poly2tri's bundled fetcher in the PhysX Gem PAL files (PhysX4 + PhysX5,
 # Linux x86_64) on `LY_USE_SYSTEM_POLY2TRI`. Pairs with Findpoly2tri-system.cmake
@@ -389,7 +418,11 @@ Patch0011:      0011-luaide-watchespanel-lua-5-5-numtags-compat.patch
 # is retained in sources/ as a reference for the failed approach.
 # Memory: project_assetbuilder_orphan_lifecycle_bug.md +
 # project_prctl_pdeathsig_thread_gotcha.md.
+#
+# Merged upstream as o3de/o3de#19747 (in development, NOT in stabilization/26050).
+%if %{without development_snapshot}
 Patch0012:      0012-v2-assetbuilder-parent-watchdog.patch
+%endif
 
 # Patch0013 -- Stage 1 system_vulkan_validation_layers swap.
 # Gates the bundled vulkan-validationlayers ly_associate_package line
@@ -1379,6 +1412,21 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Mon May 18 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-63
+- snapshot_commit bump to stabilization/26050 tip 295611159e6b (2026-05-18).
+  Absorbs three cherry-picks that landed today: #19757 (preWarm particle
+  migrated to new OPS formats), #19758 (MSVC 2026 compile fixes -- the
+  26.05.0 release-blocker per #19754), #19739 (project-local AzTestRunner
+  for SDK-installed builds).
+- Add `--with development_snapshot` bcond that gates the 6 carry-patches
+  whose upstream equivalents have merged into o3de/development:
+  Patch0001 (#19748 clang21), Patch0002 (#19751 manifest.py engine path),
+  Patch0005 (#19750 AzQtComponents title), Patch0007 (#19734 libtiff
+  C99), Patch0008 (#19733 Lua lobject), Patch0012 (#19747 AssetBuilder
+  watchdog). Default OFF so stabilization / snapshot / experimental
+  channels continue to apply all 13 patches. Wire into Makefile so
+  `make copr-snapshot-development` sets the flag automatically.
+
 * Fri May 15 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-62
 - Tag Patch0012 v2 (AssetBuilder parent-death watchdog) as TIMEBOMB
   after upstream merge: o3de/o3de#19747 landed on development

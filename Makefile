@@ -185,6 +185,12 @@ srpm-snapshot:
 #   "  %global snapshot_date   <YYYYMMDD>"
 #   "  %global snapshot_sha256 <sha256>"
 srpm-snapshot-ref: REF ?= development
+# Extra bcond flags appended to the rpmbuild line. Default empty.
+# srpm-snapshot-development sets this to `--with development_snapshot`
+# so the 6 carry-patches whose upstream equivalents have merged into
+# o3de/development get gated off (otherwise %prep fails-to-apply).
+# See o3de.spec's `%bcond_with development_snapshot` comment block.
+SNAPSHOT_REF_EXTRA_BCOND ?=
 srpm-snapshot-ref:
 	$(SRPM_CLEAN)
 	@echo ">> Generating snapshot tarball from o3de/o3de:$(REF)"
@@ -206,7 +212,7 @@ srpm-snapshot-ref:
 	    -e "s|^%{?!snapshot_sha256:%global snapshot_sha256 .*$$|%{?!snapshot_sha256:%global snapshot_sha256 $$sha}|" \
 	    /tmp/o3de-snapshot-ref.$$$$.spec; \
 	echo ">> Building SRPM (--define overrides apply at SRPM-build; baked values survive COPR's re-eval)"; \
-	rpmbuild -bs --with snapshot \
+	rpmbuild -bs --with snapshot $(SNAPSHOT_REF_EXTRA_BCOND) \
 	  --define "snapshot_commit $$commit" \
 	  --define "snapshot_date $$date" \
 	  --define "snapshot_sha256 $$sha" \
@@ -218,7 +224,7 @@ srpm-snapshot-qt6:
 	$(MAKE) srpm-snapshot-ref REF=qt6
 
 srpm-snapshot-development:
-	$(MAKE) srpm-snapshot-ref REF=development
+	$(MAKE) srpm-snapshot-ref REF=development SNAPSHOT_REF_EXTRA_BCOND="--with development_snapshot"
 
 # copr-snapshot-ref: submit a snapshot-ref SRPM to hellaenergy/o3de-snapshot.
 # Same parameterization as srpm-snapshot-ref. The snapshot project's
@@ -233,7 +239,7 @@ copr-snapshot-qt6:
 	$(MAKE) copr-snapshot-ref REF=qt6
 
 copr-snapshot-development:
-	$(MAKE) copr-snapshot-ref REF=development
+	$(MAKE) copr-snapshot-ref REF=development SNAPSHOT_REF_EXTRA_BCOND="--with development_snapshot"
 
 # srpm-stabilization: snapshot + the stabilization channel marker. This
 # is what the community testers' channel ships. The marker is what
