@@ -29,7 +29,7 @@ The longer-term goal is inclusion in Fedora proper. The roadmap to that lives in
 | `FEDORA_ROADMAP.md` | staged plan for Fedora inclusion |
 | `BUNDLED_LIBRARIES.md` | per-bundle license / version / migration status |
 | `sources/` | rpm SOURCES dir (sources + patches; rpm flattens these) |
-| `tests/` | post-install integration test suite (Tiers 1–8) |
+| `tests/` | post-install integration test suite (Tiers 1–10) |
 | `.github/workflows/` | CI: spec lint, RPM-install tests |
 
 Two files **deliberately excluded from git** as working notes (see `.git/info/exclude`):
@@ -239,7 +239,7 @@ The full RPM build itself is too heavy for free GitHub runners (~25 GB output, m
 - Anything affecting `o3de.spec` and how it builds
 - Spec patches against upstream O3DE source (`sources/000N-*.patch`)
 - The launcher wrapper, desktop entries, metainfo, icons, SBOM
-- Tests (Tiers 1–8) and CI workflows
+- Tests (Tiers 1–10) and CI workflows
 - Documentation that supports any of the above
 
 **Not in scope (different repo or upstream effort):**

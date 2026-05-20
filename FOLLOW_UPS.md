@@ -6,6 +6,34 @@ This file is intentionally a living scratchpad. Entries get added or removed as 
 
 ---
 
+## 2026-05-20 session capture
+
+Tier 10 staged but blocked on upstream LFS. Android-Asset tar.exe corruption diagnosed and filed.
+
+### Filed upstream
+
+- **[o3de/o3de#19773](https://github.com/o3de/o3de/issues/19773)** -- Android-Asset workflow silently uploads truncated artifacts (tar.exe / libarchive false positive on Windows runners). Root cause: [libarchive#1630](https://github.com/libarchive/libarchive/issues/1630) -- Windows NTFS truncated 48-bit pseudo-inode collision triggers "Can't add archive to itself" false positive that silently skips files while tar exits 0. Cascading: poisoned archive uploaded, next run downloads it, AP fails on missing files, new poisoned archive uploaded, repeat. Issue includes inline diffs for two fixes: option 1 (workflow YAML detect-and-fail, applies to both android-build.yml + windows-build.yml), option 2 (drop --zeroAnalysisMode from Android asset_profile build config). Labels: kind/bug, sig/build, platform/windows, platform/android, feature/build.
+
+### Tier 10 status
+
+- **Infrastructure committed:** `tests/newspaper-delivery-build-test.sh` (200+ lines, pinned to nickschuetz/NewspaperDeliveryGame@80d94e7, 2-pass absorber for AP cold-cache quirk), `make test-newspaper-delivery` target, Tier 10 row added to `tests/README.md` (marked BLOCKED), Tier 10 node added to ARCHITECTURE.md diagram.
+- **Blocked on:** [o3de/NewspaperDeliveryGame#19](https://github.com/o3de/NewspaperDeliveryGame/issues/19). Atomic mint-and-fetch test 2026-05-20 15:31 UTC reproduced the 403: Batch API returns 200 with fresh signed URL; CloudFront returns 403 AccessDenied (RequestId AZJ4F76QT52WX2N1). Mike_C self-claimed and is fixing, "inbetween things atm" -- no ETA but he committed to GHI updates. Don't nudge.
+- **What's recoverable without LFS:** project structure (300 non-LFS files: 159 .material + 42 .prefab + 29 Media/*.png + 18 .json + 13 .scriptcanvas + 6 .setreg + 6 .cmake + assorted configs). Could run a degraded smoke test that registers the project + runs AP over the non-LFS subset (would fail on .fbx/.png/.actor LFS pointers but validate the script_only side of the project). Not implemented; would need to consider whether the project.json `engine_version: 4.2.0` declaration is even compatible with 26.05.0 schema first. Holding for LFS fix.
+
+### Trigger sequence on LFS unblock
+
+1. Retry `git lfs pull` in `/home/nschuetz/o3de-test-projects/NewspaperDeliveryGame` -- if 200 OK on at least one signed URL, unblock confirmed.
+2. Drop the BLOCKED annotation from Tier 10's row in `tests/README.md`.
+3. Run `make test-newspaper-delivery` for the actual validation.
+4. If the smoke passes: commit the unblock + send Mike_C a thank-you. If it fails: capture error, file a separate issue (don't reopen #19 since that one was specifically about LFS).
+5. Consider whether engine_version 4.2.0 vs 26.05.0 mismatch warrants a PR to bump the project.json (sig-build / sig-content concern -- not ours).
+
+### Note on community sample maintenance gap (Mike_C TSC 2026-05-20)
+
+Mike_C raised at TSC: API/ABI changes per engine release mean community sample projects (NewspaperDeliveryGame, multiplayersample, etc.) will silently rot unless volunteers maintain them. Sig-release thought process is "they're out there, people will look at them and try them" -- but the actual maintenance gap is real. This is a sig-build / sig-content structural issue, not ours to solve. Captured in [[project_o3de_sample_maintenance_gap]] memory note for future reference.
+
+---
+
 ## 2026-05-18 session capture
 
 Cherry-picks landed + release blocker mitigated + new bcond shipped.

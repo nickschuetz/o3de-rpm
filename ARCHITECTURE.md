@@ -83,12 +83,14 @@ flowchart TB
         T4["tests/asset-bake-test.sh<br/>Tier 7: system-swap library-health<br/>(SONAME + symbol + linkage smoke<br/>across all 14 Stage 1 swaps)"]
         T5["tests/ap-spawn-smoke-test.sh<br/>Tier 8: AP+builder runtime smoke<br/>(catches process-lifecycle bugs)"]
         T6["tests/multiplayersample-build-test.sh<br/>Tier 9: full MultiplayerSample build<br/>+ AP batch + GameLauncher smoke<br/>(opt-in; ~10-30 min)"]
+        T7["tests/newspaper-delivery-build-test.sh<br/>Tier 10: NewspaperDeliveryGame bake<br/>(script_only; LyShine + LandscapeCanvas<br/>+ WhiteBox + EMotionFX surface)<br/>(opt-in; ~10-20 min)"]
         T3[".github/workflows/test-installed.yml<br/>matrix: F44, rawhide, CS10, F45+, ...<br/>+ check-deps-drift.yml weekly cron"]
         DC1B -.-> T1
         DC1B -.-> T2
         DC1B -.-> T4
         DC1B -.-> T5
         DC1B -.-> T6
+        DC1B -.-> T7
         DC1B -.-> T3
         DC1C -.-> T1
         DC1C -.-> T2

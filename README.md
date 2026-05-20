@@ -359,7 +359,7 @@ make test-ui
 make test-ui-full
 ```
 
-Tier 6 (UI) uses Xvfb (virtual display) and Mesa lavapipe (software Vulkan in CI containers; real GPU on user workstations). Tier 7 (visual regression) and Tier 8 (render correctness) are documented as future work in `tests/README.md`.
+Tier 6 (UI) uses Xvfb (virtual display) and Mesa lavapipe (software Vulkan in CI containers; real GPU on user workstations). Tier 11 (visual regression) and Tier 12 (render correctness) are documented as future work in `tests/README.md`.
 
 ### Validate an arbitrary O3DE git ref end-to-end
 

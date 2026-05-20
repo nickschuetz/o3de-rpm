@@ -82,7 +82,7 @@ RPMBUILD_DEFINES = \
         trigger-tests copr-init \
         copr-metadata-pull copr-metadata-diff copr-metadata-push \
         check-deps-drift \
-        test test-setup test-full test-ui test-ui-full test-asset-bake test-ap-spawn test-multiplayer-sample test-branch clean
+        test test-setup test-full test-ui test-ui-full test-asset-bake test-ap-spawn test-multiplayer-sample test-newspaper-delivery test-branch clean
 
 help:
 	@awk '/^# / { sub(/^# /,"",$$0); print } /^[a-z][a-z0-9_-]*:/ && $$0 !~ /^\./' Makefile | head -40
@@ -788,6 +788,15 @@ test-ap-spawn:
 # script.
 test-multiplayer-sample:
 	tests/multiplayersample-build-test.sh
+
+# Tier 10 -- NewspaperDeliveryGame (Paper_Kid) build+bake smoke. Sister
+# tier to Tier 9 but a different project shape: script_only=true, single-
+# player, heavy LyShine + LandscapeCanvas + WhiteBox + EMotionFX surface,
+# no native C++ gem code. Clones from nickschuetz/NewspaperDeliveryGame
+# (fork) at a pinned SHA. Lower cost than Tier 9 (no native link).
+# NOT part of `make test`; explicit-only.
+test-newspaper-delivery:
+	tests/newspaper-delivery-build-test.sh
 
 # End-to-end driver: build a snapshot RPM from <REF> and test it.
 # Usage: make test-branch REF=stabilization/26050
