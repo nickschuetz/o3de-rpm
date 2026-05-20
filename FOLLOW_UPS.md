@@ -18,15 +18,14 @@ Tier 10 staged but blocked on upstream LFS. Android-Asset tar.exe corruption dia
 
 - **Infrastructure committed:** `tests/newspaper-delivery-build-test.sh` (200+ lines, pinned to nickschuetz/NewspaperDeliveryGame@80d94e7, 2-pass absorber for AP cold-cache quirk), `make test-newspaper-delivery` target, Tier 10 row added to `tests/README.md` (marked BLOCKED), Tier 10 node added to ARCHITECTURE.md diagram.
 - **Blocked on:** [o3de/NewspaperDeliveryGame#19](https://github.com/o3de/NewspaperDeliveryGame/issues/19). Atomic mint-and-fetch test 2026-05-20 15:31 UTC reproduced the 403: Batch API returns 200 with fresh signed URL; CloudFront returns 403 AccessDenied (RequestId AZJ4F76QT52WX2N1). Mike_C self-claimed and is fixing, "inbetween things atm" -- no ETA but he committed to GHI updates. Don't nudge.
-- **What's recoverable without LFS:** project structure (300 non-LFS files: 159 .material + 42 .prefab + 29 Media/*.png + 18 .json + 13 .scriptcanvas + 6 .setreg + 6 .cmake + assorted configs). Could run a degraded smoke test that registers the project + runs AP over the non-LFS subset (would fail on .fbx/.png/.actor LFS pointers but validate the script_only side of the project). Not implemented; would need to consider whether the project.json `engine_version: 4.2.0` declaration is even compatible with 26.05.0 schema first. Holding for LFS fix.
+- **What's recoverable without LFS:** project structure (300 non-LFS files: 159 .material + 42 .prefab + 29 Media/*.png + 18 .json + 13 .scriptcanvas + 6 .setreg + 6 .cmake + assorted configs). Could run a degraded smoke test that registers the project + runs AP over the non-LFS subset (would fail on .fbx/.png/.actor LFS pointers but validate the script_only side of the project). Not implemented; holding for LFS fix.
 
 ### Trigger sequence on LFS unblock
 
 1. Retry `git lfs pull` in `/home/nschuetz/o3de-test-projects/NewspaperDeliveryGame` -- if 200 OK on at least one signed URL, unblock confirmed.
 2. Drop the BLOCKED annotation from Tier 10's row in `tests/README.md`.
 3. Run `make test-newspaper-delivery` for the actual validation.
-4. If the smoke passes: commit the unblock + send Mike_C a thank-you. If it fails: capture error, file a separate issue (don't reopen #19 since that one was specifically about LFS).
-5. Consider whether engine_version 4.2.0 vs 26.05.0 mismatch warrants a PR to bump the project.json (sig-build / sig-content concern -- not ours).
+4. If the smoke passes: commit the unblock + send Mike_C a thank-you. If it fails: capture error, file a separate issue (don't reopen #19 since that one was specifically about LFS). Note: project.json `engine_version: 4.2.0` vs runtime 26.05.0 is INFORMATIONAL ONLY, not a compatibility gate -- internal versioning and release versioning are intentionally decoupled per the ongoing sig-release "Internal Version Number" thread (Matteo / Nick_L / Mike_C). Real compatibility test is "do the gems / asset shapes / scripting APIs still work" -- which is what the Tier 10 run actually validates.
 
 ### Note on community sample maintenance gap (Mike_C TSC 2026-05-20)
 
