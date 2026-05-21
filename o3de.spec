@@ -1349,10 +1349,17 @@ appstream-util validate-relax --nonet \
 #     (gmock, gtest, miniaudio, ogg, vorbis — ~13 files)
 #   - lib64/ — Recast/Detour bundled archives + pkgconfig metadata
 #     (5 files, ~2 MB; whole dir moves since it's exclusively
-#     devel-side content)
+#     devel-side content). Gone on o3de/development as of 2026-05-21
+#     after a Gems/RecastNavigation/3rdParty/FindRecastNavigation.cmake
+#     shim landed and the bundled-install path stopped emitting lib64/.
+#     Stabilization/26050 still has the old layout, so lib64/ is
+#     still present there. Gate both the exclude and the devel files
+#     line on %%without development_snapshot.
 %exclude %{o3de_install_prefix}/lib/Linux/profile/*.a
 %exclude %{o3de_install_prefix}/lib/Linux/profile/Default/*.a
+%if %{without development_snapshot}
 %exclude %{o3de_install_prefix}/lib64
+%endif
 %{_bindir}/%{o3de_pkgname}
 %{_bindir}/%{o3de_pkgname}-cli
 %{_datadir}/applications/%{o3de_pkgname}.desktop
@@ -1375,7 +1382,9 @@ appstream-util validate-relax --nonet \
 %files devel
 %{o3de_install_prefix}/lib/Linux/profile/*.a
 %{o3de_install_prefix}/lib/Linux/profile/Default/*.a
+%if %{without development_snapshot}
 %{o3de_install_prefix}/lib64
+%endif
 
 # ── Scriptlets ───────────────────────────────────────────────────────────────
 %post
@@ -1435,6 +1444,16 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Thu May 21 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-66
+- Gate `%%files devel`'s `lib64/` entry (and its companion `%%exclude`)
+  on `%%without development_snapshot`. Upstream o3de/development added
+  `Gems/RecastNavigation/3rdParty/FindRecastNavigation.cmake` and
+  stopped emitting `/opt/O3DE/26.05.0/lib64/` from the bundled install
+  path; only `lib/Linux/profile/*.a` patterns survive. Stabilization/
+  26050 still has the lib64 layout intact, so the gate keeps stable
+  channel behavior unchanged. Build 10492367 caught the drift after
+  4h+ of compilation finishing successfully then failing at %%files.
+
 * Thu May 21 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-65
 - Extend `--with development_snapshot` bcond to cover Patch0009
   (`physx-pal-gate-poly2tri-on-system`) and Patch0013
