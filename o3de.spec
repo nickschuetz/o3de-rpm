@@ -324,7 +324,19 @@ Patch0007:      0007-libtiff-c99-typedefs.patch
 # Stage 1 system-library swap patches — each gates one upstream
 # ly_associate_package(...) line on a new LY_USE_SYSTEM_<X> cmake var,
 # and pairs with a corresponding system Find<X>.cmake (Source30+ below).
+#
+# Patch0006 conflicts against o3de/development since 2026-03-10 because PR
+# o3de/o3de#19365 ("Assimp as FetchPackage") removed the
+# `assimp-5.4.3-rev3-linux` ly_associate_package line, which is one of the
+# anchored lines Patch0006 expected. Stabilization/26050 still has the
+# line, so the patch applies cleanly on the stabilization channel. Gated
+# under %%without development_snapshot so dev-snapshot builds skip it; the
+# o3de-snapshot COPR project intentionally has no `system_*` swaps active
+# (see make-snapshot-tarball.sh + edit-chroot config) so the gate-flags
+# aren't needed there anyway.
+%if %{without development_snapshot}
 Patch0006:      0006-builtinpackages-gate-mikkelsen-on-system.patch
+%endif
 
 # Drop AzCore's redundant `#include <Lua/lobject.h>` in ScriptContext.cpp.
 # The only thing it pulls in is the `LUAI_MAXALIGN` macro, which is
@@ -1412,6 +1424,17 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Thu May 21 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-64
+- Extend `--with development_snapshot` bcond to cover Patch0006
+  (`builtinpackages-gate-mikkelsen-on-system`). Patch0006's hunk
+  anchors on the `assimp-5.4.3-rev3-linux` ly_associate_package line
+  which o3de/o3de#19365 ("Assimp as FetchPackage", 2026-03-10) removed
+  from development. Stabilization/26050 still has the line, so
+  Patch0006 stays active there. Build 10492252 caught the conflict.
+  The `o3de-snapshot` COPR project intentionally has no `system_*`
+  swaps active, so the LY_USE_SYSTEM_<X> gates the patch provides
+  aren't needed on the dev-snapshot channel anyway.
+
 * Mon May 18 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-63
 - snapshot_commit bump to stabilization/26050 tip 295611159e6b (2026-05-18).
   Absorbs three cherry-picks that landed today: #19757 (preWarm particle
