@@ -373,13 +373,15 @@ Patch0008:      0008-azcore-drop-lua-lobject-include.patch
 # uniform LY_USE_SYSTEM_<X> gate convention.
 #
 # TIMEBOMB: this patch has hunks against BOTH PhysX4 AND PhysX5 PAL_linux.cmake.
-# o3de/o3de PR #19726 (PhysX 4 retirement) is imminent (tested + approved
-# 2026-05-07; see project_nvcloth_status.md memory). When that PR merges
-# upstream, the Gems/PhysX/Core/PhysX4/ tree disappears and the PhysX4 hunk
-# of this patch will fail to apply. Fix is mechanical: drop the PhysX4 hunk;
-# regenerate Patch0009 with only the PhysX5 hunk. Do this in the same commit
-# that pulls a fresh snapshot tarball post-#19726-merge.
+# o3de/o3de PR #19726 (PhysX 4 retirement) has now landed in o3de/development
+# (verified 2026-05-21: Gems/PhysX/Core/PhysX4/ tree gone). The PhysX4 hunk
+# fails-to-apply on dev tip. Stabilization/26050 still has PhysX4, so the
+# patch applies cleanly there. Gated under %%without development_snapshot.
+# Eventual proper fix when stabilization absorbs the PhysX4 retirement:
+# drop the PhysX4 hunk from this patch and regenerate with only PhysX5.
+%if %{without development_snapshot}
 Patch0009:      0009-physx-pal-gate-poly2tri-on-system.patch
+%endif
 
 # Lua 5.5 added a required third parameter to `lua_newstate` (a hash-seed
 # randomization parameter). Engine's ScriptContext.cpp:4359 still calls
@@ -450,7 +452,16 @@ Patch0012:      0012-v2-assetbuilder-parent-watchdog.patch
 # /usr/lib64/libVkLayer_khronos_validation.so +
 # /usr/share/vulkan/explicit_layer.d/VkLayer_khronos_validation.json.
 # Pitched upstream for the convention to land cleanly.
+#
+# Patch0013's third hunk (against BuiltInPackages_linux_x86_64.cmake)
+# hits the same context-drift as Patch0006: o3de/o3de#19365 ("Assimp
+# as FetchPackage") shifted line numbers and changed surrounding
+# context. Stabilization/26050 still has the original layout, so all
+# three hunks apply cleanly there. Gated under %%without
+# development_snapshot for the same reason as Patch0006.
+%if %{without development_snapshot}
 Patch0013:      0013-vulkan-validationlayers-gate-on-system.patch
+%endif
 
 # Stage 1 system-library find modules. Copied into cmake/3rdParty/
 # during %%prep when the matching `--with system_<lib>` is enabled.
@@ -1424,6 +1435,21 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Thu May 21 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-65
+- Extend `--with development_snapshot` bcond to cover Patch0009
+  (`physx-pal-gate-poly2tri-on-system`) and Patch0013
+  (`vulkan-validationlayers-gate-on-system`). Audit against o3de
+  development tip 5bdb8cc (2026-05-21) found two additional
+  conflicts: Patch0009 fails because o3de/o3de#19726 (PhysX 4
+  retirement) has landed in development and `Gems/PhysX/Core/PhysX4/`
+  no longer exists; Patch0013's third hunk hits the same
+  BuiltInPackages context drift as Patch0006 (assimp removed via
+  PR #19365). Stabilization/26050 still has both PhysX4 and the
+  pre-assimp-removal BuiltInPackages layout, so both patches apply
+  cleanly there. Total dev-snapshot-gated patches now: 9 (0001 +
+  0002 + 0005 + 0006 + 0007 + 0008 + 0009 + 0012 + 0013); 4 patches
+  remain active on dev-snapshot (0003 + 0004 + 0010 + 0011).
+
 * Thu May 21 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-64
 - Extend `--with development_snapshot` bcond to cover Patch0006
   (`builtinpackages-gate-mikkelsen-on-system`). Patch0006's hunk
