@@ -134,6 +134,44 @@ clone_or_refresh "$MPSAMPLE_REPO_URL" "$MPSAMPLE_DIR" || exit 1
 printf "\n${BOLD}-- Step 1b: clone / refresh o3de-multiplayersample-assets --${RST}\n"
 clone_or_refresh "$MPSAMPLE_ASSETS_REPO_URL" "$MPSAMPLE_ASSETS_DIR" || exit 1
 
+# LFS auto-recovery (mirrors Tier 10's logic, see [[project_o3de_sample_maintenance_gap]]):
+# If the working tree has LFS pointer files (131 bytes) instead of real
+# binary content, FBX scene-compilation fails downstream with cryptic
+# parser errors. Three failure modes guarded against:
+#   1. Initial clone done with GIT_LFS_SKIP_SMUDGE=1 / LFS server outage
+#      leaves the tree as pointer files.
+#   2. The git fetch + git reset --hard refresh path doesn't re-trigger
+#      smudge on files that already have pointer content.
+#   3. The .lfsconfig in the upstream repo points at the BASE endpoint
+#      `/api/v1` (auth=none); a fork-served clone needs the per-fork
+#      sub-path with credentials, plus a small batch size (10) to avoid
+#      the AWS-Lambda batch-size limit that returns HTTP 502.
+for repo_dir in "$MPSAMPLE_DIR" "$MPSAMPLE_ASSETS_DIR"; do
+    # Pick a known LFS-tracked file in each repo as the size canary.
+    # Both repos use FBX heavily; use any *.fbx if present.
+    canary=$(find "$repo_dir" -name "*.fbx" -type f 2>/dev/null | head -1)
+    [ -z "$canary" ] && continue
+    canary_size=$(stat -c '%s' "$canary" 2>/dev/null || echo 0)
+    if [ "$canary_size" -lt 1024 ]; then
+        info "LFS pointer detected in $repo_dir ($canary is $canary_size bytes) -- configuring + pulling"
+        # Derive the fork owner from the URL configured for this repo.
+        repo_url=$(cd "$repo_dir" && git remote get-url origin 2>/dev/null)
+        mps_owner=$(basename "$(dirname "$repo_url")")
+        ( cd "$repo_dir" && \
+            git config lfs.url "https://d1yks6rjd5juc8.cloudfront.net/api/v1/fork/$mps_owner" && \
+            git config lfs.transfer.batchSize 10 && \
+            git lfs pull )
+        if [ $? -eq 0 ]; then
+            ok "git lfs pull completed in $repo_dir (batchSize=10, fork=$mps_owner)"
+        else
+            nope "git lfs pull" "$repo_dir -- see $repo_dir/.git/lfs/logs/"
+            exit 1
+        fi
+    else
+        ok "LFS working tree already populated in $repo_dir ($canary is $canary_size bytes)"
+    fi
+done
+
 cd "$MPSAMPLE_DIR" || { nope "cd" "could not cd to $MPSAMPLE_DIR"; exit 1; }
 head_sha=$(git rev-parse --short HEAD 2>/dev/null)
 assets_head_sha=$(git -C "$MPSAMPLE_ASSETS_DIR" rev-parse --short HEAD 2>/dev/null)
@@ -258,7 +296,7 @@ else
         exit 1
     fi
     pass1_ok=0
-    if env "$apbatch" --project-path="$MPSAMPLE_DIR" --platforms=pc \
+    if env "$apbatch" --project-path="$MPSAMPLE_DIR" --platforms=linux \
             >"$ap_log" 2>&1
     then
         ok "AssetProcessorBatch pass 1 completed cleanly"
@@ -267,7 +305,7 @@ else
         pass1_failed=$(grep -oE 'Number of Assets Failed to Process: [0-9]+' "$ap_log" | tail -1 | awk '{print $NF}')
         : "${pass1_failed:=?}"
         info "AssetProcessorBatch pass 1: $pass1_failed asset(s) failed; running pass 2 (cold-cache quirk absorber)"
-        if env "$apbatch" --project-path="$MPSAMPLE_DIR" --platforms=pc \
+        if env "$apbatch" --project-path="$MPSAMPLE_DIR" --platforms=linux \
                 >"$ap_log_pass2" 2>&1
         then
             ok "AssetProcessorBatch pass 2 succeeded -- cold-cache quirk absorbed (pass 1 had $pass1_failed failure(s))"
@@ -293,31 +331,49 @@ if [ -z "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
     info "no DISPLAY / WAYLAND_DISPLAY in env; skipping interactive launcher smoke"
     info "(rerun with DISPLAY=:0 to exercise this step; CI runs use Xvfb)"
 else
-    # Don't try to actually load gameplay -- just start, check process
-    # creates an asset cache, exit cleanly within a window. The launcher
-    # has no clean "just init and exit" flag; we kill after a timer and
-    # grep the log for crash markers.
+    # Smoke step modernized 2026-05-21 to mirror Tier 10's logic:
+    #   - Pass bg_ConnectToAssetProcessor=0 to skip the auto-AP-spawn wait
+    #     (Step 5 already populated the cache).
+    #   - 30s timeout (15s was too tight; launcher's startup overhead is
+    #     ~10s of module/RHI init before level load even starts).
+    #   - Read the per-project Game.log (unbuffered, written directly by
+    #     the engine) instead of the captured stdout, which can be
+    #     truncated when timeout(1) kills the launcher.
+    #   - Success means at least one "Game Level Load Time:" line in the
+    #     log -- positive proof a level loaded. Process-didn't-crash
+    #     alone is not sufficient (the launcher parks in a hung-but-
+    #     running state when level load fails).
+    #   - Crash patterns exclude "CriticalAssetsCompiled" (which is
+    #     actually a SUCCESS log line). Match word-boundary contexts only.
+    #   - The project's autoexec may attempt multiple LoadLevel calls and
+    #     log "Requested level not found" for the failed ones; treat
+    #     "level loaded" as authoritative even when some attempts failed.
     smoke_log=/tmp/tier9-launcher-smoke.log
-    info "smoke: starting GameLauncher with 15s timeout"
-    timeout 15s "$launcher_bin" --regset="/Amazon/AzCore/Bootstrap/sys_PakPriority=1" \
+    info "smoke: starting GameLauncher with 30s timeout"
+    timeout 30s "$launcher_bin" \
+        --project-path="$MPSAMPLE_DIR" \
+        --regset="/Amazon/AzCore/Bootstrap/sys_PakPriority=1" \
+        --regset="/O3DE/Autoexec/ConsoleCommands/bg_ConnectToAssetProcessor=0" \
         >"$smoke_log" 2>&1
     smoke_exit=$?
-    # timeout returns 124 if it had to kill (= no clean exit during window).
-    # That's actually the success path for us: launcher started + ran for 15s without crashing.
-    # An immediate exit (smoke_exit=0) usually means the launcher died on init -- check the log.
-    if [ "$smoke_exit" -eq 124 ]; then
-        # Ran for the full window -- check for crash markers in the log
-        if grep -qE "Critical|Assertion failed|Segmentation fault|core dumped|panic" "$smoke_log"; then
-            nope "GameLauncher smoke" "ran for 15s but log contains crash/assertion markers (see $smoke_log)"
-        else
-            ok "GameLauncher ran for 15s without crash markers"
-        fi
-    elif [ "$smoke_exit" -eq 0 ]; then
-        # Clean exit -- unusual for a graphical launcher but tolerable
-        ok "GameLauncher exited cleanly within 15s"
+    game_log="$MPSAMPLE_DIR/user/log/Game.log"
+    if [ -f "$game_log" ]; then
+        log_to_check="$game_log"
     else
-        nope "GameLauncher smoke" "exit=$smoke_exit (likely init failure, see $smoke_log)"
-        tail -30 "$smoke_log"
+        log_to_check="$smoke_log"
+    fi
+    if grep -qE "Critical Error|Critical:|Assertion failed|Segmentation fault|core dumped|panic\(\)" "$log_to_check"; then
+        nope "GameLauncher smoke" "crash/assertion markers in log (see $log_to_check)"
+    elif grep -qE "Game Level Load Time:" "$log_to_check"; then
+        level=$(grep "Game Level Load Time:" "$log_to_check" | grep -oE 'Levels/[^ ]+\.spawnable' | head -1)
+        ok "GameLauncher loaded $level"
+    elif grep -qE "Requested level not found" "$log_to_check"; then
+        nope "GameLauncher smoke" "no level loaded; explicit not-found error in log (see $log_to_check)"
+    elif [ "$smoke_exit" -eq 124 ] || [ "$smoke_exit" -eq 0 ]; then
+        nope "GameLauncher smoke" "no level-load marker within 30s (see $log_to_check)"
+    else
+        nope "GameLauncher smoke" "exit=$smoke_exit (likely init failure, see $log_to_check)"
+        tail -30 "$log_to_check"
     fi
 fi
 
