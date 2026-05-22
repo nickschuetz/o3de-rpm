@@ -188,8 +188,8 @@ See [`tests/README.md`](tests/README.md) for the tier breakdown. The short versi
 - `make test-ui-full` — Tier 6 plus Editor automation
 - `make test-asset-bake` — Tier 7 (system-swap library-health check)
 - `make test-ap-spawn` — Tier 8 (AssetProcessor runtime smoke)
-- `make test-multiplayer-sample` — Tier 9 (real community sample build + bake + launcher smoke; ~60-90 min cold)
-- `make test-newspaper-delivery` — Tier 10 (sister community sample; ~30-60 min cold). Ends with a playable game render — title screen, character control, gameplay HUD active.
+- `make test-multiplayer-sample` — Tier 9 (real community sample build + bake + launcher smoke; ~60-90 min cold). Smoke check reaches `LEVEL_LOAD_END` for `startmenu`, but the launcher then aborts post-load inside LyShine. See `o3de/o3de#19780`. Test exercises build + bake + level-load reach. Does not currently exercise post-load gameplay.
+- `make test-newspaper-delivery` — Tier 10 (sister community sample; ~30-60 min cold). Plays end-to-end: title screen, character control, gameplay HUD active.
 - `make test-tier11` / `make test-tier11-multiplayer` — Tier 11 (post-load liveness smoke; ~60-90 s). Verifies the launcher survives running for a window after `LEVEL_LOAD_END`. Requires Tier 9 or 10 cache to be present.
 - `make test-branch REF=<git-ref>` — build snapshot from a ref + install + full test suite (Tiers 1-6; doesn't auto-fire Tiers 7-11 due to wall-time cost)
 

@@ -370,24 +370,27 @@ make test-multiplayer-sample    # Tier 9: o3de-multiplayersample
 make test-newspaper-delivery    # Tier 10: NewspaperDeliveryGame (Paper_Kid)
 ```
 
-Both pass on Fedora 44 against the installed `o3de2605` RPM as of 2026-05-21. The scripts auto-recover from common upstream-side issues (LFS server transients, working-tree pointer files, AWS Lambda batch-size limits, level startup overrides), so a clean clone + RPM install runs end-to-end without manual intervention. **Tier 10 ends with a playable game** — Newspaper Delivery Game's title screen, character control, score / lives / home-time HUD, the neighborhood with houses + delivery truck + props. Tier 9 builds MultiplayerSample's GameLauncher from source against the installed engine, bakes assets, and confirms the start-menu spawnable loads.
+**NewspaperDeliveryGame is fully playable** on Fedora 44 against the installed `o3de2605` RPM as of 2026-05-21 (title screen, character control, score / lives / home-time HUD, the neighborhood with houses + delivery truck + props all render and run cleanly).
 
-Wall time: Tier 9 ~60-90 min cold-cache (full C++ build + asset bake), ~3-10 min warm. Tier 10 ~30-60 min cold, ~3-10 min warm.
+**MultiplayerSample builds and bakes cleanly, but does not run end-to-end as of 2026-05-22.** The launcher reaches `LEVEL_LOAD_END` for the default `startmenu` level, then aborts within 1 to 2 seconds inside `UiCanvasAssetRefComponent::LoadCanvas` in libLyShine.so. Filed upstream as [o3de/o3de#19780](https://github.com/o3de/o3de/issues/19780). Per upstream feedback this is a known timing-related issue; Windows users see it intermittently (retry 2-3 times to get past). On Linux it is deterministic. Workaround: load a non-startmenu level explicitly (`--regset "/O3DE/Autoexec/ConsoleCommands/LoadLevel=gameplaytest"`). Until the upstream issue resolves, MultiplayerSample is suitable for testing the build + asset-bake path but not as a runnable demo.
 
-After running, launch a sample game directly:
+The test scripts auto-recover from common upstream-side issues (LFS server transients, working-tree pointer files, AWS Lambda batch-size limits, level startup overrides), so a clean clone + RPM install exercises the build and bake path without manual intervention. Wall time: Tier 9 ~60-90 min cold-cache (full C++ build + asset bake), ~3-10 min warm. Tier 10 ~30-60 min cold, ~3-10 min warm.
+
+After running, launch the working sample directly:
 
 ```bash
-# Paper_Kid: Newspaper Delivery Game (single-player demo)
+# Paper_Kid: Newspaper Delivery Game (single-player, plays clean)
 /opt/O3DE/26.05.0/bin/Linux/profile/Default/O3DE.GameLauncher \
   --project-path=$HOME/PROJECTS/NewspaperDeliveryGame \
   --engine-path=/opt/O3DE/26.05.0 \
   --regset="/O3DE/Autoexec/ConsoleCommands/LoadLevel=Neighborhood" \
   --regset="/O3DE/Autoexec/ConsoleCommands/bg_ConnectToAssetProcessor=0"
 
-# MultiplayerSample (built per-project; launched from its build dir)
+# MultiplayerSample (with the startmenu-crash workaround; engine + bake exercise only)
 $HOME/PROJECTS/o3de-multiplayersample/build/linux/bin/profile/MultiplayerSample.GameLauncher \
   --project-path=$HOME/PROJECTS/o3de-multiplayersample \
-  --regset="/O3DE/Autoexec/ConsoleCommands/bg_ConnectToAssetProcessor=0"
+  --regset="/O3DE/Autoexec/ConsoleCommands/bg_ConnectToAssetProcessor=0" \
+  --regset="/O3DE/Autoexec/ConsoleCommands/LoadLevel=gameplaytest"
 ```
 
 ### Validate an arbitrary O3DE git ref end-to-end
