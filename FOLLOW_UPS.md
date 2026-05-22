@@ -12,6 +12,18 @@ Parked 2026-05-22 from the Tier 9/10 "what's next with these games" sweep.
 
 **AP cold-bake perf (Tier 9)**: Tier 9 cold-cache takes ~3h49m, dominated by `Image Compile: PNG` (2h cumulative across 1007 jobs, ~7s avg/job). Warm-cache is 3-10 min so the CI/dev iteration loop isn't blocked. Investigation surface: `/Amazon/AssetProcessor/Settings/Platforms/<plat>/...` regsets for builder-count tuning + whether AP runs PNG jobs in parallel across multiple AssetBuilder processes or serialized through one. Defer unless CI wall-time becomes a real budget problem. Cross-ref: [[project_tier7_serial_pass_option.md]] for the `--regset maxJobs=1` pattern (different problem but adjacent CLI surface).
 
+**RPM-packaging the community samples (parked 2026-05-22)**: Idea explored: package NewspaperDeliveryGame + MultiplayerSample as separate `o3de2605-sample-<name>` RPMs so end users `dnf install` a playable demo instead of cloning + building. The technical pattern is straightforward (mirrors `o3de2605-spirv-cross` etc.), pre-baked cache in `/opt/O3DE/<v>/Samples/<name>/`, AppStream metainfo for GNOME Software / KDE Discover discovery, COPR webhook for auto-rebuild on engine bumps. Significant value-add for "try O3DE on Fedora" UX. **But blocked on asset licensing.**
+
+License audit findings (2026-05-22):
+
+- MultiplayerSample `credits.md` lists Adobe (Y-Bot character + animations), KitBash3D (High Tech Streets set), Hexany Audio & Owen Cooper (game audio) under "Special Thanks for contributing." None of these have a public Apache/MIT-compatible license attached; they're "contributed for use in MPS" arrangements between Amazon and the providers. Kevin MacLeod music (3 tracks) is CC-BY 4.0 (the one clean asset). PopcornFX VFX was removed in PR #499. Engine code itself is Apache 2.0 / MIT.
+
+- NewspaperDeliveryGame has no `credits.md`. Engine code is Apache 2.0 / MIT (boilerplate). Asset filename patterns strongly suggest Adobe Mixamo origin: motion files named `Walking.fbx`, `Fast Run.fbx`, `Jump.fbx`, `Happy Idle.fbx`, `Left Strafe.fbx` match Mixamo's standard catalog naming; one file is literally `Paper_Kid_jer_walk_Jerrey.material` ("Jerrey" is a Mixamo character preset).
+
+Adobe Mixamo's terms allow USE in your games (commercial OK) but don't explicitly grant redistribution rights for third-party packagers. KitBash3D content has stricter commercial-asset-pack licensing that doesn't allow third-party redistribution. Both would fail Fedora's asset-licensing review.
+
+**Resolution: parked.** Neither sample is a viable Fedora RPM (or even a COPR RPM under conservative interpretation) without upstream asset cleanup. The clone + build + play path stays the canonical UX. Worth revisiting only if/when upstream (Amazon / sig-content) explicitly clarifies redistribution rights OR swaps the encumbered assets for Apache/MIT alternatives. No upstream issue filed; the question would be better raised at TSC level if at all, not as a bug report.
+
 **Gameplay-smoke beyond level-load -- IMPLEMENTED as Tier 11 (2026-05-22)**: `tests/post-load-liveness-test.sh` + `make test-tier11`. Runs the launcher for `LIVENESS_SECONDS` (default 60s) after `LEVEL_LOAD_END`, verifies (a) launcher alive at end-of-window, (b) zero crash markers in Game.log, (c) the success marker was present, (d) Game.log accumulated at least `LIVENESS_MIN_NEW_LINES` (default 50) new lines during the window. Passes against NewspaperDeliveryGame. Caught a real crash against MultiplayerSample on first run -- see new entry below.
 
 **MultiplayerSample post-load crash diagnosed end-to-end 2026-05-22 (corrected from earlier LyShine misattribution)**:
