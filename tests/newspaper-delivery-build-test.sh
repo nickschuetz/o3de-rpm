@@ -126,6 +126,47 @@ if [ "$NPD_BRANCH" = "main" ] && [ -n "$NPD_PIN_SHA" ]; then
     fi
 fi
 
+# Ensure LFS objects are populated in the working tree. Three failure modes
+# this guards against:
+#   1. Initial clone done with GIT_LFS_SKIP_SMUDGE=1 (or LFS server down)
+#      left the working tree as 131-byte pointer files; subsequent
+#      fetch+reset doesn't re-smudge them.
+#   2. The `git fetch + git reset --hard` refresh path above doesn't run
+#      the smudge filter on files that already have LFS-pointer content
+#      in the working tree.
+#   3. The .lfsconfig in the upstream repo points at the BASE endpoint
+#      `/api/v1` (auth=none); a fork-served clone needs the per-fork sub-
+#      path with credentials. We set both `lfs.url` (fork sub-path) and
+#      `lfs.transfer.batchSize=10` (the AWS Lambda backing CloudFront
+#      rejects batches > some threshold with HTTP 502 / LambdaValidation
+#      Error; default git-lfs batch size is 100 which trips this).
+# `git lfs pull` is idempotent: no-op if everything is already real
+# content, otherwise pulls + replaces pointer files with real blobs.
+# Detect the LFS-pointer-file failure mode explicitly: if a known
+# LFS-tracked FBX is < 1 KB, the smudge filter didn't run.
+if [ -f "$NPD_DIR/Assets/Actors/Newsman.fbx" ]; then
+    npd_actor_size=$(stat -c '%s' "$NPD_DIR/Assets/Actors/Newsman.fbx" 2>/dev/null || echo 0)
+    if [ "$npd_actor_size" -lt 1024 ]; then
+        info "LFS pointer detected (Newsman.fbx is $npd_actor_size bytes) -- configuring + pulling"
+        # Derive the fork sub-path from NPD_REPO_URL so we don't hardcode
+        # a username here. Expects URL of the form .../<owner>/<repo>.git
+        # so $(basename $(dirname $NPD_REPO_URL)) yields the owner.
+        npd_owner=$(basename "$(dirname "$NPD_REPO_URL")")
+        ( cd "$NPD_DIR" && \
+            git config lfs.url "https://d1yks6rjd5juc8.cloudfront.net/api/v1/fork/$npd_owner" && \
+            git config lfs.transfer.batchSize 10 && \
+            git lfs pull )
+        if [ $? -eq 0 ]; then
+            ok "git lfs pull completed (batchSize=10, fork=$npd_owner)"
+        else
+            nope "git lfs pull" "see $NPD_DIR/.git/lfs/logs/ for details"
+            exit 1
+        fi
+    else
+        ok "LFS working tree already populated (Newsman.fbx is $npd_actor_size bytes)"
+    fi
+fi
+
 cd "$NPD_DIR" || { nope "cd" "could not cd to $NPD_DIR"; exit 1; }
 head_sha=$(git rev-parse --short HEAD 2>/dev/null)
 info "project HEAD: $head_sha"
