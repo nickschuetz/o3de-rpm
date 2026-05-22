@@ -386,11 +386,32 @@ After running, launch the working sample directly:
   --regset="/O3DE/Autoexec/ConsoleCommands/LoadLevel=Neighborhood" \
   --regset="/O3DE/Autoexec/ConsoleCommands/bg_ConnectToAssetProcessor=0"
 
-# MultiplayerSample (PR #502 fork branch; loads startmenu cleanly)
+# MultiplayerSample client only (PR #502 fork branch or earlier; loads startmenu cleanly)
 $HOME/PROJECTS/o3de-multiplayersample/build/linux/bin/profile/MultiplayerSample.GameLauncher \
   --project-path=$HOME/PROJECTS/o3de-multiplayersample \
   --regset="/O3DE/Autoexec/ConsoleCommands/bg_ConnectToAssetProcessor=0"
 ```
+
+### Run a MultiplayerSample multiplayer session locally
+
+`make test-multiplayer-sample` (Tier 9) builds the full multiplayer harness: client + headless server + spectator-mode server + the bare gem AssetProcessor needs. After it completes, you can host + join a session on a single machine via three make targets:
+
+```bash
+make play-mps-host    # starts the headless server (NewStarbase, listens on UDP 33450)
+make play-mps-client  # starts the windowed client (auto-connects to loopback)
+make play-mps-stop    # kills all MPS launcher processes
+```
+
+The targets check for the binaries being built and bail with a helpful error if Tier 9 hasn't run yet. Variables `MPSAMPLE_PLAY_DIR` and `MPSAMPLE_ENGINE` let you override the project clone location or engine install path.
+
+Behind the scenes the targets use `MultiplayerSample.HeadlessServerLauncher` (no GUI) + `MultiplayerSample.GameLauncher` with `r_fullscreen=0`. This is the configuration that's stable for sustained play; see [`FOLLOW_UPS.md`](FOLLOW_UPS.md) for the diagnosis of why the graphical `ServerLauncher` variant + client + in-game settings menu hit a dual-respawn crash. For dev/debug needing a server-side spectator view, run `MultiplayerSample.ServerLauncher` directly (built by Tier 9 alongside the other binaries) but don't touch the client's settings menu while it's up.
+
+The project ships two console-command files at its root that drive the launch:
+
+- `launch_server.cfg` -- loads `Levels/NewStarbase/NewStarbase.spawnable` and enables multithreaded connection updates
+- `launch_client.cfg` -- issues `connect` with no IP, which defaults to loopback `127.0.0.1`
+
+The launchers can also be invoked directly with explicit flags if you want a different config (different level, remote server IP, etc.). See [`Makefile`](Makefile) `play-mps-*` targets for the canonical command shape.
 
 ### Validate an arbitrary O3DE git ref end-to-end
 
