@@ -186,9 +186,15 @@ See [`tests/README.md`](tests/README.md) for the tier breakdown. The short versi
 - `make test-full` — adds Tier 5 (project end-to-end)
 - `make test-ui` — Tier 6 (Project Manager smoke under Xvfb)
 - `make test-ui-full` — Tier 6 plus Editor automation
-- `make test-branch REF=<git-ref>` — build snapshot from a ref + install + full test suite
+- `make test-asset-bake` — Tier 7 (system-swap library-health check)
+- `make test-ap-spawn` — Tier 8 (AssetProcessor runtime smoke)
+- `make test-multiplayer-sample` — Tier 9 (real community sample build + bake + launcher smoke; ~60-90 min cold)
+- `make test-newspaper-delivery` — Tier 10 (sister community sample; ~30-60 min cold). Ends with a playable game render — title screen, character control, gameplay HUD active.
+- `make test-branch REF=<git-ref>` — build snapshot from a ref + install + full test suite (Tiers 1-6; doesn't auto-fire Tiers 7-10 due to wall-time cost)
 
-When you add new behavior, **add a corresponding test in the right tier**. Tier 1–2 for installed-state invariants, Tier 3–5 for runtime behavior, Tier 6+ for UI.
+When you add new behavior, **add a corresponding test in the right tier**. Tier 1–2 for installed-state invariants, Tier 3–5 for runtime behavior, Tier 6+ for UI, Tier 7+ for explicit-only heavyweight validation (system-swap drift, AP lifecycle bugs, real community sample integration).
+
+Tier 9 and Tier 10 are the community-sample validation tracks; both pass on Fedora 44 against `o3de2605` as of 2026-05-21 and the test scripts auto-recover from common upstream-side issues (LFS server transients, working-tree pointer files, AWS Lambda batch-size limits, level startup config quirks). The recovery logic lives in the test scripts themselves — read `tests/multiplayersample-build-test.sh` + `tests/newspaper-delivery-build-test.sh` for the inline rationale.
 
 ---
 

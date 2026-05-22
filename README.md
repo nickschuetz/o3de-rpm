@@ -361,6 +361,35 @@ make test-ui-full
 
 Tier 6 (UI) uses Xvfb (virtual display) and Mesa lavapipe (software Vulkan in CI containers; real GPU on user workstations). Tier 11 (visual regression) and Tier 12 (render correctness) are documented as future work in `tests/README.md`.
 
+### Run a real game end-to-end
+
+Two community O3DE samples are wired up as end-to-end tests on Fedora:
+
+```bash
+make test-multiplayer-sample    # Tier 9: o3de-multiplayersample
+make test-newspaper-delivery    # Tier 10: NewspaperDeliveryGame (Paper_Kid)
+```
+
+Both pass on Fedora 44 against the installed `o3de2605` RPM as of 2026-05-21. The scripts auto-recover from common upstream-side issues (LFS server transients, working-tree pointer files, AWS Lambda batch-size limits, level startup overrides), so a clean clone + RPM install runs end-to-end without manual intervention. **Tier 10 ends with a playable game** — Newspaper Delivery Game's title screen, character control, score / lives / home-time HUD, the neighborhood with houses + delivery truck + props. Tier 9 builds MultiplayerSample's GameLauncher from source against the installed engine, bakes assets, and confirms the start-menu spawnable loads.
+
+Wall time: Tier 9 ~60-90 min cold-cache (full C++ build + asset bake), ~3-10 min warm. Tier 10 ~30-60 min cold, ~3-10 min warm.
+
+After running, launch a sample game directly:
+
+```bash
+# Paper_Kid: Newspaper Delivery Game (single-player demo)
+/opt/O3DE/26.05.0/bin/Linux/profile/Default/O3DE.GameLauncher \
+  --project-path=$HOME/PROJECTS/NewspaperDeliveryGame \
+  --engine-path=/opt/O3DE/26.05.0 \
+  --regset="/O3DE/Autoexec/ConsoleCommands/LoadLevel=Neighborhood" \
+  --regset="/O3DE/Autoexec/ConsoleCommands/bg_ConnectToAssetProcessor=0"
+
+# MultiplayerSample (built per-project; launched from its build dir)
+$HOME/PROJECTS/o3de-multiplayersample/build/linux/bin/profile/MultiplayerSample.GameLauncher \
+  --project-path=$HOME/PROJECTS/o3de-multiplayersample \
+  --regset="/O3DE/Autoexec/ConsoleCommands/bg_ConnectToAssetProcessor=0"
+```
+
 ### Validate an arbitrary O3DE git ref end-to-end
 
 For O3DE engine contributors who want to know "does my branch work as a Fedora RPM":
