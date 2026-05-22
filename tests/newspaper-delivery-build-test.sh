@@ -242,7 +242,10 @@ else
     # Real success requires a positive level-load marker in the log:
     #   "Game Level Load Time: [...] Level Levels/<NAME>/<NAME>.spawnable"
     # which O3DE prints after LEVEL_LOAD_END.
-    if grep -qE "Critical|Assertion failed|Segmentation fault|core dumped|panic" "$smoke_log"; then
+    # Crash markers exclude "CriticalAssetsCompiled" -- that's a SUCCESS log
+    # line ("Launcher: CriticalAssetsCompiled") meaning critical assets are
+    # ready, NOT a crash. Use word-boundary patterns that match real crashes.
+    if grep -qE "Critical Error|Critical:|Assertion failed|Segmentation fault|core dumped|panic\(\)" "$smoke_log"; then
         nope "GameLauncher smoke" "crash/assertion markers in log (see $smoke_log)"
     elif grep -qE "Requested level not found" "$smoke_log"; then
         nope "GameLauncher smoke" "level not found in cache (see $smoke_log)"
