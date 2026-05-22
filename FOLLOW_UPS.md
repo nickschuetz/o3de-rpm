@@ -6,6 +6,41 @@ This file is intentionally a living scratchpad. Entries get added or removed as 
 
 ---
 
+## 2026-05-21 session capture
+
+Big day. RC-build prep, Tier 10 unblocked + first clean pass, AP search-bar fix research, MSVC gate-value research, dev-snapshot RPM build succeeded after 4 attempts of spec drift gating.
+
+### Wins
+
+- **PR #19725 (UV transform Vulkan fix) cherry-picked into stabilization/26050** as PR #19772 (merge commit 91aac37, 2026-05-21 11:26 UTC). Tip moved 2956111 -> 91aac37. RC-trigger sequence cued up but waiting on Mike_C's engine-version bump to 2.6.0 per the consensus from sig-release "Internal Version Number" thread.
+- **PR #19776 (AP search bar fix) filed by zakmat and verified F44.** Posted [#19773-style verification comment](https://github.com/o3de/o3de/pull/19776#issuecomment-4508543839) -- one-line fix to AssetTreeFilterModel.cpp, mismatched writer (`setFilterRegExp`) vs reader (`filterRegularExpression`) introduced by PR #19282's incomplete qt6 migration. Pre-build a dev-tree AP with patch in 22s on warm build dir; search works after.
+- **MSVC 2026 patch gate analysis.** Microsoft compiler-versions table confirmed `_MSC_VER >= 1938` (the current gate in VSCompat.h) is the deprecation point (VS 2022 17.8), not the removal point. Removal landed at 1951 (MSVC 14.51, May 6 2026), not 1950 (14.50 RTM still had it). Nick_L + Cheddarspice testing the new gate value now.
+- **Tier 10 NewspaperDeliveryGame unblocked + first clean pass.** Mike_C/amzn-changml fixed the LFS server-side 403. Local recovery sequence: `git reset --hard HEAD` (the original broken-LFS clone never had smudge-filter run, so working tree was missing 145 files until reset triggered it). First clean Tier 10 pass 6/0 on F44 -- AP batch processed 3697 jobs (60 min cold cache), GameLauncher ran 15s without crash markers. Posted [verification comment](https://github.com/o3de/NewspaperDeliveryGame/issues/19#issuecomment-4513674098). Dropped BLOCKED annotation in tests/README.md.
+- **Snapshot-development COPR build 10493483 GREEN** across F44 + rawhide + CS10 after 4 attempts. Caught 9 patches + the `lib64/` entry as dev-tip drift that needed gating under `--with development_snapshot`. The pattern keeps holding: every upstream `find_package`-style migration (assimp, recast) breaks our carry-patches whose context anchors are now gone.
+
+### Filed upstream
+
+- **[o3de/o3de#19773](https://github.com/o3de/o3de/issues/19773)** -- Android-Asset workflow tar.exe / libarchive false positive (from 2026-05-20). Status: open, awaiting sig-build triage.
+- **[o3de/NewspaperDeliveryGame#19](https://github.com/o3de/NewspaperDeliveryGame/issues/19)** -- LFS 403 (server-side fixed; comment posted, issue still open).
+- **[o3de/o3de#19776](https://github.com/o3de/o3de/pull/19776)** -- not filed by us, but cross-platform-verification comment posted.
+
+### Gotchas caught
+
+- **Phantom venv-lib engine registration.** Nick's `o3de_manifest.json` had `~/.o3de/Python/venv/673a0e36/lib` registered as an engine -- artifact of his other-session experimenting. AP's discovery walked the registered engines, found the engine.json symlink target there first, and skipped the install path as "already found." Recovery: `o3de.sh register --remove --engine-path <path>`. Patch0003's symlink is NOT structurally responsible (verified by nuking + recreating the venv; phantom did NOT auto-recur).
+- **Stale dev-tree AP daemon blocks new launcher negotiations.** The AP I'd left running from the search-bar test (against AiCompanionTest + dev-tree engine) caught the Tier 10 GameLauncher's connection attempt and rejected it (different project). Killed PID 449491 -> Tier 10 passed clean. Lesson: any AP running for ANY project will catch connection attempts and reject mismatches; only run one AP at a time, or none.
+- **Dev-snapshot %files audit needed alongside %prep audit.** Build 10492367 compiled successfully for 4h then died at %files on missing `lib64/` (Recast moved from bundled install to find-package shim upstream). %prep failures cost minutes; %files failures cost hours. Captured in [[feedback_dev_snapshot_preflight_should_include_files_section]].
+- **Authorization-vs-content rules.** Posted PR #19776 comment on a "#1"-captioned screenshot that I read as approval but was just context. Caught + memory note saved: [[feedback_explicit_approval_required_for_upstream_posts]]. ONLY explicit verbal go counts.
+
+### State at end of session
+
+- Spec at 2605.0-66 (dev-snapshot bcond now covers 9 patches + lib64/).
+- Stabilization tip: `91aac37` (UV fix in).
+- Waiting on Mike_C's 2.6.0 engine-version bump to trigger RC build.
+- Polling task `bsz160gem` still watching stabilization tip.
+- Memory: [[feedback_verify_api_change_version_not_just_release_version]], [[feedback_dev_snapshot_preflight_should_include_files_section]], [[feedback_explicit_approval_required_for_upstream_posts]] all saved.
+
+---
+
 ## 2026-05-20 session capture
 
 Tier 10 staged but blocked on upstream LFS. Android-Asset tar.exe corruption diagnosed and filed.
