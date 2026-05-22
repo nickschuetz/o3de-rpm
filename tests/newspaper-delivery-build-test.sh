@@ -310,7 +310,7 @@ else
         # At least one level loaded successfully -- that's the success
         # signal regardless of whether other level-load attempts in the
         # same run failed.
-        level=$(grep "Game Level Load Time:" "$log_to_check" | grep -oE 'Level [^ ]+' | head -1)
+        level=$(grep "Game Level Load Time:" "$log_to_check" | grep -oE 'Levels/[^ ]+\.spawnable' | head -1)
         ok "GameLauncher loaded $level"
     elif grep -qE "Requested level not found" "$log_to_check"; then
         nope "GameLauncher smoke" "no level loaded; explicit not-found error in log (see $log_to_check)"
