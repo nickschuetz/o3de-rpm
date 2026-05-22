@@ -6,6 +6,16 @@ This file is intentionally a living scratchpad. Entries get added or removed as 
 
 ---
 
+## Sample bake / smoke -- post-release window items
+
+Parked 2026-05-22 from the Tier 9/10 "what's next with these games" sweep.
+
+**AP cold-bake perf (Tier 9)**: Tier 9 cold-cache takes ~3h49m, dominated by `Image Compile: PNG` (2h cumulative across 1007 jobs, ~7s avg/job). Warm-cache is 3-10 min so the CI/dev iteration loop isn't blocked. Investigation surface: `/Amazon/AssetProcessor/Settings/Platforms/<plat>/...` regsets for builder-count tuning + whether AP runs PNG jobs in parallel across multiple AssetBuilder processes or serialized through one. Defer unless CI wall-time becomes a real budget problem. Cross-ref: [[project_tier7_serial_pass_option.md]] for the `--regset maxJobs=1` pattern (different problem but adjacent CLI surface).
+
+**Gameplay-smoke beyond level-load -- IMPLEMENTED as Tier 11 (2026-05-22)**: `tests/post-load-liveness-test.sh` + `make test-tier11`. Runs the launcher for `LIVENESS_SECONDS` (default 60s) after `LEVEL_LOAD_END`, verifies (a) launcher alive at end-of-window, (b) zero crash markers in Game.log, (c) the success marker was present, (d) Game.log accumulated at least `LIVENESS_MIN_NEW_LINES` (default 50) new lines during the window. Passes against NewspaperDeliveryGame. Caught a real crash against MultiplayerSample on first run -- see new entry below.
+
+**MultiplayerSample post-load crash (caught by Tier 11 on 2026-05-22)**: After `LEVEL_LOAD_END` of `Levels/startmenu/startmenu.spawnable`, the launcher aborts within seconds with SIGABRT. Stack trace (via `coredumpctl`): `AZ::Entity::Activate -> AZ::Entity::ApplyEffectiveActiveState -> abort`. Preceded in Game.log by warning `(Entity) - SetEffectiveActiveLayerByTypeIndex index of 4294967295 exceeding state flag limit` (`4294967295 = UINT32_MAX` -- the engine's sentinel "invalid index" value). Some entity in startmenu has its layer-state machinery pointing at the sentinel. Repro: `make test-tier11-multiplayer`. Tier 9 doesn't catch this because Tier 9's smoke only checks the level-load success marker is reached at some point; doesn't verify post-load liveness. Worth filing upstream once we understand which entity carries the bad state -- candidate avenues: (a) load the project in the Editor + inspect startmenu's entities for layer-state config; (b) bisect against an older multiplayersample SHA where the crash didn't happen; (c) ask Nick_L since the engine-side ApplyEffectiveActiveState SetEffectiveActiveLayerByTypeIndex was recently touched (need to confirm). Post-26.05.0 investigation.
+
 ## 2026-05-21 session capture
 
 Big day. RC-build prep, Tier 10 unblocked + first clean pass, AP search-bar fix research, MSVC gate-value research, dev-snapshot RPM build succeeded after 4 attempts of spec drift gating.

@@ -830,6 +830,24 @@ test-multiplayer-sample:
 test-newspaper-delivery:
 	tests/newspaper-delivery-build-test.sh
 
+# Tier 11 -- Post-load liveness smoke. Runs an installed sample's
+# GameLauncher for LIVENESS_SECONDS (default 60s) after LEVEL_LOAD_END
+# and verifies the engine survives without crashing or freezing.
+# Catches "level loaded but engine froze" -- a failure mode Tier 9/10
+# can't see because they only check the level-load success marker.
+# Requires Tier 9 or Tier 10 to have run first (project cache must be
+# baked). NOT part of `make test`; explicit-only.
+#
+# Usage:
+#   make test-tier11                       # default: NewspaperDeliveryGame, 60s
+#   make test-tier11-multiplayer           # MultiplayerSample variant
+#   LIVENESS_SECONDS=120 make test-tier11  # extended window
+test-tier11:
+	tests/post-load-liveness-test.sh
+
+test-tier11-multiplayer:
+	PROJECT=multiplayer tests/post-load-liveness-test.sh
+
 # End-to-end driver: build a snapshot RPM from <REF> and test it.
 # Usage: make test-branch REF=stabilization/26050
 test-branch:

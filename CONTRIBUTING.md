@@ -190,7 +190,8 @@ See [`tests/README.md`](tests/README.md) for the tier breakdown. The short versi
 - `make test-ap-spawn` — Tier 8 (AssetProcessor runtime smoke)
 - `make test-multiplayer-sample` — Tier 9 (real community sample build + bake + launcher smoke; ~60-90 min cold)
 - `make test-newspaper-delivery` — Tier 10 (sister community sample; ~30-60 min cold). Ends with a playable game render — title screen, character control, gameplay HUD active.
-- `make test-branch REF=<git-ref>` — build snapshot from a ref + install + full test suite (Tiers 1-6; doesn't auto-fire Tiers 7-10 due to wall-time cost)
+- `make test-tier11` / `make test-tier11-multiplayer` — Tier 11 (post-load liveness smoke; ~60-90 s). Verifies the launcher survives running for a window after `LEVEL_LOAD_END`. Requires Tier 9 or 10 cache to be present.
+- `make test-branch REF=<git-ref>` — build snapshot from a ref + install + full test suite (Tiers 1-6; doesn't auto-fire Tiers 7-11 due to wall-time cost)
 
 When you add new behavior, **add a corresponding test in the right tier**. Tier 1–2 for installed-state invariants, Tier 3–5 for runtime behavior, Tier 6+ for UI, Tier 7+ for explicit-only heavyweight validation (system-swap drift, AP lifecycle bugs, real community sample integration).
 
