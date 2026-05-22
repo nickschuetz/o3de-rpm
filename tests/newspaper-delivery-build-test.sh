@@ -186,7 +186,7 @@ else
     fi
     info "running AssetProcessorBatch on NewspaperDeliveryGame (logs to $ap_log)"
     pass1_ok=0
-    if env "$apbatch" --project-path="$NPD_DIR" --platforms=pc \
+    if env "$apbatch" --project-path="$NPD_DIR" --platforms=linux \
             >"$ap_log" 2>&1
     then
         ok "AssetProcessorBatch pass 1 completed cleanly"
@@ -195,7 +195,7 @@ else
         pass1_failed=$(grep -oE 'Number of Assets Failed to Process: [0-9]+' "$ap_log" | tail -1 | awk '{print $NF}')
         : "${pass1_failed:=?}"
         info "AssetProcessorBatch pass 1: $pass1_failed asset(s) failed; running pass 2 (cold-cache quirk absorber)"
-        if env "$apbatch" --project-path="$NPD_DIR" --platforms=pc \
+        if env "$apbatch" --project-path="$NPD_DIR" --platforms=linux \
                 >"$ap_log_pass2" 2>&1
         then
             ok "AssetProcessorBatch pass 2 succeeded -- cold-cache quirk absorbed (pass 1 had $pass1_failed failure(s))"
@@ -224,19 +224,33 @@ elif [ -z "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
 else
     smoke_log=/tmp/tier10-launcher-smoke.log
     info "smoke: starting O3DE.GameLauncher --project-path with 15s timeout"
+    # bg_ConnectToAssetProcessor=0 -- cache is fully baked from Step 4;
+    # skip the launcher's auto-AP-spawn-and-wait path (~minutes of init
+    # before level load even starts), which causes the launcher to hang
+    # past Fedora's app-not-responding timeout.
+    # Also: load the CharacterSample level explicitly since the project's
+    # autoexec.cfg points at "start" which doesn't exist in this fork.
     timeout 15s "$launcher_bin" --project-path="$NPD_DIR" \
         --regset="/Amazon/AzCore/Bootstrap/sys_PakPriority=1" \
+        --regset="/O3DE/Autoexec/ConsoleCommands/LoadLevel=CharacterSample" \
+        --regset="/O3DE/Autoexec/ConsoleCommands/bg_ConnectToAssetProcessor=0" \
         >"$smoke_log" 2>&1
     smoke_exit=$?
-    # 124 = timeout had to kill (= launcher ran for 15s without dying = success)
-    if [ "$smoke_exit" -eq 124 ]; then
-        if grep -qE "Critical|Assertion failed|Segmentation fault|core dumped|panic" "$smoke_log"; then
-            nope "GameLauncher smoke" "ran for 15s but log contains crash/assertion markers (see $smoke_log)"
-        else
-            ok "GameLauncher ran for 15s without crash markers"
-        fi
-    elif [ "$smoke_exit" -eq 0 ]; then
-        ok "GameLauncher exited cleanly within 15s"
+    # 124 = timeout had to kill (= launcher ran for 15s without dying).
+    # That alone is NOT enough -- the launcher can stay up for 15s while
+    # never actually loading the level (black screen, hung main loop).
+    # Real success requires a positive level-load marker in the log:
+    #   "Game Level Load Time: [...] Level Levels/<NAME>/<NAME>.spawnable"
+    # which O3DE prints after LEVEL_LOAD_END.
+    if grep -qE "Critical|Assertion failed|Segmentation fault|core dumped|panic" "$smoke_log"; then
+        nope "GameLauncher smoke" "crash/assertion markers in log (see $smoke_log)"
+    elif grep -qE "Requested level not found" "$smoke_log"; then
+        nope "GameLauncher smoke" "level not found in cache (see $smoke_log)"
+    elif ! grep -qE "Game Level Load Time:" "$smoke_log"; then
+        nope "GameLauncher smoke" "level never reached LEVEL_LOAD_END within 15s (see $smoke_log)"
+    elif [ "$smoke_exit" -eq 124 ] || [ "$smoke_exit" -eq 0 ]; then
+        level=$(grep "Game Level Load Time:" "$smoke_log" | grep -oE 'Level [^ ]+' | head -1)
+        ok "GameLauncher loaded $level"
     else
         nope "GameLauncher smoke" "exit=$smoke_exit (likely init failure, see $smoke_log)"
         tail -30 "$smoke_log"
