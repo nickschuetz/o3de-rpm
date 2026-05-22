@@ -1,9 +1,11 @@
-This project will be populated when O3DE upstream tags a stable release we package. For now, use **hellaenergy/o3de-stabilization** for community testing of pre-release builds from O3DE's stabilization branch (the same branch that becomes the next tagged release).
-
-**When stable releases land here:**
+Enable + install:
 
     sudo dnf copr enable hellaenergy/o3de
     sudo dnf install o3de2605
+
+This channel tracks upstream's `main` branch -- each O3DE release lands on `main` and gets tagged there (the May 2026 release is `2605.0`; the October 2025 release was `2510.2`). Twice-yearly major release cadence (May + October) plus occasional point releases. This is the channel for stable Fedora installs.
+
+For pre-release validation of the next release line (currently `stabilization/26050`), use **hellaenergy/o3de-stabilization**. For dev-tip / bleeding-edge builds from `o3de/development`, use **hellaenergy/o3de-snapshot**.
 
 The `o3de-dependencies` repo auto-enables alongside this one. Optional `o3de2605-devel` subpackage adds the static-archive surface for native C++ gem development:
 

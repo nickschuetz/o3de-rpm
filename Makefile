@@ -630,6 +630,38 @@ copr-stable: srpm
 	copr-cli build --timeout 28800 $(COPR_OWNER)/$(COPR_PROJECT_STABLE) \
 		~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
 
+# release-stable: post-release-ceremony helper. Verifies the spec's
+# stable_tag has a real (non-placeholder) sha256 and tarball before
+# firing the COPR build. Intended use is when an upstream release
+# has just been tagged on main and the spec has been updated per
+# POST_RELEASE.md. Fails early if the runbook's steps 1-5 haven't
+# been completed.
+#
+# Usage: edit o3de.spec (stable_tag, stable_sha256, %changelog),
+# bump the SBOM, commit + push, then `make release-stable`.
+release-stable:
+	@set -e; \
+	tag=$$(rpmspec $(RPMBUILD_DEFINES) -q --qf '%{VERSION}\n' o3de.spec 2>/dev/null | head -1); \
+	sha=$$(awk '/^%global stable_sha256/ {print $$3; exit}' o3de.spec); \
+	if [ "$$tag" = "%{stable_tag}" ] || [ -z "$$tag" ]; then \
+	    echo "ERROR: could not resolve stable_tag from spec"; exit 2; fi; \
+	if [ "$$sha" = "0000000000000000000000000000000000000000000000000000000000000000" ]; then \
+	    echo "ERROR: stable_sha256 is still the placeholder; update spec per POST_RELEASE.md step 3"; \
+	    exit 2; fi; \
+	if [ -z "$$sha" ] || [ $${#sha} -ne 64 ]; then \
+	    echo "ERROR: stable_sha256 is empty or wrong length ($$sha)"; exit 2; fi; \
+	tarball=~/rpmbuild/SOURCES/o3de_$${tag}_lfs.tar.gz; \
+	if [ ! -f $$tarball ]; then \
+	    echo "ERROR: release tarball $$tarball not in ~/rpmbuild/SOURCES/ - pull it per POST_RELEASE.md step 2"; \
+	    exit 2; fi; \
+	actual_sha=$$(sha256sum $$tarball | awk '{print $$1}'); \
+	if [ "$$actual_sha" != "$$sha" ]; then \
+	    echo "ERROR: spec sha256 ($$sha) does not match tarball ($$actual_sha)"; \
+	    exit 2; fi; \
+	echo "release-stable pre-flight clean: tag=$$tag sha256=ok tarball=present"; \
+	echo "Building SRPM + firing to $(COPR_OWNER)/$(COPR_PROJECT_STABLE) ..."; \
+	$(MAKE) copr-stable
+
 copr-snapshot: srpm-snapshot
 	copr-cli build --timeout 28800 $(COPR_OWNER)/$(COPR_PROJECT_SNAPSHOT) \
 		~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm

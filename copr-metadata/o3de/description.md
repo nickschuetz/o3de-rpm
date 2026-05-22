@@ -1,1 +1,1 @@
-Open 3D Engine — tagged stable releases (placeholder; no builds until O3DE upstream ships a release tag we package)
+Open 3D Engine — tagged stable releases for Fedora. Tracks upstream `o3de/o3de:main`, which is where each O3DE release lands and is tagged (`2510.2`, `2605.0`, etc.). New builds land here whenever upstream ships a release on the twice-yearly major cadence plus point releases. Use this channel for production / stable Fedora installs; use `hellaenergy/o3de-stabilization` for pre-release validation of the next release line.
