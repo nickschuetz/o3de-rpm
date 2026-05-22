@@ -1,1 +1,1 @@
-O3DE experimental builds — Stage 1 migration work and structural changes that are not ready for the o3de-snapshot testers' channel. Don't enable this repo unless you know what you're getting.
+Open 3D Engine -- experimental builds. Stage 1 system-swap migrations + Stage 2 license-clean-rebuild migrations + other structural packaging work that's not ready for community testers (hellaenergy/o3de-stabilization) yet. Don't enable this repo unless you know what you're getting; this channel exists for the packaging effort's internal validation.

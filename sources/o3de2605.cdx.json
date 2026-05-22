@@ -1,10 +1,10 @@
 {
   "bomFormat": "CycloneDX",
   "specVersion": "1.6",
-  "serialNumber": "urn:uuid:o3de2605-rpm-2605.0-62",
+  "serialNumber": "urn:uuid:o3de2605-rpm-2605.0-66",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-05-08T08:00:00Z",
+    "timestamp": "2026-05-21T22:00:00Z",
     "tools": {
       "components": [
         {
@@ -16,7 +16,7 @@
       ]
     },
     "component": {
-      "bom-ref": "pkg:rpm/fedora/o3de2605@2605.0-62",
+      "bom-ref": "pkg:rpm/fedora/o3de2605@2605.0-66",
       "type": "application",
       "name": "o3de2605",
       "version": "2605.0-66",
@@ -26,7 +26,7 @@
           "expression": "Apache-2.0 OR MIT"
         }
       ],
-      "purl": "pkg:rpm/fedora/o3de2605@2605.0-62?arch=x86_64",
+      "purl": "pkg:rpm/fedora/o3de2605@2605.0-66?arch=x86_64",
       "externalReferences": [
         {
           "type": "website",
@@ -173,7 +173,7 @@
       "name": "o3de-python",
       "version": "3.10.13",
       "scope": "required",
-      "description": "Bundled Python 3.10 venv installed by /opt/o3de/python/get_python.sh into ~/.o3de/Python/venv/<engine-id>",
+      "description": "Bundled Python 3.10 venv installed by /opt/O3DE/<DISPLAY_VERSION>/python/get_python.sh into ~/.o3de/Python/venv/<engine-id>",
       "licenses": [
         {
           "id": "PSF-2.0"

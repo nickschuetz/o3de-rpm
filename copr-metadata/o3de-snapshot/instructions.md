@@ -1,6 +1,8 @@
 **One-off / ad-hoc dev builds.** This project is used when someone wants to build O3DE from upstream's `development` branch or a specific commit, without disrupting the regular `o3de-stabilization` tester channel.
 
-**For regular pre-release tester builds, use [hellaenergy/o3de-stabilization](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-stabilization/) instead.** That's the channel that ships builds from upstream's `stabilization/<release>` branch — closer to release quality, validated continuously.
+**For stable releases, use [hellaenergy/o3de](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de/)** -- that channel tracks upstream's `main` branch (where each release is merged + tagged).
+
+**For pre-release validation of the next release line, use [hellaenergy/o3de-stabilization](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-stabilization/)** -- that channel ships builds from upstream's `stabilization/<release>` branch, closer to release quality, validated continuously.
 
 **If you're here looking for development-branch builds anyway:**
 

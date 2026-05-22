@@ -1,1 +1,1 @@
-Open 3D Engine — pre-release validation builds from upstream stabilization/<release> branch. Becomes the next tagged release when O3DE upstream tags it. The community testers' channel.
+Open 3D Engine -- pre-release validation builds from upstream's stabilization/<release> branch (currently stabilization/26050, the next-release line). When upstream tags + merges to main, this content becomes hellaenergy/o3de; this channel rolls over to the next major's stabilization branch. The community testers' channel; this is where to validate the upcoming release before it ships.

@@ -61,9 +61,9 @@ flowchart TB
     end
 
     subgraph DIST["Distribution channels"]
-        DC1A["COPR<br/>hellaenergy/o3de<br/>(stable releases)"]
-        DC1B["COPR<br/>hellaenergy/o3de-stabilization<br/>(community testers -- pre-release)"]
-        DC1S["COPR<br/>hellaenergy/o3de-snapshot<br/>(one-off development builds)"]
+        DC1A["COPR<br/>hellaenergy/o3de<br/>(tracks o3de/o3de:main =<br/>tagged stable releases;<br/>see POST_RELEASE.md)"]
+        DC1B["COPR<br/>hellaenergy/o3de-stabilization<br/>(community testers --<br/>pre-release validation)"]
+        DC1S["COPR<br/>hellaenergy/o3de-snapshot<br/>(one-off / dev-tip /<br/>arbitrary-ref builds)"]
         DC1C["COPR<br/>hellaenergy/o3de-experimental<br/>(in-flight Stage 1 migrations)"]
         DC2["o3debinaries.org<br/>(upstream to O3DE CI)"]
         DC3["Fedora repo<br/>(see FEDORA_ROADMAP.md)"]
@@ -82,8 +82,8 @@ flowchart TB
         T2["tests/ui-smoke-test.sh<br/>Tier 6: Project Manager + Editor<br/>under Xvfb"]
         T4["tests/asset-bake-test.sh<br/>Tier 7: system-swap library-health<br/>(SONAME + symbol + linkage smoke<br/>across all 14 Stage 1 swaps)"]
         T5["tests/ap-spawn-smoke-test.sh<br/>Tier 8: AP+builder runtime smoke<br/>(catches process-lifecycle bugs)"]
-        T6["tests/multiplayersample-build-test.sh<br/>Tier 9: full MultiplayerSample build<br/>+ AP batch + GameLauncher smoke<br/>(opt-in; ~10-30 min)"]
-        T7["tests/newspaper-delivery-build-test.sh<br/>Tier 10: NewspaperDeliveryGame bake<br/>(script_only; LyShine + LandscapeCanvas<br/>+ WhiteBox + EMotionFX surface)<br/>(opt-in; ~10-20 min)"]
+        T6["tests/multiplayersample-build-test.sh<br/>Tier 9: full MultiplayerSample build<br/>+ AP batch + playable-game smoke<br/>(opt-in; ~60-90 min cold,<br/>~3-10 min warm)"]
+        T7["tests/newspaper-delivery-build-test.sh<br/>Tier 10: NewspaperDeliveryGame<br/>build + bake + playable-game smoke<br/>(opt-in; ~30-60 min cold,<br/>~3-10 min warm)"]
         T3[".github/workflows/test-installed.yml<br/>matrix: F44, rawhide, CS10, F45+, ...<br/>+ check-deps-drift.yml weekly cron"]
         DC1B -.-> T1
         DC1B -.-> T2
