@@ -244,23 +244,44 @@ fi
 #      errors followed by CreateJobs failures on the affected scriptcanvas
 #      files. Caught 2026-05-14 while diagnosing 8 .scriptcanvas job failures
 #      that disappeared once the bare target was built.
-printf "\n${BOLD}-- Step 4: ninja build (MultiplayerSample.GameLauncher + MultiplayerSample) --${RST}\n"
+printf "\n${BOLD}-- Step 4: ninja build (GameLauncher + ServerLauncher + bare MultiplayerSample) --${RST}\n"
+# MPSAMPLE_BUILD_TARGETS: which cmake targets to build. Defaults to the
+# full multiplayer harness (Client launcher + Server launcher + bare gem
+# for AP). Override via env to a narrower set for faster CI runs.
+#
+# The bare MultiplayerSample target is needed because AssetProcessor uses
+# the Builders alias (which maps to the bare gem) at bake time to populate
+# BehaviorContext for ScriptCanvas processing. Without it, .scriptcanvas
+# files that reference project components fail with "Failed to load
+# dynamic library at path 'libMultiplayerSample.so'". See PR #502 on
+# o3de-multiplayersample for the upstream doc note that explains this.
+#
+# ServerLauncher is built alongside Client so end-to-end multiplayer
+# validation (host + connect + render) is possible from the same Tier 9
+# cache. Headless variant is similar code, smaller payload, used when
+# the test doesn't need server-side rendering. Keep them paired so
+# regressions in either get caught.
+: "${MPSAMPLE_BUILD_TARGETS:=MultiplayerSample.GameLauncher MultiplayerSample.ServerLauncher MultiplayerSample.HeadlessServerLauncher MultiplayerSample}"
 build_log=/tmp/tier9-ninja-build.log
 parallel_arg=""
 if [ -n "${MPSAMPLE_PARALLEL:-}" ]; then
     parallel_arg="--parallel $MPSAMPLE_PARALLEL"
-    info "building MultiplayerSample.GameLauncher + bare MultiplayerSample (throttled to $MPSAMPLE_PARALLEL parallel workers for RAM)"
+    info "building $MPSAMPLE_BUILD_TARGETS (throttled to $MPSAMPLE_PARALLEL parallel workers for RAM)"
 else
     parallel_arg="--parallel"
-    info "building MultiplayerSample.GameLauncher + bare MultiplayerSample (full parallelism)"
+    info "building $MPSAMPLE_BUILD_TARGETS (full parallelism)"
 fi
+# Expand the targets var into separate --target arguments for cmake.
+target_args=""
+for t in $MPSAMPLE_BUILD_TARGETS; do
+    target_args="$target_args --target $t"
+done
 if env CC=clang CXX=clang++ cmake --build "$BUILD_DIR" \
-        --target MultiplayerSample.GameLauncher \
-        --target MultiplayerSample \
+        $target_args \
         $parallel_arg \
     >"$build_log" 2>&1
 then
-    ok "MultiplayerSample.GameLauncher + libMultiplayerSample.so built"
+    ok "ninja build succeeded ($MPSAMPLE_BUILD_TARGETS)"
 else
     nope "ninja build" "see $build_log (tail printed below)"
     tail -50 "$build_log"
@@ -268,10 +289,29 @@ else
 fi
 
 launcher_bin="$BUILD_DIR/bin/profile/MultiplayerSample.GameLauncher"
+server_bin="$BUILD_DIR/bin/profile/MultiplayerSample.ServerLauncher"
+headless_server_bin="$BUILD_DIR/bin/profile/MultiplayerSample.HeadlessServerLauncher"
 if [ -x "$launcher_bin" ]; then
     ok "GameLauncher binary present at $launcher_bin"
 else
     nope "binary" "GameLauncher not at expected path"
+fi
+# Server-side binaries are checked only if they were requested in the
+# build target list. The default target list builds both, but caller
+# can override via MPSAMPLE_BUILD_TARGETS to skip them.
+if echo "$MPSAMPLE_BUILD_TARGETS" | grep -q "MultiplayerSample.ServerLauncher"; then
+    if [ -x "$server_bin" ]; then
+        ok "ServerLauncher binary present at $server_bin"
+    else
+        nope "binary" "ServerLauncher requested but not at expected path"
+    fi
+fi
+if echo "$MPSAMPLE_BUILD_TARGETS" | grep -q "MultiplayerSample.HeadlessServerLauncher"; then
+    if [ -x "$headless_server_bin" ]; then
+        ok "HeadlessServerLauncher binary present at $headless_server_bin"
+    else
+        nope "binary" "HeadlessServerLauncher requested but not at expected path"
+    fi
 fi
 
 # ─── Step 5: AssetProcessorBatch (full project bake) ────────────────────────
