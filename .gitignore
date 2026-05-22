@@ -4,3 +4,9 @@ tools/__pycache__/
 
 # Claude Code per-checkout state (scheduled-task locks, local settings, etc.)
 .claude/
+
+# O3DE launcher run-time artifacts written into CWD when a launcher
+# is invoked from this directory (backtrace stubs, imgui window state).
+# Not relevant to the packaging work itself.
+backtrace.log
+imgui.ini

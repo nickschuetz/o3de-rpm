@@ -67,11 +67,11 @@ command -v cmake >/dev/null 2>&1 || { printf "prerequisite missing: cmake\n" >&2
 command -v ninja >/dev/null 2>&1 || { printf "prerequisite missing: ninja-build\n" >&2; exit 2; }
 command -v clang >/dev/null 2>&1 || { printf "prerequisite missing: clang\n" >&2; exit 2; }
 
-# Default pin: latest commit on Nick's fork as of 2026-05-19. The
-# "Make project script-only (#18)" commit; this is the version we
-# validated against when we wired up Tier 10. Bump after refreshing
-# the fork from upstream.
-: "${NPD_REPO_URL:=https://github.com/nickschuetz/NewspaperDeliveryGame.git}"
+# Default pin: 80d94e7 -- latest commit on upstream's main as of
+# 2026-05-22. Upstream and the maintainer's fork are currently in
+# sync at this SHA. Set NPD_REPO_URL to a fork URL when testing
+# fork-side fixes before their upstream PRs merge.
+: "${NPD_REPO_URL:=https://github.com/o3de/NewspaperDeliveryGame.git}"
 : "${NPD_DIR:=$HOME/PROJECTS/NewspaperDeliveryGame}"
 : "${NPD_BRANCH:=main}"
 : "${NPD_PIN_SHA:=80d94e7}"
