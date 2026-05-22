@@ -36,7 +36,7 @@ Verified end-to-end on Fedora 44 (after revert, before pushing #502): launcher l
 
 JT_SCB_GameDesign (Discord, 2026-05-22) confirmed Windows users see analogous behavior intermittently (his "bail-out window UI 2-3 times then it works" framing). Linux determinism gave us a cleaner repro than the Windows community had. JT also noted the downloadable MPS Dg is a 23.x Windows build, which explains how the 25.x/26.x experience drifted; the merged-but-broken cmake change in #501 only made things worse on Linux specifically.
 
-Open items: PR #502 review + merge. Until then, upstream `o3de/o3de-multiplayersample:development` is broken on Linux. Our Tier 9 script's existing dual-target build approach (`--target MultiplayerSample.GameLauncher --target MultiplayerSample`) was the correct shape all along; the script needs no change. Once #502 merges, our docs that reference "blocked on upstream PR #501 regression" can simplify.
+**RESOLVED 2026-05-22 19:29 UTC:** PR #502 merged by nick-l-o3de (~90 minutes after we opened it). Approved + DCO check passed + zero review comments. Upstream `o3de/o3de-multiplayersample:development` is now clean again. Docs (README + CONTRIBUTING + tests/README + ARCHITECTURE Mermaid) simplified to drop the "blocked pending #502" framing.
 
 **MPS gameplay-side crash modes from sustained-play test (caught 2026-05-22 14:14-14:19 CDT)**: After verifying multiplayer works end-to-end (server + client, NewStarbase, ROUND 1 of 3, player character active), sustained play surfaced two distinct upstream-side crash modes:
 

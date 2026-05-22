@@ -372,7 +372,7 @@ make test-newspaper-delivery    # Tier 10: NewspaperDeliveryGame (Paper_Kid)
 
 **NewspaperDeliveryGame is fully playable** on Fedora 44 against the installed `o3de2605` RPM as of 2026-05-21 (title screen, character control, score / lives / home-time HUD, the neighborhood with houses + delivery truck + props all render and run cleanly).
 
-**MultiplayerSample status (2026-05-22):** Currently broken on `o3de/o3de-multiplayersample:development` after PR #501 merged a cmake change that double-loads the gem at runtime on Linux. Fix in flight as [PR #502](https://github.com/o3de/o3de-multiplayersample/pull/502) (reverts the cmake line and documents the dual-target build requirement instead). With the revert applied (or against an earlier development tip), MPS builds, bakes, and runs cleanly on Linux: the launcher loads `startmenu`, the MULTIPLAYER SAMPLE title screen renders with the cyberpunk UI, IP entry / Join Game / Quit buttons all interactive, network stack initializes correctly. Until #502 merges, run Tier 9 against either Nick's `revert-501-cmake-add-readme-note` fork branch (`MPSAMPLE_REPO_URL` override) or pin to a pre-#501 commit.
+**MultiplayerSample is playable on Linux** against the installed `o3de2605` RPM as of 2026-05-22: launcher loads `startmenu`, MULTIPLAYER SAMPLE title screen renders with the cyberpunk UI, network stack initializes, and (with `make play-mps-host` + `make play-mps-client`) a full host+connect session over loopback runs the actual NewStarbase gameplay. For Tier 9 to find AssetProcessor's BehaviorContext for scriptcanvas baking, build BOTH `MultiplayerSample.GameLauncher` and the bare `MultiplayerSample` target (the test script does this automatically; the upstream README at line 200+ now documents the requirement for manual builds via [PR #502](https://github.com/o3de/o3de-multiplayersample/pull/502)).
 
 The test scripts auto-recover from common upstream-side issues (LFS server transients, working-tree pointer files, AWS Lambda batch-size limits, level startup overrides), so a clean clone + RPM install exercises the build and bake path without manual intervention. Wall time: Tier 9 ~60-90 min cold-cache (full C++ build + asset bake), ~3-10 min warm. Tier 10 ~30-60 min cold, ~3-10 min warm.
 
@@ -386,7 +386,7 @@ After running, launch the working sample directly:
   --regset="/O3DE/Autoexec/ConsoleCommands/LoadLevel=Neighborhood" \
   --regset="/O3DE/Autoexec/ConsoleCommands/bg_ConnectToAssetProcessor=0"
 
-# MultiplayerSample client only (PR #502 fork branch or earlier; loads startmenu cleanly)
+# MultiplayerSample client only (loads startmenu; for full host+join, use 'make play-mps-host' below)
 $HOME/PROJECTS/o3de-multiplayersample/build/linux/bin/profile/MultiplayerSample.GameLauncher \
   --project-path=$HOME/PROJECTS/o3de-multiplayersample \
   --regset="/O3DE/Autoexec/ConsoleCommands/bg_ConnectToAssetProcessor=0"
