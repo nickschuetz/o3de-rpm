@@ -264,14 +264,17 @@ elif [ -z "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
     info "(rerun with DISPLAY=:0 to exercise this step; CI runs use Xvfb)"
 else
     smoke_log=/tmp/tier10-launcher-smoke.log
-    info "smoke: starting O3DE.GameLauncher --project-path with 15s timeout"
+    info "smoke: starting O3DE.GameLauncher --project-path with 30s timeout"
     # bg_ConnectToAssetProcessor=0 -- cache is fully baked from Step 4;
     # skip the launcher's auto-AP-spawn-and-wait path (~minutes of init
     # before level load even starts), which causes the launcher to hang
     # past Fedora's app-not-responding timeout.
     # Also: load the CharacterSample level explicitly since the project's
     # autoexec.cfg points at "start" which doesn't exist in this fork.
-    timeout 15s "$launcher_bin" --project-path="$NPD_DIR" \
+    # Timeout 30s: launcher's startup overhead (module loading + RHI init)
+    # takes ~10s before level load even begins; level load itself usually
+    # ~3-5s when cache is fully baked. 30s gives enough room for both.
+    timeout 30s "$launcher_bin" --project-path="$NPD_DIR" \
         --regset="/Amazon/AzCore/Bootstrap/sys_PakPriority=1" \
         --regset="/O3DE/Autoexec/ConsoleCommands/LoadLevel=CharacterSample" \
         --regset="/O3DE/Autoexec/ConsoleCommands/bg_ConnectToAssetProcessor=0" \
@@ -291,7 +294,7 @@ else
     elif grep -qE "Requested level not found" "$smoke_log"; then
         nope "GameLauncher smoke" "level not found in cache (see $smoke_log)"
     elif ! grep -qE "Game Level Load Time:" "$smoke_log"; then
-        nope "GameLauncher smoke" "level never reached LEVEL_LOAD_END within 15s (see $smoke_log)"
+        nope "GameLauncher smoke" "level never reached LEVEL_LOAD_END within 30s (see $smoke_log)"
     elif [ "$smoke_exit" -eq 124 ] || [ "$smoke_exit" -eq 0 ]; then
         level=$(grep "Game Level Load Time:" "$smoke_log" | grep -oE 'Level [^ ]+' | head -1)
         ok "GameLauncher loaded $level"
