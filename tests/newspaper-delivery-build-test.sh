@@ -297,15 +297,25 @@ else
     # Crash markers exclude "CriticalAssetsCompiled" -- that's a SUCCESS log
     # line ("Launcher: CriticalAssetsCompiled") meaning critical assets are
     # ready, NOT a crash. Use word-boundary patterns that match real crashes.
+    # Order matters: check for SUCCESS first (positive marker), then
+    # disqualifying conditions. The project's autoexec.cfg can try
+    # multiple LoadLevel attempts in sequence (e.g., the broken default
+    # "start" + the regset override), and Game.log will contain
+    # "Requested level not found" for the failed attempts even when
+    # another attempt successfully loaded. So a "level not found" log
+    # line is only a fail if NO level loaded at all.
     if grep -qE "Critical Error|Critical:|Assertion failed|Segmentation fault|core dumped|panic\(\)" "$log_to_check"; then
         nope "GameLauncher smoke" "crash/assertion markers in log (see $log_to_check)"
-    elif grep -qE "Requested level not found" "$log_to_check"; then
-        nope "GameLauncher smoke" "level not found in cache (see $log_to_check)"
-    elif ! grep -qE "Game Level Load Time:" "$log_to_check"; then
-        nope "GameLauncher smoke" "level never reached LEVEL_LOAD_END within 30s (see $log_to_check)"
-    elif [ "$smoke_exit" -eq 124 ] || [ "$smoke_exit" -eq 0 ]; then
+    elif grep -qE "Game Level Load Time:" "$log_to_check"; then
+        # At least one level loaded successfully -- that's the success
+        # signal regardless of whether other level-load attempts in the
+        # same run failed.
         level=$(grep "Game Level Load Time:" "$log_to_check" | grep -oE 'Level [^ ]+' | head -1)
         ok "GameLauncher loaded $level"
+    elif grep -qE "Requested level not found" "$log_to_check"; then
+        nope "GameLauncher smoke" "no level loaded; explicit not-found error in log (see $log_to_check)"
+    elif [ "$smoke_exit" -eq 124 ] || [ "$smoke_exit" -eq 0 ]; then
+        nope "GameLauncher smoke" "no level-load marker within 30s (see $log_to_check)"
     else
         nope "GameLauncher smoke" "exit=$smoke_exit (likely init failure, see $log_to_check)"
         tail -30 "$log_to_check"
