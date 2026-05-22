@@ -70,8 +70,8 @@ command -v clang >/dev/null 2>&1 || { printf "prerequisite missing: clang\n" >&2
 
 : "${MPSAMPLE_REPO_URL:=https://github.com/nickschuetz/o3de-multiplayersample.git}"
 : "${MPSAMPLE_ASSETS_REPO_URL:=https://github.com/nickschuetz/o3de-multiplayersample-assets.git}"
-: "${MPSAMPLE_DIR:=$HOME/o3de-test-projects/o3de-multiplayersample}"
-: "${MPSAMPLE_ASSETS_DIR:=$HOME/o3de-test-projects/o3de-multiplayersample-assets}"
+: "${MPSAMPLE_DIR:=$HOME/PROJECTS/o3de-multiplayersample}"
+: "${MPSAMPLE_ASSETS_DIR:=$HOME/PROJECTS/o3de-multiplayersample-assets}"
 : "${MPSAMPLE_BRANCH:=development}"
 : "${MPSAMPLE_SKIP_CLONE:=0}"
 : "${MPSAMPLE_SKIP_BAKE:=0}"

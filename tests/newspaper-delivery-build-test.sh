@@ -72,7 +72,7 @@ command -v clang >/dev/null 2>&1 || { printf "prerequisite missing: clang\n" >&2
 # validated against when we wired up Tier 10. Bump after refreshing
 # the fork from upstream.
 : "${NPD_REPO_URL:=https://github.com/nickschuetz/NewspaperDeliveryGame.git}"
-: "${NPD_DIR:=$HOME/o3de-test-projects/NewspaperDeliveryGame}"
+: "${NPD_DIR:=$HOME/PROJECTS/NewspaperDeliveryGame}"
 : "${NPD_BRANCH:=main}"
 : "${NPD_PIN_SHA:=80d94e7}"
 : "${NPD_SKIP_CLONE:=0}"
