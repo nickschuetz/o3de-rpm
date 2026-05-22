@@ -848,6 +848,66 @@ test-tier11:
 test-tier11-multiplayer:
 	PROJECT=multiplayer tests/post-load-liveness-test.sh
 
+# ── MultiplayerSample manual-play helpers ───────────────────────────────────
+# Targets for running the actual game (not the smoke tests). Requires Tier 9
+# to have run at least once so the project is cloned + built + baked.
+#
+# Stable interactive config: headless server + windowed client.
+# Graphical ServerLauncher works for dev/debug but crashes when the client's
+# settings menu fires a resolution-toggle broadcast (see FOLLOW_UPS.md MPS
+# entry for the diagnosis). Headless server has no rendering pipeline to
+# reconfigure, so the settings-menu path is safe with it.
+#
+# Vars (override via env if your clone lives elsewhere):
+MPSAMPLE_PLAY_DIR  ?= $(HOME)/PROJECTS/o3de-multiplayersample
+MPSAMPLE_ENGINE    ?= /opt/O3DE/26.05.0
+MPSAMPLE_BIN       := $(MPSAMPLE_PLAY_DIR)/build/linux/bin/profile
+MPSAMPLE_REGSETS   := \
+    --regset="/O3DE/Autoexec/ConsoleCommands/bg_ConnectToAssetProcessor=0"
+
+play-mps-host:
+	@[ -x "$(MPSAMPLE_BIN)/MultiplayerSample.HeadlessServerLauncher" ] \
+	    || { echo "ERROR: HeadlessServerLauncher not built. Run 'make test-multiplayer-sample' first."; exit 2; }
+	@echo "Starting headless MultiplayerSample server (NewStarbase, UDP 33450)..."
+	@setsid "$(MPSAMPLE_BIN)/MultiplayerSample.HeadlessServerLauncher" \
+	    --project-path="$(MPSAMPLE_PLAY_DIR)" \
+	    --engine-path="$(MPSAMPLE_ENGINE)" \
+	    --console-command-file="$(MPSAMPLE_PLAY_DIR)/launch_server.cfg" \
+	    $(MPSAMPLE_REGSETS) \
+	    </dev/null >/tmp/mps-server.log 2>&1 & \
+	    disown 2>/dev/null || true; \
+	    sleep 2; \
+	    pid=$$(pgrep -f 'MultiplayerSample.HeadlessServerLauncher' | head -1); \
+	    echo "Headless server PID: $$pid"; \
+	    echo "Stdout log: /tmp/mps-server.log"
+
+play-mps-client:
+	@[ -x "$(MPSAMPLE_BIN)/MultiplayerSample.GameLauncher" ] \
+	    || { echo "ERROR: GameLauncher not built. Run 'make test-multiplayer-sample' first."; exit 2; }
+	@echo "Starting windowed MultiplayerSample client (connects to 127.0.0.1)..."
+	@setsid "$(MPSAMPLE_BIN)/MultiplayerSample.GameLauncher" \
+	    --project-path="$(MPSAMPLE_PLAY_DIR)" \
+	    --engine-path="$(MPSAMPLE_ENGINE)" \
+	    --console-command-file="$(MPSAMPLE_PLAY_DIR)/launch_client.cfg" \
+	    $(MPSAMPLE_REGSETS) \
+	    --regset="/O3DE/Autoexec/ConsoleCommands/r_fullscreen=0" \
+	    </dev/null >/tmp/mps-client.log 2>&1 & \
+	    disown 2>/dev/null || true; \
+	    sleep 2; \
+	    pid=$$(pgrep -f 'MultiplayerSample.GameLauncher' | head -1); \
+	    echo "Windowed client PID: $$pid"; \
+	    echo "Stdout log: /tmp/mps-client.log"
+
+play-mps-stop:
+	@pkill -f "MultiplayerSample\.(Game|Headless|Server)Launcher" 2>/dev/null || true
+	@sleep 1
+	@if pgrep -f "MultiplayerSample\.(Game|Headless|Server)Launcher" >/dev/null; then \
+	    echo "Some processes still running:"; \
+	    pgrep -af "MultiplayerSample\.(Game|Headless|Server)Launcher" | grep -v $$$$; \
+	else \
+	    echo "All MultiplayerSample processes stopped."; \
+	fi
+
 # End-to-end driver: build a snapshot RPM from <REF> and test it.
 # Usage: make test-branch REF=stabilization/26050
 test-branch:
