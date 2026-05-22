@@ -280,27 +280,35 @@ else
         --regset="/O3DE/Autoexec/ConsoleCommands/bg_ConnectToAssetProcessor=0" \
         >"$smoke_log" 2>&1
     smoke_exit=$?
-    # 124 = timeout had to kill (= launcher ran for 15s without dying).
-    # That alone is NOT enough -- the launcher can stay up for 15s while
-    # never actually loading the level (black screen, hung main loop).
-    # Real success requires a positive level-load marker in the log:
-    #   "Game Level Load Time: [...] Level Levels/<NAME>/<NAME>.spawnable"
-    # which O3DE prints after LEVEL_LOAD_END.
+    # 124 = timeout had to kill (= launcher ran for the full window).
+    # The engine writes its detailed runtime log to $NPD_DIR/user/log/Game.log
+    # directly (not via stdout). When the launcher is killed by timeout,
+    # its stdout/stderr stay BUFFERED in $smoke_log -- the truncated tail
+    # can show only init steps even when the launcher actually loaded the
+    # level cleanly. Use Game.log as the canonical source of truth for
+    # whether level load succeeded; fall back to $smoke_log if Game.log
+    # isn't present (e.g., launcher died before writing to it).
+    game_log="$NPD_DIR/user/log/Game.log"
+    if [ -f "$game_log" ]; then
+        log_to_check="$game_log"
+    else
+        log_to_check="$smoke_log"
+    fi
     # Crash markers exclude "CriticalAssetsCompiled" -- that's a SUCCESS log
     # line ("Launcher: CriticalAssetsCompiled") meaning critical assets are
     # ready, NOT a crash. Use word-boundary patterns that match real crashes.
-    if grep -qE "Critical Error|Critical:|Assertion failed|Segmentation fault|core dumped|panic\(\)" "$smoke_log"; then
-        nope "GameLauncher smoke" "crash/assertion markers in log (see $smoke_log)"
-    elif grep -qE "Requested level not found" "$smoke_log"; then
-        nope "GameLauncher smoke" "level not found in cache (see $smoke_log)"
-    elif ! grep -qE "Game Level Load Time:" "$smoke_log"; then
-        nope "GameLauncher smoke" "level never reached LEVEL_LOAD_END within 30s (see $smoke_log)"
+    if grep -qE "Critical Error|Critical:|Assertion failed|Segmentation fault|core dumped|panic\(\)" "$log_to_check"; then
+        nope "GameLauncher smoke" "crash/assertion markers in log (see $log_to_check)"
+    elif grep -qE "Requested level not found" "$log_to_check"; then
+        nope "GameLauncher smoke" "level not found in cache (see $log_to_check)"
+    elif ! grep -qE "Game Level Load Time:" "$log_to_check"; then
+        nope "GameLauncher smoke" "level never reached LEVEL_LOAD_END within 30s (see $log_to_check)"
     elif [ "$smoke_exit" -eq 124 ] || [ "$smoke_exit" -eq 0 ]; then
-        level=$(grep "Game Level Load Time:" "$smoke_log" | grep -oE 'Level [^ ]+' | head -1)
+        level=$(grep "Game Level Load Time:" "$log_to_check" | grep -oE 'Level [^ ]+' | head -1)
         ok "GameLauncher loaded $level"
     else
-        nope "GameLauncher smoke" "exit=$smoke_exit (likely init failure, see $smoke_log)"
-        tail -30 "$smoke_log"
+        nope "GameLauncher smoke" "exit=$smoke_exit (likely init failure, see $log_to_check)"
+        tail -30 "$log_to_check"
     fi
 fi
 
