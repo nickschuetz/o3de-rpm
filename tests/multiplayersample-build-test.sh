@@ -68,8 +68,13 @@ command -v cmake >/dev/null 2>&1 || { printf "prerequisite missing: cmake\n" >&2
 command -v ninja >/dev/null 2>&1 || { printf "prerequisite missing: ninja-build\n" >&2; exit 2; }
 command -v clang >/dev/null 2>&1 || { printf "prerequisite missing: clang\n" >&2; exit 2; }
 
-: "${MPSAMPLE_REPO_URL:=https://github.com/nickschuetz/o3de-multiplayersample.git}"
-: "${MPSAMPLE_ASSETS_REPO_URL:=https://github.com/nickschuetz/o3de-multiplayersample-assets.git}"
+# Defaults point at upstream. The o3de-multiplayersample-assets#177
+# fix (Linux case-sensitive standardpbr.materialtype reference) merged
+# upstream 2026-05-22; the sample repo itself stays in lock-step with
+# upstream's development. Set these env vars to a fork URL when you
+# need to test a fork-side fix before its upstream PR merges.
+: "${MPSAMPLE_REPO_URL:=https://github.com/o3de/o3de-multiplayersample.git}"
+: "${MPSAMPLE_ASSETS_REPO_URL:=https://github.com/o3de/o3de-multiplayersample-assets.git}"
 : "${MPSAMPLE_DIR:=$HOME/PROJECTS/o3de-multiplayersample}"
 : "${MPSAMPLE_ASSETS_DIR:=$HOME/PROJECTS/o3de-multiplayersample-assets}"
 : "${MPSAMPLE_BRANCH:=development}"
