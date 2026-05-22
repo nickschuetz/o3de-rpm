@@ -28,6 +28,8 @@
 # Usage:
 #   tests/multiplayersample-build-test.sh                     # auto-detect installed engine
 #   O3DE_PKGNAME=o3de2605 tests/multiplayersample-build-test.sh
+#   MPSAMPLE_REPO_URL=...  tests/multiplayersample-build-test.sh  # override sample repo
+#   MPSAMPLE_ASSETS_REPO_URL=... tests/multiplayersample-build-test.sh # override assets repo
 #   MPSAMPLE_DIR=/path tests/multiplayersample-build-test.sh  # custom clone target
 #   MPSAMPLE_BRANCH=other-branch tests/multiplayersample-build-test.sh
 #   MPSAMPLE_SKIP_CLONE=1 tests/multiplayersample-build-test.sh   # reuse existing checkout
@@ -66,6 +68,8 @@ command -v cmake >/dev/null 2>&1 || { printf "prerequisite missing: cmake\n" >&2
 command -v ninja >/dev/null 2>&1 || { printf "prerequisite missing: ninja-build\n" >&2; exit 2; }
 command -v clang >/dev/null 2>&1 || { printf "prerequisite missing: clang\n" >&2; exit 2; }
 
+: "${MPSAMPLE_REPO_URL:=https://github.com/nickschuetz/o3de-multiplayersample.git}"
+: "${MPSAMPLE_ASSETS_REPO_URL:=https://github.com/nickschuetz/o3de-multiplayersample-assets.git}"
 : "${MPSAMPLE_DIR:=$HOME/o3de-test-projects/o3de-multiplayersample}"
 : "${MPSAMPLE_ASSETS_DIR:=$HOME/o3de-test-projects/o3de-multiplayersample-assets}"
 : "${MPSAMPLE_BRANCH:=development}"
@@ -126,9 +130,9 @@ clone_or_refresh() {
 # pbr_material_pack_mps) referenced from project.json's gem_names list.
 # Per upstream README, both must be on the same branch as the engine.
 printf "${BOLD}-- Step 1a: clone / refresh o3de-multiplayersample --${RST}\n"
-clone_or_refresh https://github.com/o3de/o3de-multiplayersample.git "$MPSAMPLE_DIR" || exit 1
+clone_or_refresh "$MPSAMPLE_REPO_URL" "$MPSAMPLE_DIR" || exit 1
 printf "\n${BOLD}-- Step 1b: clone / refresh o3de-multiplayersample-assets --${RST}\n"
-clone_or_refresh https://github.com/o3de/o3de-multiplayersample-assets.git "$MPSAMPLE_ASSETS_DIR" || exit 1
+clone_or_refresh "$MPSAMPLE_ASSETS_REPO_URL" "$MPSAMPLE_ASSETS_DIR" || exit 1
 
 cd "$MPSAMPLE_DIR" || { nope "cd" "could not cd to $MPSAMPLE_DIR"; exit 1; }
 head_sha=$(git rev-parse --short HEAD 2>/dev/null)
