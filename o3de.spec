@@ -130,9 +130,9 @@
 # defaults only apply if no --define was passed. Lets parameterized
 # targets like `make srpm-snapshot-ref REF=qt6` override the snapshot
 # pin via --define snapshot_commit=... without editing the spec.
-%{?!snapshot_commit:%global snapshot_commit 295611159e6bea462d65871bc03b35aa52f48da2}
-%{?!snapshot_date:%global snapshot_date 20260518}
-%{?!snapshot_sha256:%global snapshot_sha256 96a04e5b7a23a6b4386bf070eb8d216371388979643865d41d661ca1812d141a}
+%{?!snapshot_commit:%global snapshot_commit d86e2cb63889966e78991bbf0d6f80fad4ac1110}
+%{?!snapshot_date:%global snapshot_date 20260522}
+%{?!snapshot_sha256:%global snapshot_sha256 69093ee92d47e32a08c0fd1d3329543f7e009e85f12d8570aa06c33c00b36aa0}
 %global shortcommit %(c=%{snapshot_commit}; echo ${c:0:7})
 
 # Channel-identifying suffix for the version strings the GUI displays.
@@ -1444,6 +1444,19 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Sat May 23 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-67
+- Bump stabilization/26050 snapshot pin to d86e2cb6 (2026-05-23 tip),
+  picking up 5 days of cherry-picks landed since 2956111 (2026-05-18):
+  o3de/o3de#19772 (UV-transform Vulkan fix), #19776 (AssetProcessor
+  search-bar field restored), #19777 (MSVC 14.50 stdext compat;
+  closes the 26.05.0 release-blocker tracked at o3de/o3de#19754).
+  None of our carry-patches retire as part of this bump -- the new
+  stab cherry-picks don't overlap with the Patch00XX series. Carry
+  set unchanged (Patch0001/0002/0005/0007/0008/0012 remain merged-in
+  -development but not-yet-in-stabilization; Patch0010/0011 are rawhide
+  Lua 5.5 forward-compat; Patch0003/0004/0006/0009/0013 are
+  packaging-internal).
+
 * Thu May 21 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-66
 - Gate `%%files devel`'s `lib64/` entry (and its companion `%%exclude`)
   on `%%without development_snapshot`. Upstream o3de/development added
