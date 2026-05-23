@@ -405,8 +405,10 @@ if [ "$RUN_PROJECT" -eq 1 ]; then
                     -DLY_3RDPARTY_PATH="$HOME/.o3de/3rdParty" \
                     >/tmp/o3de-test-cmake.log 2>&1; then
                 ok "cmake configure against installed engine"
-                [ -f build/linux/build-debug.ninja ] && ok "ninja file generated for debug" || \
-                    nope "ninja file" "build-debug.ninja missing"
+                # O3DE's Ninja Multi-Config configure generates the profile config by
+                # default; debug is opt-in via a separate cmake invocation.
+                [ -f build/linux/build-profile.ninja ] && ok "ninja file generated for profile" || \
+                    nope "ninja file" "build-profile.ninja missing (cmake configure produced no per-config ninja file)"
                 # Don't actually compile — would take hours on a fresh project.
             else
                 nope "cmake configure" "see /tmp/o3de-test-cmake.log"
