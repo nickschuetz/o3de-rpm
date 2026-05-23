@@ -44,6 +44,15 @@
 # one-off development-branch builds (which use plain --with snapshot
 # without --with stabilization, and ship to o3de-snapshot).
 %bcond_with stabilization
+# Experimental marks a snapshot as in-flight migration work shipping via the
+# o3de-experimental COPR (NOT the stab tester channel or the stable channel).
+# Set on o3de-experimental chroots via --rpmbuild-with; the spec uses it only
+# for the GUI channel marker (see _o3de_channel below). This was previously
+# inferred from "any system_* swap is active" but that inference broke when
+# system swaps graduated from experimental to standard in the stab + stable
+# channels too: it would force the -experimental marker on builds that were
+# actually shipping to o3de-stabilization or hellaenergy/o3de.
+%bcond_with experimental
 # `--with debug` additionally builds the debug-config engine binaries and
 # ships them as the `o3de-debug` subpackage. End-user game development
 # only needs the profile config (the default), so building debug is opt-in
@@ -143,16 +152,18 @@
 # (Editor splash) so the two surfaces stay consistent.
 #
 # Channel marker, chosen in priority order:
-#   experimental   any Stage 1 system_<X> bcond active (chroot --rpmbuild-with)
-#   stabilization  --with stabilization (the pre-release tester channel)
-#   snapshot       --with snapshot only (one-off development-branch build)
-#   stable         neither (tagged release tarball)
-# `%%{with X}` is the canonical bcond-aware truthiness test — it returns
-# 1 when the bcond is on, 0 when off (NOT undefined). Add new
-# system_<X> bconds to the experimental OR-chain as the Stage 1
-# migration list grows.
+#   experimental   --with experimental (set on o3de-experimental chroots)
+#   stabilization  --with stabilization (set on o3de-stabilization chroots)
+#   snapshot       --with snapshot only (one-off development-branch builds
+#                  going to o3de-snapshot, no other channel bcond set)
+#   (none)         no channel bcond set; tagged release going to hellaenergy/o3de
+# Marker reflects the destination project's channel, not the feature set.
+# Early Stage 1 work used to infer -experimental from "any system_<X>
+# bcond is on" but that broke when system swaps graduated into stab + stable
+# channels too (it would force -experimental on builds shipping to
+# o3de-stabilization and to hellaenergy/o3de).
 %global _o3de_channel %{nil}
-%if %{with system_assimp} || %{with system_dxc} || %{with system_expat} || %{with system_freetype} || %{with system_googlebenchmark} || %{with system_libsamplerate} || %{with system_lua} || %{with system_lz4} || %{with system_mcpp} || %{with system_mikkelsen} || %{with system_openexr} || %{with system_png} || %{with system_poly2tri} || %{with system_spirvcross} || %{with system_sqlite} || %{with system_tiff} || %{with system_zlib}
+%if %{with experimental}
 %global _o3de_channel -experimental
 %else
 %if %{with stabilization}
@@ -1444,6 +1455,19 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Sat May 23 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-69
+- Decouple the channel marker (-experimental / -stabilization / -snapshot)
+  from the active system_* swap set. The old logic forced -experimental on
+  any build with any system swap active, which was correct in early Stage 1
+  but broke once the swaps graduated into the stab + stable channels too --
+  the marker would have stamped -experimental on the 26.05.0 release going
+  to hellaenergy/o3de (which carries the full 18-swap set).
+  Add %bcond_with experimental; channel marker now reflects the destination
+  project. Stable mode (no channel bcond) -> "26.05.0" clean; stabilization
+  -> "26.05.0-stabilization"; experimental -> "26.05.0-experimental.<sha>".
+  o3de-experimental chroots updated to set --rpmbuild-with experimental.
+  Verified via rpmspec across all four modes.
+
 * Sat May 23 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-68
 - Bump stabilization/26050 snapshot pin to 8e750500 (2026-05-23 release-final
   tip), absorbing the final two pre-release-blessing commits on top of
