@@ -130,9 +130,9 @@
 # defaults only apply if no --define was passed. Lets parameterized
 # targets like `make srpm-snapshot-ref REF=qt6` override the snapshot
 # pin via --define snapshot_commit=... without editing the spec.
-%{?!snapshot_commit:%global snapshot_commit d86e2cb63889966e78991bbf0d6f80fad4ac1110}
-%{?!snapshot_date:%global snapshot_date 20260522}
-%{?!snapshot_sha256:%global snapshot_sha256 69093ee92d47e32a08c0fd1d3329543f7e009e85f12d8570aa06c33c00b36aa0}
+%{?!snapshot_commit:%global snapshot_commit 8e750500f23c9c45f08266200463fd31996638b7}
+%{?!snapshot_date:%global snapshot_date 20260523}
+%{?!snapshot_sha256:%global snapshot_sha256 23684e989c8b0220efd8605259a64f2861043e9c424043c51f0af3639ec7f6fb}
 %global shortcommit %(c=%{snapshot_commit}; echo ${c:0:7})
 
 # Channel-identifying suffix for the version strings the GUI displays.
@@ -1444,6 +1444,17 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Sat May 23 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-68
+- Bump stabilization/26050 snapshot pin to 8e750500 (2026-05-23 release-final
+  tip), absorbing the final two pre-release-blessing commits on top of
+  d86e2cb6: o3de/o3de#19778 (engine internal version bump to 2.6.0,
+  per the sig-release Internal Version Number convention) and
+  o3de/o3de#19779 (Editor splashscreen updated for 26.05.0). With these
+  in, the stabilization/26050 tip is essentially what 2605.0 will ship.
+  Carry-patch set unchanged from -67 (no new overlap with stab tip).
+  Building experimental first, then promoting to o3de-stabilization
+  ahead of the 2026-05-27 release.
+
 * Sat May 23 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-67
 - Bump stabilization/26050 snapshot pin to d86e2cb6 (2026-05-23 tip),
   picking up 5 days of cherry-picks landed since 2956111 (2026-05-18):

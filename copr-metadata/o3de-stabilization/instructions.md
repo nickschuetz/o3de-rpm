@@ -34,10 +34,16 @@ The package follows a **versioned-major naming convention** (`o3deNNNN` where NN
 - **[PR #19757](https://github.com/o3de/o3de/pull/19757)** (preWarm particle migrated to new OPS formats).
 - **[PR #19739](https://github.com/o3de/o3de/pull/19739)** (project-local AzTestRunner for SDK-installed builds).
 
-**Latest stabilization/26050 rebuild** (2026-05-23 tip, NVR `2605.0^20260522gitd86e2cb`) adds:
+**Release-final stabilization/26050 tip** (2026-05-23, NVR `2605.0^20260523git8e75050`) absorbs the last two pre-release-blessing commits on top of the `d86e2cb6` cherry-pick set below:
+- **[PR #19778](https://github.com/o3de/o3de/pull/19778)** (engine internal version bumped to 2.6.0 per the sig-release Internal Version Number convention).
+- **[PR #19779](https://github.com/o3de/o3de/pull/19779)** (Editor splashscreen updated for 26.05.0).
+
+With these in, the stabilization/26050 tip is essentially what 2605.0 will ship on 2026-05-27.
+
+**Cherry-picks landed in stabilization/26050 since the 10476214 baseline** (2026-05-18 NVR `2605.0^20260518git2956111`):
 - **[PR #19772](https://github.com/o3de/o3de/pull/19772)** (cherry-pick: UV-transform Vulkan rendering fix from `o3de/development`).
 - **[PR #19776](https://github.com/o3de/o3de/pull/19776)** (AssetProcessor "Assets" tab search field restored on Linux).
-- **[PR #19777](https://github.com/o3de/o3de/pull/19777)** (MSVC 14.50 stdext compatibility -- **closes the 26.05.0 Windows release-blocker** [issue #19754](https://github.com/o3de/o3de/issues/19754)).
+- **[PR #19777](https://github.com/o3de/o3de/pull/19777)** (MSVC 14.50 stdext compatibility -- the fix for the 26.05.0 Windows release-blocker [issue #19754](https://github.com/o3de/o3de/issues/19754)).
 
 **Upstream patches MERGED this cycle** (will retire from our local patch series on next snapshot rebase):
 - **[PR #19733](https://github.com/o3de/o3de/pull/19733)** (AzCore Lua include cleanup; MERGED 2026-05-08) -- our Patch0008 becomes redundant.
