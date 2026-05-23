@@ -52,7 +52,7 @@ With these in, the stabilization/26050 tip is essentially what 2605.0 will ship 
 
 **Lua 5.5 forward-compat** (Patch0010 + Patch0011) carries the engine through Fedora rawhide's Lua 5.5 transition. Behavior-preserving on Lua 5.4 (F44); engine compiles green on Lua 5.5 (rawhide) with `liblua-5.5.so` linkage confirmed via build 10442708 (2026-05-11).
 
-**For bleeding-edge `development`-branch builds**, see `hellaenergy/o3de-snapshot` (one-off, ad-hoc cadence).
+**For bleeding-edge `development`-branch builds**, see `hellaenergy/o3de-development` (ad-hoc cadence).
 
 **Gems with system runtime dependencies:** some o3de-extras gems (ROS 2 family, AudioEngineWwise, OpenXRVk, etc.) require external system runtimes the engine RPM does not bundle. Project Manager surfaces the requirement on each gem's information icon. See [`docs/GEMS_WITH_SYSTEM_DEPS.md`](https://github.com/nickschuetz/o3de-rpm/blob/main/docs/GEMS_WITH_SYSTEM_DEPS.md) for install paths and the project-build workflow.
 

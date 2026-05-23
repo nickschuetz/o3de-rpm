@@ -152,10 +152,15 @@
 # (Editor splash) so the two surfaces stay consistent.
 #
 # Channel marker, chosen in priority order:
-#   experimental   --with experimental (set on o3de-experimental chroots)
-#   stabilization  --with stabilization (set on o3de-stabilization chroots)
-#   snapshot       --with snapshot only (one-off development-branch builds
-#                  going to o3de-snapshot, no other channel bcond set)
+#   experimental   --with experimental         (o3de-experimental chroots)
+#   stabilization  --with stabilization        (o3de-stabilization chroots)
+#   development    --with development_snapshot (o3de-development chroots --
+#                  the default destination for snapshots from upstream's
+#                  development branch; carry-patches already merged
+#                  upstream are gated off when this bcond is set)
+#   snapshot       --with snapshot only        (rare arbitrary-ref one-off
+#                  builds going to a dedicated COPR project, e.g.
+#                  hellaenergy/o3de-qt6 if a qt6 testing channel is set up)
 #   (none)         no channel bcond set; tagged release going to hellaenergy/o3de
 # Marker reflects the destination project's channel, not the feature set.
 # Early Stage 1 work used to infer -experimental from "any system_<X>
@@ -169,8 +174,12 @@
 %if %{with stabilization}
 %global _o3de_channel -stabilization
 %else
+%if %{with development_snapshot}
+%global _o3de_channel -development
+%else
 %if %{with snapshot}
 %global _o3de_channel -snapshot
+%endif
 %endif
 %endif
 %endif
@@ -1455,6 +1464,35 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Sat May 23 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-70
+- Rename hellaenergy/o3de-snapshot -> hellaenergy/o3de-development to make
+  the always-tracks-development-branch intent explicit. The old "snapshot"
+  name overloaded two distinct meanings (source-mode "non-tagged-tarball
+  snapshot" vs the COPR project name); the project-name half now reflects
+  what the channel actually does. For arbitrary other refs (rare; e.g. a
+  hypothetical qt6 migration channel) a dedicated COPR project per branch
+  gets created rather than overloading o3de-development.
+  Spec: add a fourth elif to _o3de_channel for --with development_snapshot
+  -> "-development.<sha>" marker. The bcond was already in use for
+  patch-gating; now drives the GUI marker too. The --with snapshot only
+  branch still resolves to "-snapshot.<sha>" for arbitrary-ref builds.
+  Makefile: COPR_PROJECT_SNAPSHOT renamed to COPR_PROJECT_DEVELOPMENT;
+  copr-snapshot renamed to copr-development (now depends on
+  srpm-snapshot-development so it always pulls dev tip); copr-snapshot-ref,
+  copr-snapshot-qt6, copr-snapshot-development targets removed (rare other
+  refs get dedicated COPR projects per branch). srpm-snapshot* targets
+  unchanged (source-mode build mechanism).
+  CI workflow: comment updates only (cron continues to poll o3de-stabilization).
+  tests/ui-smoke-test.sh: recognizes both -development.<sha> and legacy
+  -snapshot.<sha> markers.
+  COPR: hellaenergy/o3de-development created via copr-cli fork (preserves
+  build history); chroot config preserved. Old hellaenergy/o3de-snapshot
+  description set to deprecation notice; project not deleted (pending Nick's
+  call).
+  Docs: README, CONTRIBUTING, ARCHITECTURE Mermaid, POST_RELEASE, FEDORA_ROADMAP
+  refreshed. Memory note project_snapshot_branch.md rewritten for the new
+  topology.
+
 * Sat May 23 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-69
 - Decouple the channel marker (-experimental / -stabilization / -snapshot)
   from the active system_* swap set. The old logic forced -experimental on

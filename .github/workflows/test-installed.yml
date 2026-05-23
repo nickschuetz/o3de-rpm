@@ -23,7 +23,7 @@ name: test-installed
 #                         succeeded build that's never been tested,
 #                         run automatically. Polls o3de-stabilization
 #                         (the community-tester channel) by default;
-#                         o3de-snapshot is for one-off dev builds and
+#                         o3de-development is for dev-branch builds and
 #                         doesn't need cron-driven testing. Dedup via
 #                         actions/cache keyed on the COPR build_id.
 
@@ -76,8 +76,8 @@ env:
   COPR_OWNER: hellaenergy
   # The cron path polls this project for new builds. Defaults to
   # o3de-stabilization since that's the regular community-tester
-  # channel; o3de-snapshot is now used for ad-hoc development-branch
-  # builds and doesn't need cron-driven testing.
+  # channel; o3de-development is for ad-hoc development-branch builds
+  # and doesn't need cron-driven testing.
   COPR_PROJECT: o3de-stabilization
   # Opt JS-based actions (checkout, upload/download-artifact, cache) into
   # Node 24 ahead of GitHub's forced cutover on 2026-06-02. Surfaces any

@@ -9,19 +9,16 @@
 #                                     (no spec edits; uses --define overrides). Default REF=development
 #   make srpm-snapshot-qt6            convenience alias: srpm-snapshot-ref REF=qt6
 #   make srpm-snapshot-development    convenience alias: srpm-snapshot-ref REF=development
-#   make copr-snapshot-ref REF=<ref>  srpm-snapshot-ref + submit to hellaenergy/o3de-snapshot
-#   make copr-snapshot-qt6            convenience alias: copr-snapshot-ref REF=qt6
-#   make copr-snapshot-development    convenience alias: copr-snapshot-ref REF=development
 #   make rpm                          full -bb (stable, profile only — main package)
 #   make rpm-snapshot                 full -bb (snapshot, profile only)
 #   make rpm-debug                    full -bb (stable) + o3de-debug subpackage
 #   make rpm-snapshot-debug           full -bb (snapshot) + o3de-debug subpackage
 #   make copr-stabilization           upload SRPM to hellaenergy/o3de-stabilization (testers)
-#   make copr-snapshot                upload SRPM to hellaenergy/o3de-snapshot (one-off dev builds)
+#   make copr-development             upload SRPM to hellaenergy/o3de-development (always dev branch)
 #   make copr-experimental            upload SRPM to hellaenergy/o3de-experimental
 #   make copr-stable                  upload current stable SRPM to hellaenergy/o3de
 #   make copr-stabilization-and-test  copr-stabilization + watch-build + trigger CI tests
-#   make copr-snapshot-and-test       copr-snapshot + watch + trigger
+#   make copr-development-and-test    copr-development + watch + trigger
 #   make copr-experimental-and-test   copr-experimental + watch + trigger
 #   make trigger-tests BUILD_ID=N     fire test-installed.yml against an existing COPR build
 #                                     (default project: o3de-stabilization;
@@ -34,7 +31,9 @@
 #   COPR_PROJECT_STABLE=o3de                          tagged stable releases
 #   COPR_PROJECT_STABILIZATION=o3de-stabilization     testers' channel; pre-release validation
 #                                                     from upstream stabilization/<X> branch
-#   COPR_PROJECT_SNAPSHOT=o3de-snapshot               one-off dev-branch / arbitrary-ref builds
+#   COPR_PROJECT_DEVELOPMENT=o3de-development         builds from upstream development branch
+#                                                     (rare other-ref builds get a dedicated COPR
+#                                                     project, e.g. o3de-qt6)
 #   COPR_PROJECT_EXPERIMENTAL=o3de-experimental       in-flight Stage 1 migration validation
 #   COPR_PROJECT=$(COPR_PROJECT_STABILIZATION)        default project for trigger-tests
 #
@@ -52,15 +51,16 @@ PWD   := $(shell pwd)
 PKGNAME := $(shell rpmspec --define "_sourcedir $(PWD)/sources" --define "_specdir $(PWD)" -q --qf '%{NAME}\n' o3de.spec 2>/dev/null | head -1)
 
 # Default REF for `make snapshot` is the current next-release stabilization
-# branch — that's what o3de-snapshot ships to community testers. Pass
-# REF=development for the bleeding-edge integration branch, or any other
-# git ref. Bump this default when O3DE moves to the next release branch
-# (the spec's stable_tag value tells you the upcoming release version).
+# branch — that's what `make snapshot` regenerates the spec's snapshot pin
+# against. The o3de-development channel always targets the development
+# branch (via `make copr-development`, which calls srpm-snapshot-development
+# explicitly). For ad-hoc other-ref builds (e.g. qt6), create a dedicated
+# COPR project and fire srpm-snapshot-ref REF=<other> at it via copr-cli.
 REF                          ?= stabilization/26050
 COPR_OWNER                   ?= hellaenergy
 COPR_PROJECT_STABLE          ?= o3de
 COPR_PROJECT_STABILIZATION   ?= o3de-stabilization
-COPR_PROJECT_SNAPSHOT        ?= o3de-snapshot
+COPR_PROJECT_DEVELOPMENT     ?= o3de-development
 COPR_PROJECT_EXPERIMENTAL    ?= o3de-experimental
 # COPR_PROJECT picks which project trigger-tests targets (defaults to
 # the stabilization channel testers consume; override on the command line:
@@ -71,14 +71,13 @@ RPMBUILD_DEFINES = \
 	--define "_sourcedir $(PWD)/sources" \
 	--define "_specdir   $(PWD)"
 
-.PHONY: help lint spec-parse spec-parse-snapshot spec-parse-stabilization spec-parse-experimental \
+.PHONY: help lint spec-parse spec-parse-snapshot spec-parse-stabilization spec-parse-experimental spec-parse-development \
         print-pkgname \
         snapshot srpm srpm-snapshot srpm-snapshot-ref srpm-snapshot-qt6 srpm-snapshot-development \
         srpm-stabilization srpm-experimental \
-        copr-snapshot-ref copr-snapshot-qt6 copr-snapshot-development \
         rpm rpm-snapshot rpm-debug rpm-snapshot-debug rpm-experimental \
-        copr-stable copr-snapshot copr-stabilization copr-experimental \
-        copr-snapshot-and-test copr-stabilization-and-test copr-experimental-and-test _copr-and-test \
+        copr-stable copr-development copr-stabilization copr-experimental \
+        copr-development-and-test copr-stabilization-and-test copr-experimental-and-test _copr-and-test \
         trigger-tests copr-init \
         copr-metadata-pull copr-metadata-diff copr-metadata-push \
         check-deps-drift \
@@ -177,8 +176,10 @@ srpm-snapshot:
 #   make srpm-snapshot-ref REF=<commit-sha>              # pinned commit
 #
 # Output: ~/rpmbuild/SRPMS/o3de2605-<NVR>.src.rpm with the snapshot
-# macros pointing at REF's HEAD. Submit to hellaenergy/o3de-snapshot
-# via `copr-cli build hellaenergy/o3de-snapshot ~/rpmbuild/SRPMS/...`.
+# macros pointing at REF's HEAD. For development branch builds, use
+# `make copr-development` (wraps srpm-snapshot-development + upload).
+# For other refs (rare), create a dedicated COPR project and fire:
+# `copr-cli build hellaenergy/o3de-<ref> ~/rpmbuild/SRPMS/...`.
 #
 # Output of make-snapshot-tarball.sh is parsed via grep -- format:
 #   "  %global snapshot_commit <sha>"
@@ -226,26 +227,11 @@ srpm-snapshot-qt6:
 srpm-snapshot-development:
 	$(MAKE) srpm-snapshot-ref REF=development SNAPSHOT_REF_EXTRA_BCOND="--with development_snapshot"
 
-# copr-snapshot-ref: submit a snapshot-ref SRPM to hellaenergy/o3de-snapshot.
-# Same parameterization as srpm-snapshot-ref. The snapshot project's
-# chroot config (per `project_snapshot_branch.md`) is intentionally minimal
-# (no system_* swaps) so dev-branch builds aren't masked by our local
-# packaging variations.
-copr-snapshot-ref: srpm-snapshot-ref
-	copr-cli build --timeout 28800 $(COPR_OWNER)/$(COPR_PROJECT_SNAPSHOT) \
-		~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
-
-copr-snapshot-qt6:
-	$(MAKE) copr-snapshot-ref REF=qt6
-
-copr-snapshot-development:
-	$(MAKE) copr-snapshot-ref REF=development SNAPSHOT_REF_EXTRA_BCOND="--with development_snapshot"
-
 # srpm-stabilization: snapshot + the stabilization channel marker. This
 # is what the community testers' channel ships. The marker is what
 # differentiates "stabilization-branch build" (uploaded to o3de-stabilization)
-# from a "one-off development-branch build" (uploaded to o3de-snapshot,
-# plain --with snapshot only).
+# from a "development-branch build" (uploaded to o3de-development via
+# `make copr-development`).
 srpm-stabilization:
 	$(SRPM_CLEAN)
 	rpmbuild -bs $(SRPM_STABILIZATION_FLAGS) $(RPMBUILD_DEFINES) o3de.spec
@@ -509,13 +495,14 @@ copr-init:
 	@echo "      --enable-net on --appstream on \\"
 	@echo "      --description 'O3DE pre-release validation builds from stabilization/<release>'"
 	@echo
-	@echo "# 3. Snapshot (one-off / development-branch) project — ad-hoc cadence,"
-	@echo "#    used when someone wants to build from upstream development or a"
-	@echo "#    specific commit without disrupting the regular tester channel:"
-	@echo "  copr-cli create $(COPR_OWNER)/$(COPR_PROJECT_SNAPSHOT) \\"
+	@echo "# 3. Development-branch project — always tracks upstream o3de/development."
+	@echo "#    Ad-hoc cadence. For other arbitrary refs (rare; e.g. qt6 migration"
+	@echo "#    work), create a separate dedicated COPR project rather than"
+	@echo "#    overloading this one:"
+	@echo "  copr-cli create $(COPR_OWNER)/$(COPR_PROJECT_DEVELOPMENT) \\"
 	@echo "      --chroot fedora-44-x86_64 --chroot fedora-rawhide-x86_64 \\"
 	@echo "      --enable-net on \\"
-	@echo "      --description 'O3DE one-off development-branch builds'"
+	@echo "      --description 'O3DE development-branch builds (upstream o3de/development tip)'"
 	@echo
 	@echo "# 4. Experimental (in-flight migration) project:"
 	@echo "  copr-cli create $(COPR_OWNER)/$(COPR_PROJECT_EXPERIMENTAL) \\"
@@ -524,7 +511,7 @@ copr-init:
 	@echo "      --description 'O3DE experimental builds — Stage 1 migration work'"
 	@echo
 	@echo "# Wire o3de-dependencies into each chroot for all four engine projects:"
-	@echo "  for proj in $(COPR_PROJECT_STABLE) $(COPR_PROJECT_STABILIZATION) $(COPR_PROJECT_SNAPSHOT) $(COPR_PROJECT_EXPERIMENTAL); do \\"
+	@echo "  for proj in $(COPR_PROJECT_STABLE) $(COPR_PROJECT_STABILIZATION) $(COPR_PROJECT_DEVELOPMENT) $(COPR_PROJECT_EXPERIMENTAL); do \\"
 	@echo "      for chroot in fedora-44-x86_64 fedora-rawhide-x86_64; do \\"
 	@echo "          copr-cli edit-chroot $(COPR_OWNER)/\$$proj/\$$chroot \\"
 	@echo "              --repos 'copr://$(COPR_OWNER)/o3de-dependencies'; \\"
@@ -587,9 +574,15 @@ copr-init:
 	@echo "#        per the 2026-05-05 CryCommon int64 audit; bcond + Find shim"
 	@echo "#        + Source declaration stay in place for future activation.)"
 	@echo
-	@echo "#    c. o3de-snapshot stays unflagged. Plain --with snapshot at the"
-	@echo "#       SRPM level marks the build as a one-off dev-branch snapshot;"
-	@echo "#       no chroot --rpmbuild-with needed."
+	@echo "#    c. o3de-development chroots set --rpmbuild-with development_snapshot"
+	@echo "#       (gates off the carry-patches whose upstream equivalents have"
+	@echo "#       already landed in development; also drives the -development"
+	@echo "#       channel marker in the GUI). No system_* swaps on this channel"
+	@echo "#       so dev-branch builds aren't masked by packaging variations."
+	@echo "  for chroot in fedora-44-x86_64 fedora-rawhide-x86_64; do \\"
+	@echo "      copr-cli edit-chroot $(COPR_OWNER)/$(COPR_PROJECT_DEVELOPMENT)/\$$chroot \\"
+	@echo "          --rpmbuild-with development_snapshot; \\"
+	@echo "  done"
 	@echo
 	@echo "# After a Stage 1 batch validates on o3de-experimental and is approved"
 	@echo "# to ship to testers, mirror the SAME --rpmbuild-with system_<lib>"
@@ -608,13 +601,13 @@ copr-init:
 	@echo "#     copy the --rpmbuild-with flag set onto the new chroot."
 	@echo "#   - The 'stabilization' bcond stays on o3de-stabilization +"
 	@echo "#     o3de-experimental chroots only; o3de (stable) and"
-	@echo "#     o3de-snapshot do NOT get it."
+	@echo "#     o3de-development do NOT get it."
 	@echo
 	@echo "# 6. Auto-enable o3de-dependencies for end users. Without this,"
 	@echo "# 'dnf copr enable hellaenergy/<engine-project>' alone leaves users"
 	@echo "# unable to resolve Requires:mikkelsen and similar swapped deps."
 	@echo "# Apply to every engine project:"
-	@echo "  for proj in $(COPR_PROJECT_STABLE) $(COPR_PROJECT_STABILIZATION) $(COPR_PROJECT_SNAPSHOT) $(COPR_PROJECT_EXPERIMENTAL); do \\"
+	@echo "  for proj in $(COPR_PROJECT_STABLE) $(COPR_PROJECT_STABILIZATION) $(COPR_PROJECT_DEVELOPMENT) $(COPR_PROJECT_EXPERIMENTAL); do \\"
 	@echo "      copr-cli modify $(COPR_OWNER)/\$$proj \\"
 	@echo "          --runtime-repo-dependency 'copr://$(COPR_OWNER)/o3de-dependencies'; \\"
 	@echo "  done"
@@ -662,8 +655,14 @@ release-stable:
 	echo "Building SRPM + firing to $(COPR_OWNER)/$(COPR_PROJECT_STABLE) ..."; \
 	$(MAKE) copr-stable
 
-copr-snapshot: srpm-snapshot
-	copr-cli build --timeout 28800 $(COPR_OWNER)/$(COPR_PROJECT_SNAPSHOT) \
+# copr-development: always builds from upstream's development branch
+# (via srpm-snapshot-development, which sets REF=development +
+# --with development_snapshot to gate off the carry-patches whose
+# upstream equivalents have already landed in development). For
+# arbitrary other-ref builds (rare; e.g., qt6), create a dedicated
+# COPR project and fire srpm-snapshot-ref at it directly via copr-cli.
+copr-development: srpm-snapshot-development
+	copr-cli build --timeout 28800 $(COPR_OWNER)/$(COPR_PROJECT_DEVELOPMENT) \
 		~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
 
 # copr-stabilization: the regular community-tester channel. This is the
@@ -695,10 +694,12 @@ copr-experimental: srpm-experimental
 # resolves the F44 RPM URL from the build_id by listing the COPR
 # results directory, so we only need to pass the build_id along.
 #
-# Default targets the snapshot project. To exercise the experimental
-# project end-to-end, use `make copr-experimental-and-test` instead.
-copr-snapshot-and-test: srpm-snapshot
-	@$(MAKE) _copr-and-test COPR_TARGET=$(COPR_PROJECT_SNAPSHOT)
+# Three "build + watch + trigger CI tests" variants; pick by the
+# destination project. copr-development for dev-branch tracking,
+# copr-stabilization for the testers' channel, copr-experimental for
+# in-flight migration work.
+copr-development-and-test: srpm-snapshot-development
+	@$(MAKE) _copr-and-test COPR_TARGET=$(COPR_PROJECT_DEVELOPMENT)
 
 copr-stabilization-and-test: srpm-stabilization
 	@$(MAKE) _copr-and-test COPR_TARGET=$(COPR_PROJECT_STABILIZATION)
@@ -707,7 +708,7 @@ copr-experimental-and-test: srpm-experimental
 	@$(MAKE) _copr-and-test COPR_TARGET=$(COPR_PROJECT_EXPERIMENTAL)
 
 # Internal helper: parameterized build-then-watch-then-trigger-tests.
-# Not a normal entry point; called from copr-{snapshot,experimental}-and-test.
+# Not a normal entry point; called from copr-{development,stabilization,experimental}-and-test.
 _copr-and-test:
 	@[ -n "$(COPR_TARGET)" ] || { echo "_copr-and-test requires COPR_TARGET="; exit 2; }
 	@set -e ; \

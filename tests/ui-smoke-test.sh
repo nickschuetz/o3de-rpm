@@ -130,11 +130,13 @@ if xdpyinfo -display "$DISPLAY" 2>/dev/null | grep -q 'root window id'; then
             # the test output then see immediately which RPM channel
             # the build came from without having to grep package metadata.
             if printf '%s' "$WIN_TITLE" | grep -qE -- '-experimental\.[0-9a-f]{7,}'; then
-                printf "  (channel: experimental — Stage 1 system-library swaps active)\n"
-            elif printf '%s' "$WIN_TITLE" | grep -qE -- '-stabilization\.[0-9a-f]{7,}'; then
+                printf "  (channel: experimental — in-flight migration work)\n"
+            elif printf '%s' "$WIN_TITLE" | grep -qE -- '-stabilization\b'; then
                 printf "  (channel: stabilization — pre-release validation from upstream stabilization branch)\n"
+            elif printf '%s' "$WIN_TITLE" | grep -qE -- '-development\.[0-9a-f]{7,}'; then
+                printf "  (channel: development — upstream development-branch build)\n"
             elif printf '%s' "$WIN_TITLE" | grep -qE -- '-snapshot\.[0-9a-f]{7,}'; then
-                printf "  (channel: snapshot — one-off development-branch build)\n"
+                printf "  (channel: snapshot — arbitrary-ref one-off build)\n"
             else
                 printf "  (channel: stable — tagged release)\n"
             fi

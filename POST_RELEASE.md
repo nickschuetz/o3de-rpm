@@ -121,7 +121,7 @@ The announcement is a manual step; no auto-post from the test infrastructure.
 ## After the first build is GREEN
 
 - Tag the spec commit (e.g., `release/2605.0`) so the post-release state is bookmarked.
-- Move on to dev-snapshot cadence: fire `make copr-snapshot-development` to push a build of the new development tip into `hellaenergy/o3de-snapshot`. This kicks off the next cycle's tracking.
+- Move on to dev-snapshot cadence: fire `make copr-development` to push a build of the new development tip into `hellaenergy/o3de-development`. This kicks off the next cycle's tracking.
 
 ## Failure modes
 

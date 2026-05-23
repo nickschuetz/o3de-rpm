@@ -153,12 +153,12 @@ Five related projects under the same owner (`hellaenergy`):
 | `hellaenergy/o3de-dependencies` | Fedora-clean SRPMs for non-Fedora deps (custom Qt, PhysX, AWSNativeSDK, mikkelsen, …) | Consumed by the four engine projects via `additional_repos` | Rare — these are vetted system-library replacements |
 | `hellaenergy/o3de` | Tagged-release engine builds | End users wanting a stable release | Only at upstream release cadence |
 | `hellaenergy/o3de-stabilization` | Pre-release validation builds from upstream `stabilization/<release>` | Community testers Nick has invited to validate | **Hands off when testers are active** — see `MEMORY.md` |
-| `hellaenergy/o3de-snapshot` | One-off / ad-hoc builds from `development` or any specific commit | When someone wants to test a non-stabilization ref without disrupting the regular tester channel | Push freely (no testers expecting regular cadence) |
+| `hellaenergy/o3de-development` | Always tracks upstream `o3de/development` tip | Engine contributors validating the bleeding-edge branch | Push freely (ad-hoc cadence, no testers expecting regular cadence). For arbitrary other refs (e.g. qt6), create a dedicated COPR project per branch. |
 | `hellaenergy/o3de-experimental` | In-flight migration / structural work (Stage 1 system-library swaps, `-devel` splits, etc.) | Just us, until validated | Push freely; promote to `-stabilization` when validated |
 
 The four engine projects all set `enable_net=true` (so cmake can fetch the four restricted bundles — DXC, NvCloth, poly2tri, squish-ccr — from `packages.o3de.org` at build time) and pull `o3de-dependencies` via the chroot's `additional_repos` (build-time) and `runtime_dependencies` (consume-time, for end users).
 
-Channel-marker bcond: `--with stabilization` is set on `o3de-stabilization` and `o3de-experimental` chroots (via `--rpmbuild-with stabilization`) so the spec tags those builds with `-stabilization.<commit>` in the GUI version string. `o3de-snapshot` builds use plain `--with snapshot` only and tag as `-snapshot.<commit>`. `o3de` (stable) builds carry no channel suffix.
+Channel-marker bconds (set on the destination project's chroots via `--rpmbuild-with`): `--with experimental` on `o3de-experimental`, `--with stabilization` on `o3de-stabilization`, `--with development_snapshot` on `o3de-development`. Tagged-release builds going to `o3de` carry no channel bcond and the marker resolves to a clean version string. GUI version strings: `26.05.0-experimental.<sha>`, `26.05.0-stabilization`, `26.05.0-development.<sha>`, or `26.05.0` (stable). The marker reflects the destination *project*, not the active feature set (early Stage 1 logic used to infer `-experimental` from "any system_* swap active" but that broke once swaps graduated into the stab + stable channels too).
 
 Each engine project hosts the **versioned** package(s) that match whatever the spec's `stable_tag` resolves to at build time — currently `o3de2605` (for the 26.05.x line). When the spec rolls forward to `2610.0`, the same projects will start producing `o3de2610` packages alongside (until the older line is pruned). The COPR project name (`o3de`, `o3de-stabilization`, …) is the *channel*; the package name (`o3de2605`, `o3de2610`, …) is the *major*. They're orthogonal.
 
@@ -167,11 +167,11 @@ Workflow:
 ```bash
 make copr-init                       # prints one-time COPR setup commands (chroots, repos, etc.)
 make copr-stabilization              # build SRPM, upload to hellaenergy/o3de-stabilization
-make copr-snapshot                   # one-off, uploads to hellaenergy/o3de-snapshot
+make copr-development                # always dev-branch, uploads to hellaenergy/o3de-development
 make copr-experimental               # same SRPM, uploads to hellaenergy/o3de-experimental
 make copr-stable                     # tagged release builds
 make copr-stabilization-and-test     # full pipeline: build + watch + fire CI tests
-make copr-snapshot-and-test          # same, against the snapshot project
+make copr-development-and-test       # same, against the development project
 make copr-experimental-and-test      # same, against the experimental project
 ```
 
@@ -214,8 +214,8 @@ Tier 9 and Tier 10 are the community-sample validation tracks; both pass on Fedo
 `.github/workflows/test-installed.yml` runs the integration test suite in clean Fedora containers (matrix: `fedora-44`, `fedora-rawhide`, extending as Fedora releases ship) against an RPM URL — typically a COPR build artifact. Three triggers:
 
 - **Manual** (`workflow_dispatch`) — paste an RPM URL into the GitHub UI's "Run workflow" form.
-- **Programmatic** (`repository_dispatch`, `event_type: copr-build-succeeded`) — fired by `make trigger-tests BUILD_ID=<copr-build-id>` after a COPR build succeeds, or end-to-end via `make copr-snapshot-and-test` (which submits, watches, then fires). Requires `gh` authenticated.
-- **Cron** (every 4 hours, offset to `:17`) — polls COPR for the latest succeeded build in `hellaenergy/o3de-snapshot`. Dedup via `actions/cache` keyed on the COPR build ID, so the same build is never tested twice.
+- **Programmatic** (`repository_dispatch`, `event_type: copr-build-succeeded`) — fired by `make trigger-tests BUILD_ID=<copr-build-id>` after a COPR build succeeds, or end-to-end via `make copr-stabilization-and-test` (which submits, watches, then fires). Requires `gh` authenticated.
+- **Cron** (every 4 hours, offset to `:17`) — polls COPR for the latest succeeded build in `hellaenergy/o3de-stabilization`. Dedup via `actions/cache` keyed on the COPR build ID, so the same build is never tested twice.
 
 The full RPM build itself is too heavy for free GitHub runners (~25 GB output, multi-hour compile). COPR does that.
 

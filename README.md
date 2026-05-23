@@ -101,7 +101,8 @@ rpmbuild -bb \
 The spec's `--with snapshot` mode builds from any git ref of `o3de/o3de` instead of an upstream-tagged release tarball. **Which COPR project the resulting RPM lands in depends on the git ref**, not on the rpm mode:
 
 - **`stabilization/<release>`** (e.g. `stabilization/26050`, the next-release branch — currently the default `REF`) → `hellaenergy/o3de-stabilization` (the community testers' channel). Invoke with `make srpm-stabilization` / `make copr-stabilization`.
-- **`development`** or a specific commit/tag → `hellaenergy/o3de-snapshot` (one-off / ad-hoc builds, no continuous tester cadence). Invoke with `make srpm-snapshot` / `make copr-snapshot`.
+- **`development`** → `hellaenergy/o3de-development` (ad-hoc cadence, always tracks upstream `o3de/development` tip). Invoke with `make copr-development` (wraps `srpm-snapshot-development`).
+- **arbitrary other ref** (e.g. a hypothetical `qt6` migration branch) → dedicated COPR project per branch (`hellaenergy/o3de-qt6` etc.). Build locally with `make srpm-snapshot-ref REF=<other>` and `copr-cli build` directly.
 
 Both paths use `--with snapshot` under the hood; the project split is a publishing-channel choice, not a build-mode choice. See the bullets at the top of this README for the upstream-branch distinction.
 
@@ -109,8 +110,8 @@ Both paths use `--with snapshot` under the hood; the project split is a publishi
 # 1. Generate a reproducible snapshot tarball + checksum.
 cd sources
 ./make-snapshot-tarball.sh stabilization/26050   # next-release branch → o3de-stabilization
-# ./make-snapshot-tarball.sh development          # bleeding-edge          → o3de-snapshot
-# ./make-snapshot-tarball.sh <commit-sha>         # any specific ref       → o3de-snapshot
+# ./make-snapshot-tarball.sh development          # bleeding-edge          → o3de-development
+# ./make-snapshot-tarball.sh <commit-sha>         # any specific ref       → dedicated COPR project
 cd ..
 
 # 2. Paste the printed snapshot_commit / snapshot_date / snapshot_sha256
@@ -259,7 +260,7 @@ The interim distribution channel. Four COPR projects under the same owner, each 
 - **[`hellaenergy/o3de-dependencies`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-dependencies/)** — Fedora-clean SRPMs for O3DE 3rdParty packages that aren't in Fedora proper (custom Qt 5.15-rev9, PhysX, AWSNativeSDK, azslc, mikkelsen, …). `enable_net=false`. Built first — depended on by the engine projects via `additional_repos` at build time and `runtime_dependencies` at consume time (so users get it auto-enabled when they enable any engine project).
 - **[`hellaenergy/o3de`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de/)** — tracks `o3de/o3de:main`, which is upstream's release branch. Each O3DE release (major or point) merges into `main` and gets tagged there (`2510.2 -> cf85af7`, `2605.0 -> ...`, etc.). The official release ceremony cadence is twice yearly (May + October) plus occasional point releases. This is the channel end users on Fedora should `dnf copr enable` for a stable, supportable install. See [`POST_RELEASE.md`](POST_RELEASE.md) for the post-ceremony runbook that pushes a new release into this channel.
 - **[`hellaenergy/o3de-stabilization`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-stabilization/)** — pre-release validation builds from upstream's `stabilization/<release>` branch (currently `stabilization/26050`). The community testers' channel — `dnf copr enable` here for the validated-but-not-yet-released next-line builds. When upstream tags + merges to `main`, this channel rolls over to the next major's stabilization branch (`stabilization/26100` after 26.05.0 ships).
-- **[`hellaenergy/o3de-snapshot`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-snapshot/)** — one-off / ad-hoc builds from upstream's `development` branch (bleeding-edge) or any specific commit. Used when someone wants to test the very latest dev tip or a specific feature branch without disrupting the regular tester channel.
+- **[`hellaenergy/o3de-development`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-development/)** — ad-hoc cadence builds from upstream's `development` branch (bleeding-edge). For arbitrary other refs (e.g. a hypothetical `qt6` migration channel) we'd create a dedicated COPR project per branch rather than overload this one.
 - **[`hellaenergy/o3de-experimental`](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-experimental/)** — in-flight Stage 1 system-library migration validation (see [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) Stage 1). Not for end-user testing; internal to the packaging effort.
 
 All three engine projects use `enable_net=true` so cmake can still fetch the remaining restricted bundles from `packages.o3de.org` (DXC, NvCloth, squish-ccr) — those cannot be redistributed via Fedora/COPR for licensing reasons. (`poly2tri` was originally a fourth entry; the audit on 2026-05-07 reframed it as a Stage 1 swap candidate, so it now resolves through Fedora's `poly2tri-devel` when the swap is active.)
@@ -302,7 +303,7 @@ The package name follows a `o3deNNNN` convention (postgresql-style): `NNNN` is t
 
 `hellaenergy/o3de-dependencies` auto-enables alongside the engine project (via the engine project's `runtime_dependencies` setting) — no separate `dnf copr enable` needed. The per-user Python venv bootstraps on first launch automatically; pre-bootstrap manually with `/opt/O3DE/26.05.0/python/get_python.sh` if preferred.
 
-When O3DE upstream tags a stable release, swap `o3de-stabilization` for `o3de` (the package name stays `o3de2605`; only the COPR project changes). Skip `o3de-snapshot` (one-off dev builds) and `o3de-experimental` (packaging work) unless you have a specific reason to test those.
+When O3DE upstream tags a stable release, swap `o3de-stabilization` for `o3de` (the package name stays `o3de2605`; only the COPR project changes). Skip `o3de-development` (dev-branch builds) and `o3de-experimental` (packaging work) unless you have a specific reason to test those.
 
 To publish from this checkout:
 
@@ -311,8 +312,8 @@ make snapshot REF=stabilization/26050    # generate tarball + print pin values
 $EDITOR o3de.spec                        # paste the printed snapshot_* macros
 make copr-stabilization                  # SRPM → hellaenergy/o3de-stabilization (testers)
 make copr-stabilization-and-test         # same + watch build + fire CI tests on success
-make copr-snapshot                       # SRPM → hellaenergy/o3de-snapshot (one-off dev builds)
-make copr-snapshot-and-test              # same + watch + fire CI tests
+make copr-development                    # SRPM → hellaenergy/o3de-development (always dev-branch tip)
+make copr-development-and-test           # same + watch + fire CI tests
 make copr-experimental                   # SRPM → hellaenergy/o3de-experimental (Stage 1 batch)
 make copr-experimental-and-test          # same + watch + fire CI tests
 make copr-stable                         # SRPM → hellaenergy/o3de (when tagged)
