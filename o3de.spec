@@ -1331,11 +1331,28 @@ desktop-file-install --dir=%{buildroot}%{_datadir}/applications \
 mv %{buildroot}%{_datadir}/applications/o3de.desktop \
    %{buildroot}%{_datadir}/applications/%{o3de_pkgname}.desktop
 
+# Editor / Material Editor / Material Canvas menu entries.
+#
+# Each Exec= passes `-name "O3DE-<major> <Tool>"` to Qt. Qt translates
+# that into the X11 WM_CLASS res_name (also picked up as Wayland app_id)
+# so the StartupWMClass below matches the running window. Without this,
+# Qt would use each binary's internal setApplicationName ("O3DE Editor",
+# "O3DE Material Editor", "O3DE Material Canvas") which differs from
+# our versioned StartupWMClass, the dock can't attach the menu icon to
+# the running window, and the dock falls back to the small SVG that the
+# engine bakes in via setWindowIcon. The PM launcher (sources/o3de-launcher.sh)
+# does the same thing via `-name "O3DE-NNNN"`; this just mirrors that
+# pattern in the desktop file directly so we don't need three more
+# launcher wrappers for these tools.
+#
+# Per-tool versioned naming (Name + Icon + StartupWMClass + file path)
+# keeps two installed majors non-colliding in the menu, dock, and on
+# disk.
+
 # Editor menu entry — visible (matching the Windows installer layout
-# as of 2026-05-24). Distinct Icon series + Name + StartupWMClass per
-# tool keep two installed majors' entries non-colliding.
+# as of 2026-05-24).
 desktop-file-install --dir=%{buildroot}%{_datadir}/applications \
-    --set-key=Exec --set-value=%{o3de_install_prefix}/bin/Linux/profile/Default/Editor \
+    --set-key=Exec --set-value='%{o3de_install_prefix}/bin/Linux/profile/Default/Editor -name "O3DE-%{o3de_major_tag} Editor"' \
     --set-key=Icon --set-value=%{o3de_pkgname}-editor \
     --set-key=Name --set-value="O3DE %{engine_cmake_version} Editor" \
     --set-key=StartupWMClass --set-value="O3DE-%{o3de_major_tag} Editor" \
@@ -1345,7 +1362,7 @@ mv %{buildroot}%{_datadir}/applications/o3de-editor.desktop \
 
 # Material Editor menu entry — standalone material authoring tool.
 desktop-file-install --dir=%{buildroot}%{_datadir}/applications \
-    --set-key=Exec --set-value=%{o3de_install_prefix}/bin/Linux/profile/Default/MaterialEditor \
+    --set-key=Exec --set-value='%{o3de_install_prefix}/bin/Linux/profile/Default/MaterialEditor -name "O3DE-%{o3de_major_tag} MaterialEditor"' \
     --set-key=Icon --set-value=%{o3de_pkgname}-material-editor \
     --set-key=Name --set-value="O3DE %{engine_cmake_version} Material Editor" \
     --set-key=StartupWMClass --set-value="O3DE-%{o3de_major_tag} MaterialEditor" \
@@ -1355,7 +1372,7 @@ mv %{buildroot}%{_datadir}/applications/o3de-material-editor.desktop \
 
 # Material Canvas menu entry — node-based material authoring complement.
 desktop-file-install --dir=%{buildroot}%{_datadir}/applications \
-    --set-key=Exec --set-value=%{o3de_install_prefix}/bin/Linux/profile/Default/MaterialCanvas \
+    --set-key=Exec --set-value='%{o3de_install_prefix}/bin/Linux/profile/Default/MaterialCanvas -name "O3DE-%{o3de_major_tag} MaterialCanvas"' \
     --set-key=Icon --set-value=%{o3de_pkgname}-material-canvas \
     --set-key=Name --set-value="O3DE %{engine_cmake_version} Material Canvas" \
     --set-key=StartupWMClass --set-value="O3DE-%{o3de_major_tag} MaterialCanvas" \
@@ -1544,6 +1561,24 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Sun May 24 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-72
+- Desktop entries (Editor / Material Editor / Material Canvas): pass
+  `-name "O3DE-<major> <Tool>"` to Qt via the desktop Exec= so the
+  running window's X11 WM_CLASS matches the StartupWMClass. Without this,
+  Qt would use the engine's internal setApplicationName ("O3DE Editor",
+  etc.) which differs from our versioned StartupWMClass, the dock can't
+  attach our menu icon to the running window, and the dock falls back to
+  the small SVG that the engine bakes via setWindowIcon. Mirrors the
+  existing PM launcher pattern that's already passing -name "O3DE-NNNN"
+  to Qt via sources/o3de-launcher.sh.
+  Effect: minimized / docked Editor / Material Editor / Material Canvas
+  windows now show the per-tool Windows-extracted icon instead of the
+  small in-binary fallback. The Material Editor / Material Canvas TITLE
+  BAR icon still falls back to the small SVG because the engine's
+  setWindowIcon points at :/Icons/application.svg (a 65x64 asset) for
+  those two tools; that's engine-side, not packaging-side. Upstream
+  follow-up post-release.
+
 * Sun May 24 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-71
 - Desktop layout: match Windows-installer intent. All four user-facing
   tools visible in the menu with their own per-tool Windows-extracted
