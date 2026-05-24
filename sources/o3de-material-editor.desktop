@@ -1,0 +1,17 @@
+[Desktop Entry]
+# Standalone Material Editor entry. Material authoring tool that runs without
+# the full level Editor; useful for editing .material assets in isolation.
+# The spec's %install mutates Exec, Icon, Name, StartupWMClass to add the
+# %{o3de_major_tag} version suffix at install time.
+Type=Application
+Version=1.0
+Name=O3DE Material Editor
+GenericName=Material Authoring
+Comment=Open 3D Engine standalone Material Editor
+Exec=/opt/o3de/bin/Linux/profile/Default/MaterialEditor
+Icon=o3de-material-editor
+Terminal=false
+StartupNotify=true
+StartupWMClass=O3DE MaterialEditor
+Categories=Development;3DGraphics;
+Keywords=o3de;material;editor;atom;rendering;

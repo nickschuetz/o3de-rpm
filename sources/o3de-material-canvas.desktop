@@ -1,0 +1,17 @@
+[Desktop Entry]
+# Standalone Material Canvas entry. Node-based material authoring tool;
+# complement to Material Editor for graph-style material composition.
+# The spec's %install mutates Exec, Icon, Name, StartupWMClass to add the
+# %{o3de_major_tag} version suffix at install time.
+Type=Application
+Version=1.0
+Name=O3DE Material Canvas
+GenericName=Node-Based Material Authoring
+Comment=Open 3D Engine standalone Material Canvas
+Exec=/opt/o3de/bin/Linux/profile/Default/MaterialCanvas
+Icon=o3de-material-canvas
+Terminal=false
+StartupNotify=true
+StartupWMClass=O3DE MaterialCanvas
+Categories=Development;3DGraphics;
+Keywords=o3de;material;canvas;node;graph;atom;rendering;

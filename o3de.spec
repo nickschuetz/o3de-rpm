@@ -280,22 +280,53 @@ Source11:       o3de.desktop
 Source12:       make-snapshot-tarball.sh
 Source13:       %{o3de_pkgname}.cdx.json
 Source14:       o3de.metainfo.xml
-# NoDisplay association entry: maps the Editor's WM_CLASS to o3de icon.
+# Standalone Editor entry. Visible in the menu as of 2026-05-24 to match
+# the Windows installer's layout (PM + Editor + Material Editor + Material
+# Canvas all visible). Previously NoDisplay=true.
 Source15:       o3de-editor.desktop
 # Thin wrapper exposing the engine's scripts/o3de.sh CLI on $PATH as
 # %%{o3de_pkgname}-cli (versioned binary name; multiple installed majors
 # get distinct PATH entries).
 Source16:       o3de-cli
+# Standalone Material Editor + Material Canvas menu entries. Added
+# 2026-05-24 to match Windows where these tools have their own Start menu
+# entries.
+Source17:       o3de-material-editor.desktop
+Source18:       o3de-material-canvas.desktop
 
-# App icons in hicolor sizes. Extracted from upstream's
-# cmake/Platform/Windows/Packaging/product_icon.ico (256x256 master,
-# downsampled with imagemagick).
+# App icons in hicolor sizes. Per-tool series, each extracted from the
+# corresponding upstream Windows .ico file (icotool -x). Matches the
+# Windows installer's per-app icon assignment so Linux and Windows menus
+# look identical:
+#   o3de            -> ProjectManager-Icon.ico   (Code/Tools/ProjectManager/Resources/)
+#   o3de-editor     -> o3de_editor.ico           (Code/Editor/res/)
+#   o3de-material-editor -> MaterialEditor.ico   (Gems/Atom/Tools/MaterialEditor/Code/Source/Platform/Windows/)
+#   o3de-material-canvas -> MaterialCanvas.ico   (Gems/Atom/Tools/MaterialCanvas/Code/Source/Platform/Windows/)
+#                          (single-resolution upstream; resized to hicolor sizes via imagemagick)
 Source20:       o3de-16x16.png
 Source21:       o3de-32x32.png
 Source22:       o3de-48x48.png
 Source23:       o3de-64x64.png
 Source24:       o3de-128x128.png
 Source25:       o3de-256x256.png
+Source50:       o3de-editor-16x16.png
+Source51:       o3de-editor-32x32.png
+Source52:       o3de-editor-48x48.png
+Source53:       o3de-editor-64x64.png
+Source54:       o3de-editor-128x128.png
+Source55:       o3de-editor-256x256.png
+Source56:       o3de-material-editor-16x16.png
+Source57:       o3de-material-editor-32x32.png
+Source58:       o3de-material-editor-48x48.png
+Source59:       o3de-material-editor-64x64.png
+Source60:       o3de-material-editor-128x128.png
+Source61:       o3de-material-editor-256x256.png
+Source62:       o3de-material-canvas-16x16.png
+Source63:       o3de-material-canvas-32x32.png
+Source64:       o3de-material-canvas-48x48.png
+Source65:       o3de-material-canvas-64x64.png
+Source66:       o3de-material-canvas-128x128.png
+Source67:       o3de-material-canvas-256x256.png
 
 # Patches against the upstream tree (apply with -p1).
 # Patch0001 -- merged upstream as o3de/o3de#19748 (in development, NOT in
@@ -1300,16 +1331,37 @@ desktop-file-install --dir=%{buildroot}%{_datadir}/applications \
 mv %{buildroot}%{_datadir}/applications/o3de.desktop \
    %{buildroot}%{_datadir}/applications/%{o3de_pkgname}.desktop
 
-# Editor association entry — NoDisplay=true; exists only so dock-icon
-# attachment finds our icon when the Editor's Qt window class shows up.
+# Editor menu entry — visible (matching the Windows installer layout
+# as of 2026-05-24). Distinct Icon series + Name + StartupWMClass per
+# tool keep two installed majors' entries non-colliding.
 desktop-file-install --dir=%{buildroot}%{_datadir}/applications \
     --set-key=Exec --set-value=%{o3de_install_prefix}/bin/Linux/profile/Default/Editor \
-    --set-key=Icon --set-value=%{o3de_pkgname} \
+    --set-key=Icon --set-value=%{o3de_pkgname}-editor \
     --set-key=Name --set-value="O3DE %{engine_cmake_version} Editor" \
-    --set-key=StartupWMClass --set-value="O3DE Editor" \
+    --set-key=StartupWMClass --set-value="O3DE-%{o3de_major_tag} Editor" \
     %{SOURCE15}
 mv %{buildroot}%{_datadir}/applications/o3de-editor.desktop \
    %{buildroot}%{_datadir}/applications/%{o3de_pkgname}-editor.desktop
+
+# Material Editor menu entry — standalone material authoring tool.
+desktop-file-install --dir=%{buildroot}%{_datadir}/applications \
+    --set-key=Exec --set-value=%{o3de_install_prefix}/bin/Linux/profile/Default/MaterialEditor \
+    --set-key=Icon --set-value=%{o3de_pkgname}-material-editor \
+    --set-key=Name --set-value="O3DE %{engine_cmake_version} Material Editor" \
+    --set-key=StartupWMClass --set-value="O3DE-%{o3de_major_tag} MaterialEditor" \
+    %{SOURCE17}
+mv %{buildroot}%{_datadir}/applications/o3de-material-editor.desktop \
+   %{buildroot}%{_datadir}/applications/%{o3de_pkgname}-material-editor.desktop
+
+# Material Canvas menu entry — node-based material authoring complement.
+desktop-file-install --dir=%{buildroot}%{_datadir}/applications \
+    --set-key=Exec --set-value=%{o3de_install_prefix}/bin/Linux/profile/Default/MaterialCanvas \
+    --set-key=Icon --set-value=%{o3de_pkgname}-material-canvas \
+    --set-key=Name --set-value="O3DE %{engine_cmake_version} Material Canvas" \
+    --set-key=StartupWMClass --set-value="O3DE-%{o3de_major_tag} MaterialCanvas" \
+    %{SOURCE18}
+mv %{buildroot}%{_datadir}/applications/o3de-material-canvas.desktop \
+   %{buildroot}%{_datadir}/applications/%{o3de_pkgname}-material-canvas.desktop
 
 # AppStream metainfo for GNOME Software / KDE Discover. Required for
 # Fedora-distributed GUI applications. Mutate component ID + launchable
@@ -1326,16 +1378,22 @@ sed -i \
 mv %{buildroot}%{_metainfodir}/o3de.metainfo.xml \
    %{buildroot}%{_metainfodir}/%{o3de_pkgname}.metainfo.xml
 
-# Hicolor icon theme — six standard sizes from the upstream master ICO.
-# Versioned filenames so multiple majors don't clobber each other's icon.
+# Hicolor icon theme — four per-tool icon series, each in six standard
+# sizes. Each tool gets its own icon name (versioned per major) so two
+# installed majors don't clobber each other's icons.
 for SZ in 16 32 48 64 128 256; do
     case $SZ in
-        16)  SRC=%{SOURCE20} ;; 32)  SRC=%{SOURCE21} ;;
-        48)  SRC=%{SOURCE22} ;; 64)  SRC=%{SOURCE23} ;;
-        128) SRC=%{SOURCE24} ;; 256) SRC=%{SOURCE25} ;;
+        16)  PM=%{SOURCE20} ED=%{SOURCE50} ME=%{SOURCE56} MC=%{SOURCE62} ;;
+        32)  PM=%{SOURCE21} ED=%{SOURCE51} ME=%{SOURCE57} MC=%{SOURCE63} ;;
+        48)  PM=%{SOURCE22} ED=%{SOURCE52} ME=%{SOURCE58} MC=%{SOURCE64} ;;
+        64)  PM=%{SOURCE23} ED=%{SOURCE53} ME=%{SOURCE59} MC=%{SOURCE65} ;;
+        128) PM=%{SOURCE24} ED=%{SOURCE54} ME=%{SOURCE60} MC=%{SOURCE66} ;;
+        256) PM=%{SOURCE25} ED=%{SOURCE55} ME=%{SOURCE61} MC=%{SOURCE67} ;;
     esac
-    install -D -m 0644 "$SRC" \
-        %{buildroot}%{_datadir}/icons/hicolor/${SZ}x${SZ}/apps/%{o3de_pkgname}.png
+    install -D -m 0644 "$PM" %{buildroot}%{_datadir}/icons/hicolor/${SZ}x${SZ}/apps/%{o3de_pkgname}.png
+    install -D -m 0644 "$ED" %{buildroot}%{_datadir}/icons/hicolor/${SZ}x${SZ}/apps/%{o3de_pkgname}-editor.png
+    install -D -m 0644 "$ME" %{buildroot}%{_datadir}/icons/hicolor/${SZ}x${SZ}/apps/%{o3de_pkgname}-material-editor.png
+    install -D -m 0644 "$MC" %{buildroot}%{_datadir}/icons/hicolor/${SZ}x${SZ}/apps/%{o3de_pkgname}-material-canvas.png
 done
 
 # Ship the SBOM next to the license/docs so it's discoverable post-install.
@@ -1346,6 +1404,8 @@ install -D -m 0644 %{SOURCE13} \
 %check
 desktop-file-validate %{buildroot}%{_datadir}/applications/%{o3de_pkgname}.desktop
 desktop-file-validate %{buildroot}%{_datadir}/applications/%{o3de_pkgname}-editor.desktop
+desktop-file-validate %{buildroot}%{_datadir}/applications/%{o3de_pkgname}-material-editor.desktop
+desktop-file-validate %{buildroot}%{_datadir}/applications/%{o3de_pkgname}-material-canvas.desktop
 appstream-util validate-relax --nonet \
     %{buildroot}%{_metainfodir}/%{o3de_pkgname}.metainfo.xml
 
@@ -1384,6 +1444,8 @@ appstream-util validate-relax --nonet \
 %{_bindir}/%{o3de_pkgname}-cli
 %{_datadir}/applications/%{o3de_pkgname}.desktop
 %{_datadir}/applications/%{o3de_pkgname}-editor.desktop
+%{_datadir}/applications/%{o3de_pkgname}-material-editor.desktop
+%{_datadir}/applications/%{o3de_pkgname}-material-canvas.desktop
 %{_metainfodir}/%{o3de_pkgname}.metainfo.xml
 %{_datadir}/icons/hicolor/16x16/apps/%{o3de_pkgname}.png
 %{_datadir}/icons/hicolor/32x32/apps/%{o3de_pkgname}.png
@@ -1391,6 +1453,24 @@ appstream-util validate-relax --nonet \
 %{_datadir}/icons/hicolor/64x64/apps/%{o3de_pkgname}.png
 %{_datadir}/icons/hicolor/128x128/apps/%{o3de_pkgname}.png
 %{_datadir}/icons/hicolor/256x256/apps/%{o3de_pkgname}.png
+%{_datadir}/icons/hicolor/16x16/apps/%{o3de_pkgname}-editor.png
+%{_datadir}/icons/hicolor/32x32/apps/%{o3de_pkgname}-editor.png
+%{_datadir}/icons/hicolor/48x48/apps/%{o3de_pkgname}-editor.png
+%{_datadir}/icons/hicolor/64x64/apps/%{o3de_pkgname}-editor.png
+%{_datadir}/icons/hicolor/128x128/apps/%{o3de_pkgname}-editor.png
+%{_datadir}/icons/hicolor/256x256/apps/%{o3de_pkgname}-editor.png
+%{_datadir}/icons/hicolor/16x16/apps/%{o3de_pkgname}-material-editor.png
+%{_datadir}/icons/hicolor/32x32/apps/%{o3de_pkgname}-material-editor.png
+%{_datadir}/icons/hicolor/48x48/apps/%{o3de_pkgname}-material-editor.png
+%{_datadir}/icons/hicolor/64x64/apps/%{o3de_pkgname}-material-editor.png
+%{_datadir}/icons/hicolor/128x128/apps/%{o3de_pkgname}-material-editor.png
+%{_datadir}/icons/hicolor/256x256/apps/%{o3de_pkgname}-material-editor.png
+%{_datadir}/icons/hicolor/16x16/apps/%{o3de_pkgname}-material-canvas.png
+%{_datadir}/icons/hicolor/32x32/apps/%{o3de_pkgname}-material-canvas.png
+%{_datadir}/icons/hicolor/48x48/apps/%{o3de_pkgname}-material-canvas.png
+%{_datadir}/icons/hicolor/64x64/apps/%{o3de_pkgname}-material-canvas.png
+%{_datadir}/icons/hicolor/128x128/apps/%{o3de_pkgname}-material-canvas.png
+%{_datadir}/icons/hicolor/256x256/apps/%{o3de_pkgname}-material-canvas.png
 %{_datadir}/%{o3de_pkgname}/sbom/%{o3de_pkgname}.cdx.json
 
 %if %{with debug}
@@ -1464,6 +1544,23 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Sun May 24 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-71
+- Desktop layout: match Windows-installer intent. All four user-facing
+  tools visible in the menu with their own per-tool Windows-extracted
+  icons: Project Manager, Editor (unhidden; previously NoDisplay=true),
+  Material Editor (new), Material Canvas (new). Icons extracted via
+  icotool from upstream's per-tool .ico files in Code/Editor/res,
+  Code/Tools/ProjectManager/Resources, Gems/Atom/Tools/MaterialEditor/...
+  and Gems/Atom/Tools/MaterialCanvas/... (the last one only had a single
+  203x200 source so it was resized to standard hicolor sizes via magick).
+  Per-tool versioned naming throughout: %{o3de_pkgname}.desktop +
+  %{o3de_pkgname}-{editor,material-editor,material-canvas}.desktop, with
+  matching Icon names and StartupWMClass tokens so two installed majors
+  don't collide. Discovered en route that our existing "o3de" icon was
+  byte-identical to upstream's Editor .ico contents; the new layout
+  routes that file to the Editor entry and gives PM its own correct
+  upstream icon.
+
 * Sat May 23 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-70
 - Rename hellaenergy/o3de-snapshot -> hellaenergy/o3de-development to make
   the always-tracks-development-branch intent explicit. The old "snapshot"
