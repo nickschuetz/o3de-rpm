@@ -1333,49 +1333,50 @@ mv %{buildroot}%{_datadir}/applications/o3de.desktop \
 
 # Editor / Material Editor / Material Canvas menu entries.
 #
-# Each Exec= passes `-name "O3DE-<major> <Tool>"` to Qt. Qt translates
-# that into the X11 WM_CLASS res_name (also picked up as Wayland app_id)
-# so the StartupWMClass below matches the running window. Without this,
-# Qt would use each binary's internal setApplicationName ("O3DE Editor",
-# "O3DE Material Editor", "O3DE Material Canvas") which differs from
-# our versioned StartupWMClass, the dock can't attach the menu icon to
-# the running window, and the dock falls back to the small SVG that the
-# engine bakes in via setWindowIcon. The PM launcher (sources/o3de-launcher.sh)
-# does the same thing via `-name "O3DE-NNNN"`; this just mirrors that
-# pattern in the desktop file directly so we don't need three more
-# launcher wrappers for these tools.
+# StartupWMClass values match what each binary's Qt setApplicationName()
+# sets at runtime, NOT a versioned form. Each tool's Application.cpp sets:
+#   Editor:          setApplicationName("O3DE Editor")
+#   MaterialEditor:  setApplicationName("O3DE Material Editor")
+#   MaterialCanvas:  setApplicationName("O3DE Material Canvas")
+# Qt translates that into the X11 WM_CLASS res_class. The desktop entry's
+# StartupWMClass must match exactly for the dock to attach our icon to
+# the running window. This also makes PM-launched Editor (which exec's
+# the binary directly, bypassing the desktop file) attach correctly --
+# the canonical user flow.
 #
-# Per-tool versioned naming (Name + Icon + StartupWMClass + file path)
-# keeps two installed majors non-colliding in the menu, dock, and on
-# disk.
+# Tradeoff: two installed majors (o3de2605 + future o3de2610) share these
+# WM_CLASS values, so the dock will associate to whichever desktop entry
+# the WM finds first when both are installed. Accepted -- multi-major is
+# theoretical until 26.10.x ships, and PM-launched dock attachment is the
+# canonical path that must work today.
 
 # Editor menu entry — visible (matching the Windows installer layout
 # as of 2026-05-24).
 desktop-file-install --dir=%{buildroot}%{_datadir}/applications \
-    --set-key=Exec --set-value='%{o3de_install_prefix}/bin/Linux/profile/Default/Editor -name "O3DE-%{o3de_major_tag} Editor"' \
+    --set-key=Exec --set-value=%{o3de_install_prefix}/bin/Linux/profile/Default/Editor \
     --set-key=Icon --set-value=%{o3de_pkgname}-editor \
     --set-key=Name --set-value="O3DE %{engine_cmake_version} Editor" \
-    --set-key=StartupWMClass --set-value="O3DE-%{o3de_major_tag} Editor" \
+    --set-key=StartupWMClass --set-value="O3DE Editor" \
     %{SOURCE15}
 mv %{buildroot}%{_datadir}/applications/o3de-editor.desktop \
    %{buildroot}%{_datadir}/applications/%{o3de_pkgname}-editor.desktop
 
 # Material Editor menu entry — standalone material authoring tool.
 desktop-file-install --dir=%{buildroot}%{_datadir}/applications \
-    --set-key=Exec --set-value='%{o3de_install_prefix}/bin/Linux/profile/Default/MaterialEditor -name "O3DE-%{o3de_major_tag} MaterialEditor"' \
+    --set-key=Exec --set-value=%{o3de_install_prefix}/bin/Linux/profile/Default/MaterialEditor \
     --set-key=Icon --set-value=%{o3de_pkgname}-material-editor \
     --set-key=Name --set-value="O3DE %{engine_cmake_version} Material Editor" \
-    --set-key=StartupWMClass --set-value="O3DE-%{o3de_major_tag} MaterialEditor" \
+    --set-key=StartupWMClass --set-value="O3DE Material Editor" \
     %{SOURCE17}
 mv %{buildroot}%{_datadir}/applications/o3de-material-editor.desktop \
    %{buildroot}%{_datadir}/applications/%{o3de_pkgname}-material-editor.desktop
 
 # Material Canvas menu entry — node-based material authoring complement.
 desktop-file-install --dir=%{buildroot}%{_datadir}/applications \
-    --set-key=Exec --set-value='%{o3de_install_prefix}/bin/Linux/profile/Default/MaterialCanvas -name "O3DE-%{o3de_major_tag} MaterialCanvas"' \
+    --set-key=Exec --set-value=%{o3de_install_prefix}/bin/Linux/profile/Default/MaterialCanvas \
     --set-key=Icon --set-value=%{o3de_pkgname}-material-canvas \
     --set-key=Name --set-value="O3DE %{engine_cmake_version} Material Canvas" \
-    --set-key=StartupWMClass --set-value="O3DE-%{o3de_major_tag} MaterialCanvas" \
+    --set-key=StartupWMClass --set-value="O3DE Material Canvas" \
     %{SOURCE18}
 mv %{buildroot}%{_datadir}/applications/o3de-material-canvas.desktop \
    %{buildroot}%{_datadir}/applications/%{o3de_pkgname}-material-canvas.desktop
@@ -1561,6 +1562,24 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Mon May 25 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-73
+- Revert StartupWMClass versioning + -name additions for Editor / Material
+  Editor / Material Canvas. The previous attempt (2605.0-71 + -72) set
+  StartupWMClass to versioned forms ("O3DE-2605 Editor" etc.) and added
+  `-name "O3DE-<major> <Tool>"` to each Exec= to compensate. That fixed
+  the menu-launched case but BROKE the canonical PM-launched flow, where
+  Project Manager exec's the tool's binary directly (bypassing the desktop
+  file's Exec=). When PM-launched, each binary's internal Qt
+  setApplicationName ("O3DE Editor" / "O3DE Material Editor" / "O3DE
+  Material Canvas") sets WM_CLASS to the unversioned form, which mismatched
+  our versioned StartupWMClass, and the dock fell back to the engine's
+  internal icon. The PM-launched-Editor regression was caught by Tier 2's
+  Editor StartupWMClass check (which has a verified xprop reading
+  documenting WM_CLASS = "Editor", "O3DE Editor"). Reverting to
+  unversioned StartupWMClass matches both PM-launched AND menu-launched
+  paths cleanly. Tradeoff: two installed majors share these WM_CLASS
+  tokens; multi-major dock collision is theoretical until 26.10 ships.
+
 * Sun May 24 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-72
 - Desktop entries (Editor / Material Editor / Material Canvas): pass
   `-name "O3DE-<major> <Tool>"` to Qt via the desktop Exec= so the
