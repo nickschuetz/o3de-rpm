@@ -141,7 +141,7 @@
 # pin via --define snapshot_commit=... without editing the spec.
 %{?!snapshot_commit:%global snapshot_commit 8e750500f23c9c45f08266200463fd31996638b7}
 %{?!snapshot_date:%global snapshot_date 20260523}
-%{?!snapshot_sha256:%global snapshot_sha256 23684e989c8b0220efd8605259a64f2861043e9c424043c51f0af3639ec7f6fb}
+%{?!snapshot_sha256:%global snapshot_sha256 d6470fdb233b218c12c4ce23d6448927fe13be717e80a8b455fe1ef2040d64b2}
 %global shortcommit %(c=%{snapshot_commit}; echo ${c:0:7})
 
 # Channel-identifying suffix for the version strings the GUI displays.
@@ -1562,6 +1562,24 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Mon May 25 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-74
+- Regenerate 8e750500 snapshot tarball with LFS objects expanded.
+  The 2026-05-23 tarball pull used the GitHub archive endpoint
+  (https://github.com/o3de/o3de/archive/<sha>.tar.gz) which serves git-
+  LFS pointer files for any LFS-tracked content, NOT the actual binary
+  payloads. Result: 1,359 LFS placeholder files made it into builds
+  10507773 + 10510733, the engine binaries linked fine but asset bakes
+  cascaded into 500+ failures whenever the dependency chain touched a
+  font / texture stored in LFS. Sample-project bakes (Tier 9 + Tier 10)
+  surfaced this.
+  Replaced the 39MB GitHub-archive tarball with a proper 1.9GB output
+  from sources/make-snapshot-tarball.sh (git clone + git lfs pull +
+  tar). New sha256 d6470fdb... Same upstream commit
+  8e750500f23c9c45f08266200463fd31996638b7; only the LFS payloads
+  changed (added).
+  Going forward: always use sources/make-snapshot-tarball.sh for
+  snapshot bumps. Direct curl from GitHub archive silently strips LFS.
+
 * Mon May 25 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-73
 - Revert StartupWMClass versioning + -name additions for Editor / Material
   Editor / Material Canvas. The previous attempt (2605.0-71 + -72) set
