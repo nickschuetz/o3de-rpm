@@ -9,7 +9,11 @@
 #   scripts/copr-metadata.sh push [project ...]    # repo -> COPR (requires copr-cli auth)
 #
 # With no project argument, all five are processed:
-#   o3de  o3de-stabilization  o3de-snapshot  o3de-experimental  o3de-dependencies
+#   o3de  o3de-stabilization  o3de-development  o3de-experimental  o3de-dependencies
+# (o3de-snapshot was renamed to o3de-development on 2026-05-23; the old
+# project still exists on COPR but is deprecated, its source directory
+# in this repo has been removed, and `make copr-metadata-push` no longer
+# targets it.)
 #
 # The four mirrored fields per project are:
 #   description.md  instructions.md  homepage.txt  contact.txt
@@ -17,7 +21,7 @@
 set -euo pipefail
 
 OWNER="hellaenergy"
-ALL_PROJECTS=(o3de o3de-stabilization o3de-snapshot o3de-experimental o3de-dependencies)
+ALL_PROJECTS=(o3de o3de-stabilization o3de-development o3de-experimental o3de-dependencies)
 FIELDS=(description instructions homepage contact)
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 META_ROOT="${REPO_ROOT}/copr-metadata"
