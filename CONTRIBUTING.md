@@ -156,7 +156,7 @@ Five related projects under the same owner (`hellaenergy`):
 | `hellaenergy/o3de` | Tagged-release engine builds | End users wanting a stable release | Only at upstream release cadence |
 | `hellaenergy/o3de-stabilization` | Pre-release validation builds from upstream `stabilization/<release>` | Community testers Nick has invited to validate | **Hands off when testers are active** — see `MEMORY.md` |
 | `hellaenergy/o3de-development` | Always tracks upstream `o3de/development` tip | Engine contributors validating the bleeding-edge branch | Push freely (ad-hoc cadence, no testers expecting regular cadence). For arbitrary other refs (e.g. qt6), create a dedicated COPR project per branch. |
-| `hellaenergy/o3de-experimental` | In-flight migration / structural work (Stage 1 system-library swaps, `-devel` splits, etc.) | Just us, until validated | Push freely; promote to `-stabilization` when validated |
+| `hellaenergy/o3de-experimental` | Packagers' staging channel for in-flight spec changes (future Stage 3+ migrations like OpenSSL 3, new `system_<X>` swap candidates, structural spec rework). Currently mirrors the stabilization swap set; distinguished by the `-experimental.<commit>` channel marker. | Just us, until validated | Push freely; promote to `-stabilization` when validated |
 
 The four engine projects all set `enable_net=true` (so cmake can fetch the four restricted bundles — DXC, NvCloth, poly2tri, squish-ccr — from `packages.o3de.org` at build time) and pull `o3de-dependencies` via the chroot's `additional_repos` (build-time) and `runtime_dependencies` (consume-time, for end users).
 
