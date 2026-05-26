@@ -9,7 +9,7 @@ flowchart TB
     subgraph SRC["Source acquisition"]
         S1["github.com/o3de/o3de releases<br/>tag tarball + LFS bundle"]
         S2["github.com/o3de/o3de.git<br/>any ref + git lfs pull"]
-        SH["sources/make-snapshot-tarball.sh"]
+        SH["sources/make-snapshot-tarball.sh<br/>(git clone + git lfs pull + tar;<br/>LFS pull is load-bearing --<br/>GitHub archive endpoint strips it)"]
         S2 --> SH --> SNAP["o3de-&lt;commit&gt;.tar.gz<br/>+ sha256"]
     end
 

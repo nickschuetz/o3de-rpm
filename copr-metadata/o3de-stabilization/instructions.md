@@ -40,6 +40,11 @@ The package follows a **versioned-major naming convention** (`o3deNNNN` where NN
 
 With these in, the stabilization/26050 tip is essentially what 2605.0 will ship on 2026-05-27.
 
+**Latest validated build** as of 2026-05-26: **build 10511780** (NVR `2605.0^20260523git8e75050-1.fc44`, all three chroots green: F44 + rawhide + CS10). This build carries:
+- The release-final tip described above
+- LFS-expanded source tarball (previous build 10507773 was built from an LFS-stripped tarball that shipped 1,359 git-LFS pointer files instead of real assets, breaking sample-project asset bakes; force-swap via `dnf reinstall` if you installed before 10511780)
+- Application menu polished: only `O3DE 26.05.0` (Project Manager) is visible. Editor, Material Editor, and Material Canvas are intentionally hidden from the menu -- launching them cold from a menu entry can't supply a project context, so they error or fall through to PM. The canonical path is open a project from PM, then launch the standalone tools from inside the running Editor's Tools menu, which inherits the project context. Per-tool icons (extracted from upstream's Windows `.ico` files) still pair to running windows via `StartupWMClass` matching.
+
 **Cherry-picks landed in stabilization/26050 since the 10476214 baseline** (2026-05-18 NVR `2605.0^20260518git2956111`):
 - **[PR #19772](https://github.com/o3de/o3de/pull/19772)** (cherry-pick: UV-transform Vulkan rendering fix from `o3de/development`).
 - **[PR #19776](https://github.com/o3de/o3de/pull/19776)** (AssetProcessor "Assets" tab search field restored on Linux).

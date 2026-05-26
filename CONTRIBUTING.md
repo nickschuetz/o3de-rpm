@@ -64,7 +64,7 @@ If you change *anything* in the spec or sources/, **update the README's layout b
 
 ## Patches
 
-Thirteen active patches in `sources/`. **Six TIMEBOMBs** -- upstream-equivalents merged to `development` but not to `stabilization/26050` (our snapshot source branch); they retire when stabilization absorbs the changes. The new `--with development_snapshot` bcond (2026-05-18) gates all six off so `make copr-snapshot-development` can build against dev-branch tip without `%prep` failing to apply them — local SRPM-build only; for COPR you also need `--rpmbuild-with development_snapshot` on the chroot:
+Thirteen active patches in `sources/`. **Six TIMEBOMBs** -- upstream-equivalents merged to `development` but not to `stabilization/26050` (our snapshot source branch); they retire when stabilization absorbs the changes. The new `--with development_snapshot` bcond (2026-05-18) gates all six off so `make copr-development` can build against dev-branch tip without `%prep` failing to apply them — local SRPM-build only; for COPR you also need `--rpmbuild-with development_snapshot` on the chroot:
 
 - Patch0001 (clang21 `-Wno-error=`) <- [#19748](https://github.com/o3de/o3de/pull/19748) merged 2026-05-14
 - Patch0002 (manifest.py `O3DE_ENGINE_PATH`) <- [#19751](https://github.com/o3de/o3de/pull/19751) merged 2026-05-14
@@ -133,6 +133,8 @@ $EDITOR o3de.spec                # paste snapshot_commit / snapshot_date / snaps
 make rpm-snapshot                # full -bb (profile only, ~30 min on a 32GB workstation)
 make rpm-snapshot-debug          # full -bb + o3deNNNN-debug subpackage (~2x build time)
 ```
+
+**Always use `make snapshot` (or equivalently `sources/make-snapshot-tarball.sh`) for snapshot bumps, never `curl https://github.com/o3de/o3de/archive/<sha>.tar.gz` directly.** The GitHub archive endpoint silently serves git-LFS POINTER files for any LFS-tracked content (fonts, large textures), producing a tarball that's about 50x smaller than expected (~39MB vs ~1.9GB) and ships 1300+ LFS placeholders into the install. The engine binaries link cleanly; assets bake to broken/empty products; the breakage surfaces a layer downstream (sample-project bakes, font rendering, etc.). The script does `git clone --depth 1 --branch <ref> + git lfs pull + tar` -- the LFS pull is the load-bearing step. Caught the hard way 2026-05-25 in stab build 10507773 -- see commit `3eea141` for the full incident write-up.
 
 **A note on local-vs-COPR build times.** The "~30 min" above reflects the current Stage 1 + Stage 2 swap stack (14 Stage 1 system swaps + 3 Stage 2 -- mcpp/dxc/spirvcross -- as of 2026-05-14). Each swap removes a bundled-3p compile from the build, so build times have shortened substantially as the swap stack grew (was "~3-4 hours" in early-stage docs, "~70 min" by mid-2026). COPR builds still take 4-6 hours: shared hardware, no persistent ccache between builds, fresh mock chroot per submission. Use local rebuilds for the development iteration loop (test a spec change, rebuild, dnf reinstall, re-test in ~35 min total); use COPR for promotion of validated artifacts to testers.
 
