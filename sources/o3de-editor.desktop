@@ -1,10 +1,18 @@
 [Desktop Entry]
-# Standalone Editor entry. The full level editor; matches Windows where
-# the Editor appears in the Start menu alongside Project Manager. Power
-# users can launch it directly with the project they were last working on.
-# Most new users will still go through Project Manager first.
-# The spec's %install mutates Exec, Icon, Name, StartupWMClass to add the
-# %{o3de_major_tag} version suffix at install time.
+# Editor entry. NoDisplay=true: this entry is intentionally hidden from
+# the application menu. When the Editor binary is launched cold (no project
+# context), it falls back to launching Project Manager as a project picker,
+# producing the same result as clicking the PM menu entry. Two entries
+# producing identical UI is redundant + confusing. PM is the single
+# canonical entry point; users open a project from PM, then launch the
+# Editor from inside that project context. This desktop file still exists
+# so the dock can attach our Editor icon to a running Editor window via
+# StartupWMClass matching when launched from PM.
+#
+# Tradeoff: diverges from the literal Windows Start menu shape (which
+# ships a visible Editor shortcut), but Windows's shortcut has the same
+# cold-launch fallback-to-PM behavior we discovered on Linux. Matches
+# Debian + Snap's simplicity for the actual user-facing menu surface.
 Type=Application
 Version=1.0
 Name=O3DE Editor
@@ -13,6 +21,7 @@ Comment=Open 3D Engine Editor
 Exec=/opt/o3de/bin/Linux/profile/Default/Editor
 Icon=o3de-editor
 Terminal=false
+NoDisplay=true
 StartupNotify=true
 StartupWMClass=O3DE Editor
 Categories=Development;3DGraphics;Game;

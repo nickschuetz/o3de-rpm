@@ -1,8 +1,12 @@
 [Desktop Entry]
-# Standalone Material Canvas entry. Node-based material authoring tool;
-# complement to Material Editor for graph-style material composition.
-# The spec's %install mutates Exec, Icon, Name, StartupWMClass to add the
-# %{o3de_major_tag} version suffix at install time.
+# Material Canvas entry. NoDisplay=true: this entry is intentionally hidden
+# from the application menu. Same rationale as o3de-material-editor.desktop:
+# Material Canvas requires an active project context and produces "is not
+# a valid project path" errors when launched cold from the menu. The
+# canonical launch path is from inside the running Editor. Upstream
+# Windows doesn't even ship a Start menu shortcut for Material Canvas at
+# all; this desktop file exists only so the dock can pair our icon to a
+# running MC window via StartupWMClass matching.
 Type=Application
 Version=1.0
 Name=O3DE Material Canvas
@@ -11,6 +15,7 @@ Comment=Open 3D Engine standalone Material Canvas
 Exec=/opt/o3de/bin/Linux/profile/Default/MaterialCanvas
 Icon=o3de-material-canvas
 Terminal=false
+NoDisplay=true
 StartupNotify=true
 StartupWMClass=O3DE MaterialCanvas
 Categories=Development;3DGraphics;

@@ -1562,6 +1562,29 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Mon May 25 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-75
+- Hide Editor, Material Editor, Material Canvas desktop entries
+  (NoDisplay=true). Only Project Manager remains visible in the
+  application menu. Discovered while running the freshly-installed
+  build: clicking the standalone tool entries cold from the menu
+  produces broken UX. Material Editor + Material Canvas error with
+  "is not a valid project path" because the binaries need a project
+  context. Editor binary cold-launches gracefully -- it falls back to
+  launching Project Manager as a project picker -- but that makes the
+  Editor menu entry behaviorally identical to the PM menu entry, two
+  duplicate-result entries that confuse users.
+  Hidden entries keep their desktop files installed so the dock can
+  pair our per-tool icons (extracted from upstream's Windows .ico files)
+  to running windows via StartupWMClass matching, when those tools are
+  launched from inside the running Editor (the canonical path that
+  inherits project context). The menu surface lands at a single PM
+  entry, matching what Debian + Snap installs ship.
+  Diverges from the literal Windows Start menu shape (which ships
+  visible Editor + ME shortcuts) but Windows's shortcuts have the same
+  broken-or-redundant cold-launch behavior we confirmed in
+  cmake/Platform/Windows/Packaging/Shortcuts.wxs -- so we're matching
+  upstream's behavior, not its surface.
+
 * Mon May 25 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-74
 - Regenerate 8e750500 snapshot tarball with LFS objects expanded.
   The 2026-05-23 tarball pull used the GitHub archive endpoint
