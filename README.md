@@ -41,29 +41,30 @@ o3de-rpm/
     ├── o3de-launcher.sh                               # /usr/bin/o3deNNNN wrapper (Project Manager / Editor GUI)
     ├── o3de-cli                                       # /usr/bin/o3deNNNN-cli wrapper (project / gem / engine management)
     ├── o3de.desktop                                   # .desktop entry (Project Manager) — mutated to <pkgname>.desktop at install
+    ├── o3de-editor.desktop                            # .desktop entry (Editor) — NoDisplay=true; exists for dock-icon WM_CLASS pairing
+    ├── o3de-material-editor.desktop                   # .desktop entry (Material Editor) — NoDisplay=true; same pattern
+    ├── o3de-material-canvas.desktop                   # .desktop entry (Material Canvas) — NoDisplay=true; same pattern
     ├── o3de.metainfo.xml                              # AppStream metainfo — id mutated to org.o3de.O3DE<NNNN> at install
     ├── o3de2605.cdx.json                              # CycloneDX SBOM (one file per major; copy + edit when 26.10 ships)
-    ├── make-snapshot-tarball.sh                       # snapshot builder
-    ├── o3de-{16,32,48,64,128,256}x*.png               # hicolor app icons
-    ├── 0001-clang21-warning-suppressions.patch
-    ├── 0002-manifest-py-engine-path-detection.patch
-    ├── 0003-get-python-sh-rpm-venv-fixes.patch
-    ├── 0004-lypython-non-editable-pip-for-installed-engine.patch
-    ├── 0005-windowdecorationwrapper-propagate-initial-title.patch
-    ├── 0006-builtinpackages-gate-mikkelsen-on-system.patch     # Stage 1 LY_USE_SYSTEM_<X> gates
-    ├── 0007-libtiff-c99-typedefs.patch                          # libtiff 4.5+ compat (deprecation)
-    ├── Findmikkelsen-system.cmake                              # Stage 1 system-* find shims
-    ├── Findexpat-system.cmake                                  #   (copied to cmake/3rdParty/
-    ├── FindZLIB-system.cmake                                   #    during %prep when the matching
-    ├── FindFreetype-system.cmake                               #    --with system_<lib> bcond is on)
-    ├── FindPNG-system.cmake
-    ├── FindTIFF-system.cmake
-    ├── FindLua-system.cmake
-    ├── Findlz4-system.cmake
-    ├── FindOpenEXR-system.cmake
-    ├── FindImath-system.cmake
-    ├── Findmcpp-system.cmake                                   # Stage 2 library-link variant
-    └── FindGoogleBenchmark-system.cmake                        # plumbed; bcond off by default
+    ├── make-snapshot-tarball.sh                       # snapshot builder (git clone + git lfs pull + tar; LFS pull is load-bearing)
+    ├── o3de-{16,32,48,64,128,256}x*.png               # hicolor app icons (Project Manager — Windows ProjectManager-Icon.ico extract)
+    ├── o3de-editor-{16,32,48,64,128,256}x*.png        # hicolor app icons (Editor — Windows o3de_editor.ico extract)
+    ├── o3de-material-editor-*.png                     # hicolor app icons (Material Editor — Windows MaterialEditor.ico extract)
+    ├── o3de-material-canvas-*.png                     # hicolor app icons (Material Canvas — Windows MaterialCanvas.ico extract)
+    ├── 0001-clang21-warning-suppressions.patch        # 13 active patches (0001-0013); see "Patches" section for the table
+    ├── 0002-manifest-py-engine-path-detection.patch   #   six carry TIMEBOMB notes (upstream-merged equivalents pending in stab)
+    ├── ... (0003 through 0013)                        #   plus 0012-v2-assetbuilder-parent-watchdog.patch (the shipping v2)
+    ├── Findmikkelsen-system.cmake                     # 16 Stage 1 + 2 find-shims (copied to cmake/3rdParty/Find<X>.cmake at %prep
+    ├── Findexpat-system.cmake                         #   when the matching --with system_<lib> bcond is on):
+    ├── FindZLIB-system.cmake                          #   Stage 1: mikkelsen, expat, ZLIB, Freetype, PNG, Lua, lz4, OpenEXR,
+    ├── ... (FindFreetype, FindPNG, FindLua,           #     Imath, assimp, libsamplerate, poly2tri, SQLite, GoogleBenchmark
+    ├──      Findlz4, FindOpenEXR, FindImath,          #     (no vulkan_validation_layers shim — that swap is runtime-discovered
+    ├──      Findassimp, Findlibsamplerate,            #      via VK_LAYER_PATH, no cmake-side find shim)
+    ├──      Findpoly2tri, FindSQLite,                 #   Stage 2 library-link: Findmcpp-system.cmake
+    ├──      FindGoogleBenchmark)                      #   FindTIFF-system.cmake exists but system_tiff stays bundled (Option C
+    ├── FindTIFF-system.cmake                          #     per the 2026-05-05 CryCommon int64 audit; shim kept for future activation)
+    ├── Findmcpp-system.cmake                          # Stage 2 library-link find shim
+    └── FindGoogleBenchmark-system.cmake               # ACTIVE in stab + experimental chroots since 2026-05-12
 ```
 
 `rpmbuild` reads sources from `_sourcedir`, so build invocations point both `_sourcedir` and `_specdir` at this checkout — no copying into `~/rpmbuild/SOURCES`.
@@ -176,7 +177,7 @@ The o3de2605 RPM is split into a small number of subpackages so each install can
 - **Smaller default install.** The post-split main package is ~1.7 GB compressed (down from ~2.2 GB pre-split — roughly 22% smaller). On disk, runtime-only deployments save ~4 GB by skipping the engine static archives that only native-C++-gem authors need.
 - **Right tool for your use case.** Three orthogonal install dimensions: *runtime* (everything in the main package), *static-archive surface for native C++ gem development* (`-devel`), *step-through debuggability of engine internals* (`-debug`). End users + Lua/ScriptCanvas project authors install just the main package; gem developers add `-devel`; engine-internal debuggers add `-debug`. No use case is forced to carry the others.
 - **CI- and container-friendly.** Game distribution servers shipping pre-built games, CI test containers, and minimal Docker images can skip ~4 GB of compiler-side material. `dnf install --setopt=install_weak_deps=False o3de2605` opts out of even the project-build `*-devel` system Recommends list — the absolute floor for a runtime-only deployment.
-- **Aligned with Fedora packaging guidelines.** Fedora's [Packaging Guidelines](https://docs.fedoraproject.org/en-US/packaging-guidelines/) require a `-devel` subpackage for any C/C++ package shipping static libraries, and recommend split-by-purpose for large packages. Doing this split proactively (rather than during the Fedora package review) removes one entire class of review friction. Same with the project-build `*-devel` Recommends pattern (clang, mesa-libGL[U]-devel, libxcb-devel, fontconfig-devel, libcurl-devel, pcre2-devel, openssl-devel, libunwind-devel, libzstd-devel, vim-common, plus per-active Stage 1 swap like mikkelsen-devel) — testers get a working build experience by default; minimal users opt out.
+- **Aligned with Fedora packaging guidelines.** Fedora's [Packaging Guidelines](https://docs.fedoraproject.org/en-US/packaging-guidelines/) require a `-devel` subpackage for any C/C++ package shipping static libraries, and recommend split-by-purpose for large packages. Doing this split proactively (rather than during the Fedora package review) removes one entire class of review friction. Same with the project-build `*-devel` Recommends pattern (clang, mesa-libGL[U]-devel, libxcb-devel, libxkbcommon-devel, libxkbcommon-x11-devel, fontconfig-devel, libcurl-devel, pcre2-devel, openssl-devel, libunwind-devel, libzstd-devel, zlib-devel, vim-common, plus per-active Stage 1 swap like mikkelsen-devel) — testers get a working build experience by default; minimal users opt out.
 - **Forward-compatible with multi-major.** When `o3de2605-devel` and `o3de2610-devel` both exist someday, they're independent — install the devel surface only for the major you actually develop against, not all of them.
 
 ### What's in each package
@@ -189,7 +190,7 @@ The main RPM ships alongside up to two optional subpackages:
 | `o3de2605-devel` | Static archives (`lib/Linux/profile/Default/*.a` + `lib64/`) — ~178 `.a` files, ~4 GB. Test framework, builder targets, static-only engine internals. | Add when writing native C++ gems that static-link against engine internals, or when building the engine's own test infrastructure. End users running games + Lua/ScriptCanvas project authors don't need this. |
 | `o3de2605-debug` | Debug-config binaries (`bin/Linux/debug/`) + matching static archives (`lib/Linux/debug/`). Full debug symbols, `-O0`. | Add when you need to step through engine code in a debugger. Set `O3DE_BUILD_CONFIG=debug` to launch the debug build. |
 
-`dnf install o3de2605` (default) gets you the runtime + project-build materials; `dnf install o3de2605 o3de2605-devel` adds the static-archive surface needed for native gem development. The project-build `*-devel` system packages (clang, mesa-libGL[U]-devel, libxcb-devel, fontconfig-devel, libcurl-devel, pcre2-devel, openssl-devel, libunwind-devel, libzstd-devel, vim-common, plus the `*-devel` for any active Stage 1 system-library swap like mikkelsen-devel) are pulled in via the main package's `Recommends:` list — installed by default unless you pass `--setopt=install_weak_deps=False`.
+`dnf install o3de2605` (default) gets you the runtime + project-build materials; `dnf install o3de2605 o3de2605-devel` adds the static-archive surface needed for native gem development. The project-build `*-devel` system packages (clang, mesa-libGL[U]-devel, libxcb-devel, libxkbcommon-devel, libxkbcommon-x11-devel, fontconfig-devel, libcurl-devel, pcre2-devel, openssl-devel, libunwind-devel, libzstd-devel, zlib-devel, vim-common, plus the `*-devel` for any active Stage 1 system-library swap like mikkelsen-devel) are pulled in via the main package's `Recommends:` list — installed by default unless you pass `--setopt=install_weak_deps=False`.
 
 ---
 
@@ -360,7 +361,7 @@ make test-ui
 make test-ui-full
 ```
 
-Tier 6 (UI) uses Xvfb (virtual display) and Mesa lavapipe (software Vulkan in CI containers; real GPU on user workstations). Tier 11 (visual regression) and Tier 12 (render correctness) are documented as future work in `tests/README.md`.
+Tier 6 (UI) uses Xvfb (virtual display) and Mesa lavapipe (software Vulkan in CI containers; real GPU on user workstations). Tier 11 (post-load liveness — launcher survives N seconds after level load without crash/freeze, catches "level loaded but engine froze immediately" failures Tier 9/10 can't detect) was implemented 2026-05-22; invoke via `make test-tier11` (default project NewspaperDeliveryGame) or `make test-tier11-multiplayer`. Tier 12 (render correctness — Vulkan render vs reference image; needs GPU-equipped runners) and Tier 13 (visual regression — screenshots → pixel-diff against per-Fedora-version baselines) are documented as future work in `tests/README.md`.
 
 ### Run a real game end-to-end
 
@@ -424,11 +425,11 @@ cd o3de-rpm
 make test-branch REF=stabilization/26050   # or any git ref / release tag
 ```
 
-This builds the snapshot tarball, patches the spec with the right pin values, runs `rpmbuild`, installs the resulting RPM, then runs the full test suite. Plan ~30-40 minutes for the build on a 32 GB workstation (Stage 1 + Stage 2 swaps removed ~13 bundled-3p compiles from the engine build), plus ~10 minutes for install + test. ~70 GB free disk space required for the build tree + cached packages.
+This builds the snapshot tarball, patches the spec with the right pin values, runs `rpmbuild`, installs the resulting RPM, then runs the full test suite. Plan ~30-40 minutes for the build on a 32 GB workstation (Stage 1 + Stage 2 swaps now remove 17 bundled-3p compiles from the engine build: 14 Stage 1 system swaps + 3 Stage 2 swaps), plus ~10 minutes for install + test. ~70 GB free disk space required for the build tree + cached packages.
 
 ### CI for community use
 
-`.github/workflows/test-installed.yml` runs the test suite in clean Fedora containers (matrix: `fedora-44`, `fedora-rawhide`, extending to `fedora-45+` as releases ship) against an RPM URL — typically a COPR build artifact. Trigger via GitHub UI with an `rpm_url` input.
+`.github/workflows/test-installed.yml` runs the test suite in clean Fedora containers (matrix: `fedora-44`, `fedora-rawhide`, extending to `fedora-45+` as releases ship) against an RPM URL — typically a COPR build artifact. Trigger via GitHub UI with an `rpm_url` input. The CentOS Stream 10 chroot is exercised per-build on COPR (its own `centos-stream-10-x86_64` build of every SRPM) but not currently in the GH-Actions matrix; CS10 builds going green on COPR is the gate for that chroot.
 
 For automated COPR → CI integration, configure a COPR webhook to fire this workflow on every successful build, giving any branch a "healthy on Fedora" signal.
 
@@ -460,7 +461,7 @@ A static CycloneDX 1.6 JSON SBOM is committed at `sources/o3de2605.cdx.json` (on
 - The package itself (`pkg:rpm/fedora/o3deNNNN@<version>-<release>`) with its license expression and source URLs.
 - Build dependencies (cmake, ninja-build, gcc-c++, python3-devel, git-lfs).
 - Direct runtime dependencies (Qt5, Vulkan, mesa, libcurl, openssl, …).
-- Bundled components (custom Qt 5.15-rev9, embedded clang toolchain, bundled Python — version follows the spec's `%global o3de_bundled_python` macro, currently 3.10, plus pyside2/shiboken2, OpenEXR, OpenImageIO, OpenColorIO, PhysX, etc.) — explicitly distinguished from system deps.
+- Bundled components currently itemized in the SBOM JSON: custom Qt 5.15-rev9 (with the Fedora Bundling Library Exception flag), embedded clang toolchain, bundled Python 3.10, bundled OpenSSL 1.1.1t, and googletest (test-scaffolding fetch). Smaller bundled 3rdParty (pyside2/shiboken2, OpenEXR, OpenImageIO, OpenColorIO, PhysX, etc.) are NOT individually itemized today — adding them is tracked as SBOM completeness work in `FEDORA_ROADMAP.md`.
 - **EOL flags** for bundled OpenSSL 1.1.1t.
 
 To consume:
