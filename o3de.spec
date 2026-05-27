@@ -1088,6 +1088,11 @@ cp %{SOURCE45} cmake/3rdParty/FindGoogleBenchmark.cmake
 
 # ── BUILD ────────────────────────────────────────────────────────────────────
 %build
+# In snapshot mode autosetup chdir's into the source dir for us. In stable
+# mode we extract manually (see %prep above) so we need to cd ourselves.
+%if %{without snapshot}
+cd %{o3de_source_dir}
+%endif
 mkdir -p build
 
 # O3DE sets its own _FORTIFY_SOURCE / -fstack-protector / -fvisibility etc.
@@ -1213,6 +1218,9 @@ done
 
 # ── INSTALL ──────────────────────────────────────────────────────────────────
 %install
+%if %{without snapshot}
+cd %{o3de_source_dir}
+%endif
 # O3DE's install components split by config:
 #   CORE             cmake config files / engine.json (config-independent)
 #   DEFAULT          scripts / Tools / python (config-independent)
@@ -1582,6 +1590,25 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Wed May 27 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-78
+- Fix two cascading consequences of the stable-mode manual extraction
+  introduced in -77. Build 10517337 reached the %%build step (so
+  %%prep is finally clean) but failed at "CMake Error: The source
+  directory does not appear to contain CMakeLists.txt." With autosetup
+  the macro auto-chdir's into the source subdir for subsequent steps;
+  the manual extract doesn't do that, so %%build and %%install have
+  to chdir explicitly. Added `cd %{o3de_source_dir}` to the top of
+  both sections, gated on `%%{without snapshot}` so snapshot-mode
+  still rides on the autosetup chdir.
+  Separately, the cmake invocation in 10517337 used a
+  `-DO3DE_INSTALL_DISPLAY_VERSION_STRING=26.05.0-stabilization` channel
+  marker which is wrong for hellaenergy/o3de (the stable channel
+  should have no marker). Traced to hellaenergy/o3de chroots'
+  `with_opts` still carrying the `stabilization` flag from an
+  earlier alignment with the stab channel's 18-flag swap set.
+  Removed the `stabilization` flag from all three o3de chroots (now
+  17 flags: all the system_* swaps without the channel marker).
+
 * Wed May 27 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-77
 - Stable-mode %%prep rewrite. Build 10517309 failed at %%prep because
   the rpm 6.x autosetup macro with the -c -n flags mis-expanded the
