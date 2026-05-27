@@ -1583,22 +1583,24 @@ EOF
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
 * Wed May 27 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-77
-- Stable-mode %prep rewrite. Build 10517309 failed at %prep because
+- Stable-mode %%prep rewrite. Build 10517309 failed at %%prep because
   the rpm 6.x autosetup macro with the -c -n flags mis-expanded the
   target directory name (placeholder "<dir>" leaked through instead
   of "o3de"). Compounding the failure, an earlier draft of the
-  surrounding spec comment contained literal %autosetup invocation
+  surrounding spec comment contained literal autosetup invocation
   syntax that rpm's macro engine treated as a live macro call (rpm
   parses macros inside shell-style comments).
   Two fixes:
     * Replace the setup-family extract step in stable mode with
-      straight shell (mkdir, cd, tar) plus %autopatch -p1 for patch
+      straight shell (mkdir, cd, tar) plus autopatch for patch
       application. The setup-family macros simply don't reliably
       handle the new "tarball ships content at root" layout when the
       target directory name comes from a macro reference.
     * Rewrite the comment block so it doesn't contain macro syntax,
       preventing future drafts from re-triggering the comment-as-macro
-      misbehavior.
+      misbehavior. Macro-name references in the changelog body also
+      escaped with %% so the changelog itself doesn't trip the same
+      pattern.
   Verified locally: rpmbuild -bp completes cleanly, all 13 carry-
   patches apply, the patched tree contains the expected file content.
 
