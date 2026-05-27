@@ -1006,19 +1006,25 @@ profile.
 # Source integrity check before extraction.
 echo "%{o3de_source_sha}  %{SOURCE0}" | sha256sum -c -
 
-# Tarball-layout selector:
+# Tarball-layout selector (avoid rpm-macro syntax in this comment;
+# rpm's parser expands macros inside comments and an earlier draft of
+# this block accidentally invoked autosetup via comment text):
 #   Snapshot tarballs from make-snapshot-tarball.sh wrap content in
-#     o3de-<commit>/, so %autosetup -n <dir> finds the directory and
-#     chdir's into it.
+#     a versioned directory (`o3de-<commit>/`), so the standard
+#     autosetup macro with the -n flag pointed at that name works.
 #   Stable release tarballs starting with 2605.0 ship content directly
-#     at the root (no wrapping directory) -- earlier releases (2510.x
-#     and prior) used a wrapping `o3de/` directory but the convention
-#     changed for 2605.0. Use %autosetup -c -n to create the wrapping
-#     directory ourselves before extracting into it.
+#     at the root (no wrapping directory). Earlier releases (2510.x
+#     and prior) used a wrapping `o3de/` directory; the convention
+#     changed for 2605.0. For stable mode we extract manually because
+#     the setup-family macros on rpm 6.x mis-expand the -n target
+#     when DIR comes from a macro reference.
 %if %{with snapshot}
 %autosetup -n %{o3de_source_dir} -p1
 %else
-%autosetup -c -n %{o3de_source_dir} -p1
+mkdir -p %{o3de_source_dir}
+cd %{o3de_source_dir}
+tar -xf %{SOURCE0}
+%autopatch -p1
 %endif
 
 # Pre-populate LY_3RDPARTY_PATH from bundled 3rdParty source tarballs.
@@ -1576,6 +1582,26 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Wed May 27 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-77
+- Stable-mode %prep rewrite. Build 10517309 failed at %prep because
+  the rpm 6.x autosetup macro with the -c -n flags mis-expanded the
+  target directory name (placeholder "<dir>" leaked through instead
+  of "o3de"). Compounding the failure, an earlier draft of the
+  surrounding spec comment contained literal %autosetup invocation
+  syntax that rpm's macro engine treated as a live macro call (rpm
+  parses macros inside shell-style comments).
+  Two fixes:
+    * Replace the setup-family extract step in stable mode with
+      straight shell (mkdir, cd, tar) plus %autopatch -p1 for patch
+      application. The setup-family macros simply don't reliably
+      handle the new "tarball ships content at root" layout when the
+      target directory name comes from a macro reference.
+    * Rewrite the comment block so it doesn't contain macro syntax,
+      preventing future drafts from re-triggering the comment-as-macro
+      misbehavior.
+  Verified locally: rpmbuild -bp completes cleanly, all 13 carry-
+  patches apply, the patched tree contains the expected file content.
+
 * Wed May 27 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-76
 - 26.05.0 release day. Upstream tagged 2605.0 at commit
   3db6943249d8bd7960b9ed7e9aee310b7668586e (PR #19783, "Release Day
