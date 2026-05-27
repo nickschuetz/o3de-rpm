@@ -107,8 +107,9 @@
 
 # ── Version pinning ──────────────────────────────────────────────────────────
 %global stable_tag      2605.0
-# Compute with: sha256sum o3de_<tag>_lfs.tar.gz
-%global stable_sha256   0000000000000000000000000000000000000000000000000000000000000000
+# Compute with: sha256sum o3de-<tag>-lfs.tar.gz  (2605.0+ naming convention;
+# earlier releases used o3de_<tag>_lfs.tar.gz with underscores)
+%global stable_sha256   f23c46eaf60fd7359279781f4abefa1b7f0d88091fd37ce9bff31431927c3f1e
 
 # CMake's project(VERSION) and O3DE's cmake/Version.cmake split the
 # version string by '.' and require MAJOR.MINOR.PATCH (3 components).
@@ -271,7 +272,7 @@ URL:            https://o3de.org
 %if %{with snapshot}
 Source0:        o3de-%{snapshot_commit}.tar.gz
 %else
-Source0:        https://github.com/o3de/o3de/releases/download/%{stable_tag}/o3de_%{stable_tag}_lfs.tar.gz
+Source0:        https://github.com/o3de/o3de/releases/download/%{stable_tag}/o3de-%{stable_tag}-lfs.tar.gz
 %endif
 
 # Auxiliary sources kept alongside the spec.
@@ -1005,7 +1006,20 @@ profile.
 # Source integrity check before extraction.
 echo "%{o3de_source_sha}  %{SOURCE0}" | sha256sum -c -
 
+# Tarball-layout selector:
+#   Snapshot tarballs from make-snapshot-tarball.sh wrap content in
+#     o3de-<commit>/, so %autosetup -n <dir> finds the directory and
+#     chdir's into it.
+#   Stable release tarballs starting with 2605.0 ship content directly
+#     at the root (no wrapping directory) -- earlier releases (2510.x
+#     and prior) used a wrapping `o3de/` directory but the convention
+#     changed for 2605.0. Use %autosetup -c -n to create the wrapping
+#     directory ourselves before extracting into it.
+%if %{with snapshot}
 %autosetup -n %{o3de_source_dir} -p1
+%else
+%autosetup -c -n %{o3de_source_dir} -p1
+%endif
 
 # Pre-populate LY_3RDPARTY_PATH from bundled 3rdParty source tarballs.
 %if %{with thirdparty_physx} || %{with thirdparty_openexr}
@@ -1562,6 +1576,34 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Wed May 27 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-76
+- 26.05.0 release day. Upstream tagged 2605.0 at commit
+  3db6943249d8bd7960b9ed7e9aee310b7668586e (PR #19783, "Release Day
+  Only -- Merge stabilization to main 26.05 (26050, v 2.6.0)") on
+  2026-05-27T17:01:43Z, with release-tarball sha256
+  f23c46eaf60fd7359279781f4abefa1b7f0d88091fd37ce9bff31431927c3f1e.
+  Switch from snapshot-mode builds (against stab/26050 tip 8e75050)
+  to stable-mode builds against the tagged release.
+  Defensive `patch --dry-run` confirmed all 13 carry-patches still
+  apply cleanly against the tagged source. The 6 TIMEBOMB patches
+  remain active: the tag is on main (stab merged into main), so the
+  development-branch merges that retire those patches haven't reached
+  main yet either.
+  Two upstream-side conventions changed since 2510.x that the spec
+  needed to handle:
+    * Release tarball filename is `o3de-<TAG>-lfs.tar.gz` with dashes
+      (was `o3de_<TAG>_lfs.tar.gz` with underscores). Source0 URL
+      updated accordingly; comment in stable_sha256 area refreshed.
+    * Release tarball ships content at the root (no wrapping `o3de/`
+      directory). Spec's `%autosetup` now uses `-c -n` in stable mode
+      to create the wrapping directory at extract time, matching the
+      previous snapshot-mode path where the tarball already wraps.
+  Makefile updates: `srpm` target now passes `--without snapshot` so
+  auto-detect doesn't force snapshot mode when both tarballs are
+  present in sources/. `release-stable` target's preflight tarball
+  check now points at `sources/o3de-<tag>-lfs.tar.gz` (the actual
+  path with the new naming convention) instead of `~/rpmbuild/SOURCES/`.
+
 * Mon May 25 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-75
 - Hide Editor, Material Editor, Material Canvas desktop entries
   (NoDisplay=true). Only Project Manager remains visible in the

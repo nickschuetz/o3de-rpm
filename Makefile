@@ -157,7 +157,7 @@ SRPM_CLEAN := rm -f ~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
 
 srpm:
 	$(SRPM_CLEAN)
-	rpmbuild -bs $(RPMBUILD_DEFINES) o3de.spec
+	rpmbuild -bs --without snapshot $(RPMBUILD_DEFINES) o3de.spec
 
 srpm-snapshot:
 	$(SRPM_CLEAN)
@@ -634,7 +634,7 @@ copr-stable: srpm
 # bump the SBOM, commit + push, then `make release-stable`.
 release-stable:
 	@set -e; \
-	tag=$$(rpmspec $(RPMBUILD_DEFINES) -q --qf '%{VERSION}\n' o3de.spec 2>/dev/null | head -1); \
+	tag=$$(rpmspec --without snapshot $(RPMBUILD_DEFINES) -q --qf '%{VERSION}\n' o3de.spec 2>/dev/null | head -1); \
 	sha=$$(awk '/^%global stable_sha256/ {print $$3; exit}' o3de.spec); \
 	if [ "$$tag" = "%{stable_tag}" ] || [ -z "$$tag" ]; then \
 	    echo "ERROR: could not resolve stable_tag from spec"; exit 2; fi; \
@@ -643,9 +643,10 @@ release-stable:
 	    exit 2; fi; \
 	if [ -z "$$sha" ] || [ $${#sha} -ne 64 ]; then \
 	    echo "ERROR: stable_sha256 is empty or wrong length ($$sha)"; exit 2; fi; \
-	tarball=~/rpmbuild/SOURCES/o3de_$${tag}_lfs.tar.gz; \
+	tarball=$(PWD)/sources/o3de-$${tag}-lfs.tar.gz; \
 	if [ ! -f $$tarball ]; then \
-	    echo "ERROR: release tarball $$tarball not in ~/rpmbuild/SOURCES/ - pull it per POST_RELEASE.md step 2"; \
+	    echo "ERROR: release tarball $$tarball not in $(PWD)/sources/ - pull it per POST_RELEASE.md step 2"; \
+	    echo "(2605.0+ uses dashes in the filename; earlier releases used underscores -- check if that's the issue)"; \
 	    exit 2; fi; \
 	actual_sha=$$(sha256sum $$tarball | awk '{print $$1}'); \
 	if [ "$$actual_sha" != "$$sha" ]; then \

@@ -8,7 +8,7 @@ This applies twice yearly (May + October major releases) plus on point releases.
 
 - The release tag landed upstream (verify at `https://github.com/o3de/o3de/releases`)
 - Upstream's `main` branch tip is the release merge commit (e.g., commit `cf85af7` was the 25.10.2 release merge)
-- Release tarball is published at the standard URL pattern: `https://github.com/o3de/o3de/releases/download/<TAG>/o3de_<TAG>_lfs.tar.gz`
+- Release tarball is published at the standard URL pattern: `https://github.com/o3de/o3de/releases/download/<TAG>/o3de-<TAG>-lfs.tar.gz`
 
 ## Sequence
 
@@ -19,7 +19,7 @@ This applies twice yearly (May + October major releases) plus on point releases.
 gh api repos/o3de/o3de/tags --jq '.[] | select(.name == "<TAG>") | .commit.sha'
 
 # Verify the tarball URL responds
-curl -sI "https://github.com/o3de/o3de/releases/download/<TAG>/o3de_<TAG>_lfs.tar.gz" | head -3
+curl -sI "https://github.com/o3de/o3de/releases/download/<TAG>/o3de-<TAG>-lfs.tar.gz" | head -3
 ```
 
 If either check fails, stop and ask upstream sig-release (Mike_C usually drives release-day mechanics).
@@ -27,10 +27,12 @@ If either check fails, stop and ask upstream sig-release (Mike_C usually drives 
 ### 2. Pull and checksum the tarball
 
 ```bash
-cd ~/rpmbuild/SOURCES/
-curl -L -O "https://github.com/o3de/o3de/releases/download/<TAG>/o3de_<TAG>_lfs.tar.gz"
-sha256sum o3de_<TAG>_lfs.tar.gz
+cd sources/
+curl -L -O "https://github.com/o3de/o3de/releases/download/<TAG>/o3de-<TAG>-lfs.tar.gz"
+sha256sum o3de-<TAG>-lfs.tar.gz
 ```
+
+Put it in this repo's `sources/` rather than `~/rpmbuild/SOURCES/`; the Makefile's `_sourcedir` override and the `release-stable` preflight both expect it there.
 
 Note the sha256 value -- you'll paste it into the spec next.
 
@@ -78,7 +80,7 @@ git add o3de.spec sources/o3de*.cdx.json
 git commit -s -m "release: upstream <TAG> stable
 
 Upstream tagged <TAG> on main as commit <merge-sha>. Pulled
-o3de_<TAG>_lfs.tar.gz, sha256 <sha256>, into Sources. Spec
+o3de-<TAG>-lfs.tar.gz, sha256 <sha256>, into Sources. Spec
 bumps stable_tag, stable_sha256, Release; SBOM follows.
 
 This is the first build to hit hellaenergy/o3de for this
