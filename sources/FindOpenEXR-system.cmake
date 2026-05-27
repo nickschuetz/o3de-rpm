@@ -59,6 +59,19 @@ find_path(OPENEXR_SYSTEM_INCLUDE_DIR
     PATHS /usr/include /usr/local/include
 )
 
+# OpenEXR 3.4 added a transitive chain (ImfInputFile.h -> ImfContext.h ->
+# ImfContextInit.h -> openexr.h -> openexr_config.h) that ends in
+# `#include <IlmThreadConfig.h>` -- unprefixed. IlmThreadConfig.h lives at
+# /usr/include/OpenEXR/IlmThreadConfig.h, so consumers need both the
+# parent dir (for `<OpenEXR/Imf*.h>`) AND the namespaced subdir (for
+# unprefixed siblings reached through that chain). 3.2.4 did not have
+# this chain, which is why pre-3.4 system_openexr builds compiled fine
+# with just /usr/include on the interface.
+find_path(OPENEXR_SYSTEM_INCLUDE_DIR_NESTED
+    NAMES IlmThreadConfig.h
+    PATHS /usr/include/OpenEXR /usr/local/include/OpenEXR
+)
+
 find_library(OPENEXR_SYSTEM_LIBRARY
     NAMES OpenEXR-3_2 OpenEXR
     PATHS /usr/lib64 /usr/lib /usr/local/lib64 /usr/local/lib
@@ -79,17 +92,18 @@ find_library(ILMTHREAD_SYSTEM_LIBRARY
     PATHS /usr/lib64 /usr/lib /usr/local/lib64 /usr/local/lib
 )
 
-if (NOT OPENEXR_SYSTEM_INCLUDE_DIR OR NOT OPENEXR_SYSTEM_LIBRARY)
+if (NOT OPENEXR_SYSTEM_INCLUDE_DIR OR NOT OPENEXR_SYSTEM_LIBRARY OR NOT OPENEXR_SYSTEM_INCLUDE_DIR_NESTED)
     message(FATAL_ERROR
         "FindOpenEXR (system stub): could not locate OpenEXR/ImfHeader.h "
-        "(${OPENEXR_SYSTEM_INCLUDE_DIR}) and/or libOpenEXR "
+        "(${OPENEXR_SYSTEM_INCLUDE_DIR}), IlmThreadConfig.h "
+        "(${OPENEXR_SYSTEM_INCLUDE_DIR_NESTED}), and/or libOpenEXR "
         "(${OPENEXR_SYSTEM_LIBRARY}). Install openexr-devel from Fedora, "
         "or set LY_USE_SYSTEM_OPENEXR=OFF to fall back to the upstream fetcher.")
 endif()
 
 add_library(3rdParty::OpenEXR INTERFACE IMPORTED GLOBAL)
 ly_target_include_system_directories(TARGET 3rdParty::OpenEXR
-    INTERFACE ${OPENEXR_SYSTEM_INCLUDE_DIR})
+    INTERFACE ${OPENEXR_SYSTEM_INCLUDE_DIR} ${OPENEXR_SYSTEM_INCLUDE_DIR_NESTED})
 target_link_libraries(3rdParty::OpenEXR
     INTERFACE
         ${OPENEXR_SYSTEM_LIBRARY}

@@ -1010,21 +1010,17 @@ echo "%{o3de_source_sha}  %{SOURCE0}" | sha256sum -c -
 # rpm's parser expands macros inside comments and an earlier draft of
 # this block accidentally invoked autosetup via comment text):
 #   Snapshot tarballs from make-snapshot-tarball.sh wrap content in
-#     a versioned directory (`o3de-<commit>/`), so the standard
-#     autosetup macro with the -n flag pointed at that name works.
+#     a versioned directory (e.g., o3de-<commit>/), so the standard
+#     autosetup with -n pointed at that name works.
 #   Stable release tarballs starting with 2605.0 ship content directly
-#     at the root (no wrapping directory). Earlier releases (2510.x
-#     and prior) used a wrapping `o3de/` directory; the convention
-#     changed for 2605.0. For stable mode we extract manually because
-#     the setup-family macros on rpm 6.x mis-expand the -n target
-#     when DIR comes from a macro reference.
+#     at the root (no wrapping directory); earlier releases (2510.x
+#     and prior) wrapped in o3de/. The -c flag on autosetup creates
+#     the named dir and chdirs into it before extraction, which is
+#     exactly the shape the 2605.0 tarball expects.
 %if %{with snapshot}
 %autosetup -n %{o3de_source_dir} -p1
 %else
-mkdir -p %{o3de_source_dir}
-cd %{o3de_source_dir}
-tar -xf %{SOURCE0}
-%autopatch -p1
+%autosetup -c -n %{o3de_source_dir} -p1
 %endif
 
 # Pre-populate LY_3RDPARTY_PATH from bundled 3rdParty source tarballs.
@@ -1088,11 +1084,6 @@ cp %{SOURCE45} cmake/3rdParty/FindGoogleBenchmark.cmake
 
 # ── BUILD ────────────────────────────────────────────────────────────────────
 %build
-# In snapshot mode autosetup chdir's into the source dir for us. In stable
-# mode we extract manually (see %prep above) so we need to cd ourselves.
-%if %{without snapshot}
-cd %{o3de_source_dir}
-%endif
 mkdir -p build
 
 # O3DE sets its own _FORTIFY_SOURCE / -fstack-protector / -fvisibility etc.
@@ -1218,9 +1209,6 @@ done
 
 # ── INSTALL ──────────────────────────────────────────────────────────────────
 %install
-%if %{without snapshot}
-cd %{o3de_source_dir}
-%endif
 # O3DE's install components split by config:
 #   CORE             cmake config files / engine.json (config-independent)
 #   DEFAULT          scripts / Tools / python (config-independent)
@@ -1590,6 +1578,36 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Wed May 27 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-79
+- Fix release-day build (10517399, all three chroots failed).
+  Two independent root causes, both diagnosed locally:
+  1. Stable-mode %%prep replaced the rpm 6.x autosetup macro with
+     manual `mkdir + cd + tar -xf` extraction in -77, because the
+     earlier failure mode looked like a macro mis-expansion bug.
+     Re-tested rpm 6.0.1 locally with three forms (literal name,
+     macro %%{name}, %%global-then-ref): all expanded correctly.
+     The mis-expansion hypothesis was wrong. Manual extraction
+     bypassed rpmbuild's source-dir registration, so %%doc/%%license
+     in %%files couldn't resolve README.md / LICENSE.txt / etc. and
+     %%files exploded after a 4hr+ build (all three chroots).
+     Reverted to `%%autosetup -c -n %%{o3de_source_dir} -p1` for
+     stable mode (the -c flag handles the 2605.0 wrapping-dir-less
+     tarball layout correctly). Removed the redundant `cd
+     %%{o3de_source_dir}` workarounds from %%build and %%install.
+  2. FindOpenEXR-system.cmake's find_path returned /usr/include (the
+     parent of the namespaced OpenEXR/ subdir) and added only that
+     to the 3rdParty::OpenEXR interface. Worked fine on F44 (openexr
+     3.2.4) and on rawhide pre-2026-05-27 (also 3.2.4). Rawhide
+     bumped to openexr 3.4.12 on 2026-05-27; the 3.4 release added
+     a new umbrella openexr.h that everything transitively pulls
+     in, and that header chains into openexr_config.h which does an
+     unprefixed `#include <IlmThreadConfig.h>`. IlmThreadConfig.h
+     lives at /usr/include/OpenEXR/IlmThreadConfig.h, so consumers
+     now also need -I/usr/include/OpenEXR on the interface. Added
+     a second find_path for IlmThreadConfig.h and appended its
+     resolved path to the include directories. Verified locally
+     against rawhide podman container with openexr-devel-3.4.12-1.fc45.
+
 * Wed May 27 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-78
 - Fix two cascading consequences of the stable-mode manual extraction
   introduced in -77. Build 10517337 reached the %%build step (so
