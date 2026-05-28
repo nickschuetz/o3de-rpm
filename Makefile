@@ -89,8 +89,12 @@ help:
 # ── Lint / parse ────────────────────────────────────────────────────────────
 
 lint: spec-parse spec-parse-snapshot spec-parse-stabilization spec-parse-experimental
-	@echo ">> rpmlint o3de.spec"
-	@rpmlint o3de.spec
+	@echo ">> rpmlint o3de.spec (changelog inlined via textual splice; tracked spec keeps %include)"
+	@TMPDIR=$$(mktemp -d /tmp/o3de.lint.XXXXXX); \
+	  awk '/^%include %{SOURCE99}$$/{ while ((getline l < "sources/o3de.changelog") > 0) print l; next } {print}' o3de.spec > $$TMPDIR/o3de.spec; \
+	  cp .rpmlintrc $$TMPDIR/ 2>/dev/null || true; \
+	  ( cd $$TMPDIR && rpmlint o3de.spec ); \
+	  RC=$$?; rm -rf $$TMPDIR; exit $$RC
 	@echo ">> desktop-file-validate"
 	@desktop-file-validate sources/o3de.desktop
 	@echo ">> appstream-util validate"
