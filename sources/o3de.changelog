@@ -1,4 +1,14 @@
 %changelog
+* Thu May 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-81
+- Bump Release for SRPM coherence after the spec-body restructure in
+  commit aa443f9 (%changelog body moved into sources/o3de.changelog,
+  pulled back in via Source99 + %include). The restructured spec
+  produces a different SRPM than the published 2605.0-80; bumping to
+  -81 keeps the NVR-to-SRPM mapping clean. No COPR build was fired in
+  any hellaenergy/o3de* channel for this bump; testers see no change.
+  When the next real packaging change lands it bumps to -82 and ships
+  through the normal channels.
+
 * Thu May 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-80
 - Post-release packaging-correctness fixes.
   1. Snapshot Version delimiter: `^` to `~`. RPM treats `^` as a
