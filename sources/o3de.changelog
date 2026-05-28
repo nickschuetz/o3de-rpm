@@ -1,4 +1,25 @@
 %changelog
+* Thu May 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-82
+- Stage 1 swap #15: system_rapidxml against Fedora's rapidxml-devel.
+  Build-time-only header swap (RapidXML is header-only; no runtime
+  .so dependency). Fedora ships rapidxml-devel-1.13, an exact version
+  match with the bundled RapidXML-1.13-rev1-multiplatform tarball
+  fetched from packages.o3de.org. First gate that touches the
+  "shared by other platforms" section at the top of
+  BuiltInPackages_linux_x86_64.cmake; previous 14 gates all sat in
+  the platform-specific section below. New artifacts:
+  - sources/FindRapidXML-system.cmake (subdir-bridge wrappers for
+    the 4 header consumer paths used by AzCore/XML/ and AzNetworking)
+  - Patch0006 extended with a new hunk for the multiplatform section
+    plus a +4 destination-line shift on the existing hunk header
+  - %bcond_with system_rapidxml + Source46 + conditional
+    BuildRequires/Recommends/cp/cmake -D blocks in the spec
+  - Makefile: --with system_rapidxml in SRPM_EXPERIMENTAL_FLAGS and
+    in spec-parse-experimental
+  No COPR build fired by this commit; will fire on the next
+  experimental build invocation. Stabilization stays at the 14-pack
+  until experimental validates this addition.
+
 * Thu May 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-81
 - Bump Release for SRPM coherence after the spec-body restructure in
   commit aa443f9 (%changelog body moved into sources/o3de.changelog,

@@ -87,6 +87,7 @@
 %bcond_with system_openexr
 %bcond_with system_png
 %bcond_with system_poly2tri
+%bcond_with system_rapidxml
 %bcond_with system_spirvcross
 %bcond_with system_sqlite
 %bcond_with system_tiff
@@ -272,7 +273,7 @@ Version:        %{stable_tag}~%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        81%{?dist}
+Release:        82%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -563,6 +564,7 @@ Source42:       Findlibsamplerate-system.cmake
 Source43:       Findassimp-system.cmake
 Source44:       Findmcpp-system.cmake
 Source45:       FindGoogleBenchmark-system.cmake
+Source46:       FindRapidXML-system.cmake
 
 # Pre-built O3DE 3rdParty bundles — declare a Source10x and a matching
 # bcond above, then add an extract line in %%prep. Templates:
@@ -721,6 +723,9 @@ BuildRequires:  libpng-devel
 %endif
 %if %{with system_poly2tri}
 BuildRequires:  poly2tri-devel
+%endif
+%if %{with system_rapidxml}
+BuildRequires:  rapidxml-devel
 %endif
 %if %{with system_sqlite}
 BuildRequires:  sqlite-devel
@@ -933,6 +938,9 @@ Recommends:     libpng-devel
 %if %{with system_poly2tri}
 Recommends:     poly2tri-devel
 %endif
+%if %{with system_rapidxml}
+Recommends:     rapidxml-devel
+%endif
 %if %{with system_sqlite}
 Recommends:     sqlite-devel
 %endif
@@ -1099,6 +1107,9 @@ cp %{SOURCE44} cmake/3rdParty/Findmcpp.cmake
 %if %{with system_googlebenchmark}
 cp %{SOURCE45} cmake/3rdParty/FindGoogleBenchmark.cmake
 %endif
+%if %{with system_rapidxml}
+cp %{SOURCE46} cmake/3rdParty/FindRapidXML.cmake
+%endif
 
 # ── BUILD ────────────────────────────────────────────────────────────────────
 %build
@@ -1175,6 +1186,7 @@ cmake \
     %{?with_system_openexr:-DLY_USE_SYSTEM_OPENEXR=ON} \
     %{?with_system_png:-DLY_USE_SYSTEM_PNG=ON} \
     %{?with_system_poly2tri:-DLY_USE_SYSTEM_POLY2TRI=ON} \
+    %{?with_system_rapidxml:-DLY_USE_SYSTEM_RAPIDXML=ON} \
     %{?with_system_sqlite:-DLY_USE_SYSTEM_SQLITE=ON} \
     %{?with_system_tiff:-DLY_USE_SYSTEM_TIFF=ON} \
     %{?with_system_vulkan_validation_layers:-DLY_USE_SYSTEM_VULKAN_VALIDATION_LAYERS=ON} \
