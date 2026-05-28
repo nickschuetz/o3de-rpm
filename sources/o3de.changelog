@@ -1,4 +1,19 @@
 %changelog
+* Thu May 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-83
+- Stage 1 swap #16: system_rapidjson against Fedora's rapidjson-devel.
+  Simplest possible Stage 1 swap yet. Fedora's rapidjson-devel ships
+  the same `<rapidjson/<name>.h>` subdir layout the engine consumes,
+  so no subdir-bridge wrappers are needed (unlike RapidXML). The
+  find shim just locates the rapidjson/ subdir under /usr/include
+  and adds the parent to the include path.
+  Version note: engine pins 1.1.0; Fedora ships post-1.1.0 main-branch
+  snapshot 1.1.0^20241222git24b5e7a. RapidJSON has not removed
+  published API in the interval; engine consumers continue to work
+  against the newer headers.
+  Build-time-only (header-only library; no runtime .so dependency).
+  No COPR build fires; will pick up on the next experimental build
+  invocation. Stabilization stays at the 14-pack.
+
 * Thu May 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-82
 - Stage 1 swap #15: system_rapidxml against Fedora's rapidxml-devel.
   Build-time-only header swap (RapidXML is header-only; no runtime

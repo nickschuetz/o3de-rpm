@@ -17,7 +17,7 @@ Source file: `o3de/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cm
 
 | # | Package pin | Targets | Status | Notes |
 |---|---|---|---|---|
-| 1 | RapidJSON-1.1.0-rev1-multiplatform | RapidJSON | **unaudited** | Fedora ships `rapidjson-devel-1.1.0^20241222git24b5e7a` (post-1.1.0 main snapshot, header-only). 5 engine cmake consumers. Stage 1 swap candidate; header-only library, API breaking changes between 1.1.0 release and current upstream main unlikely to affect engine. |
+| 1 | RapidJSON-1.1.0-rev1-multiplatform | RapidJSON | **swap-active** | Stage 1 swap landed as `system_rapidjson` in 2605.0-83. Fedora `rapidjson-devel-1.1.0^20241222git24b5e7a` is a post-1.1.0 main-branch snapshot; RapidJSON has not removed published API in the interval. Subdir layout matches engine consumers, so the find shim is trivial (no wrapper headers needed). |
 | 2 | RapidXML-1.13-rev1-multiplatform | RapidXML | **swap-active** | Stage 1 swap landed as `system_rapidxml` in 2605.0-82. Fedora `rapidxml-1.13` is an exact version match. Build-time-only (header-only library; no runtime .so dependency). Find shim at `sources/FindRapidXML-system.cmake` emits four subdir-bridge wrapper headers in the build dir for the `<rapidxml/*.h>` consumer paths used by AzCore + AzNetworking. |
 | 3 | pybind11-2.10.0-rev1-multiplatform | pybind11 | **unaudited** | Fedora ships `pybind11-devel-3.0.4`; engine pins 2.10. Major version bump (2.x to 3.x). 4 engine cmake consumers. Stage 1 candidate but needs API audit; pybind11 3.x removed some long-deprecated 2.x surfaces. Probably wait for upstream engine bump. |
 | 4 | glad-2.0.0-beta-rev2-multiplatform | glad | **unaudited** | Fedora ships `glad-0.1.36` (glad1 generator + headers); engine bundles `glad2.0.0-beta` (different generator project). Not a drop-in substitute. Either ship glad1-generated headers (if engine permits) or keep bundled. 1 engine cmake consumer. |
@@ -52,13 +52,13 @@ Source file: `o3de/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cm
 
 ## Summary counts
 
-- **swap-active**: 15 (Stage 1 14-pack: expat, freetype, libpng, expat, lz4, mikkelsen, openexr, poly2tri, lua, assimp, sqlite, libsamplerate, googlebenchmark, vulkan-validation-layers, plus zlib, plus rapidxml landed 2605.0-82)
+- **swap-active**: 16 (Stage 1 14-pack: expat, freetype, libpng, expat, lz4, mikkelsen, openexr, poly2tri, lua, assimp, sqlite, libsamplerate, googlebenchmark, vulkan-validation-layers, plus zlib, plus rapidxml landed 2605.0-82, plus rapidjson landed 2605.0-83)
 - **copr-ship**: 9 (AWSNativeSDK, AwsIotDeviceSdkCpp, mcpp, DXC, SPIRVCross, azslc, astc-encoder, ISPCTexComp, plus the AwsGameliftServer dep in the COPR repo though not in this file)
 - **swap-parked**: 1 (tiff)
 - **restricted-bundle**: 2 (Qt 5.15-rev9, squish-ccr; tiff effectively also restricted today)
 - **blocked-stage-3**: 2 (openimageio-opencolorio, pyside2)
 - **blocked-stage-4**: 1 (OpenSSL)
-- **unaudited**: 5 (RapidJSON, pybind11, glad, xxhash, cityhash; RapidXML promoted to swap-active 2605.0-82)
+- **unaudited**: 4 (pybind11, glad, xxhash, cityhash; RapidXML and RapidJSON promoted to swap-active in 2605.0-82 and -83)
 
 ## Sweep findings (the 6 unaudited multiplatform deps)
 

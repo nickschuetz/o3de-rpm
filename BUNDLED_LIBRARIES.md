@@ -142,14 +142,14 @@ The six `multiplatform` rows at the top of `BuiltInPackages_linux_x86_64.cmake` 
 
 | Bundle | O3DE version | Fedora F44 | Status |
 |---|---|---|---|
-| RapidJSON | 1.1.0-rev1 | `rapidjson-devel-1.1.0^20241222git24b5e7a` | Stage 1 swap candidate (header-only, low risk). |
+| **RapidJSON** | 1.1.0-rev1 | `rapidjson-devel-1.1.0^20241222git24b5e7a` | **Stage 1 swap ACTIVE in experimental as of 2605.0-83.** Simplest swap shipped yet: Fedora's rapidjson-devel uses the same `<rapidjson/<name>.h>` subdir layout the engine consumes, so the find shim just locates `/usr/include/rapidjson/` and adds the parent to the include path. No wrapper headers needed. |
 | **RapidXML** | 1.13-rev1 | `rapidxml-1.13` (exact match) | **Stage 1 swap ACTIVE in experimental as of 2605.0-82.** First gate touching the multiplatform section of `BuiltInPackages_linux_x86_64.cmake`. Build-time-only (header-only library; no runtime .so). Find shim emits four subdir-bridge wrapper headers in the build dir to translate `<rapidxml/*.h>` consumer syntax to Fedora's flat `<rapidxml*.h>` layout. |
 | pybind11 | 2.10.0-rev1 | `pybind11-devel-3.0.4` | Audit gap (major version bump 2.x to 3.x). Likely wait for upstream engine bump rather than carry a compat patch. |
 | glad | 2.0.0-beta-rev2 | `glad-0.1.36` (glad1, different generator) | Not a drop-in; either bundle with small exception or COPR-ship glad2. |
 | xxhash | 0.7.4-rev1 | `xxhash-devel-0.8.3` | Stage 1 swap candidate (stable C ABI). |
 | cityhash | 1.1 | not in Fedora | COPR-ship candidate (MIT, small) or small exception filing. |
 
-Three more swap candidates from this group still to land: RapidJSON, xxhash, cityhash (the last via COPR rebuild). pybind11 and glad have real version gaps; pybind11 waits for upstream engine bump, glad needs a generator-side decision.
+Two more swap candidates from this group still to land: xxhash, cityhash (the last via COPR rebuild). pybind11 and glad have real version gaps; pybind11 waits for upstream engine bump, glad needs a generator-side decision.
 
 ---
 
