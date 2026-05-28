@@ -1,4 +1,34 @@
 %changelog
+* Thu May 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-85
+- Stage 1 swap #18: system_cityhash against the license-clean COPR
+  rebuild o3de2605-cityhash.
+  Fourth multiplatform-section gate (after rapidxml, rapidjson, xxhash)
+  and the first one that routes through a COPR-rebuilt dep instead of
+  a Fedora package. cityhash is not in Fedora, so we built a clean
+  SRPM from upstream google/cityhash at commit f5dc541 (2022-07-19)
+  and pushed it to hellaenergy/o3de-dependencies as o3de2605-cityhash.
+  Package layout follows the o3deNNNN-<dep> versioning convention
+  (same as o3de2605-spirv-cross, o3de2605-dxc-spirv, o3de2605-mcpp-az).
+  Ships:
+    - /usr/lib64/libcityhash.so + libcityhash.so.0 + libcityhash.so.0.x
+      (main package: shared library for engine link)
+    - /usr/lib64/libcityhash.a + /usr/include/city.h
+      (devel subpackage: headers + static archive)
+  Engine consumes via #include <city.h> in
+  Code/Framework/AzCore/AzCore/Utils/TypeHash.cpp; no subdir bridge
+  needed since /usr/include is naturally on the include path. AzCore
+  cmake target 3rdParty::cityhash links the shared library (the
+  bundled package shipped pre-compiled static .a; we ship .so instead).
+  Spec wires BR/Requires/Recommends to o3de2605-cityhash-devel /
+  o3de2605-cityhash. cityhash's citycrc.h (SSE 4.2 CRC-accelerated
+  variant) is NOT in the devel subpackage because no O3DE consumer
+  uses it and gating on --enable-sse4.2 would narrow the build matrix.
+  COPR build for o3de2605-cityhash: build 10522180 in
+  hellaenergy/o3de-dependencies (pushed 2026-05-28). Engine swap
+  cannot fire until that build succeeds + the chroots are configured
+  to pull o3de-dependencies. No engine COPR build fires from this
+  commit; next experimental run picks it up.
+
 * Thu May 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-84
 - Stage 1 swap #17: system_xxhash against Fedora's xxhash-devel.
   Third multiplatform-section gate (after rapidxml and rapidjson).

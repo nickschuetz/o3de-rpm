@@ -110,12 +110,23 @@ Currently gated:
                                include dir - so we mirror that: include
                                path only, no link to libxxhash.so. Engine
                                uses xxhash via static-inline functions.)
+  - LY_USE_SYSTEM_CITYHASH  -> sources/Findcityhash-system.cmake
+                               (mikkelsen pattern. cityhash is NOT in
+                               Fedora; the swap routes through the
+                               o3de2605-cityhash COPR rebuild in
+                               hellaenergy/o3de-dependencies, license-clean
+                               from upstream google/cityhash at commit
+                               f5dc541. Engine includes <city.h> directly
+                               so no subdir bridge is needed; just locate
+                               /usr/include + /usr/lib64/libcityhash.so
+                               and link. Only consumer is AzCore's
+                               Utils/TypeHash.cpp.)
 
 The else-branch's find_package call is load-bearing: gating out
 `ly_associate_package` without replacing it means nothing ever triggers
 find_package, the target never gets created, and consumers silently
 link nothing. Discovered the hard way on build 10418378 (mikkelsen-only
-gate without else-branch — Tier 2 swap-consistency test caught it).
+gate without else-branch -- Tier 2 swap-consistency test caught it).
 
 Subsequent build 10420422 caught a second-order issue: aliasing cmake's
 stock targets directly (e.g. `add_library(3rdParty::ZLIB ALIAS
@@ -128,7 +139,7 @@ the system library via file path rather than via the stock target.
 ---
 --- a/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake
 +++ b/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake
-@@ -9,37 +9,101 @@
+@@ -9,37 +9,105 @@
  # this file allows you to specify all 3p packages (provided by O3DE or the operating system) for Linux.
  
  # shared by other platforms:
@@ -149,7 +160,11 @@ the system library via file path rather than via the stock target.
 +else()
 +    find_package(xxhash REQUIRED)
 +endif()
++if (NOT LY_USE_SYSTEM_CITYHASH)
  ly_associate_package(PACKAGE_NAME cityhash-1.1-multiplatform                        TARGETS cityhash                    PACKAGE_HASH 0ace9e6f0b2438c5837510032d2d4109125845c0efd7d807f4561ec905512dd2)
++else()
++    find_package(cityhash REQUIRED)
++endif()
  
  # platform-specific:
 +if (NOT LY_USE_SYSTEM_EXPAT)

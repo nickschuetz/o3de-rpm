@@ -75,6 +75,7 @@
 # see CONTRIBUTING.md / FEDORA_ROADMAP.md for the gotcha and the
 # Makefile's `make copr-init` target for the chroot-config commands).
 %bcond_with system_assimp
+%bcond_with system_cityhash
 %bcond_with system_dxc
 %bcond_with system_expat
 %bcond_with system_freetype
@@ -275,7 +276,7 @@ Version:        %{stable_tag}~%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        84%{?dist}
+Release:        85%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -569,6 +570,7 @@ Source45:       FindGoogleBenchmark-system.cmake
 Source46:       FindRapidXML-system.cmake
 Source47:       FindRapidJSON-system.cmake
 Source48:       Findxxhash-system.cmake
+Source49:       Findcityhash-system.cmake
 
 # Pre-built O3DE 3rdParty bundles — declare a Source10x and a matching
 # bcond above, then add an extract line in %%prep. Templates:
@@ -737,6 +739,13 @@ BuildRequires:  rapidxml-devel
 %if %{with system_xxhash}
 BuildRequires:  xxhash-devel
 %endif
+%if %{with system_cityhash}
+# Stage 1 swap: replace the bundled cityhash-1.1-multiplatform fetch with
+# our license-clean COPR rebuild o3de2605-cityhash-devel from
+# hellaenergy/o3de-dependencies. cityhash is not in Fedora; the rebuild
+# tracks upstream google/cityhash at commit f5dc541 (2022-07-19).
+BuildRequires:  o3de2605-cityhash-devel
+%endif
 %if %{with system_sqlite}
 BuildRequires:  sqlite-devel
 %endif
@@ -833,6 +842,9 @@ Requires:       sqlite-libs
 %endif
 %if %{with system_spirvcross}
 Requires:       o3de2605-spirv-cross
+%endif
+%if %{with system_cityhash}
+Requires:       o3de2605-cityhash
 %endif
 %if %{with system_lz4}
 Requires:       lz4-libs
@@ -956,6 +968,9 @@ Recommends:     rapidxml-devel
 %endif
 %if %{with system_xxhash}
 Recommends:     xxhash-devel
+%endif
+%if %{with system_cityhash}
+Recommends:     o3de2605-cityhash-devel
 %endif
 %if %{with system_sqlite}
 Recommends:     sqlite-devel
@@ -1132,6 +1147,9 @@ cp %{SOURCE46} cmake/3rdParty/FindRapidXML.cmake
 %if %{with system_xxhash}
 cp %{SOURCE48} cmake/3rdParty/Findxxhash.cmake
 %endif
+%if %{with system_cityhash}
+cp %{SOURCE49} cmake/3rdParty/Findcityhash.cmake
+%endif
 
 # ── BUILD ────────────────────────────────────────────────────────────────────
 %build
@@ -1197,6 +1215,7 @@ cmake \
     -DCMAKE_EXE_LINKER_FLAGS_INIT="-Wl,-z,relro -Wl,-z,now" \
     -DCMAKE_SHARED_LINKER_FLAGS_INIT="-Wl,-z,relro -Wl,-z,now" \
     %{?with_system_assimp:-DLY_USE_SYSTEM_ASSIMP=ON} \
+    %{?with_system_cityhash:-DLY_USE_SYSTEM_CITYHASH=ON} \
     %{?with_system_expat:-DLY_USE_SYSTEM_EXPAT=ON} \
     %{?with_system_freetype:-DLY_USE_SYSTEM_FREETYPE=ON} \
     %{?with_system_googlebenchmark:-DLY_USE_SYSTEM_GOOGLEBENCHMARK=ON} \

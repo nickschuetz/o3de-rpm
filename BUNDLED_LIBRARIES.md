@@ -147,9 +147,9 @@ The six `multiplatform` rows at the top of `BuiltInPackages_linux_x86_64.cmake` 
 | pybind11 | 2.10.0-rev1 | `pybind11-devel-3.0.4` | Audit gap (major version bump 2.x to 3.x). Likely wait for upstream engine bump rather than carry a compat patch. |
 | glad | 2.0.0-beta-rev2 | `glad-0.1.36` (glad1, different generator) | Not a drop-in; either bundle with small exception or COPR-ship glad2. |
 | **xxhash** | 0.7.4-rev1 | `xxhash-devel-0.8.3` | **Stage 1 swap ACTIVE in experimental as of 2605.0-84.** Mikkelsen pattern with one subdir-bridge wrapper for `<xxhash/xxhash.h>` to `<xxhash.h>`. Header-only despite Fedora packaging a real `libxxhash.so` (engine uses static-inline functions; bundled xxhash is also header-only). |
-| cityhash | 1.1 | not in Fedora | COPR-ship candidate (MIT, small) or small exception filing. |
+| **cityhash** | 1.1 | not in Fedora; license-clean COPR rebuild as `o3de2605-cityhash` in `hellaenergy/o3de-dependencies` (build 10522180, 2026-05-28) | **Stage 1 swap ACTIVE in experimental as of 2605.0-85.** Mirror of the DXC / SPIRV-Cross / mcpp pattern: license-clean COPR rebuild from upstream `google/cityhash` at commit `f5dc541`. Ships `/usr/lib64/libcityhash.so` + `/usr/include/city.h`; engine consumer (AzCore Utils/TypeHash.cpp) includes `<city.h>` directly with no subdir bridge needed. |
 
-One more swap candidate from this group still to land: cityhash (via COPR rebuild, since it isn't in Fedora). pybind11 and glad have real version gaps; pybind11 waits for upstream engine bump, glad needs a generator-side decision.
+Four of the six multiplatform-shared bundles are now swap-active: RapidXML (2605.0-82), RapidJSON (-83), xxhash (-84), cityhash (-85). pybind11 and glad remain with real version gaps; pybind11 waits for upstream engine bump, glad needs a generator-side decision.
 
 ---
 

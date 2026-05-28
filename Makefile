@@ -125,6 +125,7 @@ spec-parse-experimental:
 	@rpmspec $(RPMBUILD_DEFINES) --define "_with_snapshot 1" \
 	    --define "_with_stabilization 1" \
 	    --define "_with_system_assimp 1" \
+	    --define "_with_system_cityhash 1" \
 	    --define "_with_system_dxc 1" \
 	    --define "_with_system_expat 1" \
 	    --define "_with_system_freetype 1" \
@@ -291,6 +292,7 @@ SRPM_STABILIZATION_FLAGS = --with snapshot \
 SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
                           --with stabilization \
                           --with system_assimp \
+                          --with system_cityhash \
                           --with system_dxc \
                           --with system_expat \
                           --with system_freetype \

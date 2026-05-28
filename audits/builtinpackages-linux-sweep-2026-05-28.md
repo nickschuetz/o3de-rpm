@@ -22,7 +22,7 @@ Source file: `o3de/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cm
 | 3 | pybind11-2.10.0-rev1-multiplatform | pybind11 | **unaudited** | Fedora ships `pybind11-devel-3.0.4`; engine pins 2.10. Major version bump (2.x to 3.x). 4 engine cmake consumers. Stage 1 candidate but needs API audit; pybind11 3.x removed some long-deprecated 2.x surfaces. Probably wait for upstream engine bump. |
 | 4 | glad-2.0.0-beta-rev2-multiplatform | glad | **unaudited** | Fedora ships `glad-0.1.36` (glad1 generator + headers); engine bundles `glad2.0.0-beta` (different generator project). Not a drop-in substitute. Either ship glad1-generated headers (if engine permits) or keep bundled. 1 engine cmake consumer. |
 | 5 | xxhash-0.7.4-rev1-multiplatform | xxhash | **swap-active** | Stage 1 swap landed as `system_xxhash` in 2605.0-84. Fedora `xxhash-devel-0.8.3` is API-compatible with 0.7. Find shim emits one subdir-bridge wrapper for `<xxhash/xxhash.h>` (engine consumer form) to `<xxhash.h>` (Fedora flat form). Header-only consumption despite Fedora packaging a real `.so`; mirrors the bundled xxhash package which also ships headers only. |
-| 6 | cityhash-1.1-multiplatform | cityhash | **unaudited** | NOT in Fedora (`dnf info cityhash-devel` empty 2026-05-28). 1 engine cmake consumer. COPR-ship candidate (license: MIT, license-clean; upstream `google/cityhash` is small enough to package). Or stays bundled with a small Bundling Library Exception. |
+| 6 | cityhash-1.1-multiplatform | cityhash | **swap-active** (via copr-ship) | Stage 1 swap landed as `system_cityhash` in 2605.0-85. License-clean COPR rebuild as `o3de2605-cityhash` in `hellaenergy/o3de-dependencies` (build 10522180), from upstream `google/cityhash` at commit `f5dc541`. Engine consumer (AzCore Utils/TypeHash.cpp) includes `<city.h>` directly so no subdir bridge is needed. Spec wires BR/Requires/Recommends to `o3de2605-cityhash-devel` / `o3de2605-cityhash`. |
 | 7 | expat-2.4.2-rev2-linux | expat | **swap-active** | `system_expat` bcond ON. Stage 1 14-pack member. |
 | 8 | AWSNativeSDK-1.11.288-rev1-linux | AWSNativeSDK | **copr-ship** | `hellaenergy/o3de-dependencies/o3de-AWSNativeSDK-1.11.361` (version drift documented in BUNDLED_LIBRARIES.md cross-reference table). AWS SDK excision from core O3DE is upstream-planned (per Nick L. 2026-05-05); this bundle dissolves automatically when that lands. |
 | 9 | tiff-4.2.0.15-rev3-linux | TIFF | **swap-parked, restricted-bundle effective** | Stage 1 framework wired, defaulted off after the 2026-05-05 Option A reproduction failure. Bundling Library Exception draft staged at `upstream-drafts/bundling-exception-libtiff.md`. Unblocks when upstream CryCommon C99 typedef migration lands. |
@@ -52,13 +52,13 @@ Source file: `o3de/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cm
 
 ## Summary counts
 
-- **swap-active**: 17 (Stage 1 14-pack: expat, freetype, libpng, expat, lz4, mikkelsen, openexr, poly2tri, lua, assimp, sqlite, libsamplerate, googlebenchmark, vulkan-validation-layers, plus zlib, plus rapidxml landed 2605.0-82, plus rapidjson landed 2605.0-83, plus xxhash landed 2605.0-84)
+- **swap-active**: 18 (the original 14-pack: expat, freetype, libpng, expat, lz4, mikkelsen, openexr, poly2tri, lua, assimp, sqlite, libsamplerate, googlebenchmark, vulkan-validation-layers; plus zlib; plus the multiplatform additions rapidxml in 2605.0-82, rapidjson in -83, xxhash in -84, cityhash in -85)
 - **copr-ship**: 9 (AWSNativeSDK, AwsIotDeviceSdkCpp, mcpp, DXC, SPIRVCross, azslc, astc-encoder, ISPCTexComp, plus the AwsGameliftServer dep in the COPR repo though not in this file)
 - **swap-parked**: 1 (tiff)
 - **restricted-bundle**: 2 (Qt 5.15-rev9, squish-ccr; tiff effectively also restricted today)
 - **blocked-stage-3**: 2 (openimageio-opencolorio, pyside2)
 - **blocked-stage-4**: 1 (OpenSSL)
-- **unaudited**: 3 (pybind11, glad, cityhash; RapidXML, RapidJSON, xxhash promoted to swap-active in 2605.0-82, -83, -84)
+- **unaudited**: 2 (pybind11, glad; RapidXML, RapidJSON, xxhash, cityhash promoted to swap-active in 2605.0-82, -83, -84, -85)
 
 ## Sweep findings (the 6 unaudited multiplatform deps)
 
