@@ -260,7 +260,15 @@
 
 Name:           %{o3de_pkgname}
 %if %{with snapshot}
-Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
+# Tilde (~) is the RPM pre-release delimiter, so the snapshot version
+# compares LESS than the bare release tag. This is the correct semantic:
+# a snapshot built from stabilization/26050 ahead of 2605.0 ships as
+# 2605.0~<date>git<sha> which auto-upgrades to 2605.0-1 once the stable
+# release lands. Previously this used `^` (the post-release delimiter)
+# which inverted the comparison and blocked snapshot-to-stable upgrades.
+# Caught 2026-05-28 when dnf refused to upgrade from 2605.0^...8e75050
+# to 2605.0-1. See FOLLOW_UPS.md ("Packaging correctness") for context.
+Version:        %{stable_tag}~%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
@@ -282,9 +290,12 @@ Source11:       o3de.desktop
 Source12:       make-snapshot-tarball.sh
 Source13:       %{o3de_pkgname}.cdx.json
 Source14:       o3de.metainfo.xml
-# Standalone Editor entry. Visible in the menu as of 2026-05-24 to match
-# the Windows installer's layout (PM + Editor + Material Editor + Material
-# Canvas all visible). Previously NoDisplay=true.
+# Standalone Editor entry. Currently NoDisplay=true (commit e112bf6,
+# 2026-05-26, "desktop: hide Editor/ME/MC entries"): cold-launching
+# Editor outside a project context turned out to have known issues
+# vs the Windows installer's all-visible layout. The desktop file
+# still ships so WM_CLASS / dock-icon attachment works when Editor
+# is launched from inside Project Manager (Edit Project button).
 Source15:       o3de-editor.desktop
 # Thin wrapper exposing the engine's scripts/o3de.sh CLI on $PATH as
 # %%{o3de_pkgname}-cli (versioned binary name; multiple installed majors
@@ -1579,6 +1590,30 @@ EOF
 
 # ── Changelog ────────────────────────────────────────────────────────────────
 %changelog
+* Thu May 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-80
+- Post-release packaging-correctness fixes.
+  1. Snapshot Version delimiter: `^` to `~`. RPM treats `^` as a
+     post-release marker, so 2605.0^<date>git<sha> was being interpreted
+     as greater than 2605.0, blocking auto-upgrade from snapshot installs
+     to the stable. Caught locally trying to upgrade from
+     2605.0^20260523git8e75050 to 2605.0; dnf reported "Nothing to do."
+     Tilde is the actual RPM pre-release delimiter, so 2605.0~<date>git<sha>
+     now compares less than 2605.0 and snapshot-to-stable transitions
+     happen automatically. Future snapshots in o3de-stabilization /
+     o3de-development / o3de-experimental will use the corrected form.
+     Existing testers on `^` snapshots need a one-time `dnf downgrade`
+     against hellaenergy/o3de to land on the stable; see FOLLOW_UPS.md
+     ("Packaging correctness") for the migration command. Discovered
+     2026-05-28 during pre-announcement local validation of build 10519208.
+  2. Source15 comment drift fixed. The comment above o3de-editor.desktop
+     claimed the Editor/ME/MC entries were "all visible" to match the
+     Windows installer layout. Actual state since commit e112bf6
+     (2026-05-26) is NoDisplay=true on all three because cold-launching
+     them outside a project context had known issues. Comment updated
+     to reflect that the desktop files exist for WM_CLASS / dock-icon
+     attachment when the tools are launched from inside Project Manager,
+     not for the top-level app menu.
+
 * Wed May 27 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-79
 - Fix release-day build (10517399, all three chroots failed).
   Two independent root causes, both diagnosed locally:
