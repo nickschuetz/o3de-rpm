@@ -140,6 +140,7 @@ spec-parse-experimental:
 	    --define "_with_system_spirvcross 1" \
 	    --define "_with_system_sqlite 1" \
 	    --define "_with_system_tiff 1" \
+	    --define "_with_system_xxhash 1" \
 	    --define "_with_system_zlib 1" -q o3de.spec
 
 # ── Snapshot tarball ────────────────────────────────────────────────────────
@@ -307,6 +308,7 @@ SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
                           --with system_spirvcross \
                           --with system_sqlite \
                           --with system_vulkan_validation_layers \
+                          --with system_xxhash \
                           --with system_zlib
 # system_dxc added 2026-05-08 (Stage 2 binary-only swap, sibling to
 # system_spirvcross). Engine treats DXC as a binary executable

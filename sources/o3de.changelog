@@ -1,4 +1,28 @@
 %changelog
+* Thu May 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-84
+- Stage 1 swap #17: system_xxhash against Fedora's xxhash-devel.
+  Third multiplatform-section gate (after rapidxml and rapidjson).
+  Engine consumes xxhash via #include <xxhash/xxhash.h>; Fedora ships
+  flat /usr/include/xxhash.h, so the find shim emits a subdir-bridge
+  wrapper in the build dir.
+  Header-only (no runtime libxxhash.so dependency). The bundled
+  xxhash package on packages.o3de.org is also header-only -- its
+  Findxxhash.cmake creates an INTERFACE IMPORTED target with just
+  an include dir, no library link. The engine uses xxhash via its
+  static-inline functions (XXH64, XXH3_64bits, XXH3_128bits in
+  AssetProcessor + AssetBuilderSDK). The system swap mirrors that:
+  include path only, no link to libxxhash.so.
+  Version note: engine pins 0.7.4; Fedora ships 0.8.3. xxhash has
+  stable C ABI from 0.7 forward; the 0.7 to 0.8 transition added new
+  functions and improved performance without breaking the existing
+  API. Engine consumers continue to work.
+  Patch0006 hunks regenerated via diff -u against a fresh source
+  copy to avoid hand-maintained hunk-header drift. The old
+  hand-written two-hunk form had accumulating dst_start shift errors
+  as each swap was added; diff-generated single-hunk form is
+  authoritative going forward.
+  No COPR build fires; next experimental run picks it up.
+
 * Thu May 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-83
 - Stage 1 swap #16: system_rapidjson against Fedora's rapidjson-devel.
   Simplest possible Stage 1 swap yet. Fedora's rapidjson-devel ships

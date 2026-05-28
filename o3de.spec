@@ -93,6 +93,7 @@
 %bcond_with system_sqlite
 %bcond_with system_tiff
 %bcond_with system_vulkan_validation_layers
+%bcond_with system_xxhash
 %bcond_with system_zlib
 
 # Snapshot-against-o3de/development builds must skip the carry-patches whose
@@ -274,7 +275,7 @@ Version:        %{stable_tag}~%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        83%{?dist}
+Release:        84%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -567,6 +568,7 @@ Source44:       Findmcpp-system.cmake
 Source45:       FindGoogleBenchmark-system.cmake
 Source46:       FindRapidXML-system.cmake
 Source47:       FindRapidJSON-system.cmake
+Source48:       Findxxhash-system.cmake
 
 # Pre-built O3DE 3rdParty bundles — declare a Source10x and a matching
 # bcond above, then add an extract line in %%prep. Templates:
@@ -731,6 +733,9 @@ BuildRequires:  rapidjson-devel
 %endif
 %if %{with system_rapidxml}
 BuildRequires:  rapidxml-devel
+%endif
+%if %{with system_xxhash}
+BuildRequires:  xxhash-devel
 %endif
 %if %{with system_sqlite}
 BuildRequires:  sqlite-devel
@@ -949,6 +954,9 @@ Recommends:     rapidjson-devel
 %if %{with system_rapidxml}
 Recommends:     rapidxml-devel
 %endif
+%if %{with system_xxhash}
+Recommends:     xxhash-devel
+%endif
 %if %{with system_sqlite}
 Recommends:     sqlite-devel
 %endif
@@ -1121,6 +1129,9 @@ cp %{SOURCE47} cmake/3rdParty/FindRapidJSON.cmake
 %if %{with system_rapidxml}
 cp %{SOURCE46} cmake/3rdParty/FindRapidXML.cmake
 %endif
+%if %{with system_xxhash}
+cp %{SOURCE48} cmake/3rdParty/Findxxhash.cmake
+%endif
 
 # ── BUILD ────────────────────────────────────────────────────────────────────
 %build
@@ -1202,6 +1213,7 @@ cmake \
     %{?with_system_sqlite:-DLY_USE_SYSTEM_SQLITE=ON} \
     %{?with_system_tiff:-DLY_USE_SYSTEM_TIFF=ON} \
     %{?with_system_vulkan_validation_layers:-DLY_USE_SYSTEM_VULKAN_VALIDATION_LAYERS=ON} \
+    %{?with_system_xxhash:-DLY_USE_SYSTEM_XXHASH=ON} \
     %{?with_system_zlib:-DLY_USE_SYSTEM_ZLIB=ON}
 
 # googletest is fetched via FetchContent during cmake configure and so

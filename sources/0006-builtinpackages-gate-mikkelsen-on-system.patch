@@ -99,6 +99,17 @@ Currently gated:
                                <rapidjson/<name>.h> subdir layout the engine
                                consumes; just locate /usr/include and add
                                it to the target's include path. Header-only.)
+  - LY_USE_SYSTEM_XXHASH    -> sources/Findxxhash-system.cmake
+                               (mikkelsen pattern. Engine consumes xxhash
+                               via #include <xxhash/xxhash.h>; Fedora ships
+                               flat /usr/include/xxhash.h, so the shim
+                               emits a subdir-bridge wrapper. The bundled
+                               xxhash package on packages.o3de.org is itself
+                               header-only - its Findxxhash.cmake creates
+                               an INTERFACE IMPORTED target with just an
+                               include dir - so we mirror that: include
+                               path only, no link to libxxhash.so. Engine
+                               uses xxhash via static-inline functions.)
 
 The else-branch's find_package call is load-bearing: gating out
 `ly_associate_package` without replacing it means nothing ever triggers
@@ -117,7 +128,9 @@ the system library via file path rather than via the stock target.
 ---
 --- a/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake
 +++ b/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake
-@@ -11,7 +11,15 @@
+@@ -9,37 +9,101 @@
+ # this file allows you to specify all 3p packages (provided by O3DE or the operating system) for Linux.
+ 
  # shared by other platforms:
 +if (NOT LY_USE_SYSTEM_RAPIDJSON)
  ly_associate_package(PACKAGE_NAME RapidJSON-1.1.0-rev1-multiplatform                TARGETS RapidJSON                   PACKAGE_HASH 2f5e26ecf86c3b7a262753e7da69ac59928e78e9534361f3d00c1ad5879e4023)
@@ -131,8 +144,11 @@ the system library via file path rather than via the stock target.
 +endif()
  ly_associate_package(PACKAGE_NAME pybind11-2.10.0-rev1-multiplatform                TARGETS pybind11                    PACKAGE_HASH 6690acc531d4b8cd453c19b448e2fb8066b2362cbdd2af1ad5df6e0019e6c6c4)
  ly_associate_package(PACKAGE_NAME glad-2.0.0-beta-rev2-multiplatform                TARGETS glad                        PACKAGE_HASH ff97ee9664e97d0854b52a3734c2289329d9f2b4cd69478df6d0ca1f1c9392ee)
++if (NOT LY_USE_SYSTEM_XXHASH)
  ly_associate_package(PACKAGE_NAME xxhash-0.7.4-rev1-multiplatform                   TARGETS xxhash                      PACKAGE_HASH e81f3e6c4065975833996dd1fcffe46c3cf0f9e3a4207ec5f4a1b564ba75861e)
-@@ -17,30 +25,86 @@
++else()
++    find_package(xxhash REQUIRED)
++endif()
  ly_associate_package(PACKAGE_NAME cityhash-1.1-multiplatform                        TARGETS cityhash                    PACKAGE_HASH 0ace9e6f0b2438c5837510032d2d4109125845c0efd7d807f4561ec905512dd2)
  
  # platform-specific:
@@ -140,11 +156,6 @@ the system library via file path rather than via the stock target.
  ly_associate_package(PACKAGE_NAME expat-2.4.2-rev2-linux                            TARGETS expat                       PACKAGE_HASH 755369a919e744b9b3f835d1acc684f02e43987832ad4a1c0b6bbf884e6cd45b)
 +else()
 +    find_package(expat REQUIRED)
-+endif()
-+if (NOT LY_USE_SYSTEM_ASSIMP)
- ly_associate_package(PACKAGE_NAME assimp-5.4.3-rev3-linux                           TARGETS assimp                      PACKAGE_HASH 62ddd306d520b9b9ac6f587927ff82a90fb1e9e81d7609d67984551da376cf98)
-+else()
-+    find_package(assimp REQUIRED)
 +endif()
  ly_associate_package(PACKAGE_NAME AWSNativeSDK-1.11.288-rev1-linux                  TARGETS AWSNativeSDK                PACKAGE_HASH 20421c93a5d32feae636c6dc46323b10547f2c5e7e62b63db00319765bb45331)
 +if (NOT LY_USE_SYSTEM_TIFF)
