@@ -59,15 +59,23 @@ Activation procedure once unblocked: `copr-cli edit-chroot --rpmbuild-with syste
 
 ## Maintenance commitment
 
-- The bundled `libtiff-4.2.0.15-rev3-linux` tarball is pinned by SHA-256 in the engine's `BuiltInPackages_linux_x86_64.cmake`. We track upstream O3DE bumps of this pin and rebuild downstream within a target response window of [N days; concrete window TBD with Nick before filing].
+(Proposed windows; Nick to sign off before filing.)
+
+- The bundled `libtiff-4.2.0.15-rev3-linux` tarball is pinned by SHA-256 in the engine's `BuiltInPackages_linux_x86_64.cmake`. We track upstream O3DE bumps of this pin and rebuild downstream within 14 days of any O3DE point release that changes the libtiff pin.
 - The package-system source tree for the libtiff rebuild lives at `github.com/o3de/3p-package-source/tree/main/package-system/tiff`; bumping in our own COPR repo is straightforward if upstream takes a security-only rebuild that the engine has not picked up yet.
 
 ## Security tracking
 
+(Proposed windows; Nick to sign off before filing.)
+
 - For libtiff CVEs we will, in order of preference:
-  1. Wait for upstream O3DE to rebuild the bundled tarball with the fix and bump the pin; we rebuild downstream within the maintenance response window above.
-  2. If upstream is slow and the CVE is exploitable from engine-loaded TIFFs (the engine reads TIFF assets at build time and at runtime via the ImageProcessing Gem), apply a vendor-backport patch as a `PatchNNNN:` in this spec and bump the release.
+  1. Wait for upstream O3DE to rebuild the bundled tarball with the fix and bump the pin; we rebuild downstream within 7 days of the upstream rebuild for HIGH/CRITICAL severity CVEs and within 14 days for MODERATE.
+  2. If upstream is slow and the CVE is HIGH/CRITICAL severity AND exploitable from engine-loaded TIFFs (the engine reads TIFF assets at build time and at runtime via the ImageProcessing Gem), apply a vendor-backport patch as a `PatchNNNN:` in this spec within 7 days of CVE publication and bump the release.
 - The engine's TIFF surface is not internet-facing in the runtime path; the highest-risk consumer is the asset-build pipeline parsing project-supplied TIFFs. The Fedora package review filing will note this risk profile.
+
+## Window rationale (for the proposed numbers above)
+
+The 7-day HIGH/CRITICAL and 14-day MODERATE windows mirror what we have committed to elsewhere in similar volunteer-driven Fedora packaging contexts. The 14-day upstream-rev-bump window matches our typical post-release packaging cadence (one weekly cycle of build + Tier validation + COPR push). Nick: please confirm or adjust before filing; both windows are tighter than the realistic worst case but achievable on the typical case, which matches the Fedora packaging guideline's expectation of "documented and defensible" rather than "best-case marketed".
 
 ## Removal condition
 
