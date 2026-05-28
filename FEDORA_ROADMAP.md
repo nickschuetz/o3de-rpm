@@ -19,7 +19,7 @@ Quick TL;DR of where each stage stands as of this snapshot. Per-stage detail in 
 | 2 -- Binary/library deps not in Fedora | **Stage 2 3-pack ACTIVE in `hellaenergy/o3de-stabilization` COPR (promoted 2026-05-14)**: o3de2605-spirv-cross (binary shellout), o3de2605-dxc-spirv (binary shellout), o3de2605-mcpp-az (library link, first of its kind). All three PoCs ✓ GREEN since 2026-05-08; promoted to stabilization after 6+ days of green experimental soak. Stabilization chroots now have `additional_repos: copr://hellaenergy/o3de-dependencies` set so Stage 2 build-time deps resolve. End-user `dnf copr enable hellaenergy/o3de-stabilization` triggers an `o3de-dependencies` enable via the test workflow's standard sequence. |
 | 3 -- Python migration | Blocked. Bundled Python 3.10 hardcoded in cmake/3rdParty/Platform/Linux/Python_linux_x86_64.cmake. F44 ships 3.13. Unblocks Stage 2b (OpenImageIO + OpenColorIO blocked on Python C Module ABI). Engine-team owns. |
 | 4 -- OpenSSL 3 migration | Blocked. Bundled OpenSSL 1.1.1t (EOL 2023-09-11) needs upstream migration to 3.x. Engine-team owns. |
-| 5 -- Bundling Library Exception filings | In prep. Five documented exceptions: Qt 5.15 (custom-rev9 patches), libtiff (CryCommon int64 collision), squish-ccr (BC7 patent encumbrance), DXC binary (license-clean source rebuild path), NvCloth (NVIDIA license). |
+| 5 -- Bundling Library Exception filings | In prep. Four documented exceptions: Qt 5.15 (custom-rev9 patches), libtiff (CryCommon int64 collision), squish-ccr (BC7 patent encumbrance), NvCloth (NVIDIA license). The DXC entry that previously sat in this list dropped out 2026-05-28: `o3de2605-dxc-spirv` (in `hellaenergy/o3de-dependencies`) is the license-clean rebuild, fits Fedora's accepted vendored-compiler precedent (emscripten, halide, hipcc), and replaces the binary bundle entirely. |
 
 ### Notable changes since this doc was last comprehensively updated
 
@@ -208,7 +208,7 @@ Target: system OpenSSL 3.x.
 
 | Item | Description | Independent? |
 |---|---|---|
-| **License-clean DXC rebuild** | See dedicated section below. Highest-leverage Stage 5 task. | yes (mostly) |
+| **License-clean DXC rebuild** | **DONE 2026-05-14** -- shipped as `o3de2605-dxc-spirv` in `hellaenergy/o3de-dependencies`, active in stabilization. Recap section below. | done |
 | Real `-debuginfo` subpackage | Distinct from the existing `o3deNNNN-debug` subpackage (which ships debug-config binaries alongside the profile build). Fedora's `-debuginfo` is the rpmbuild-extracted symbol files for stripped binaries — currently disabled via `%global debug_package %{nil}` because O3DE's binary layout trips rpmbuild's symbol extraction (likely a `BUILD_ID` ambiguity from the Ninja Multi-Config split). May need patches to O3DE's link rules. | yes |
 | `-debugsource` subpackage | Source code corresponding to each debuginfo line. Should fall out automatically once `debuginfo` works. | yes |
 | Bundled Library Exception filing | Required for the custom Qt 5.15-rev9 (load-bearing). Justification doc in `BUNDLED_LIBRARIES.md`. | yes |
@@ -217,40 +217,35 @@ Target: system OpenSSL 3.x.
 | AppStream `<screenshots>` | Required by Flathub; nice-to-have for Fedora. Need actual editor screenshots from a working install. | yes |
 | `<content_rating>` review | Currently `oars-1.1` empty (which means "no objectionable content"). Verify with O3DE upstream that no mature-content engine features need flagging. | yes |
 
-### License-clean DXC rebuild — the critical sub-task
+### License-clean DXC rebuild (recap)
 
-**Why this is on the critical path:** DXC is the only one of the four originally-listed restricted bundles that's **non-optional for engine use** — without DXC, the engine can't compile shaders. NvCloth + squish-ccr are feature-gated (NvCloth confirmed standalone via three independent evidence types as of 2026-05-07 — see "Restricted bundles" below — option A is well-supported). poly2tri is no longer in this set as of 2026-05-07 (audit reframed it as a Stage 1 swap; Fedora's poly2tri-devel is license-clean).
+**Status:** DONE. Shipped as `o3de2605-dxc-spirv` in `hellaenergy/o3de-dependencies` 2026-05-08; promoted to `hellaenergy/o3de-stabilization` 2026-05-14 (build 10460860 GREEN). Engine consumes the rebuilt binary via `system_dxc` bcond + Patch0008. Re-audit 2026-05-28 confirmed both the original bundle and the rebuild are clean of the previously-feared `libclang-12.so` runtime dep (it was never there; LLVM 12 is statically linked into `libdxcompiler.so` in both).
 
-**The opportunity:** The licensing problem is *only* the Windows DXIL signing tooling, not DXC itself. The HLSL → SPIR-V (Vulkan) code path is fully open-source under NCSA/Apache-2.0. Linux O3DE doesn't use the DXIL path at all. So we can ship a Linux-only DXC built from upstream Microsoft sources without the DXIL bits, and it's redistributable.
+**Why this mattered for Stage 5:** DXC is the only one of the four originally-listed restricted bundles that is non-optional for engine use; without DXC, the engine cannot compile shaders. NvCloth + squish-ccr are feature-gated; poly2tri is a Stage 1 system swap as of 2026-05-07. Solving DXC was the gating Stage 5 task.
 
-**The technical context** (massively simplified by Nick_L's 2026-05-05 sig-build response — see [#6](https://github.com/nickschuetz/o3de-rpm/issues/6)):
+**The licensing problem was narrow.** Only the Windows DXIL signing tooling is Microsoft-proprietary. The HLSL to SPIR-V (Vulkan) code path is fully open-source under NCSA / Apache-2.0 with LLVM exception. Linux O3DE never exercises the DXIL path. A Linux-only DXC built from upstream Microsoft sources without DXIL is redistributable, and lands the bundle squarely in Fedora's accepted vendored-compiler precedent (emscripten, halide, hipcc).
 
-- **The engine doesn't link DXC at all.** No `libdxcompiler.so` linkage; DXC is a runtime/tool-time **binary** dependency only. The engine shells out to the `dxc` executable to compile shaders. **No library API surface to match in the rebuild.**
-- DXC is a fork of Clang/LLVM (Microsoft forked Clang ~2017 to add an HLSL frontend). The bundled DXC carries `libclang-12.so.1` and `libtinfo.so.6` because the *bundled `dxc` binary* RPATH-resolves them — they're DXC's own internal LLVM 12 stack, not engine consumers. A clean rebuild against system clang/LLVM eliminates the `%__requires_exclude` workaround.
-- The bundle pinning convention: `1.8.2505.1-o3de-rev3` decomposes as **source git tag** (`release-1.8.2505.1-o3de` in the [o3de/DirectXShaderCompiler](https://github.com/o3de/DirectXShaderCompiler/tree/release-1.8.2505.1-o3de) fork) plus the **package-system revision counter** (`-rev3`, just rebuilds of the same source). Build recipe lives in [`o3de/3p-package-source/tree/main/package-system/DirectXShaderCompiler`](https://github.com/o3de/3p-package-source/tree/main/package-system/DirectXShaderCompiler) — `build_config.json` has the canonical `package_url` + `git_tag`.
-- The carry-patch is **4 commits**: [`microsoft:release-1.8.2505...o3de:DirectXShaderCompiler:release-1.8.2505.1-o3de`](https://github.com/microsoft/DirectXShaderCompiler/compare/release-1.8.2505...o3de:DirectXShaderCompiler:release-1.8.2505.1-o3de). One Linux compile fix, one adds a `dxsc` tool, others are general improvements that "should be contrib'd upstream tbh" per Nick_L. We can apply the diff as a custom patch on top of upstream Microsoft sources (`microsoft:release-1.8.2505`).
+**Engine architecture (per Nick_L 2026-05-05 sig-build response, [#6](https://github.com/nickschuetz/o3de-rpm/issues/6)):** the engine never links DXC. It shells out to the `dxc` executable at shader-compile time. There is no library API surface to match in the rebuild; only the CLI contract matters.
 
-**The migration plan (when we reach Stage 5):**
+**Source layout:** the bundle pin `1.8.2505.1-o3de-rev3` decomposes as source git tag (`release-1.8.2505.1-o3de` in the [o3de/DirectXShaderCompiler](https://github.com/o3de/DirectXShaderCompiler/tree/release-1.8.2505.1-o3de) fork) plus the package-system revision counter (`-rev3`, just rebuilds of the same source). The o3de fork's carry-patch is 4 commits on top of upstream Microsoft `release-1.8.2505`: one Linux compile fix, one adds a `dxsc` tool, the others are general improvements. Build recipe in [`o3de/3p-package-source/tree/main/package-system/DirectXShaderCompiler`](https://github.com/o3de/3p-package-source/tree/main/package-system/DirectXShaderCompiler).
 
-1. Build upstream Microsoft DXC (`github.com/microsoft/DirectXShaderCompiler` at `release-1.8.2505`) from source against system clang/LLVM (Fedora 44 ships clang 22). Apply the 4-commit carry-patch from `o3de:release-1.8.2505.1-o3de` as a packaging-side patch (or vendor the diff into the build recipe).
-2. Configure the build SPIR-V-only:
-   ```
-   -DENABLE_SPIRV_CODEGEN=ON
-   -DSPIRV_BUILD_TESTS=OFF
-   -DCLANG_INCLUDE_TESTS=OFF
-   ```
-   Do *not* enable any DXIL-target options.
-3. Verify the resulting `dxc` binary works against the engine: feed it a sample shader, get back valid SPIR-V output. **No library-linking concerns** — the engine just shells out to `dxc`.
-4. Package as a new `o3de-dxc-spirv` SRPM in `hellaenergy/o3de-dependencies` (the COPR repo with `enable_net=false`). License is NCSA + Apache-2.0 with LLVM exception, both Fedora-compatible. Ships `/usr/bin/dxc` and any DXC support files.
-5. In `o3de.spec`, drop the upstream DXC fetch (remove the package from `BuiltInPackages_linux_x86_64.cmake` via patch), add `BuildRequires: o3de-dxc-spirv` (or `dxc` if upstream Fedora ever ships it), and either expose an `LY_DXC_PATH` cmake var or rely on `$PATH` to find `dxc`.
-6. **Drop** the `%__requires_exclude ^libclang-12\.so.*|^libtinfo\.so\.6.*` line from the spec (it's only there because the bundled DXC's libclang/libtinfo aren't auto-Provided by rpm — once `dxc` comes from a system rebuild that links system libclang, the workaround isn't needed).
+**Bundle contents reality check (2026-05-28 re-audit).** The original `DirectXShaderCompilerDxc-1.8.2505.1-o3de-rev3-linux` bundle's `lib/` directory ships exactly two files: `libdxcompiler.so` and `libdxil.so`. It does NOT ship `libclang-12.so.1` or `libtinfo.so.6` as separate shared libraries; LLVM 12 + Clang 12 are statically linked into `libdxcompiler.so` and into the `dxc-3.7` / `dxa-3.7` / `dxopt-3.7` / `llvm-*` binaries. The original bundled `dxc-3.7` dynamically links only `libtinfo.so.6` from /lib64 plus standard libstdc++/glibc (verified via `ldd`). The spec's `%__requires_exclude libclang-12` clause is a no-op today (auto-Requires never generates that symbol against anything we ship) and can drop in a future cleanup pass. The earlier framing about "bundled libclang-12.so.1 + libtinfo.so.6 under Builders/DirectXShaderCompiler/lib/" was inaccurate.
 
-**Side benefits of completing this:**
-- Eliminates the only mandatory restricted bundle, leaving NvCloth + squish-ccr as the only remaining optional feature-gated restricted bundles (poly2tri promoted to Stage 1 swap as of 2026-05-07). Handling option A becomes viable.
-- Drops the `__requires_exclude` workaround (one fewer thing to justify in the Fedora package review).
-- Reduces the runtime-fetcher surface area dramatically — most users won't need it at all.
+**What the rebuild shipped:**
 
-**Risk:** O3DE may have applied custom patches on top of upstream DXC for the `1.8.2505.1-o3de-rev3` build (the `-o3de-rev3` suffix suggests it). If those patches are non-trivial, we'd need to track them and rebase onto whatever DXC version we ship. Worth investigating early — `git log` on O3DE's DXC fork (if there is one) or the patch set inside the bundled tarball.
+1. SRPM `o3de2605-dxc-spirv` built upstream Microsoft DXC `release-1.8.2505` against system clang/LLVM, applying the 4-commit o3de carry-patch as a packaging-side patch. SPIRV-only configuration (`ENABLE_SPIRV_CODEGEN=ON`, `SPIRV_BUILD_TESTS=OFF`, `CLANG_INCLUDE_TESTS=OFF`); no DXIL-target options. Twelve build iterations resolved Fedora-toolchain integration issues (cyclic clang static-deps with Fedora's `%cmake` BUILD_SHARED_LIBS=ON default, Fedora vs DXC `basetsd.h` LONG-type collision, SPIRV-Tools-opt INTERFACE_LINK_LIBRARIES propagation gap). See `BUNDLED_LIBRARIES.md` § "Binary-only / DXC-class dependencies" for the full iteration history.
+2. Built RPM (8.4 MB compressed, 22.8 MB installed) ships only `/usr/bin/dxc`, `/usr/bin/dxsc`, `/usr/lib64/libdxcompiler.so`. Drops the unused `dxa` / `dxl` / `dxopt` / `dxr` / `dxv` / `llvm-*` / `opt` binaries the original bundle carried, and drops the entire DXIL signing tooling.
+3. Functional verification: `dxc -spirv -T ps_6_0 -E main shader.hlsl` produces valid SPIR-V output (`OpCapability Shader / OpMemoryModel Logical GLSL450 / OpEntryPoint Fragment %main`); links cleanly to system `libSPIRV-Tools.so` + bundled DirectX-Headers (DXC has its own Win-types compat layer that conflicts with Fedora's DirectX-Headers, so DirectX-Headers stays bundled as Source2 at DXC's exact submodule SHA `980971e`).
+4. Engine-side glue: `system_dxc` bcond + Patch0008 + install-time symlink overlay route engine consumption to the system binary. Engine code unchanged.
+
+**Residual housekeeping:**
+
+- Drop `%__requires_exclude ^libclang-12\.so.*|^libtinfo\.so\.6.*` from the spec once the bundled DXC stops shipping in any active channel (the `libtinfo.so.6` half becomes a proper auto-Requires against system libtinfo once the rebuild fully replaces the bundle).
+- File a small Bundling Library Exception for the bundled DirectX-Headers sub-source in `o3de2605-dxc-spirv` (DXC's compat-layer conflict with Fedora's DirectX-Headers is the reason); narrow scope.
+
+**Side benefits realized:**
+- Eliminated the only mandatory restricted bundle. Remaining restricted bundles (NvCloth + squish-ccr) are both feature-gated.
+- Engine binary size and runtime-fetcher surface area reduced.
 
 ### How upstream contributors can help (Stage 5)
 

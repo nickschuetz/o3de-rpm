@@ -16,7 +16,7 @@ These three are omitted from `hellaenergy/o3de-dependencies` and remain fetched 
 
 | Package | O3DE version | Upstream license | Why restricted |
 |---|---|---|---|
-| **DirectXShaderCompilerDxc** | 1.8.2505.1-o3de-rev3 | NCSA / Apache-2.0 (sources) + proprietary DXIL signing | The DXIL signing tooling is Microsoft-proprietary. **DXC is structurally a fork of Clang/LLVM** — that's why the bundle ships `libclang-12.so.1` + `libtinfo.so.6` under `Builders/DirectXShaderCompiler/lib/` (RPATH-resolved internal stack, hence the spec's `%__requires_exclude`). Linux O3DE only uses DXC's SPIR-V backend, not DXIL — so a license-clean rebuild from upstream Microsoft DXC sources against system clang is feasible. See `FEDORA_ROADMAP.md` § "License-clean DXC rebuild" for the concrete plan. |
+| **DirectXShaderCompilerDxc** | 1.8.2505.1-o3de-rev3 | NCSA / Apache-2.0 (sources) + proprietary DXIL signing | The DXIL signing tooling is Microsoft-proprietary. **DXC is structurally a fork of Clang/LLVM**: the bundle statically links its own LLVM 12 + Clang 12 into `libdxcompiler.so` (and into the various `dxc-3.7` / `dxa-3.7` / `dxopt-3.7` / `llvm-*` binaries) rather than shipping them as separate `.so` files. The bundle's `lib/` directory contains exactly two files: `libdxcompiler.so` and `libdxil.so` (verified 2026-05-28). Runtime system deps are just `libtinfo.so.6` plus standard libstdc++/glibc (visible in `ldd` against the original `dxc-3.7`); `libclang-12.so` is not a runtime dependency at all. The spec's `%__requires_exclude libclang-12` clause is a no-op today (auto-Requires never generates that symbol from anything we ship) and could be dropped. Linux O3DE only uses DXC's SPIR-V backend, not DXIL, so a license-clean rebuild from upstream Microsoft DXC sources is feasible and lands the bundle in Fedora's accepted "vendored compiler" precedent (emscripten, halide, hipcc). **Status:** the rebuild already shipped as `o3de2605-dxc-spirv` in `hellaenergy/o3de-dependencies` (Patch0008 swaps engine consumption to it). It carries `dxc` + `dxsc` + `libdxcompiler.so` only, drops the unused `dxa` / `dxl` / `dxopt` / `dxr` / `dxv` / `llvm-*` / `opt` binaries and the entire DXIL signing path. See `FEDORA_ROADMAP.md` § "License-clean DXC rebuild" for the rebuild plan and current state. |
 | **NvCloth** | v1.1.6-4-gd243404-pr58-rev1 | NVIDIA Source Code License | NVIDIA-specific clauses incompatible with Fedora's free-software requirements. **Confirmed standalone via three independent evidence types (2026-05-06 / 2026-05-07):** (1) Cheddarspice runtime test 2026-05-06 — NvCloth Gem still works with PhysX 4 removed + PhysX 5.6.1 active (chicken prefab); (2) Steve P [Amazon] code review 2026-05-07 — no direct PhysX 4 references in NvCloth source; (3) Cheddarspice structural fact 2026-05-07 — NvCloth ships its own standalone PxShared + Foundation (PhysX 5 ships its own pair). The earlier "auto-resolves via PhysX 4 retirement" framing is falsified. **Option A (drop the Gem) is now well-supported for Fedora-track**, not tentative. PhysX 5's `PxDeformableSurface` is CUDA-only — NOT a substitute for non-NVIDIA-GPU users. PR #19726 (PhysX 4 retirement) is approved by Steve P [Amazon] + Nick_L (tested against physx4 default + NewspaperDelivery samples; PhysX→PhysX5 alias). Merge timing has a hedge — alex7900 surfaced an `upgrade-physx-gem` script edge case 2026-05-07 PM (`PHYSX_SETREG_GEM_NAME` macro redefined error) which gives Nick_L's proposed registry-fallback enhancement (try PhysX5 first, fall back to PhysX) more relevance. Could go in same-week or slip if maintainers want it bundled. When the PR does merge, Patch0009's PhysX4 hunk becomes dead code; mechanical rebase. |
 | **squish-ccr** | deb557d-rev1 | MIT-like + patents | Texture-compression algorithms encumbered by BPTC/BC7 patents. **Audit 2026-05-07 (issue #7) confirmed this stays restricted:** Fedora's `squish` package is upstream libsquish (DXT compression only — BC1/BC3/BC5; lacks BC7 entirely); the squish-ccr fork's BC7 codec is the patent-encumbered piece Fedora wouldn't ship even if separately packaged; engine consumes squish-ccr-specific extension API beyond upstream libsquish's surface, so an ABI-compatible drop-in isn't possible. Engine impact of dropping: BC7 path in the ImageProcessing Gem's bake step disappears; BC1/BC3/BC5/uncompressed texture formats still bake fine. |
 
@@ -136,6 +136,23 @@ These have Fedora equivalents but O3DE pins specific older API versions.
 
 ---
 
+## Sweep gap: multiplatform-shared bundles (unaudited until 2026-05-28)
+
+The six `multiplatform` rows at the top of `BuiltInPackages_linux_x86_64.cmake` were not previously categorized in this document. The 2026-05-28 sweep (full inventory at `audits/builtinpackages-linux-sweep-2026-05-28.md`) found all six are real, bundled, and have engine consumers. Status proposal:
+
+| Bundle | O3DE version | Fedora F44 | Recommendation |
+|---|---|---|---|
+| RapidJSON | 1.1.0-rev1 | `rapidjson-devel-1.1.0^20241222git24b5e7a` | Stage 1 swap candidate (header-only, low risk). |
+| RapidXML | 1.13-rev1 | `rapidxml-1.13` (exact match) | Trivial Stage 1 swap candidate. |
+| pybind11 | 2.10.0-rev1 | `pybind11-devel-3.0.4` | Audit gap (major version bump 2.x to 3.x). Likely wait for upstream engine bump rather than carry a compat patch. |
+| glad | 2.0.0-beta-rev2 | `glad-0.1.36` (glad1, different generator) | Not a drop-in; either bundle with small exception or COPR-ship glad2. |
+| xxhash | 0.7.4-rev1 | `xxhash-devel-0.8.3` | Stage 1 swap candidate (stable C ABI). |
+| cityhash | 1.1 | not in Fedora | COPR-ship candidate (MIT, small) or small exception filing. |
+
+These rows are tracked as audit findings. Promoting them into the appropriate sections above (Stage 1 swap candidates, COPR-ship, restricted-bundle) waits on a Stage 1 PR-shape decision per row.
+
+---
+
 ## Bundles that have no clean migration target
 
 | Bundle | Notes |
@@ -143,7 +160,7 @@ These have Fedora equivalents but O3DE pins specific older API versions.
 | Python 3.10.13-rev2 | Migrate to system Python 3.13 in Stage 3. F44 has 3.13; bundled is 3.10. PySide2 binding compatibility is the gating concern. |
 | pyside2 5.15.2.1-py3.10-rev7 | Bundled because tied to bundled Python. F44 has `python3-pyside2` 5.15.x but built against 3.13 — should work after Stage 3. |
 | OpenSSL 1.1.1t | **Stage 4. Major engineering effort.** EOL since 2023-09-11. Migration to system OpenSSL 3.x likely needs upstream O3DE patches across multiple Gems. |
-| O3DE-clang-toolchain | Embedded clang/libclang. Build-time only; not in the runtime RPM. Probably remove the `__requires_exclude` workaround once Stage 5 cleans up build artifacts. |
+| O3DE-clang-toolchain | Embedded clang/libclang. Build-time only; not in the runtime RPM. The spec's existing `%__requires_exclude ^libclang-12\.so.*\|^libtinfo\.so\.6.*` clause is a no-op today (verified 2026-05-28 by running `/usr/lib/rpm/elfdeps --requires` directly against the bundled `dxc` binary and `libdxcompiler.so`: neither emits `libclang-12.so` nor `libtinfo.so.6` Requires). The mechanism is rpm's elfdeps generates Requires from versioned-symbol references, not from DT_NEEDED entries alone; the bundled DXC's `libtinfo.so.6` DT_NEEDED carries no version information (visible as `ldd` warning `no version information available`), and `libclang-12.so` is not in DT_NEEDED at all because Clang 12 is statically linked into `libdxcompiler.so`. Either or both halves of the exclude can drop in a future cleanup pass; tracked as Stage 5 housekeeping. |
 
 ---
 
