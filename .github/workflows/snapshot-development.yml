@@ -1,0 +1,136 @@
+name: snapshot-development
+
+# Periodically refreshes hellaenergy/o3de-development with a fresh build
+# from o3de/development HEAD. Without this the channel goes stale because
+# COPR has no native "rebuild from upstream HEAD" trigger for custom-SRPM
+# projects, and manual `make copr-development` requires someone to remember.
+#
+# Cadence: Sunday 06:00 UTC (Saturday midnight CDT). Off-peak Fedora infra;
+# weekend so it doesn't collide with weekday work.
+#
+# Dedup: queries the last successful build in hellaenergy/o3de-development,
+# extracts its baked snapshot_commit from the SRPM filename, and skips the
+# build if o3de/development HEAD hasn't moved. No point re-firing the same
+# source over a quiet upstream week.
+#
+# Setup (one-time): paste the contents of ~/.config/copr (the [copr-cli]
+# section from the COPR API token page) into a repo secret named
+# COPR_TOKEN_CONFIG. Re-paste if the token is rotated.
+
+on:
+  schedule:
+    - cron: '0 6 * * 0'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Skip the dedup check and fire even if dev-tip is unchanged'
+        type: boolean
+        default: false
+        required: false
+
+env:
+  # Opt JS-based actions into Node 24 ahead of GitHub's forced cutover
+  # on 2026-06-02. Same pattern as lint.yml and test-installed.yml.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+# Belt-and-suspenders: this workflow only needs to read repo contents
+# (for the actions/checkout step). The COPR token is the only thing
+# granting external write, and it's scoped to COPR project actions.
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    container:
+      image: registry.fedoraproject.org/fedora:44
+    timeout-minutes: 60
+
+    steps:
+      - name: Install build tooling
+        run: |
+          dnf install -y --setopt=install_weak_deps=False \
+            rpm-build copr-cli git git-lfs make python3 jq tar gzip
+          git lfs install
+
+      - name: Checkout o3de-rpm
+        uses: actions/checkout@v4
+
+      - name: Configure COPR auth
+        env:
+          COPR_TOKEN_CONFIG: ${{ secrets.COPR_TOKEN_CONFIG }}
+        run: |
+          if [ -z "$COPR_TOKEN_CONFIG" ]; then
+            echo "ERROR: COPR_TOKEN_CONFIG secret is empty. Set it in repo settings." >&2
+            exit 1
+          fi
+          mkdir -p ~/.config
+          # umask before the write so the file is never world-readable,
+          # not even for the microsecond gap before a follow-up chmod.
+          ( umask 077 && printf '%s' "$COPR_TOKEN_CONFIG" > ~/.config/copr )
+          copr-cli whoami
+
+      - name: Determine dev-tip + last-built sha
+        id: dedup
+        run: |
+          DEV_TIP=$(git ls-remote https://github.com/o3de/o3de.git refs/heads/development | awk '{print $1}')
+          echo "dev-tip: $DEV_TIP"
+
+          # Pull last successful build's SRPM URL, extract snapshot_commit
+          # from the filename (pattern: o3de2605-<ver>^<date>git<sha>-...).
+          LAST_SHA=$(copr-cli list-builds hellaenergy/o3de-development --output-format json 2>/dev/null \
+            | python3 -c "
+          import sys, json, re
+          data = json.load(sys.stdin)
+          for b in data:
+              if b.get('state') == 'succeeded':
+                  src = (b.get('source_package') or {}).get('url', '')
+                  m = re.search(r'git([0-9a-f]{7,40})', src)
+                  if m:
+                      print(m.group(1))
+                      break
+          ")
+          echo "last-built: ${LAST_SHA:-(none)}"
+
+          FORCE="${{ inputs.force }}"
+          if [ "$FORCE" = "true" ]; then
+              echo "skip=false" >> "$GITHUB_OUTPUT"
+              echo "dev_tip=$DEV_TIP" >> "$GITHUB_OUTPUT"
+              echo ">> force=true, bypassing dedup; firing dev-tip ${DEV_TIP:0:8}."
+          elif [ -n "$LAST_SHA" ] && [ "${DEV_TIP:0:${#LAST_SHA}}" = "$LAST_SHA" ]; then
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo ">> dev-tip ${DEV_TIP:0:8} matches last successful build, skipping."
+          else
+              echo "skip=false" >> "$GITHUB_OUTPUT"
+              echo "dev_tip=$DEV_TIP" >> "$GITHUB_OUTPUT"
+              echo ">> dev-tip ${DEV_TIP:0:8} differs from last build (${LAST_SHA:-none}), firing fresh build."
+          fi
+
+      - name: Build SRPM + submit to COPR
+        if: steps.dedup.outputs.skip == 'false'
+        run: |
+          # make-snapshot-tarball.sh needs disk-backed TMPDIR; tmpfs /tmp on
+          # the runner is too small for the 5-8GB LFS clone.
+          export TMPDIR="$GITHUB_WORKSPACE/.cache"
+          mkdir -p "$TMPDIR"
+
+          make srpm-snapshot-development
+
+          # --nowait so the runner exits as soon as the build is submitted.
+          # The actual 4-6h chroot build runs on COPR infra.
+          copr-cli build --nowait --timeout 28800 \
+            hellaenergy/o3de-development \
+            ~/rpmbuild/SRPMS/o3de2605-*.src.rpm
+
+      - name: Summary
+        if: always()
+        run: |
+          SKIP="${{ steps.dedup.outputs.skip }}"
+          DEV_TIP="${{ steps.dedup.outputs.dev_tip }}"
+          if [ "$SKIP" = "true" ]; then
+            echo "::notice::No dev-tip movement; build skipped."
+          elif [ -n "$DEV_TIP" ]; then
+            echo "::notice::Fired build for dev-tip ${DEV_TIP:0:8}."
+          else
+            echo "::warning::Workflow exited without firing (likely early-step failure)."
+          fi
