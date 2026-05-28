@@ -2007,22 +2007,14 @@ EOF
 - Memory: project_cs10_engine_build_blockers.md blocker #5.
 
 * Tue May 12 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-52
-- Reapply Patch0012 with v2 approach: child-side parent-death watchdog
-  in AssetBuilder/main.cpp instead of the engine's m_tetherLifetime /
-  prctl(PR_SET_PDEATHSIG) mechanism.
-- v1 (2605.0-50) misused prctl which binds the death signal to the
-  forking thread's TID rather than the parent process; AssetProcessor
-  forks builders from short-lived TaskWorker threads, so v1 SIGTERM'd
-  every spawned builder within ~21 ms of fork. Editor hung at "Asset
-  Processor working...".
-- v2 sidesteps the thread-lifetime trap entirely: the spawned
-  AssetBuilder polls getppid() on a detached thread every 2 seconds
-  and _exit(0)s when reparented. ~12 LOC of watchdog in
-  Code/Tools/AssetProcessor/AssetBuilder/main.cpp. Cross-platform
-  POSIX (Linux + Mac); Windows port deferred.
-- Upstream-drafts (issue + 2 PRs) staged in upstream-drafts/ -- not
-  filed until v2 passes the kill -9 + orphan-count runtime test
-  locally.
+- Reapply Patch0012 with v2 approach: child-side parent-death
+  watchdog in AssetBuilder/main.cpp. Sidesteps v1's thread-lifetime
+  trap (PR_SET_PDEATHSIG binds to forking thread, not parent process).
+- v2: spawned AssetBuilder polls getppid() on a detached thread every
+  2 seconds, _exit(0) when reparented. ~12 LOC. Cross-platform POSIX;
+  Windows port deferred.
+- Upstream drafts (issue + 2 PRs) staged; not filed until v2 passes
+  kill -9 + orphan-count runtime test locally.
 
 * Tue May 12 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-51
 - WITHDRAW Patch0012 v1 after runtime validation. Build green on F44 +
@@ -2509,22 +2501,16 @@ EOF
   libtiff builds too as the bundle ages).
 
 * Sun May 03 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-14
-- Rename package o3de → o3de2605 (postgresql-style major-keyed naming).
-  Multiple O3DE majors can now coexist on one system: o3de2605 (26.05
-  line) at /opt/O3DE/26.05.0/, future o3de2610 at /opt/O3DE/26.10.0/,
-  etc. Different majors are different engine lines, intentionally NOT
-  cross-major auto-upgradable. Path layout matches upstream's .deb and
-  Windows .msi install layout — cross-platform consistency. Subpackages
-  follow the same versioning automatically: o3de2605-debug today,
-  o3de2605-devel when the queued split lands. Single Provides: o3de
-  for any external Requires: o3de that needs to resolve. New macros:
+- Rename package o3de -> o3de2605 (postgresql-style major-keyed
+  naming). Multiple O3DE majors coexist: o3de2605 at /opt/O3DE/26.05.0/,
+  future o3de2610 at /opt/O3DE/26.10.0/. Intentionally NOT cross-major
+  auto-upgradable. Path layout matches .deb + .msi for cross-platform
+  consistency. Subpackages follow automatically (-debug today, -devel
+  later). Provides: o3de for legacy Requires. New macros:
   o3de_major_tag, o3de_pkgname, o3de_install_prefix.
-- Per-version desktop entries: o3de2605.desktop with Name="O3DE 26.05.0",
-  Icon=o3de2605, StartupWMClass=O3DE-2605. Two installed majors appear
-  as separate menu entries with distinct dock identities.
-- AppStream component IDs versioned: org.o3de.O3DE2605, org.o3de.O3DE2610.
-  GNOME Software / KDE Discover treat each version as its own installable
-  app.
+- Per-version desktop entries + AppStream component IDs
+  (org.o3de.O3DE2605, etc.). Two installed majors appear as separate
+  menu entries with distinct dock identities.
 
 * Fri May 01 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-13
 - Defensive: also BR python3-pip and python3-wheel. Newer setuptools
@@ -2568,24 +2554,17 @@ EOF
   package. Move them to o3de-debug where they belong.
 
 * Fri May 01 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-9
-- Pass O3DE_INSTALL_BUILD_VERSION="<stable_tag>" to cmake so the Editor's
-  splash, About dialog, and main-window title render "Version 2605.0"
-  instead of the hardcoded "Development Build" placeholder. Matches the
-  format on the Windows O3DE-SDK distribution, which displays the
-  compact stable-tag string in the Editor while the Project Manager
-  title bar continues to use the dotted display_version (26.05.0).
-  Engine.json's "build" field consequently emits as a JSON string
-  ("build": "2605.0") rather than the upstream-default integer 0.
-- Add Patch0005 so Project Manager's titlebar shows the engine version
-  on Linux. AzQtComponents::WindowDecorationWrapper::setGuest() in
-  OptionDisabled mode (Linux/Mac, WM-drawn titlebar) connects the
-  guest's windowTitleChanged signal but doesn't copy the guest's
-  *current* title. ProjectManagerWindow sets its title in its
-  constructor — before Application.cpp's setGuest() call — so the
-  initial title was being lost and the WM ended up displaying the
-  QApplication name "O3DE" alone. The patch adds the same one-line
-  copy that the non-disabled (Windows custom-titlebar) branch already
-  performs.
+- Pass O3DE_INSTALL_BUILD_VERSION="<stable_tag>" to cmake so Editor's
+  splash, About, and main-window title render "Version 2605.0" instead
+  of "Development Build". Matches the Windows O3DE-SDK distribution.
+  Engine.json "build" emits as JSON string ("2605.0") rather than the
+  upstream-default integer 0.
+- Add Patch0005: PM titlebar shows engine version on Linux.
+  WindowDecorationWrapper::setGuest in OptionDisabled mode connects
+  windowTitleChanged signal but doesn't copy the guest's current
+  title; PM sets its title pre-setGuest, so the initial title was
+  lost. Patch adds the same one-line copy that the Windows custom-
+  titlebar branch already performs.
 
 * Thu Apr 30 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-8
 - Split debug-config binaries into a separate `o3de-debug` subpackage,
@@ -2661,22 +2640,17 @@ EOF
 - Add gtk-update-icon-cache calls in %%post / %%postun for the new icon set
 
 * Wed Apr 29 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-1
-- Validated end-to-end on stabilization/26050 (commit 246b46f)
-- Drop obsolete gem-reorg machinery (Source12 + %%install loop + TSV file);
-  gems now install hierarchically under /opt/o3de/Gems/ directly
-- Drop confirmed-cruft BuildRequires now that auto-Requires has been
-  validated against the built binaries: pkgconfig(Qt5*), qt5-qttools-devel,
-  qt5-qtx11extras-devel, pkgconfig(zlib), pkgconfig(openssl),
-  pkgconfig(libcurl), pkgconfig(freetype2), pkgconfig(libpcre2-8),
-  spirv-tools-devel, git-lfs, python3-pip, python3-rpm-macros
-- Replace hand-curated Requires with the minimal set rpm auto-Requires
-  cannot derive: mesa-libGL, cmake (for the launcher's engine-id calc),
-  python3 (no version floor)
-- Drop the cmake>=3.24 floor (F44 ships 4.x) and python3>=3.10 floor
-- Launcher: add idempotent first-run migration that rewrites
-  <project>/user/project.json engine_path overrides from /usr/o3de or
-  legacy /opt/o3de paths to the active install prefix; gated by a
-  per-prefix marker file under ~/.o3de/
+- Validated end-to-end on stabilization/26050 (commit 246b46f).
+- Drop obsolete gem-reorg machinery; gems install hierarchically
+  under /opt/o3de/Gems/ directly.
+- Drop confirmed-cruft BuildRequires (Qt5* pkgconfigs, openssl/zlib/
+  libcurl pkgconfigs, spirv-tools-devel, etc.) now that auto-Requires
+  is validated against the built binaries.
+- Minimal hand-curated Requires (mesa-libGL, cmake, python3); drop
+  cmake>=3.24 + python3>=3.10 floors (F44 ships newer).
+- Launcher: idempotent first-run migration of <project>/user/project.json
+  engine_path overrides from /usr/o3de or legacy /opt/o3de to active
+  install prefix; per-prefix marker file under ~/.o3de/ gates re-run.
 
 * Wed Apr 29 2026 Nick Schuetz <nschuetz@redhat.com> - 2510.2-1
 - Major spec refactor for Fedora 44 / rpm 4.20+:
