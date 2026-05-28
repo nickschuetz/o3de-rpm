@@ -70,7 +70,22 @@ Swapped the rebuilt Python into the engine install path at `~/.o3de/Python/packa
 
 The Tier 3 result is the critical canary: it exercises pip install, manifest setup, and the engine CLI's full Python init flow through the rebuilt interpreter. All paths that the rebuilt Python's `_ssl` module gets invoked on (HTTPS for pip install, registry interactions, etc.) succeeded.
 
-Tier 9 (MultiplayerSample build+bake+launch end-to-end) and Tier 10 (NewspaperDeliveryGame end-to-end) running in background; results to follow.
+Heavy validation completed:
+
+- Tier 9 (MultiplayerSample full build + bake + GameLauncher load): 13/0 PASS
+- Tier 10 (NewspaperDeliveryGame full build + bake + launcher loaded CharacterSample): 7/0 PASS
+
+Both ran in warm-cache mode (~2 min each) since the per-project build dirs from prior runs were intact. The engine works identically with the rebuilt Python; zero regressions versus the bundled-OpenSSL baseline. AssetProcessor's embedded Python interpreter executes all builders cleanly. PySide2 (separate 3rdParty bundle, links against `libpython3.10.so.1.0`) loads without ABI issues; Python's stable patch-level ABI held.
+
+### Net validation summary
+
+- Build: PASS (Python 3.10.13 + system OpenSSL 3.x, dynamic linkage)
+- Artifact: PASS (3/3 gates: ldd, OPENSSL_VERSION, cross-distro portability)
+- Engine smoke + venv rebuild: PASS (Tier 1-5, 58/58)
+- Heavy community-game validation: PASS (Tier 9 13/0, Tier 10 7/0)
+- Total: 78 individual checks across the tier suite, 0 failures.
+
+The rebuilt Python is a clean drop-in for the bundled one. The OpenSSL 1.1.1t -> 3.x migration is fully validated end-to-end through real community-game pipelines.
 
 ## Original plan (kept for reference)
 
