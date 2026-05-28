@@ -95,6 +95,20 @@ This PR adds an upstream build *capability*. The Ubuntu 22.04 base preserves the
 
 For downstream packagers who want a full Fedora-native rebuild (where every Python C extension's transitive SONAMEs match Fedora's library set), the right pattern is to take this same shape and rebuild inside a Fedora container as a separate sibling variant. That's not in scope here; it's a downstream packaging concern that this PR enables but doesn't itself produce.
 
+### Compatibility considerations (offline install, older OSes, CI)
+
+The new system-openssl variant has a runtime dependency the bundled variant does not have: the target system must provide OpenSSL 3.x (`libssl.so.3` + `libcrypto.so.3`). On systems that ship OpenSSL 1.1.x or older, `import ssl` from the system-openssl Python would fail with a missing-library error. Target distros with OpenSSL 3.x in base: Ubuntu 22.04 LTS and newer, Fedora 39 and newer, RHEL 9 and newer, Debian 12 and newer. Older common targets (Ubuntu 20.04 LTS, RHEL 8, Debian 11) ship OpenSSL 1.1.x and would not work with the new variant.
+
+Implications for O3DE's existing distribution model:
+
+1. **Offline install (air-gapped, no network during get_python flow):** the existing bundled variant is fully self-contained because OpenSSL is statically linked into `_ssl.so`. The system variant requires the OS to have OpenSSL 3.x packages already installed at use time. For a typical offline workflow on a modern target distro that's fine (system OpenSSL 3.x ships in the base OS), but for distros without OpenSSL 3.x in base, the bundled variant remains the only working option.
+
+2. **Older CI / build images:** O3DE CI images still on Ubuntu 20.04 (or any other OpenSSL-1.1.x base) keep using the bundled variant unchanged. The system variant is opt-in via `build_config.json` selection.
+
+3. **Embedded targets / specialized chroots:** any environment that can't be assumed to have OpenSSL 3.x available should keep using the bundled variant.
+
+The PR doesn't change the default; it adds a parallel variant. Consumers who explicitly opt into the system-openssl variant accept the OS-OpenSSL-3.x dependency in exchange for the EOL-crypto migration. The bundled variant remains the floor for portability and offline-install scenarios.
+
 ## Original plan (kept for reference)
 
 Before filing this PR:
@@ -120,7 +134,7 @@ Before filing this PR:
 
 2. **Naming:** `python-3.10.13-rev1-linux-system-openssl` is verbose. Alternatives: `python-3.10.13-rev1-linux-dynamic-ssl`, `python-3.10.13-system-ssl-rev1-linux`, etc. Whatever convention sig-build prefers; happy to rename.
 
-3. **Should this eventually become the default?** Long-term, dynamic-link-against-system-OpenSSL reduces O3DE maintainers' CVE-response burden (system updates flow through `apt-get update` / `dnf update` instead of requiring a Python rebuild every time OpenSSL ships a CVE). But the bundled variant remains useful for environments where system OpenSSL can't be assumed (older containers, embedded targets, build-isolated CI). Suggest both variants coexist long-term; the dynamic variant is the recommended path for distros + security-conscious deployments, the bundled variant remains the floor for portability.
+3. **Should this eventually become the default?** Long-term, dynamic-link-against-system-OpenSSL reduces O3DE maintainers' CVE-response burden (system updates flow through `apt-get update` / `dnf update` instead of requiring a Python rebuild every time OpenSSL ships a CVE). But the bundled variant remains useful for environments where system OpenSSL can't be assumed (older containers, embedded targets, build-isolated CI, air-gapped offline-install scenarios where the OS may not have OpenSSL 3.x). Suggest both variants coexist long-term; the dynamic variant is the recommended path for distros and security-conscious deployments where OpenSSL 3.x is guaranteed in the base OS, the bundled variant remains the floor for portability and offline-install on older targets.
 
 ## Concrete file diffs
 
@@ -267,7 +281,11 @@ Body:
 > - The Ubuntu base image has `libssl-dev` available (added to the Dockerfile)
 > - `_ssl.cpython-310-x86_64-linux-gnu.so` ends up dynamically linking against the OS's `libssl.so.3` + `libcrypto.so.3`
 >
-> Output package: `python-3.10.13-rev1-linux-system-openssl`. Direct drop-in replacement for downstream consumers; ABI is Python 3.10.13 stable.
+> Output package: `python-3.10.13-rev1-linux-system-openssl`. Drop-in replacement for downstream consumers whose target OS provides OpenSSL 3.x; Python ABI is 3.10.13 stable.
+>
+> ### Compatibility
+>
+> The new variant requires the target system to have OpenSSL 3.x in the base OS at runtime (`libssl.so.3` + `libcrypto.so.3`). Target distros with OpenSSL 3.x in base: Ubuntu 22.04 LTS and newer, Fedora 39 and newer, RHEL 9 and newer, Debian 12 and newer. Existing consumers on older OSes (Ubuntu 20.04 LTS, RHEL 8, Debian 11) ship OpenSSL 1.1.x and would not work with the system-openssl variant; they keep using the existing `linux_x64/` variant unchanged. Offline-install scenarios on older targets are unaffected because the default bundled variant is fully self-contained.
 >
 > ### Validation
 >
@@ -275,7 +293,7 @@ Body:
 >
 > ### Notes
 >
-> - Long-term, the dynamic variant reduces O3DE maintainers' CVE-response burden (OS handles OpenSSL updates) while the bundled variant remains the floor for portability-sensitive consumers. Suggest both coexist.
+> - Long-term, the dynamic variant reduces O3DE maintainers' CVE-response burden (OS handles OpenSSL updates) while the bundled variant remains the floor for portability-sensitive consumers (offline install, older CI images, air-gapped targets, embedded). Suggest both coexist.
 > - aarch64 variant follows the same shape; happy to add in a follow-up once x86_64 is validated.
 > - Filed in coordination with the downstream Fedora packaging effort at github.com/nickschuetz/o3de-rpm; see that repo's FOLLOW_UPS.md "Packaging correctness" entry and issue #8 for the broader context.
 
