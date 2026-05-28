@@ -1715,26 +1715,15 @@ EOF
 
 * Mon May 25 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-75
 - Hide Editor, Material Editor, Material Canvas desktop entries
-  (NoDisplay=true). Only Project Manager remains visible in the
-  application menu. Discovered while running the freshly-installed
-  build: clicking the standalone tool entries cold from the menu
-  produces broken UX. Material Editor + Material Canvas error with
-  "is not a valid project path" because the binaries need a project
-  context. Editor binary cold-launches gracefully -- it falls back to
-  launching Project Manager as a project picker -- but that makes the
-  Editor menu entry behaviorally identical to the PM menu entry, two
-  duplicate-result entries that confuse users.
-  Hidden entries keep their desktop files installed so the dock can
-  pair our per-tool icons (extracted from upstream's Windows .ico files)
-  to running windows via StartupWMClass matching, when those tools are
-  launched from inside the running Editor (the canonical path that
-  inherits project context). The menu surface lands at a single PM
-  entry, matching what Debian + Snap installs ship.
-  Diverges from the literal Windows Start menu shape (which ships
-  visible Editor + ME shortcuts) but Windows's shortcuts have the same
-  broken-or-redundant cold-launch behavior we confirmed in
-  cmake/Platform/Windows/Packaging/Shortcuts.wxs -- so we're matching
-  upstream's behavior, not its surface.
+  (NoDisplay=true). Only Project Manager remains visible. Discovered
+  during freshly-installed-build walkthrough: cold-clicking the
+  standalone tool entries produced broken UX. ME + MC error "is not
+  a valid project path"; Editor falls back to PM as project picker,
+  making the menu entry behaviorally duplicate.
+- Hidden entries keep desktop files installed so the dock pairs per-
+  tool icons via StartupWMClass when the tools launch from inside
+  the running Editor (the canonical path that inherits project
+  context). Matches Debian + Snap install behavior.
 
 * Mon May 25 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-74
 - Regenerate 8e750500 snapshot tarball with LFS objects expanded.
@@ -2036,26 +2025,16 @@ EOF
   locally.
 
 * Tue May 12 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-51
-- WITHDRAW Patch0012 after empirical runtime validation. Build was green
-  on F44 + rawhide (COPR 10447331), but on `dnf reinstall` + AP launch
-  the kernel killed every spawned AssetBuilder with SIGTERM within ~21 ms
-  of fork. AP could never establish its resident pool; Editor hung at
-  "Asset Processor working...".
-- Root cause: PR_SET_PDEATHSIG (which m_tetherLifetime sets on Linux)
-  fires when the THREAD that called fork() terminates, not when the
-  parent process terminates. AssetProcessor forks builders from
-  short-lived BuilderManager worker threads; the launching thread
-  retires as soon as the builder is spawned, the kernel signals the
-  freshly-spawned builder, builder dies, AP gives up. The Multiplayer
-  gem's use of m_tetherLifetime works because it forks from a long-lived
-  UI thread.
-- Spec keeps the Patch0012 file in sources/ for reference; the directive
-  is commented out so %autosetup skips it. README + CONTRIBUTING patch
-  tables annotated as WITHDRAWN.
-- Replacement under design: watchdog approach -- have AssetBuilder poll
-  getppid() in its main loop and exit when it returns 1 (reparented).
-  Cross-platform safe and independent of the launching thread's
-  lifetime. Tracked in FOLLOW_UPS.md.
+- WITHDRAW Patch0012 v1 after runtime validation. Build green on F44 +
+  rawhide (10447331) but the kernel killed every spawned AssetBuilder
+  with SIGTERM within ~21 ms of fork; AP couldn't establish resident
+  pool. Root cause: PR_SET_PDEATHSIG fires on THREAD termination, not
+  PROCESS. AP's BuilderManager forks from short-lived worker threads;
+  Multiplayer gem's m_tetherLifetime works because it forks from the
+  long-lived UI thread.
+- v1 patch directive commented out; file retained as historical
+  reference. Watchdog replacement under design (child polls getppid()
+  in main loop). Tracked in FOLLOW_UPS.md.
 
 * Tue May 12 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-50
 - Add Patch0012: AssetProcessor tethers its resident AssetBuilder
@@ -2118,41 +2097,22 @@ EOF
   experimental for longer soak.
 
 * Sun May 10 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-46
-- CS10 / RPM 4.19 fix (round 2): bulk-escape literal section-keyword
-  tokens (%%install / %%build / %%files / %%prep / %%check / %%package /
-  %%description / %%post / %%postun / %%clean / %%changelog) ANYWHERE
-  they appear in comments + changelog, not just inside the active
-  %%install block. The 2605.0-45 fix only addressed the one comment at
-  line 1087 that was tripping CS10 build 10439258. Empirical evidence
-  from mcpp CS10 build 10442715 (rev9, post-fix-attempt) shows RPM 4.19
-  misparses unescaped section tokens ANYWHERE in the spec -- the next
-  build would have tripped on my own 2605.0-45 changelog entry which
-  itself contained six unescaped %%install references while describing
-  the fix. RPM 6.x (F44 + rawhide) is lax about in-comment tokens and
-  parses cleanly. 26 lines total bulk-escaped in this pass via a regex
-  transform that preserves real section headers (lines starting with
-  `%%<keyword>` followed by whitespace or EOL).
-- This commit is companion to the mcpp rev10 spec change (same shape,
-  same root cause). Memory note `project_cs10_debuginfo_quirk.md`
-  updated with the broader scope.
+- CS10 / RPM 4.19 fix round 2: bulk-escape literal section-keyword
+  tokens (%%install, %%build, %%files, %%prep, etc.) ANYWHERE in
+  comments and changelog, not just inside the active %%install
+  block. -45's one-comment fix wasn't enough; mcpp build 10442715
+  showed RPM 4.19 misparses unescaped tokens anywhere. RPM 6.x
+  (F44 + rawhide) is lax and parses cleanly. 26 lines bulk-escaped
+  via regex preserving real section headers.
 
 * Sun May 10 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-45
-- CS10 RPM 4.19 spec-parse fix: rephrase a comment inside the %%install
-  block that contained the literal token "%%install" (in the phrase
-  "Per-version mutation lands here at %%install time:"). RPM 4.19 (which
-  CentOS Stream 10 ships) parses unescaped "%%install" anywhere inside an
-  active %%install block as a section-start marker, producing
-  `error: line 1087: second %%install` at SRPM build. RPM 6.x (F44 +
-  rawhide) ignores the in-comment token and parses cleanly. Caught on
-  build 10439258 CS10 chroot (failed at SRPM-prep in 134s; F44 +
-  rawhide of the same build instead progressed to the engine-build
-  + packaging finish line before hitting the 5h COPR wall-clock).
-- Comment rephrased to drop the percent sign and now also documents the
-  RPM 4.19 quirk inline so future edits don't reintroduce the pattern.
-- Other "%%install" tokens elsewhere in the spec (lines 455, 524, and the
-  changelog itself) sit outside the active %%install block and are not
-  affected by the RPM 4.19 parser bug. No change needed there.
-- No code changes; documentation-only fix in the spec.
+- CS10 RPM 4.19 spec-parse fix: rephrase a comment inside the
+  %%install block that contained the literal "%%install" token.
+  RPM 4.19 parses it as a section-start marker, producing "second
+  %%install" error at SRPM build. RPM 6.x ignores in-comment tokens.
+  Caught on build 10439258 CS10 chroot. Comment rephrased; quirk
+  documented inline. Round 1 of this fix; -46 follows with the full
+  bulk-escape sweep.
 
 * Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-44
 - Patch0011: Lua 5.5 LUA_NUMTAGS compat fix in LuaIDE WatchesPanel.cpp.
@@ -2197,26 +2157,17 @@ EOF
 - SBOM -> 2605.0-42.
 
 * Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-41
-- Patch0010: Lua 5.5 lua_newstate signature compat. Lua 5.5 (released
-  ahead of Fedora 45) added a required third `seed` parameter to
-  `lua_newstate`; engine's `Code/Framework/AzCore/AzCore/Script/
-  ScriptContext.cpp:4359` calls the 5.4 two-arg form. Patch wraps in
-  `#if LUA_VERSION_NUM >= 505` guard, passes seed=0 on 5.5+, falls
-  through to original on 5.4. Behavior-preserving on bundled-Lua
-  builds; lifts the rawhide compile failure caught on build 10436540
-  (o3de-experimental 14-pack, fedora-rawhide chroot, 2026-05-08;
-  F44 succeeded with bundled lua-5.4.8, rawhide failed at
-  ScriptContext.cpp:4359 with "no matching function for call to
-  'lua_newstate' ... requires 3 arguments, but 2 were provided").
-- Independent of `system_lua` bcond: applies unconditionally, fires
-  whether the engine links bundled Lua or system Lua. Sibling to
-  Patch0008 (Lua/lobject.h include cleanup) but addresses a separate
-  concern (API signature drift across Lua majors).
-- Memory note: `project_lua_5_5_newstate_break.md`. Worth pitching
-  upstream once the patch shape settles -- benefits every distro on
-  the rawhide Lua 5.5 trajectory (Fedora 45+, Debian unstable,
-  Alpine edge, Arch).
-- SBOM bumped 2605.0-40 -> 2605.0-41.
+- Patch0010: Lua 5.5 lua_newstate signature compat. 5.5 added a
+  required third `seed` parameter; engine calls the 5.4 two-arg form
+  in ScriptContext.cpp:4359. Patch guards on LUA_VERSION_NUM >= 505,
+  passes seed=0 on 5.5+, falls through on 5.4. Behavior-preserving.
+- Lifts the rawhide compile failure caught on build 10436540 (F44
+  succeeded with bundled lua-5.4.8; rawhide failed against system
+  lua-5.5). Applies unconditionally, independent of system_lua bcond.
+- Sibling to Patch0008 (Lua/lobject.h cleanup) but distinct concern.
+- Memory note: project_lua_5_5_newstate_break.md. Worth pitching
+  upstream; benefits every distro on the Lua 5.5 trajectory.
+- SBOM -> 2605.0-41.
 
 * Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-40
 - Stage 2 third swap: activate system_mcpp. Library-link variant
@@ -2331,23 +2282,14 @@ EOF
   is the only caveat); see BUNDLED_LIBRARIES.md.
 
 * Thu May 07 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-32
-- Stage 1 9-pack: activate system_lua (no spec change — all wiring was
-  already in place since the original deferral; this commit just flips
-  the Makefile flag list and refreshes the lockstep docs).
-- Patch0008 (commit d69bb9c, in the spec since 2605.0-30) drops AzCore
-  ScriptContext.cpp's #include <Lua/lobject.h>. Audit identified the
-  only symbol consumed (LUAI_MAXALIGN) is already public Lua API via
-  luaconf.h's transitive include from lauxlib.h. Behavior-preserving.
-- With Patch0008 applied unconditionally, Fedora's lua-devel (which
-  ships only the public API: lua.h, lauxlib.h, lualib.h, luaconf.h)
-  is now sufficient. The "DEFERRED" framing in BUNDLED_LIBRARIES.md
-  is reframed accordingly; FEDORA_ROADMAP.md issue-#1 marked RESOLVED.
-- Same patch submitted upstream as o3de/o3de PR #19733 (approved by
-  nick-l-o3de 2026-05-07, awaiting merge); when that lands, our
-  Patch0008 becomes redundant and can drop.
-- Audit-pattern reliability tracker: Lua + poly2tri (8-pack, 2605.0-31)
-  + system_lua activation (9-pack, this commit) — three same-day
-  audit-track wins on 2026-05-07.
+- Stage 1 9-pack: activate system_lua. No spec change (wiring was in
+  place since the original deferral); commit flips Makefile flag list
+  and refreshes lockstep docs.
+- Patch0008 (added in -30) drops AzCore's redundant <Lua/lobject.h>
+  include. With it applied, Fedora's public-API-only lua-devel works.
+  BUNDLED_LIBRARIES "DEFERRED" reframed; FEDORA_ROADMAP issue-#1
+  RESOLVED. Same patch submitted upstream as PR #19733 (approved
+  2026-05-07); Patch0008 retires when it merges.
 
 * Thu May 07 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-31
 - Stage 1 system_poly2tri (Patch0009 + Findpoly2tri-system.cmake).
@@ -2365,46 +2307,24 @@ EOF
   flips poly2tri from "off-limits restricted bundle" to Stage 1 swap.
 
 * Thu May 07 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-30
-- Patch0008 (carry-patch, upstream-track candidate): drop AzCore's
-  redundant `#include <Lua/lobject.h>` in ScriptContext.cpp. Audit
-  finding 2026-05-07: the only symbol AzCore needs from that internal
-  header is `LUAI_MAXALIGN`, which is part of Lua's public API
-  (defined in luaconf.h, used in lauxlib.h's `luaL_Buffer`).
-  Empirically verified against Fedora 44's lua-devel-5.4.8: the
-  same `union L_Umaxalign { LUAI_MAXALIGN; };` line compiles cleanly
-  with only public Lua headers. Carry-patch applies unconditionally
-  (bundled-Lua builds also benefit). Activates `system_lua` on
-  Fedora — Stage 1 scaffolding (bcond, FindLua-system.cmake,
-  Source36, conditional BR/Recommends/Requires/cmake -D, %%prep cp)
-  was already in place; only the engine-side patch was missing.
-  Upstream PR drafted; submission to o3de/o3de gated on
-  fully-baked signal per project_no_upstream_until_baked memory.
-- Issue [#1](https://github.com/nickschuetz/o3de-rpm/issues/1)
-  comment posted with full audit findings + the empirical compile
-  test that backs the change.
+- Patch0008 (upstream-track candidate): drop AzCore's redundant
+  <Lua/lobject.h> in ScriptContext.cpp. Audit found the only symbol
+  needed (LUAI_MAXALIGN) is Lua public API via luaconf.h.
+  Empirically verified against F44 lua-devel-5.4.8. Carry-patch
+  applies unconditionally; activates system_lua on Fedora (Stage 1
+  scaffolding was already in place).
+- Issue #1 comment posted with full audit findings.
 
 * Wed May 06 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-29
-- Stage 2a 7-pack: add system_openexr (extends the 6-pack with
-  OpenEXR + Imath; first cross-stage step). The OpenEXR bundle
-  (OpenEXR-3.1.3-rev4-linux on packages.o3de.org) declares both
-  TARGETS OpenEXR and Imath in a single ly_associate_package line —
-  the new FindOpenEXR-system.cmake shim mirrors that and creates
-  both 3rdParty::OpenEXR (linking system libOpenEXR + libOpenEXRCore
-  + libIex + libIlmThread) and 3rdParty::Imath (linking system
-  libImath) as INTERFACE IMPORTED targets. Engine consumers
-  (Gems/Atom/Asset/ImageProcessingAtom/Code/.../ExrLoader.cpp) use
-  `#include <OpenEXR/Imf*.h>` verbatim, matching Fedora's openexr-devel
-  layout exactly — no wrapper-header bridging needed.
-- Per Nick_L (sig-build, 2026-05-05, issue #5), OpenEXR's version
-  pin in the engine is not hard; Fedora's openexr-3.2.4 + imath-3.1.12
-  are API-compatible with the bundle's 3.1.3 (3.1 → 3.2 is OpenEXR
-  back-compat). Patch0006 extended with LY_USE_SYSTEM_OPENEXR gate
-  (9 gates total now). Engine binaries auto-Require libOpenEXR-3_2.so.31
-  + libImath-3_1.so.29 + ancillary OpenEXR-family libs.
-- This is the OpenEXR + Imath sub-track of Stage 2 only. The
-  OpenImageIO + OpenColorIO sub-track (also in Stage 2) stays blocked
-  on Stage 3 (Python migration) per Nick_L's circular-dependency +
-  Python C Module ABI explanation.
+- Stage 2a 7-pack: add system_openexr (first cross-stage step).
+  OpenEXR bundle declares both OpenEXR + Imath in a single
+  ly_associate_package; new FindOpenEXR-system.cmake mirrors that,
+  creating 3rdParty::OpenEXR + 3rdParty::Imath as INTERFACE IMPORTED.
+  Engine's `#include <OpenEXR/Imf*.h>` matches Fedora's openexr-devel
+  layout; no wrapper-header bridging.
+- Per Nick_L 2026-05-05, OpenEXR engine pin isn't hard; Fedora's
+  3.2.4/3.1.12 are API-compatible with bundle's 3.1.3.
+- OIIO/OCIO sub-track stays blocked on Stage 3 Python migration.
 
 * Tue May 05 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-28
 - Stage 1 6-pack: add system_lz4. Findlz4-system.cmake follows the
@@ -2431,21 +2351,13 @@ EOF
 
 * Mon May 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-26
 - Editor dock icon: drop version from o3de2605-editor.desktop's
-  StartupWMClass. Project Manager's launcher passes Qt -name
-  "O3DE-2605" so PM's WM_CLASS matches o3de2605.desktop's
-  StartupWMClass=O3DE-2605 cleanly (versioned dock icon for PM).
-  But the Editor is launched by PM via direct exec — bypasses our
-  launcher — so Editor's WM_CLASS comes from Qt's internal
-  setApplicationName("O3DE Editor") = "Editor", "O3DE Editor"
-  (no version). Verified live with xprop on a running Editor
-  window:
-    WM_CLASS(STRING) = "Editor", "O3DE Editor"
-  Setting o3de2605-editor.desktop's StartupWMClass to versioned
-  "O3DE-2605 Editor" doesn't match, so the WM falls back to a
-  generic Qt icon in the dock when Editor launches. Drop the
-  version: StartupWMClass="O3DE Editor". Two installed majors'
-  Editors share the same dock icon (same engine, same class
-  string upstream) but Project Manager retains its versioned
+  StartupWMClass. PM's launcher passes Qt -name "O3DE-2605" so PM's
+  WM_CLASS matches its versioned StartupWMClass. But Editor is exec'd
+  by PM directly (bypasses our launcher), so its WM_CLASS comes from
+  Qt's setApplicationName("O3DE Editor") with no version. Versioned
+  StartupWMClass doesn't match; WM falls back to generic Qt icon.
+- Set StartupWMClass="O3DE Editor" (unversioned). Two installed
+  majors' Editors share the dock icon but PM keeps versioned
   identity which is the user-facing distinction.
 
 * Mon May 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-25
@@ -2494,21 +2406,13 @@ EOF
 
 * Mon May 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-22
 - Add Recommends: for project-build *-devel matching active system_<X>
-  swaps. Mike Cromer (sig-build chair) follow-up 2026-05-04: when
-  system_mikkelsen is active, the engine's cmake exports point at the
-  system mikkelsen path — so user projects need mikkelsen-devel to
-  compile against the engine, NOT the bundled 3p mikkelsen. The package
-  currently Requires `mikkelsen` (runtime) only; build users hit
-  "find_package(mikkelsen) — Could NOT find mikkelsen" without
-  mikkelsen-devel. Same logic applies to the other 4 Stage 1 swaps
-  (expat, freetype, libpng, zlib — zlib-devel was already in the
-  unconditional list from Mike's first finding) plus the deferred
-  tiff/lua swaps when those activate.
-- Conditional Recommends keyed off the matching `--with system_<X>`
-  bcond so the spec stays internally consistent: when an SRPM is
-  built with a swap activated, the produced RPM Recommends both the
-  runtime package (already there, hard Require) and the *-devel
-  package (now Recommends, soft).
+  swaps. Per Mike Cromer follow-up: when system_mikkelsen is active,
+  the engine's cmake exports point at the system path; user projects
+  hit "find_package(mikkelsen) Could NOT find mikkelsen" without
+  mikkelsen-devel. Same logic for expat/freetype/libpng/zlib (zlib-devel
+  was already there) and deferred tiff/lua swaps.
+- Conditional Recommends keyed off matching --with system_<X> bcond
+  so spec stays internally consistent.
 
 * Mon May 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-21
 - Add Recommends: block for project-build *-devel deps. Surfaced by
@@ -2560,25 +2464,16 @@ EOF
   schema review.
 
 * Sun May 03 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-18
-- Stage 1 baseline reduced to mikkelsen-only. Build 10421133 (5-pack:
-  expat, freetype, libpng, mikkelsen, zlib — system_tiff already parked)
-  failed at cmake configure-time:
-    UNKNOWN_LIBRARY Library ZLIB::ZLIB specified
-      MAP_IMPORTED_CONFIG_DEBUG = DEBUG; but did not have any of
-      IMPORTED_LOCATION_xxxx set
-  Root cause: each of the four `Find<X>-system.cmake` shims for
-  expat/freetype/libpng/zlib delegates library/header lookup to
-  cmake's stock `FindZLIB.cmake`/`FindPNG.cmake`/etc. via include().
-  That stock include creates a side-effect target (e.g. ZLIB::ZLIB)
-  with MAP_IMPORTED_CONFIG_* set but no per-config IMPORTED_LOCATION,
-  which O3DE's runtime walker iterates and dies on. Mikkelsen alone
-  works because Findmikkelsen-system.cmake does its lookup directly
-  via find_path/find_library — no stock-module include, no
-  side-effect target. Parking the four ZLIB-class swaps; future Stage
-  1 PR will refactor each shim to the mikkelsen pattern. Bcond +
-  Source declarations stay in place for future activation. Patch0006's
-  gating in BuiltInPackages_linux_x86_64.cmake is already correct
-  for all of them.
+- Stage 1 baseline reduced to mikkelsen-only. 5-pack build 10421133
+  failed at cmake with "UNKNOWN_LIBRARY ZLIB::ZLIB ... MAP_IMPORTED_CONFIG
+  set but no IMPORTED_LOCATION". Root cause: expat/freetype/libpng/zlib
+  shims delegated to cmake's stock Find modules, which create side-
+  effect targets without per-config IMPORTED_LOCATION that O3DE's
+  runtime walker dies on. Mikkelsen works because its shim uses direct
+  find_path/find_library, no stock-module include.
+- Parking the four ZLIB-class swaps; future PR refactors each shim
+  to the mikkelsen pattern. Bcond + Source declarations + Patch0006
+  gating stay in place for future activation.
 
 * Sun May 03 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-17
 - Park system_tiff Stage 1 swap. Build 10420962 (Patch0007 v2 in place)
