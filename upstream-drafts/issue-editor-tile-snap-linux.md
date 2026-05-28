@@ -50,5 +50,5 @@ Happy to put together a draft PR once we have a direction. Reproducer is reliabl
 
 ## Cross-references
 
-- #18513 (Wayland support feature request) — related but broader; this is the X11-side gesture interaction specifically
-- #19750 (the title-propagation fix in the same wrapper, merged 2026-05-14) — unrelated code path; included for context on recent WindowDecorationWrapper touches
+- #18513 (Wayland support feature request) is related but broader; this is the X11-side gesture interaction specifically
+- #19750 (the title-propagation fix in the same wrapper, merged 2026-05-14) is an unrelated code path; included for context on recent WindowDecorationWrapper touches

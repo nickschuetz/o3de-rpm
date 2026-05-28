@@ -16,22 +16,22 @@ This PR adds an additive build variant that produces a parallel Python 3.10.13 p
 
 ### New files
 
-- `package-system/python/linux_x64_system_openssl/PackageInfo.json` — variant metadata for the system-OpenSSL build. Package name `python-3.10.13-rev1-linux-system-openssl`, license PSF-2.0, source URL https://python.org (mirrors `linux_x64/PackageInfo.json`).
+- `package-system/python/linux_x64_system_openssl/PackageInfo.json`: variant metadata for the system-OpenSSL build. Package name `python-3.10.13-rev1-linux-system-openssl`, license PSF-2.0, source URL https://python.org (mirrors `linux_x64/PackageInfo.json`).
 
 ### Modified files
 
-- `package-system/python/docker_build_linux.sh` — add an env-var-driven branch. When `PYTHON_USE_SYSTEM_OPENSSL=1` is set, the script:
+- `package-system/python/docker_build_linux.sh`: add an env-var-driven branch. When `PYTHON_USE_SYSTEM_OPENSSL=1` is set, the script:
   - Skips the `OPENSSL_BASE=$WORKSPACE/temp/${O3DE_OPENSSL_PACKAGE}/OpenSSL` setup
   - Passes `--with-openssl=/usr` and `--with-openssl-rpath=auto` to Python's `./configure`
   - Skips copying the OpenSSL LICENSE (it's not bundled in this variant)
   - Documents the variant in build logs
   Default (no env var) behavior is unchanged.
 
-- `package-system/python/Dockerfile` — add `libssl-dev` to the `apt-get install` line. Harmless when building the bundled-OpenSSL variant (it's just not used by configure in that path); required for the system-OpenSSL variant so the build chroot has the headers.
+- `package-system/python/Dockerfile`: add `libssl-dev` to the `apt-get install` line. Harmless when building the bundled-OpenSSL variant (it's just not used by configure in that path); required for the system-OpenSSL variant so the build chroot has the headers.
 
-- `package-system/python/build_config.json` — add a new Linux sub-variant `"Linux-system-openssl"` that invokes `build-linux.sh` with `PYTHON_USE_SYSTEM_OPENSSL=1` in its env. The `depends_on_packages` for this variant excludes the OpenSSL package (still includes SQLite). The existing `"Linux"` and `"Linux-aarch64"` variants are unchanged.
+- `package-system/python/build_config.json`: add a new Linux sub-variant `"Linux-system-openssl"` that invokes `build-linux.sh` with `PYTHON_USE_SYSTEM_OPENSSL=1` in its env. The `depends_on_packages` for this variant excludes the OpenSSL package (still includes SQLite). The existing `"Linux"` and `"Linux-aarch64"` variants are unchanged.
 
-- `package-system/python/build-linux.sh` — pass the `PYTHON_USE_SYSTEM_OPENSSL` env var through to the docker run invocation. One-line addition; default behavior preserved.
+- `package-system/python/build-linux.sh`: pass the `PYTHON_USE_SYSTEM_OPENSSL` env var through to the docker run invocation. One-line addition; default behavior preserved.
 
 ### Optional follow-up
 
@@ -41,7 +41,7 @@ This PR adds an additive build variant that produces a parallel Python 3.10.13 p
 
 **Local toolchain:** ran via `podman` instead of `docker` (Fedora workstation runs podman as the container runtime; `podman-docker` package provides the `/usr/bin/docker` shim). Upstream PR script unchanged.
 
-### Build phase — PASS
+### Build phase: PASS
 
 Full `pull_and_build_from_git.py package-system/python --platform-name Linux-system-openssl --clean` ran clean inside an Ubuntu 22.04 container. Configure-time evidence the right path took:
 
@@ -49,7 +49,7 @@ Full `pull_and_build_from_git.py package-system/python --platform-name Linux-sys
 - `checking for openssl/ssl.h in /usr... yes`
 - `PYTHON WAS BUILT FROM SOURCE` (final success marker)
 
-### Artifact validation — PASS on all three gates
+### Artifact validation: PASS on all three gates
 
 1. **Dynamic linkage confirmed.** `ldd <build>/python/lib/python3.10/lib-dynload/_ssl.cpython-310-x86_64-linux-gnu.so` resolves to:
    - On the host (Fedora 44): `libssl.so.3 => /lib64/libssl.so.3` + `libcrypto.so.3 => /lib64/libcrypto.so.3`
@@ -57,7 +57,7 @@ Full `pull_and_build_from_git.py package-system/python --platform-name Linux-sys
 2. **`ssl.OPENSSL_VERSION` returns 3.x at runtime.** Inside Ubuntu 22.04: `OpenSSL 3.0.2 15 Mar 2022`. On Fedora host: `OpenSSL 3.5.5 27 Jan 2026`.
 3. **OpenSSL ABI compatibility holds across the Ubuntu-build / Fedora-host boundary.** The `_ssl.so` built against Ubuntu 22.04's `libssl-dev` (OpenSSL 3.0.2) runs cleanly against Fedora 44's `libssl.so.3` (OpenSSL 3.5.5) at runtime, because OpenSSL 3.x has stable ABI across both versions. The `ssl` module specifically is fully cross-distro portable. Non-OpenSSL Python C extensions (e.g. `bz2`, `readline`) still carry the Ubuntu build environment's SONAMEs (`libbz2.so.1.0` rather than Fedora's `libbz2.so.1`), so a Python script importing `bz2` on a Fedora host directly fails with `ImportError: libbz2.so.1.0: cannot open shared object file`. This SONAME cross-distro story is unchanged from the existing bundled Python (which is also Ubuntu-built); the PR doesn't regress it. For downstream packagers who need a Fedora-native artifact across the full Python module surface, the variant should be rebuilt inside a Fedora container; that's separate downstream work and not part of this PR.
 
-### Engine smoke — PASS
+### Engine smoke: PASS
 
 Swapped the rebuilt Python into the engine install path at `~/.o3de/Python/packages/python-3.10.13-rev2-linux/` (replacing the bundled tree), wiped `~/.o3de/Python/venv` to force re-bootstrap via `get_python.sh`, then ran the downstream o3de-rpm tier suite against the swapped Python:
 
@@ -110,7 +110,7 @@ Before filing this PR:
    - Tier 1-4 (install integrity, system-swap auto-Requires, first-run venv setup, engine smoke)
    - Tier 5 (project create + cmake configure)
    - Tier 7 (system-swap library health)
-   - Tier 9 (MultiplayerSample build + bake + launcher load) — particularly important since PySide2 is a separate bundled package that links against `libpython3.10.so.1.0`; ABI compatibility check
+   - Tier 9 (MultiplayerSample build + bake + launcher load) is particularly important since PySide2 is a separate bundled package that links against `libpython3.10.so.1.0`; ABI compatibility check
    - Tier 10 (NewspaperDeliveryGame end-to-end)
 4. Document the results in the PR body.
 
@@ -281,7 +281,7 @@ Body:
 
 ## Cross-references
 
-- Our downstream FOLLOW_UPS.md (not yet) — separate task to update after the spike validates the approach
-- FEDORA_ROADMAP.md Stage 4 — OpenSSL migration tracking
-- Our memory note feedback_no_upstream_until_baked — submission gated on Nick's "fully baked" signal
+- Our downstream FOLLOW_UPS.md (not yet): separate task to update after the spike validates the approach
+- FEDORA_ROADMAP.md Stage 4: OpenSSL migration tracking
+- Our memory note feedback_no_upstream_until_baked: submission gated on Nick's "fully baked" signal
 - Related upstream tickets in the o3de-rpm repo: #8 (OpenSSL surface mapping)
