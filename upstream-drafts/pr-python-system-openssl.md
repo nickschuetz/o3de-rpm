@@ -2,7 +2,7 @@ Title: Add system-OpenSSL build variant for the bundled Python 3.10.13 Linux pac
 
 Repo: o3de/3p-package-source
 Path: package-system/python/
-Status: draft for Nick's review; not filed yet (per feedback_no_upstream_until_baked).
+Status: SUBMITTED 2026-05-28 as https://github.com/o3de/3p-package-source/pull/376
 
 ## Context
 
