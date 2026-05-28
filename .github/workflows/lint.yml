@@ -51,7 +51,18 @@ jobs:
         run: make spec-parse spec-parse-snapshot spec-parse-stabilization spec-parse-experimental
 
       - name: rpmlint
-        run: rpmlint o3de.spec
+        # The spec uses `%include %{SOURCE99}` to pull in the changelog
+        # from sources/o3de.changelog. rpmlint uses python-rpm bindings
+        # that don't honor _sourcedir overrides via $HOME shimming the
+        # way rpmspec does, and `rpmspec -P` expands macros textually
+        # inside changelog entries (corrupts them). So splice the
+        # changelog inline into a tmp .spec file via awk, then lint
+        # that copy. Matches the workaround in Makefile's lint target.
+        run: |
+          TMPDIR=$(mktemp -d /tmp/o3de.lint.XXXXXX)
+          awk '/^%include %{SOURCE99}$/{ while ((getline l < "sources/o3de.changelog") > 0) print l; next } {print}' o3de.spec > $TMPDIR/o3de.spec
+          cp .rpmlintrc $TMPDIR/ 2>/dev/null || true
+          ( cd $TMPDIR && rpmlint o3de.spec )
 
       - name: Desktop entries validate
         run: desktop-file-validate sources/o3de.desktop sources/o3de-editor.desktop
