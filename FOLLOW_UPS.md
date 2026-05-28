@@ -6,6 +6,16 @@ This file is intentionally a living scratchpad. Entries get added or removed as 
 
 ---
 
+## Packaging correctness
+
+**Snapshot Version uses `^` (post-release) but means pre-release; blocks auto-upgrade from snapshot to stable (caught 2026-05-28).** `o3de.spec:263` builds the snapshot Version as `%{stable_tag}^%{snapshot_date}git%{shortcommit}` so a 2026-05-23 snapshot of the 26.05 line comes out as `2605.0^20260523git8e75050-1.fc44`. In RPM versioning `^` is a POST-release delimiter, meaning the snapshot is interpreted as higher than the bare tag: `rpmdev-vercmp 2605.0^20260523git8e75050-1.fc44 2605.0-1.fc44` returns `>`. Consequence: any community tester who installed from `hellaenergy/o3de-stabilization` during the pre-release window is now stuck on the snapshot when they enable `hellaenergy/o3de` and try `dnf upgrade`, because dnf sees the stable as a downgrade and refuses. Caught locally on 2026-05-28 trying to upgrade from `2605.0^20260523git8e75050` to `2605.0-1.fc44`; `dnf upgrade` returned "Nothing to do."
+
+Fix is one character: change `^` to `~` (tilde, the actual RPM pre-release delimiter). `2605.0~20260523git8e75050-1.fc44` < `2605.0-1.fc44`, so future snapshot-to-stable transitions auto-upgrade cleanly. Apply to `o3de.spec:263` (the Version: line in snapshot mode). Audit the rest of the spec + Makefile + docs for any other use of `^` as a stylistic separator that should be `~`.
+
+Migration: existing testers on `^` snapshots need a one-time downgrade to land on the current `2605.0` stable: `sudo dnf --disablerepo='*o3de-stabilization*' downgrade -y o3de2605 o3de2605-devel`. After that, all future `~` snapshot -> next-release-tag transitions work normally. No mass-migration needed; the next stab snapshot we publish will be `2605.1~...` or `2610.0~...` which will be lower than any current stable install regardless of whether the testers are on `^` or stable, so they'll either upgrade (via the higher major) or stay where they are (snapshot of an already-shipped release line).
+
+Cross-channel impact: applies to all snapshot builds (o3de-stabilization, o3de-development, o3de-experimental). All three use the same Version: line.
+
 ## Sample bake / smoke -- post-release window items
 
 Parked 2026-05-22 from the Tier 9/10 "what's next with these games" sweep.
