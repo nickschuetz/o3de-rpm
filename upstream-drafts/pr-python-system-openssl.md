@@ -55,7 +55,7 @@ Full `pull_and_build_from_git.py package-system/python --platform-name Linux-sys
    - On the host (Fedora 44): `libssl.so.3 => /lib64/libssl.so.3` + `libcrypto.so.3 => /lib64/libcrypto.so.3`
    - Inside Ubuntu 22.04 container: `libssl.so.3 => /lib/x86_64-linux-gnu/libssl.so.3` + matching libcrypto
 2. **`ssl.OPENSSL_VERSION` returns 3.x at runtime.** Inside Ubuntu 22.04: `OpenSSL 3.0.2 15 Mar 2022`. On Fedora host: `OpenSSL 3.5.5 27 Jan 2026`.
-3. **Cross-distro portability preserved.** Despite the build happening on Ubuntu 22.04, the resulting Python's `_ssl.so` runs cleanly against Fedora's OpenSSL 3.5.5 because OpenSSL 3.x has stable ABI across distros and versions.
+3. **OpenSSL ABI compatibility holds across the Ubuntu-build / Fedora-host boundary.** The `_ssl.so` built against Ubuntu 22.04's `libssl-dev` (OpenSSL 3.0.2) runs cleanly against Fedora 44's `libssl.so.3` (OpenSSL 3.5.5) at runtime, because OpenSSL 3.x has stable ABI across both versions. The `ssl` module specifically is fully cross-distro portable. Non-OpenSSL Python C extensions (e.g. `bz2`, `readline`) still carry the Ubuntu build environment's SONAMEs (`libbz2.so.1.0` rather than Fedora's `libbz2.so.1`), so a Python script importing `bz2` on a Fedora host directly fails with `ImportError: libbz2.so.1.0: cannot open shared object file`. This SONAME cross-distro story is unchanged from the existing bundled Python (which is also Ubuntu-built); the PR doesn't regress it. For downstream packagers who need a Fedora-native artifact across the full Python module surface, the variant should be rebuilt inside a Fedora container; that's separate downstream work and not part of this PR.
 
 ### Engine smoke — PASS
 
@@ -70,22 +70,30 @@ Swapped the rebuilt Python into the engine install path at `~/.o3de/Python/packa
 
 The Tier 3 result is the critical canary: it exercises pip install, manifest setup, and the engine CLI's full Python init flow through the rebuilt interpreter. All paths that the rebuilt Python's `_ssl` module gets invoked on (HTTPS for pip install, registry interactions, etc.) succeeded.
 
-Heavy validation completed:
+Heavy validation completed (warm cache):
 
-- Tier 9 (MultiplayerSample full build + bake + GameLauncher load): 13/0 PASS
-- Tier 10 (NewspaperDeliveryGame full build + bake + launcher loaded CharacterSample): 7/0 PASS
+- Tier 9 (MultiplayerSample): 13/0 PASS
+- Tier 10 (NewspaperDeliveryGame): 7/0 PASS
 
-Both ran in warm-cache mode (~2 min each) since the per-project build dirs from prior runs were intact. The engine works identically with the rebuilt Python; zero regressions versus the bundled-OpenSSL baseline. AssetProcessor's embedded Python interpreter executes all builders cleanly. PySide2 (separate 3rdParty bundle, links against `libpython3.10.so.1.0`) loads without ABI issues; Python's stable patch-level ABI held.
+Both ran in ~2 min each in warm-cache mode (per-project clones intact, LFS hydrated, build dirs reusable, AP cache populated from cold runs done earlier the same day against the bundled-OpenSSL baseline). The warm-cache passes confirm no engine regression at the launcher-loads and AP-runs level. The stronger cold-cache validation against the bundled baseline (Tier 9 ~25 min / Tier 10 ~15 min full run) is on record from earlier that day; the rebuilt Python plus a fresh cold-cache run would be a strictly stronger test, deferrable as additional evidence if reviewers want it.
+
+The most load-bearing engine-side validation in this set is actually the cold-cache Tier 3 in the integration suite (above): `get_python.sh` re-bootstrapped the per-user venv against the rebuilt Python from scratch, pip ran HTTPS through the new `_ssl` module, manifest setup worked. That's the path most directly exercising the OpenSSL change.
 
 ### Net validation summary
 
 - Build: PASS (Python 3.10.13 + system OpenSSL 3.x, dynamic linkage)
-- Artifact: PASS (3/3 gates: ldd, OPENSSL_VERSION, cross-distro portability)
-- Engine smoke + venv rebuild: PASS (Tier 1-5, 58/58)
-- Heavy community-game validation: PASS (Tier 9 13/0, Tier 10 7/0)
+- Artifact: PASS on OpenSSL gates (ldd shows libssl.so.3, OPENSSL_VERSION returns 3.x at runtime, OpenSSL ABI portable across Ubuntu-build/Fedora-host)
+- Engine smoke + venv rebuild: PASS (Tier 1-5, 58/58 with cold-cache Tier 3 venv rebuild)
+- Community-game pipeline: PASS warm-cache (Tier 9 13/0, Tier 10 7/0)
 - Total: 78 individual checks across the tier suite, 0 failures.
 
-The rebuilt Python is a clean drop-in for the bundled one. The OpenSSL 1.1.1t -> 3.x migration is fully validated end-to-end through real community-game pipelines.
+The rebuilt Python is a clean drop-in for the bundled one on the OpenSSL-migration axis. The OpenSSL 1.1.1t -> 3.x migration is validated end-to-end through real community-game pipelines under warm cache; cold-cache Tier 3 in the integration suite is where the new `_ssl` module's HTTPS path actually gets exercised end-to-end and that solidly passed.
+
+### Scope boundary: this PR vs downstream packaging
+
+This PR adds an upstream build *capability*. The Ubuntu 22.04 base preserves the existing distro convention for the bundled-Python build; non-OpenSSL Python C extensions inherit Ubuntu SONAMEs (same as today). The PR delivers the OpenSSL migration cleanly without touching any other axis.
+
+For downstream packagers who want a full Fedora-native rebuild (where every Python C extension's transitive SONAMEs match Fedora's library set), the right pattern is to take this same shape and rebuild inside a Fedora container as a separate sibling variant. That's not in scope here; it's a downstream packaging concern that this PR enables but doesn't itself produce.
 
 ## Original plan (kept for reference)
 
