@@ -26,7 +26,9 @@ o3de-rpm/
 ├── BUNDLED_LIBRARIES.md                               # per-bundle license + migration status
 ├── .github/workflows/                                 # CI
 │   ├── lint.yml                                       #   spec parse, rpmlint, validators
-│   └── test-installed.yml                             #   integration tests against RPM URL
+│   ├── test-installed.yml                             #   integration tests against RPM URL (4h cron)
+│   ├── check-deps-drift.yml                           #   weekly dep-pin drift report (Monday 06UTC)
+│   └── snapshot-development.yml                       #   weekly dev-tip rebuild into o3de-development (Sunday 06UTC)
 ├── tests/                                             # post-install test suite
 │   ├── README.md                                      #   tier breakdown + community usage
 │   ├── integration-test.sh                            #   tiers 1–5 against installed RPM
@@ -102,7 +104,7 @@ rpmbuild -bb \
 The spec's `--with snapshot` mode builds from any git ref of `o3de/o3de` instead of an upstream-tagged release tarball. **Which COPR project the resulting RPM lands in depends on the git ref**, not on the rpm mode:
 
 - **`stabilization/<release>`** (e.g. `stabilization/26050`, the next-release branch — currently the default `REF`) → `hellaenergy/o3de-stabilization` (the community testers' channel). Invoke with `make srpm-stabilization` / `make copr-stabilization`.
-- **`development`** → `hellaenergy/o3de-development` (ad-hoc cadence, always tracks upstream `o3de/development` tip). Invoke with `make copr-development` (wraps `srpm-snapshot-development`).
+- **`development`** → `hellaenergy/o3de-development` (auto-refreshed weekly Sunday 06:00 UTC via `.github/workflows/snapshot-development.yml`; the workflow dedups against the last successful build so quiet weeks skip). Manual fires: `make copr-development` locally, or workflow_dispatch from the Actions tab with the optional `force` input to bypass dedup.
 - **arbitrary other ref** (e.g. a hypothetical `qt6` migration branch) → dedicated COPR project per branch (`hellaenergy/o3de-qt6` etc.). Build locally with `make srpm-snapshot-ref REF=<other>` and `copr-cli build` directly.
 
 Both paths use `--with snapshot` under the hood; the project split is a publishing-channel choice, not a build-mode choice. See the bullets at the top of this README for the upstream-branch distinction.

@@ -3,12 +3,14 @@
 # Used for snapshot RPM builds.
 #
 # Two upstream branches are common targets and they're NOT the same:
-#   stabilization/<release>  pre-release stabilization branch — becomes
-#                            the next tagged release; ships to community
-#                            testers via hellaenergy/o3de-snapshot
-#   development              bleeding-edge integration branch — daily
-#                            new-feature merges; for engine-contributor
-#                            testing of in-progress work
+#   stabilization/<release>  pre-release stabilization branch; becomes the
+#                            next tagged release; ships to community testers
+#                            via hellaenergy/o3de-stabilization
+#   development              bleeding-edge integration branch; daily
+#                            new-feature merges; ships to engine-contributor
+#                            channel hellaenergy/o3de-development (weekly
+#                            via the snapshot-development GH Actions
+#                            workflow, plus ad-hoc via make copr-development)
 #
 # Usage:
 #   make-snapshot-tarball.sh [ref]                 # ref defaults to stabilization/26050

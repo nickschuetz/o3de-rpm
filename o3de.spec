@@ -19,7 +19,8 @@
 #     # paste the printed snapshot_commit / snapshot_date / snapshot_sha256
 #     rpmbuild -bb --with snapshot --with stabilization ...
 # Build a one-off from upstream's bleeding-edge `development` branch
-# (or any specific commit — uploaded to o3de-snapshot, ad-hoc cadence):
+# (uploaded to o3de-development, weekly cadence via the
+# snapshot-development workflow, or ad-hoc via `make copr-development`):
 #     ./sources/make-snapshot-tarball.sh development
 #     rpmbuild -bb --with snapshot ...                # no `--with stabilization`
 #     # into the macros below, copy the tarball to $PWD/sources, then:
@@ -42,7 +43,7 @@
 # the spec uses it only for the GUI channel marker (see _o3de_channel
 # below) so testers can tell stabilization-channel builds apart from
 # one-off development-branch builds (which use plain --with snapshot
-# without --with stabilization, and ship to o3de-snapshot).
+# without --with stabilization, and ship to o3de-development).
 %bcond_with stabilization
 # Experimental marks a snapshot as in-flight migration work shipping via the
 # o3de-experimental COPR (NOT the stab tester channel or the stable channel).
@@ -383,7 +384,7 @@ Patch0007:      0007-libtiff-c99-typedefs.patch
 # anchored lines Patch0006 expected. Stabilization/26050 still has the
 # line, so the patch applies cleanly on the stabilization channel. Gated
 # under %%without development_snapshot so dev-snapshot builds skip it; the
-# o3de-snapshot COPR project intentionally has no `system_*` swaps active
+# o3de-development COPR project intentionally has no `system_*` swaps active
 # (see make-snapshot-tarball.sh + edit-chroot config) so the gate-flags
 # aren't needed there anyway.
 %if %{without development_snapshot}
