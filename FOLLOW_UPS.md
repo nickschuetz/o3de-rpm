@@ -6,6 +6,19 @@ This file is intentionally a living scratchpad. Entries get added or removed as 
 
 ---
 
+## 26.05.0 release validation (closed 2026-05-28)
+
+**Stable RPM validated end-to-end against two community game projects.** Build 10519208 (o3de2605-2605.0-1.fc44) installed cleanly via the announcement install sequence (`dnf copr enable hellaenergy/o3de && dnf install o3de2605`). All tier passes against the clean install:
+
+- Tier 1-4: 55/56 (1 skipped by design) — install integrity, system-swap auto-Requires, first-run venv setup, engine smoke
+- Tier 5: PASS — `o3de create-project` + cmake configure against installed engine
+- Tier 7: 21/21 — system-swap library health (all 13 SONAMEs loadable, engine .so's link to /lib64/)
+- Tier 9 (MultiplayerSample): 13/0 — clone + LFS pull + cmake + ninja (GameLauncher + ServerLauncher + HeadlessServerLauncher + bare gem) + full AssetProcessorBatch bake + GameLauncher smoke
+- Tier 10 (NewspaperDeliveryGame): 7/0 — register + cmake + AP batch + GameLauncher smoke (loaded Levels/CharacterSample/CharacterSample.spawnable)
+- Tier 6 (UI smoke) was skipped because Xvfb stack wasn't installed on the validation host; covered visually instead (PM launched, project created, Editor splash showing "Version 2605.0")
+
+No packaging regressions surfaced. The two community-game tests are the strongest validation gates we have short of community testers reporting back, and both pass cleanly.
+
 ## Packaging correctness
 
 **Snapshot Version uses `^` (post-release) but means pre-release; blocks auto-upgrade from snapshot to stable (caught 2026-05-28, FIXED 2026-05-28 in -80).** `o3de.spec:263` was building the snapshot Version as `%{stable_tag}^%{snapshot_date}git%{shortcommit}`, so a 2026-05-23 snapshot of the 26.05 line came out as `2605.0^20260523git8e75050-1.fc44`. In RPM versioning `^` is a POST-release delimiter, meaning the snapshot was being interpreted as higher than the bare tag (`rpmdev-vercmp 2605.0^20260523git8e75050-1.fc44 2605.0-1.fc44` returned `>`). Consequence was that any community tester who installed from `hellaenergy/o3de-stabilization` during the pre-release window got stuck on the snapshot when they enabled `hellaenergy/o3de` and tried `dnf upgrade`, because dnf saw the stable as a downgrade and refused. Caught locally on 2026-05-28 trying to upgrade from `2605.0^20260523git8e75050` to `2605.0-1.fc44`; `dnf upgrade` returned "Nothing to do."
