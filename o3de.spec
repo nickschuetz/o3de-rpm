@@ -1809,32 +1809,13 @@ EOF
 
 * Sat May 23 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-70
 - Rename hellaenergy/o3de-snapshot -> hellaenergy/o3de-development to make
-  the always-tracks-development-branch intent explicit. The old "snapshot"
-  name overloaded two distinct meanings (source-mode "non-tagged-tarball
-  snapshot" vs the COPR project name); the project-name half now reflects
-  what the channel actually does. For arbitrary other refs (rare; e.g. a
-  hypothetical qt6 migration channel) a dedicated COPR project per branch
-  gets created rather than overloading o3de-development.
-  Spec: add a fourth elif to _o3de_channel for --with development_snapshot
-  -> "-development.<sha>" marker. The bcond was already in use for
-  patch-gating; now drives the GUI marker too. The --with snapshot only
-  branch still resolves to "-snapshot.<sha>" for arbitrary-ref builds.
-  Makefile: COPR_PROJECT_SNAPSHOT renamed to COPR_PROJECT_DEVELOPMENT;
-  copr-snapshot renamed to copr-development (now depends on
-  srpm-snapshot-development so it always pulls dev tip); copr-snapshot-ref,
-  copr-snapshot-qt6, copr-snapshot-development targets removed (rare other
-  refs get dedicated COPR projects per branch). srpm-snapshot* targets
-  unchanged (source-mode build mechanism).
-  CI workflow: comment updates only (cron continues to poll o3de-stabilization).
-  tests/ui-smoke-test.sh: recognizes both -development.<sha> and legacy
-  -snapshot.<sha> markers.
-  COPR: hellaenergy/o3de-development created via copr-cli fork (preserves
-  build history); chroot config preserved. Old hellaenergy/o3de-snapshot
-  description set to deprecation notice; project not deleted (pending Nick's
-  call).
-  Docs: README, CONTRIBUTING, ARCHITECTURE Mermaid, POST_RELEASE, FEDORA_ROADMAP
-  refreshed. Memory note project_snapshot_branch.md rewritten for the new
-  topology.
+  the always-tracks-development-branch intent explicit. Spec adds a fourth
+  _o3de_channel elif for --with development_snapshot -> "-development.<sha>".
+  Makefile: COPR_PROJECT_SNAPSHOT -> COPR_PROJECT_DEVELOPMENT; copr-snapshot
+  -> copr-development; ref/qt6 sub-targets removed (rare other refs get a
+  dedicated COPR project per branch). COPR: new project created via
+  copr-cli fork (preserves build history); old project marked deprecated.
+  Docs + tests + memory updated for the new topology.
 
 * Sat May 23 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-69
 - Decouple the channel marker (-experimental / -stabilization / -snapshot)
@@ -1955,23 +1936,15 @@ EOF
   new TIMEBOMB notes + merge-commit cross-refs.
 
 * Thu May 14 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-60
-- Promote Stage 1 14-pack + Stage 2 3-pack to stabilization in one push.
-  First superseded attempt (10459564, Stage 1 only) was cancelled when
-  the decision shifted to bundle Stage 2 in the same promotion.
-- Stage 1 14-pack: system_vulkan_validation_layers added on top of the
-  13-pack already in stabilization (Patch0013 v4 + experimental build
-  10457745 GREEN across all three chroots 2026-05-14 04:03 UTC).
-- Stage 2 3-pack: system_dxc + system_spirvcross + system_mcpp promoted
-  from experimental after 6+ days of green soak (all three PoCs ✓ GREEN
-  since 2026-05-08). Requires the o3de-dependencies COPR repo to be
-  pulled in via additional_repos at chroot config (set 2026-05-14 via
-  one-time `copr-cli edit-chroot --repos copr://hellaenergy/o3de-dependencies`
-  on all three stabilization chroots).
-- Net stabilization chroot state: 18 with_opts per chroot (stabilization
-  + 14 Stage 1 + 3 Stage 2); F44/rawhide/CS10 all in parity. CS10
-  with_opts gap fully closed earlier today.
-- CI updates landed in same commit to keep test workflows consuming the
-  expanded build correctly.
+- Promote Stage 1 14-pack + Stage 2 3-pack to stabilization in one push
+  (first attempt 10459564 cancelled when decision shifted to bundle both).
+  Stage 1 14-pack adds system_vulkan_validation_layers on top of the prior
+  13-pack. Stage 2 3-pack (system_dxc + system_spirvcross + system_mcpp)
+  graduates from experimental after 6 days of green soak; chroot config
+  gets o3de-dependencies repo via additional_repos.
+- Net stabilization state: 18 with_opts per chroot (stabilization + 14
+  Stage 1 + 3 Stage 2); F44/rawhide/CS10 all in parity. CS10 with_opts
+  gap fully closed earlier today.
 
 * Thu May 14 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-59
 - (Superseded by 2605.0-60.) Stage 1 14-pack only stabilization promotion;
@@ -1979,73 +1952,31 @@ EOF
   to bundle Stage 2 in the same push.
 
 * Wed May 13 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-58
-- Patch0013 v4: add third hunk gating the
-  Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/PAL_linux.cmake
-  VULKAN_VALIDATION_LAYER variable on LY_USE_SYSTEM_VULKAN_VALIDATION_LAYERS.
-  Build 10456101 (v3) failed at cmake configure with
-  "Findvulkan-validationlayers.cmake must either be part of this project
-  itself..." because the gem's BUILD_DEPENDENCIES list referenced
-  ${VULKAN_VALIDATION_LAYER} which was still set to
-  3rdParty::vulkan-validationlayers. ly_parse_third_party_dependencies
-  walked the list and called find_package(vulkan-validationlayers), no
-  shim found, configure aborted. v4 leaves VULKAN_VALIDATION_LAYER unset
-  in system mode so the BUILD_DEPENDENCIES list expansion has no
-  validation-layer entry at all.
-- Bonus: build 10456101's CS10 chroot went GREEN with 17 system swaps
-  active (first end-to-end CS10 validation of the Stage 1 + Stage 2
-  stack). Stage 1 viability on CentOS Stream 10 confirmed.
+- Patch0013 v4: add third hunk gating PAL_linux.cmake's VULKAN_VALIDATION_LAYER
+  variable on LY_USE_SYSTEM_VULKAN_VALIDATION_LAYERS. v3 (build 10456101)
+  failed cmake configure because BUILD_DEPENDENCIES list expansion called
+  find_package(vulkan-validationlayers) with no shim. v4 leaves the variable
+  unset in system mode.
+- Bonus: 10456101's CS10 chroot went GREEN with 17 system swaps active
+  (first end-to-end CS10 validation of the Stage 1 + Stage 2 stack).
 
 * Wed May 13 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-57
-- Add Patch0013 + system_vulkan_validation_layers Stage 1 swap. Engine
-  gets a two-hunk carry-patch (gate the bundled vulkan-validationlayers
-  ly_associate_package on LY_USE_SYSTEM_VULKAN_VALIDATION_LAYERS, plus
-  flip the Atom RHI Vulkan Instance.cpp SetEnv("VK_LAYER_PATH", ..., 1)
-  to overwrite=0 so packager-set VK_LAYER_PATH is respected). Validation
-  layers are runtime-only -- no BuildRequires needed; only Requires
-  vulkan-validation-layers when the bcond is active.
-- Launcher wrapper (sources/o3de-launcher.sh) now sets
-  VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d when not already set
-  AND that directory exists. Pairs with the Patch0013 overwrite=0 fix
-  so the system Vulkan loader's standard layer-discovery path wins
-  over the engine's exeDirectory default. No-op when VK_LAYER_PATH is
-  user-set (preserves developer overrides) or the system path doesn't
-  exist (bundled-engine installs unaffected).
-- 14th Stage 1 system swap candidate. NOT activated in stabilization
-  by default for the mid-release-window rule; ships as bcond, opt-in
-  via `--with system_vulkan_validation_layers` on experimental chroot.
-  Upstream pitch pending Nick's "fully baked" green-light.
+- Add Patch0013 + system_vulkan_validation_layers Stage 1 swap (14th).
+  Two-hunk patch gates the bundled validation-layers ly_associate_package
+  on LY_USE_SYSTEM_VULKAN_VALIDATION_LAYERS and flips the Vulkan Instance
+  SetEnv overwrite to 0 so packager-set VK_LAYER_PATH wins. Launcher
+  wrapper sets VK_LAYER_PATH to /usr/share/vulkan/explicit_layer.d when
+  not already set and the dir exists. NOT activated in stabilization by
+  default (mid-release-window); ships as bcond, opt-in on experimental.
 
 * Tue May 12 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-56
-- REVERT the same-turn retirements of Patch0007 (libtiff C99 migration)
-  and Patch0008 (drop Lua/lobject.h include) made in 2605.0-54 and
-  2605.0-55. Both retirements were premature: upstream merged PRs
-  #19734 and #19733 into `development` on 2026-05-08, but neither was
-  cherry-picked to `stabilization/26050`, which is the branch our
-  snapshot pin (246b46f) sources from.
-- Verified by grepping `upstream/stabilization/26050`: TIFFLoader.cpp
-  still has 9 legacy uint8/uint16/uint32 typedef hits, ImageTIF.cpp
-  has 33, and ScriptContext.cpp still has `#include <Lua/lobject.h>`
-  on line 28. Without these patches, our builds against the
-  stabilization snapshot would hit the original compile failures
-  (clang -Werror on the deprecated typedefs + system_lua activation
-  blocker on the bundled-Lua internal header).
-- Patch directives restored; spec is back to 12 active patches. Both
-  patch bodies now carry TIMEBOMB notes documenting the merge-but-
-  not-backported situation and the retirement condition (when
-  stabilization/26050 absorbs the upstream change, OR when our
-  snapshot pin advances onto a development-based commit that
-  includes both PRs).
-- Gotcha captured as memory note
-  project_branch_alignment_before_retirement.md so future "carry-
-  patch retired by upstream merge" decisions verify the merge
-  landed on the SAME branch the snapshot sources from -- not just
-  in `development`. Sweep order for safe retirement:
-  (1) confirm PR merged upstream -> (2) confirm the merge commit is
-  reachable from the branch our snapshot pin is on -> (3) grep the
-  target file on that branch to confirm the change is present ->
-  (4) only then retire the carry-patch.
-- README + CONTRIBUTING patch tables restored to show 0007 + 0008
-  ACTIVE with TIMEBOMB notes. Active patch count back to 12.
+- REVERT same-turn retirements of Patch0007 (libtiff C99) and Patch0008
+  (Lua/lobject.h) from -54 and -55. Upstream PRs #19734 + #19733 merged
+  to development 2026-05-08 but not cherry-picked to stabilization/26050
+  (our snapshot source), so the legacy code still ships there. Patches
+  restored with TIMEBOMB notes. Lesson captured as four-step branch-
+  alignment retirement check in project_branch_alignment_before_retirement.md.
+  README + CONTRIBUTING patch tables updated. Active patch count: 12.
 
 * Tue May 12 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-55
 - Retire Patch0008 (AzCore/Script drop redundant Lua/lobject.h
@@ -2266,43 +2197,18 @@ EOF
 - SBOM bumped 2605.0-43 -> 2605.0-44.
 
 * Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-43
-- Add system_googlebenchmark Stage 1 swap (PLUMBING ONLY -- bcond is OFF
-  by default; not yet activated in SRPM_EXPERIMENTAL_FLAGS or any chroot
-  config). Replaces what closed PR #19738 was originally trying to
-  achieve, but in the architecturally-correct shape Nick_L pointed us
-  toward: gbench is a build+ship dep of the engine even with
-  LY_DISABLE_TEST_MODULES=ON because AzTestRunner + AzTest ship
-  unconditionally for external gem developers. So the right move isn't
-  to GATE the bundled fetch on test modules; it's to SWAP the bundled
-  fetch for Fedora's google-benchmark-devel.
-- Plumbing wired: %bcond_with system_googlebenchmark, OR-chain extension,
-  Source45 declaration of FindGoogleBenchmark-system.cmake, conditional
-  cp in %%prep, BR google-benchmark-devel, Requires google-benchmark,
-  cmake -DLY_USE_SYSTEM_GOOGLEBENCHMARK=ON, Patch0006 hunk gating the
-  ly_associate_package(googlebenchmark-1.7.0-rev1-linux). Hunk header
-  bumped -17,30 +17,82 -> -17,30 +17,86 (+4 lines for the gate).
-- Linkage variance noted: Fedora ships ONLY libbenchmark.so (no -static
-  subpackage), so AzTestRunner ends up dynamically linked rather than
-  having gbench compiled in statically. gbench's API is stable across
-  1.7.0 (engine pin) -> 1.9.5 (Fedora ship) and the consumed surface
-  (BENCHMARK macros + benchmark::internal::InitializeStreams) is core
-  public API, so the variance is acceptable.
-- Activation deferred: this commit is plumbing-only so today's chain-
-  built 15-pack experimental (10437498, validating rename + Patch0010 +
-  system_mcpp) is not affected. The bcond can be flipped on in a
-  separate commit once that build lands green and we've smoke-tested
-  the swap independently.
-- Drift-script side: dep-map.yaml updated to add googlebenchmark to
-  spec_bcond_aliases and to remove it from ignore_engine_packages so
-  the next drift run reclassifies the GoogleBenchmark engine pin as
-  covered-by-spec.
-- Sibling note: the missing-libbenchmark.a-archive bug surfaced 2026-05-08
-  and filed as o3de/o3de#19740 is a SEPARATE issue. With the system swap
-  on, an external gem developer can satisfy benchmark links via Fedora's
-  google-benchmark-devel directly even if the engine's own install set
-  is missing libbenchmark.a -- partial mitigation, but #19740 is still
-  the right fix on the engine side.
-- SBOM bumped 2605.0-42 -> 2605.0-43.
+- Add system_googlebenchmark Stage 1 swap (PLUMBING ONLY; bcond OFF by
+  default). gbench is a build+ship dep via AzTestRunner/AzTest even with
+  LY_DISABLE_TEST_MODULES=ON, so the right shape is to SWAP for Fedora's
+  google-benchmark-devel rather than gate on test modules. Standard
+  plumbing: bcond, Find shim, Patch0006 hunk, BR/Requires/cmake flag.
+- Linkage variance: Fedora ships only libbenchmark.so (no -static),
+  AzTestRunner ends up dynamically linked. gbench API stable across
+  1.7.0 -> 1.9.5 on the consumed surface.
+- Sibling bug: o3de/o3de#19740 (missing libbenchmark.a in engine install
+  set) remains the right engine-side fix; system swap is partial
+  mitigation for external gem developers.
+- Drift-script dep-map.yaml + SBOM bumped to -43.
 
 * Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-42
 - Versioned-major rename of the Stage 2 COPR-shipped 3rdParty deps to
@@ -2357,41 +2263,18 @@ EOF
 - SBOM bumped 2605.0-40 -> 2605.0-41.
 
 * Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-40
-- Stage 2 third swap: activate system_mcpp. Library-link variant of
-  the DXC-class binary-only pattern (vs. system_spirvcross +
-  system_dxc which are binary shellouts). Routes the engine's mcpp
-  consumption (Gems/Atom/Asset/Shader/Code/Source/Editor/CommonFiles/
-  Preprocessor.cpp's mcpp_lib_main / mcpp_set_out_func /
-  mcpp_set_report_include_callback calls) to the system libmcpp.so
-  from o3de-mcpp-az-devel (license-clean rebuild of upstream mcpp
-  2.7.2 + o3de/3p-package-source's _az.2 patch series; ✓ green PoC
-  build 10436752 since 2026-05-08, F44 + rawhide).
-- Implementation pattern: same as system_assimp / system_libsamplerate
-  / system_sqlite (mikkelsen-style Find shim + Patch0006 gate). Unlike
-  system_spirvcross / system_dxc, mcpp is linked into the engine
-  binary at build time rather than shelled out to at runtime, so the
-  install-overlay approach does not apply. We need a real Find shim
-  + cmake gate to skip the bundled fetch and link against the system
-  library at configure time.
-- Patch0006 extension: add `LY_USE_SYSTEM_MCPP` gate hunk for the
-  mcpp-2.7.2_az.2-rev1-linux ly_associate_package. Hunk header bumped
-  -17,30 +17,78 -> -17,30 +17,82 (+4 lines: if/else/find_package/endif).
-- New sources/Findmcpp-system.cmake (Source44), mikkelsen pattern
-  creating 3rdParty::mcpp directly via find_path / find_library on
-  /usr/include/mcpp_lib.h + /usr/lib64/libmcpp.so. No cmake-stock
-  Findmcpp module exists (mcpp is abandonware-class) so direct lookup
-  is the only option.
-- Spec wires: %bcond_with system_mcpp, OR-chain extension, Source44
-  declaration, conditional cp in %%prep, BuildRequires o3de-mcpp-az-devel,
-  Requires o3de-mcpp-az, conditional cmake -DLY_USE_SYSTEM_MCPP=ON.
-- Makefile: add system_mcpp to spec-parse-experimental's --define list,
-  to SRPM_EXPERIMENTAL_FLAGS, and to copr-init's chroot --rpmbuild-with
-  hint. Engine now consumes 12 Stage 1 system libs + 3 Stage 2 PoC-
-  rebuilt COPR deps (spirvcross + dxc binary, mcpp library) for a
-  15-pack experimental config (was 14-pack before today's commit).
-- This completes the Stage 2 swap set: two binary shellouts
-  (spirvcross + dxc) + one library link (mcpp). Both architectural
-  variants now have working engine-side glue.
+- Stage 2 third swap: activate system_mcpp. Library-link variant
+  (vs. spirvcross/dxc binary shellouts). Routes engine Shader/Preprocessor
+  consumption to system libmcpp.so from o3de-mcpp-az-devel (license-clean
+  rebuild of upstream mcpp 2.7.2 + _az.2 patches; PoC 10436752 GREEN).
+- Same pattern as system_assimp / system_libsamplerate / system_sqlite
+  (mikkelsen-style Find shim + Patch0006 gate); cmake gate skips bundled
+  fetch at configure time. New sources/Findmcpp-system.cmake (Source44).
+- Spec + Makefile wiring as usual: bcond, OR-chain, BR/Requires/cmake
+  flag, SRPM_EXPERIMENTAL_FLAGS, copr-init hint.
+- Engine now consumes 12 Stage 1 system libs + 3 Stage 2 PoC-rebuilt
+  COPR deps for a 15-pack experimental config. Stage 2 set complete:
+  two binary shellouts (spirvcross + dxc) + one library link (mcpp).
 
 * Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-39
 - Stage 2 second binary-only swap: activate system_dxc. Routes the
