@@ -37,9 +37,42 @@ This PR adds an additive build variant that produces a parallel Python 3.10.13 p
 
 - Same shape for `Linux-aarch64-system-openssl` once the x86_64 variant is validated. Single line addition to build_config.json + a parallel sub-build.
 
-## Validation plan
+## Validation results (spike completed 2026-05-28)
 
-**Local toolchain:** use `podman` instead of `docker` for the local spike runs (Fedora workstation). Substitute `podman` for `docker` in the build script invocations or alias it via `alias docker=podman` for the session. Keep the upstream PR's script unchanged (their CI is docker-based).
+**Local toolchain:** ran via `podman` instead of `docker` (Fedora workstation runs podman as the container runtime; `podman-docker` package provides the `/usr/bin/docker` shim). Upstream PR script unchanged.
+
+### Build phase — PASS
+
+Full `pull_and_build_from_git.py package-system/python --platform-name Linux-system-openssl --clean` ran clean inside an Ubuntu 22.04 container. Configure-time evidence the right path took:
+
+- `Building Python against system OpenSSL (dynamic link)` (from the env-var-driven branch we added)
+- `checking for openssl/ssl.h in /usr... yes`
+- `PYTHON WAS BUILT FROM SOURCE` (final success marker)
+
+### Artifact validation — PASS on all three gates
+
+1. **Dynamic linkage confirmed.** `ldd <build>/python/lib/python3.10/lib-dynload/_ssl.cpython-310-x86_64-linux-gnu.so` resolves to:
+   - On the host (Fedora 44): `libssl.so.3 => /lib64/libssl.so.3` + `libcrypto.so.3 => /lib64/libcrypto.so.3`
+   - Inside Ubuntu 22.04 container: `libssl.so.3 => /lib/x86_64-linux-gnu/libssl.so.3` + matching libcrypto
+2. **`ssl.OPENSSL_VERSION` returns 3.x at runtime.** Inside Ubuntu 22.04: `OpenSSL 3.0.2 15 Mar 2022`. On Fedora host: `OpenSSL 3.5.5 27 Jan 2026`.
+3. **Cross-distro portability preserved.** Despite the build happening on Ubuntu 22.04, the resulting Python's `_ssl.so` runs cleanly against Fedora's OpenSSL 3.5.5 because OpenSSL 3.x has stable ABI across distros and versions.
+
+### Engine smoke — PASS
+
+Swapped the rebuilt Python into the engine install path at `~/.o3de/Python/packages/python-3.10.13-rev2-linux/` (replacing the bundled tree), wiped `~/.o3de/Python/venv` to force re-bootstrap via `get_python.sh`, then ran the downstream o3de-rpm tier suite against the swapped Python:
+
+- Tier 1 (RPM integrity): PASS
+- Tier 2 (install integrity + system-swap auto-Requires): PASS
+- Tier 3 (first-run user setup via get_python.sh, manifest registration via `o3de2605-cli register --this-engine`): PASS
+- Tier 4 (engine binary smoke + Project Manager Python init): PASS
+- Tier 5 (project create via Python-driven `o3de create-project` + cmake configure): PASS
+- Net: 58/58 passed, 0 failed, 0 skipped
+
+The Tier 3 result is the critical canary: it exercises pip install, manifest setup, and the engine CLI's full Python init flow through the rebuilt interpreter. All paths that the rebuilt Python's `_ssl` module gets invoked on (HTTPS for pip install, registry interactions, etc.) succeeded.
+
+Tier 9 (MultiplayerSample build+bake+launch end-to-end) and Tier 10 (NewspaperDeliveryGame end-to-end) running in background; results to follow.
+
+## Original plan (kept for reference)
 
 Before filing this PR:
 
