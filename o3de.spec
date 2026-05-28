@@ -2211,34 +2211,18 @@ EOF
 - Drift-script dep-map.yaml + SBOM bumped to -43.
 
 * Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-42
-- Versioned-major rename of the Stage 2 COPR-shipped 3rdParty deps to
-  match the engine package's o3deNNNN naming convention:
-    o3de-spirv-cross  -> o3de2605-spirv-cross    (rev2 -> rev3)
-    o3de-dxc-spirv    -> o3de2605-dxc-spirv      (rev12 -> rev13)
-    o3de-mcpp-az      -> o3de2605-mcpp-az        (rev7 -> rev8)
-    o3de-mcpp-az-devel -> o3de2605-mcpp-az-devel
-  Each renamed package carries Obsoletes + Provides headers so dnf
-  upgrade transitions seamlessly from PoC iterations on the unversioned
-  names. Same shape as Fedora's postgresql10/postgresql10-server family
-  pattern, mirroring upstream's CDN model where multiple engine-major
-  lines pin different package versions side-by-side.
-- Engine-side spec updates: BuildRequires + Requires lines for the three
-  Stage 2 deps now reference the o3de2605-* names. The Find shims
-  (Findmcpp-system.cmake) are unchanged -- they query system paths
-  (/usr/include, /usr/lib64), not COPR package names.
-- Why now: the three Stage 2 PoCs landed within the past 36 hours
-  (spirv-cross 2026-05-07, dxc + mcpp 2026-05-08); naming convention had
-  not yet hardened anywhere. Cost of changing now (~10 testers, three
-  packages, ~50 min runner time) is dramatically lower than after 26.10
-  ships and forces a hot migration. Empirical research + decision
-  rationale captured in memory note
-  `project_o3de_3p_versioning_research.md`.
-- 26.05.x point releases (26.05.0, 26.05.1, ...) all share the same
-  o3de2605-<dep> packages. Engine-team's empirical 3p-pin update cadence
-  is a few times per year, not per release; within-major drift is
-  near-zero. Same as how postgresql10 covers 10.0 through 10.23 over
-  its support window.
-- SBOM bumped 2605.0-41 -> 2605.0-42.
+- Versioned-major rename of Stage 2 COPR 3rdParty deps to match the
+  engine's o3deNNNN convention: o3de-spirv-cross -> o3de2605-spirv-cross,
+  o3de-dxc-spirv -> o3de2605-dxc-spirv, o3de-mcpp-az(-devel) ->
+  o3de2605-mcpp-az(-devel). Each renamed package carries Obsoletes +
+  Provides so dnf upgrade transitions seamlessly. Pattern mirrors
+  Fedora's postgresql10/postgresql10-server family.
+- 26.05.x point releases share the same o3de2605-<dep> packages;
+  engine's empirical 3p-pin cadence is few-times-per-year, so within-
+  major drift is near-zero. Find shims unchanged (they query system
+  paths, not COPR package names).
+- Rationale captured in memory note project_o3de_3p_versioning_research.md.
+- SBOM -> 2605.0-42.
 
 * Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-41
 - Patch0010: Lua 5.5 lua_newstate signature compat. Lua 5.5 (released
@@ -2277,188 +2261,89 @@ EOF
   two binary shellouts (spirvcross + dxc) + one library link (mcpp).
 
 * Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-39
-- Stage 2 second binary-only swap: activate system_dxc. Routes the
-  engine's runtime DXC invocations to the COPR-built /usr/bin/dxc
-  (and dxsc, libdxcompiler.so) from the o3de-dxc-spirv package
-  (sibling COPR project hellaenergy/o3de-dependencies, license-clean
-  NCSA + Apache-2.0 with LLVM-exception, ✓ green PoC build 10435628
-  since 2026-05-08).
-- Implementation: %%install creates symlinks at the engine's expected
-  runtime paths (Builders/DirectXShaderCompiler/{bin/dxc, bin/dxsc,
-  lib/libdxcompiler.so} under the install prefix) to the system
-  locations. Same install-overlay pattern as system_spirvcross
-  (2605.0-38) but with three paths instead of one. Engine's path
-  resolution (RHI::ExecuteShaderCompiler in
-  Gems/Atom/RHI/Code/Source/RHI.Edit/Utils.cpp) follows the symlinks
-  transparently; engine code unchanged. Per
-  `project_dxc_binary_only_dependency.md` memory + Nick_L's 2026-05-05
-  sig-build comment, the engine doesn't link DXC -- shells out to the
-  binary. So binary swap at install time is sufficient.
-- Spec wires: %bcond_with system_dxc, OR-chain extension, conditional
-  BR/Requires o3de-dxc-spirv, conditional %%install symlinks (3 paths
-  for profile config + 3 for debug under --with debug).
-- This completes the Stage 2 binary-only set (SPIRV-Cross + DXC).
-  Both PoC builds in hellaenergy/o3de-dependencies now have engine-side
-  glue to consume them via system installs. The mcpp PoC (library-link
-  variant per audit 2026-05-08) follows the same pattern but stays
-  deferred per FOLLOW_UPS.md.
-- SBOM bumped 2605.0-38 -> 2605.0-39.
+- Stage 2 second binary-only swap: activate system_dxc. Routes engine
+  runtime DXC invocations (dxc, dxsc, libdxcompiler.so) to the COPR-
+  built versions in o3de-dxc-spirv (sibling project; PoC 10435628 GREEN).
+  Same install-overlay symlink pattern as system_spirvcross (-38) but
+  three paths instead of one. Per project_dxc_binary_only_dependency.md
+  + Nick_L sig-build comment 2026-05-05, the engine doesn't link DXC,
+  it shells out, so binary swap at install time is sufficient; no
+  engine code change needed.
+- Bcond + BR/Requires o3de-dxc-spirv + symlinks (profile + debug).
+- This completes the Stage 2 binary-only set (spirvcross + dxc).
+- SBOM -> 2605.0-39.
 
 * Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-38
-- Stage 2 first binary-only swap: activate system_spirvcross. Routes
-  the engine's runtime spirv-cross invocations to the COPR-built
-  /usr/bin/spirv-cross from the o3de-spirv-cross package
-  (sibling COPR project hellaenergy/o3de-dependencies, license-clean
-  Apache-2.0 OR MIT, ✓ green PoC build 10434617 since 2026-05-07).
-- Implementation: %%install creates a symlink at the engine's expected
-  runtime path
-  (%{o3de_install_prefix}/bin/Linux/profile/Default/Builders/SPIRVCross/spirv-cross)
-  to /usr/bin/spirv-cross. Engine's path resolution
-  (RHI::ExecuteShaderCompiler in
-  Gems/Atom/RHI/Code/Source/RHI.Edit/Utils.cpp) follows the symlink
-  transparently. Per the 2026-05-07 audit, the engine treats
-  spirv-cross as a binary executable shellout (zero #include lines for
-  SPIRV-Cross C++ headers anywhere in Code/ or Gems/), so binary
-  swap at install time is sufficient -- no engine code changes needed.
-- Why not gate the upstream fetch via Patch0006: the bundled package
-  contains a FindSPIRVCross.cmake that creates the 3rdParty::SPIRVCross
-  cmake target the engine needs at configure time; gating the fetch
-  without an equivalent target shape would break cmake config. Future
-  cleanup: write a Findspirvcross-system.cmake shim that creates the
-  IMPORTED EXECUTABLE target, gate Patch0006, drop the upstream fetch
-  entirely. For the PoC, the install-time overlay is enough to validate
-  the engine -> COPR PoC integration path end-to-end.
-- Spec wires: %bcond_with system_spirvcross, OR-chain extension,
-  conditional BR/Requires o3de-spirv-cross, conditional %%install
-  symlink (profile + debug configs).
-- This is the FIRST Stage 2 binary-only swap activation. DXC PoC
-  rev12 (✓ green 2026-05-08) follows the same shape; engine-side
-  glue for it lands as a future commit (same install-overlay
-  approach for /usr/bin/dxc + /usr/lib64/libdxcompiler.so).
-- SBOM bumped 2605.0-37 -> 2605.0-38.
+- Stage 2 first binary-only swap: activate system_spirvcross. Routes the
+  engine's runtime spirv-cross invocations to the COPR-built /usr/bin/
+  spirv-cross from the o3de-spirv-cross package (sibling COPR project
+  hellaenergy/o3de-dependencies; PoC 10434617 GREEN). Engine treats
+  spirv-cross as a binary shellout (zero #include of SPIRV-Cross C++
+  headers per 2026-05-07 audit), so an %install-time symlink at the
+  expected runtime path is sufficient; no engine code change needed.
+  Patch0006 gate deferred until a Findspirvcross-system.cmake shim
+  exists; for now upstream fetch stays but is overlaid by the symlink.
+  Bcond + BR/Requires + symlink lines + SBOM bumped to -38.
 
 * Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-37
-- Stage 1 12-pack: activate system_assimp. Audit (2026-05-07,
-  /tmp/o3de-assimp-audit/INVESTIGATION_NOTES.md) confirmed: engine
-  consumes assimp exclusively in Code/Tools/SceneAPI/SceneBuilder/
-  + Code/Tools/SceneAPI/SDKWrapper/ (asset-pipeline 3D-model importer
-  for FBX/glTF/OBJ/Collada); zero refs in Gems/, zero in core
-  Code/Framework/. All 27 unique types + 7 processing flags consumed
-  are public ai* C-API and Assimp::Importer C++ class; 100% present
-  in Fedora 6.0.4 headers. Engine include style `<assimp/header.h>`
-  matches Fedora's `/usr/include/assimp/header.h` layout exactly —
-  no path-bridging needed. FBX importer compiled into Fedora's
-  libassimp.so.6.0.4 (verified via importer-descriptor strings).
-- Patch0006 extension: add `LY_USE_SYSTEM_ASSIMP` gate hunk for the
-  assimp line in BuiltInPackages_linux_x86_64.cmake.
-- New sources/Findassimp-system.cmake (Source43), mikkelsen pattern
-  (direct find_path/find_library, creates 3rdParty::assimp directly).
-  Necessary because Fedora's `assimpConfig.cmake` creates `assimp::assimp`
-  as a side-effect IMPORTED target which trips O3DE's runtime walker
-  (same reason as ZLIB/SQLite shims). Mikkelsen-pattern shim sidesteps.
-- Caveat: 5.4 → 6.0 major version delta. Symbols verified ✓; runtime
-  FBX-import behavior on tricky inputs (subdivision surfaces, layered
-  animations, embedded textures) is **unverified**. Mitigation: pair
-  with a Tier 6 integration test that bakes a known FBX from
-  AutomatedTesting Gem (FOLLOW_UPS.md item; not in this commit).
-- Spec wires: %bcond_with system_assimp, OR-chain extension, Source43
-  declaration, conditional BR/Recommends assimp-devel, conditional
-  Requires assimp, conditional cmake -DLY_USE_SYSTEM_ASSIMP=ON,
-  conditional %%prep cp.
-- License: assimp is BSD-3-Clause, Fedora-acceptable.
-- SBOM bumped 2605.0-36 → 2605.0-37.
+- Stage 1 12-pack: activate system_assimp. Engine consumes assimp only
+  in SceneBuilder + SDKWrapper for asset-pipeline 3D-model import; all
+  27 types + 7 processing flags are public C-API present in Fedora 6.0.4.
+  Engine's <assimp/header.h> include style matches Fedora's layout.
+- Patch0006 hunk adds LY_USE_SYSTEM_ASSIMP gate. New Findassimp-system.cmake
+  (Source43, mikkelsen pattern) sidesteps Fedora's assimpConfig creating
+  the assimp::assimp side-effect target that trips O3DE's runtime walker.
+- Caveat: 5.4 -> 6.0 major delta. Symbols verified; runtime FBX-import
+  behavior on tricky inputs (subdivision, layered animations, embedded
+  textures) unverified; deferred to Tier 6 follow-up.
+- License BSD-3-Clause; standard bcond + BR/Requires/cmake wires.
+- SBOM -> 2605.0-37.
 
 * Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-36
-- Stage 1 11-pack: activate system_libsamplerate. Audit (2026-05-07,
-  /tmp/o3de-assimp-audit/LIBSAMPLERATE_INVESTIGATION_NOTES.md) confirmed
-  this is the lowest-risk Stage 1 swap to date — engine consumes
-  libsamplerate exclusively in Gems/Microphone/, and the Microphone
-  Gem's Linux PAL points to MicrophoneSystemComponent_None.cpp (a
-  do-nothing stub). Zero `src_*` function calls in the Linux runtime
-  path; the Gem's CMakeLists.txt:25 unconditionally LINKS
-  3rdParty::libsamplerate but no engine code path on Linux exercises
-  the library at runtime.
-- Patch0006 extension: add `LY_USE_SYSTEM_LIBSAMPLERATE` gate hunk
-  for the libsamplerate line in BuiltInPackages_linux_x86_64.cmake.
-- New sources/Findlibsamplerate-system.cmake (Source42), mikkelsen
-  pattern: direct find_path/find_library, creates
-  3rdParty::libsamplerate directly. libsamplerate doesn't ship a
-  stock cmake module (pkg-config available at
-  /usr/lib64/pkgconfig/samplerate.pc as a fallback).
-- Spec wires: %bcond_with system_libsamplerate, OR-chain extension,
-  Source42 declaration, conditional BR/Recommends libsamplerate-devel,
-  conditional Requires libsamplerate, conditional cmake -DLY_USE_SYSTEM_LIBSAMPLERATE=ON,
-  conditional %%prep cp.
-- 0.2.1 → 0.2.2 is patch-version increment within libsamplerate's
-  23-year ABI-stable major (since 0.1.0, 2002). License: BSD-2-Clause
-  (Erik de Castro Lopo, libsndfile author) — Fedora-acceptable.
-- Upstream-PR follow-on (not in this commit): gate the
-  3rdParty::libsamplerate dependency in Microphone's CMakeLists.txt
-  on a PAL_TRAIT_MICROPHONE_USES_LIBSAMPLERATE flag (FALSE on
-  Linux/None, TRUE elsewhere) — drops the dependency entirely on
-  Linux. Same shape as the AzCore Lua PR (#19733).
-- SBOM bumped 2605.0-35 → 2605.0-36.
+- Stage 1 11-pack: activate system_libsamplerate. Lowest-risk swap to
+  date; Microphone gem's Linux PAL is a do-nothing stub, so zero src_*
+  calls in the Linux runtime path despite Microphone's CMakeLists.txt
+  unconditionally LINKing 3rdParty::libsamplerate.
+- Patch0006 + Findlibsamplerate-system.cmake (Source42, mikkelsen
+  pattern; pkg-config also available at samplerate.pc as fallback).
+  Standard bcond + BR/Recommends/Requires/cmake/prep cp wires.
+- 0.2.1 -> 0.2.2 is patch-version increment within libsamplerate's
+  23-year ABI-stable major. License BSD-2-Clause.
+- Upstream-PR follow-on (deferred): gate the 3rdParty::libsamplerate
+  dep in Microphone's CMake on a PAL_TRAIT_MICROPHONE_USES_LIBSAMPLERATE
+  flag (FALSE on Linux/None). Same shape as AzCore Lua PR #19733.
+- SBOM -> 2605.0-36.
 
 * Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-35
-- Stage 1 10-pack: activate system_sqlite. Audit (2026-05-07) confirmed
-  SQLite is the cleanest Stage 1 candidate to date — consumers
-  exclusively in Code/Framework/AzToolsFramework/SQLite/ + Code/Tools/
-  AssetProcessor/AssetDatabase/ (editor/tool framework, not runtime
-  engine). All 29 unique sqlite3_* symbols are core public C-API; 100%
-  present in Fedora 3.51.2 headers. Zero extension-only API used
-  (no FTS5/RTREE/JSON1/SEE). 3.37 → 3.51 is point-version increment
-  within SQLite's 21-year ABI-stable major (since 3.0.0, 2004).
-- Patch0006 extension: add `LY_USE_SYSTEM_SQLITE` gate hunk for the
-  SQLite line in BuiltInPackages_linux_x86_64.cmake. Same shape as the
-  existing 9 gates (mikkelsen, expat, zlib, freetype, png, tiff, lua,
-  lz4, openexr — and via Patch0009 as a sibling, poly2tri).
-- New FindSQLite-system.cmake (Source41): mikkelsen pattern — direct
-  find_path/find_library, creates 3rdParty::SQLite directly. Necessary
-  because cmake's stock FindSQLite3.cmake creates SQLite::SQLite3 as a
-  side-effect IMPORTED target which trips O3DE's runtime walker (same
-  pattern as FindZLIB shim). Engine consumes `3rdParty::SQLite` from
-  Code/Framework/AzToolsFramework/CMakeLists.txt:54 and
-  Code/Tools/AssetProcessor/CMakeLists.txt:37.
-- Spec wires: `%bcond_with system_sqlite`, OR-chain extension, Source41
-  declaration, conditional BR/Recommends `sqlite-devel`, conditional
-  Requires `sqlite-libs`, conditional `cmake -DLY_USE_SYSTEM_SQLITE=ON`,
-  conditional %%prep cp.
-- Engine has an exact-match `sqlite3_libversion_number() ==
-  SQLITE_VERSION_NUMBER` runtime assertion in
-  AzToolsFramework/SQLite/SQLiteConnection.cpp — automatically satisfied
-  by paired system header+library; not a blocker.
+- Stage 1 10-pack: activate system_sqlite. Cleanest Stage 1 candidate
+  to date; consumers in AzToolsFramework/SQLite + AssetProcessor/
+  AssetDatabase only (editor/tool, not runtime). All 29 sqlite3_*
+  symbols are core public C-API; zero FTS5/RTREE/JSON1/SEE extension
+  usage. 3.37 -> 3.51 is point-version within SQLite's 21-year ABI-
+  stable major.
+- Patch0006 hunk adds LY_USE_SYSTEM_SQLITE gate. New
+  FindSQLite-system.cmake (Source41, mikkelsen pattern) sidesteps
+  stock FindSQLite3 creating SQLite::SQLite3 side-effect target that
+  trips O3DE's runtime walker (same as ZLIB shim).
+- Standard bcond + BR sqlite-devel / Requires sqlite-libs + cmake
+  flag + prep cp.
+- Runtime assertion sqlite3_libversion_number() ==
+  SQLITE_VERSION_NUMBER is satisfied by paired system header+lib.
 - SBOM bumped 2605.0-34 → 2605.0-35. Channel-marker OR-chain extended.
 
 * Thu May 07 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-34
 - Docs sharpen: BUNDLED_LIBRARIES.md absorbs the SQLite + libsamplerate +
   SPIRVCross audit findings (2026-05-07). No code/build changes; spec
   change is the changelog entry only.
-- SQLite (cleanest Stage 1 candidate to date): consumers in
-  AzToolsFramework/SQLite/ + AssetProcessor/AssetDatabase/ only;
-  all 29 sqlite3_* symbols are public C-API and 100% present in Fedora
-  3.51.2 headers; stock cmake FindSQLite3 ships — no Find shim needed;
-  point-version increment within SQLite's 21-year ABI-stable major.
-- libsamplerate: Stage 1 viable + upstream-PR opportunity (same shape
-  as the AzCore Lua PR #19733). Single Gem (Microphone); engine actually
-  calls src_* functions only on Windows. Linux PAL is a do-nothing stub
-  — zero libsamplerate function calls in the Linux runtime path.
-- SPIRVCross reclassified out of "Migrate to system Fedora libs (Stage
-  1)" into a new "Binary-only / DXC-class dependencies" section. Audit
-  found: (a) Fedora F44 doesn't ship SPIRV-Cross at all (the previous
-  "Fedora 1.3.x — trivial flip" annotation was wrong); (b) engine
-  treats SPIRV-Cross as an executable, not a library — zero #include
-  lines for SPIRV-Cross C++ headers anywhere; (c) license is
-  Apache-2.0 (Fedora-acceptable in principle), so blocker is
-  availability not license — different category from DXC's DXIL-signing
-  blocker. Path: license-clean COPR rebuild as o3de-spirv-cross,
-  sibling track to o3de-dxc-spirv PoC.
-- Audit-pattern reliability tracker (2026-05-07): seven audits, three
-  outcome categories — Stage 1 swap (assimp/SQLite/libsamplerate/poly2tri),
-  carry-patch+PR (Lua, libsamplerate follow-on), stays out of Stage 1
-  with sharpened framing (squish-ccr, SPIRVCross). The "stays out"
-  results are the highest-value find: SPIRVCross specifically would
-  have caused a failed --with system_spirvcross build immediately if
-  we'd taken the prior "trivial flip" annotation at face value.
+- SQLite: cleanest Stage 1 candidate; public C-API only, stock cmake
+  FindSQLite3 ships.
+- libsamplerate: Stage 1 viable; Linux PAL is a do-nothing stub so the
+  Microphone gem makes zero runtime calls.
+- SPIRVCross reclassified into "Binary-only" category: Fedora doesn't
+  ship it; engine shells out (zero #includes); license-clean (Apache-2.0).
+  Path forward: license-clean COPR rebuild as o3de-spirv-cross.
+- Audit-pattern tracker: 7 audits, 3 outcome categories (Stage 1 swap,
+  carry-patch + upstream PR, "stays out" with sharpened framing).
 
 * Thu May 07 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-33
 - Docs sharpen: NvCloth status + Patch0009 PhysX4 timebomb annotation +
@@ -2586,39 +2471,15 @@ EOF
   Per-chroot `--rpmbuild-with system_lz4` applied separately.
 
 * Tue May 05 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-27
-- system_tiff Stage 1 swap: Option A (narrow guard macro) confirmed
-  structurally infeasible. Patch0008 attempt (commit cda6b7b, reverted
-  by 9f2f099) gated CryCommon's int64/uint64 typedefs in BaseTypes.h
-  behind O3DE_SYSTEM_LIBTIFF_COMPAT, with SKIP_UNITY_BUILD_INCLUSION
-  on the two TIFF .cpp files. Local rpmbuild -bb --with system_tiff
-  failed at compile time in Cry_ValidNumber.h (transitively included
-  from EditorDefs.h via Cry_Math.h):
-    error: use of undeclared identifier 'uint64'
-        #define DoubleU64(x)   (*((uint64*) &(x)))
-  Cry_ValidNumber.h's own DoubleU64/DoubleU64ExpMask/DoubleU64FracMask
-  macros use `uint64` directly. The guard suppresses CryCommon's
-  typedef but libtiff's <tiffio.h> hadn't yet been included when
-  Cry_ValidNumber.h was parsed. Reordering tiffio.h ahead of the
-  engine includes would compile (libtiff's typedefs become visible
-  first), but introduces a `long` (LP64 libtiff) vs `long long`
-  (CryCommon engine ABI) mismatch — CryGetTicks() and other engine
-  symbols mangling differ -> unresolved-symbol link errors. Both
-  paths fail; Option A is dead.
-- Decision: switch to Option C — leave system_tiff parked
-  indefinitely, ship the bundled libtiff-4.2.0.15-rev3 from
-  packages.o3de.org, file a permanent Bundling Library Exception in
-  the Fedora package review (Stage 5 of FEDORA_ROADMAP). The
-  "narrow guard" approach is incompatible with CryCommon's internal
-  int64/uint64 usage; the only clean alternative is Option B (engine-
-  wide CryCommon C99 migration) which Nick previously ruled out as
-  too invasive for the Fedora packaging track. Patch0007 stays in
-  place (the deprecation-warning migration is required regardless of
-  system_tiff). FindTIFF-system.cmake reverted to the pre-refactor
-  form; bcond + Source declaration stay declared but defaulted off.
-- Documentation: BUNDLED_LIBRARIES libtiff row updated to "Option C —
-  Bundling Library Exception"; FEDORA_ROADMAP Stage 1 status keeps
-  "5-pack" (libtiff exits the Stage 1 candidate list). Plan file
-  squeezing-typeface-tiffany.md gets a closeout addendum.
+- system_tiff Stage 1 swap: Option A (narrow guard macro) empirically
+  infeasible. Patch0008 attempt gated CryCommon int64/uint64 typedefs
+  behind a compat macro, but Cry_ValidNumber.h uses `uint64` directly
+  before tiffio.h is included; reordering creates a long vs long long
+  ABI mismatch with CryGetTicks. Switch to Option C: keep libtiff
+  bundled, file a Bundling Library Exception in package review.
+  Patch0007 (deprecation-warning migration) stays in regardless;
+  FindTIFF-system.cmake + bcond stay declared but default off.
+  BUNDLED_LIBRARIES + FEDORA_ROADMAP updated.
 
 * Mon May 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-26
 - Editor dock icon: drop version from o3de2605-editor.desktop's
@@ -2688,31 +2549,15 @@ EOF
 
 * Mon May 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-23
 - Devel split: introduce %{name}-devel subpackage carrying the engine's
-  static archives. Carves out two file sets from the main package:
-    * %{o3de_install_prefix}/lib/Linux/profile/Default/*.a
-      — 173 .a files, ~4 GB (test framework, builder targets, static
-      engine internals)
-    * %{o3de_install_prefix}/lib64/
-      — 5 .a files (~2 MB) plus pkgconfig metadata for Recast/Detour
-      from the RecastNavigation gem
-  Fulfills the long-standing TODO(devel-split) block above %%package
-  debug. Roughly halves on-disk size of %{name} for runtime-only
-  users (CI test containers, game distribution servers, Lua/ScriptCanvas
-  project authors). Native C++ gem developers writing static-link
-  code against engine internals install both: `dnf install %{name}
-  %{name}-devel`. The %{name}-devel package hard-Requires the same
-  NVR of %{name} so they always upgrade in lockstep.
-- Note that the project-build *-devel system packages (clang,
-  mesa-libGL[U]-devel, libxcb-devel, etc., from commit aa767e0) and
-  the conditional system_<X>-devel packages (mikkelsen-devel etc.,
-  from commit 84c021b) stay as Recommends on the main %{name}
-  package. Their consumer is user-project compilation against the
-  engine's .so's — that path doesn't need %{name}-devel's static
-  archives. Keeping these on main means `dnf install %{name}` (with
-  default weak deps) gets the build experience working for the
-  common case; %{name}-devel layers on the static-archive scenario.
-- Update %%post user-facing message to mention %{name}-devel alongside
-  the existing %{name}-debug pointer.
+  static archives (173 .a files / ~4 GB under lib/Linux/profile/Default/,
+  plus 5 .a + pkgconfig metadata under lib64/ for RecastNavigation).
+  Fulfills the long-standing TODO(devel-split). Halves on-disk size for
+  runtime-only users; native C++ gem developers install both.
+  %{name}-devel hard-Requires same NVR of %{name} for lockstep upgrade.
+- Project-build *-devel system packages + system_<X>-devel packages
+  stay as Recommends on main; their consumer is user-project compilation
+  against engine .so's, which doesn't need the static archives.
+- %%post message mentions %{name}-devel alongside the existing -debug.
 
 * Mon May 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-22
 - Add Recommends: for project-build *-devel matching active system_<X>
