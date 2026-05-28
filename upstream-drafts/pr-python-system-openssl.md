@@ -39,9 +39,11 @@ This PR adds an additive build variant that produces a parallel Python 3.10.13 p
 
 ## Validation plan
 
+**Local toolchain:** use `podman` instead of `docker` for the local spike runs (Fedora workstation). Substitute `podman` for `docker` in the build script invocations or alias it via `alias docker=podman` for the session. Keep the upstream PR's script unchanged (their CI is docker-based).
+
 Before filing this PR:
 
-1. Build `python-3.10.13-rev1-linux-system-openssl` locally via the modified docker script. Confirm:
+1. Build `python-3.10.13-rev1-linux-system-openssl` locally via the modified docker script (invoked through podman). Confirm:
    - `ldd <build>/python/lib/python3.10/lib-dynload/_ssl.cpython-310-x86_64-linux-gnu.so` shows `libssl.so.3 => /lib/x86_64-linux-gnu/libssl.so.3` (or similar)
    - `<build>/python/bin/python3 -c "import ssl; print(ssl.OPENSSL_VERSION)"` returns `OpenSSL 3.0.x` (Ubuntu 20.04 ships 1.1.1; need Ubuntu 22.04 or 24.04 base for OpenSSL 3.x). NOTE TO SELF: confirm Dockerfile base image bump as part of the variant, or document the version constraint.
 2. Drop the rebuilt Python into a venv via O3DE's standard get_python flow (override `LY_PACKAGE_SERVER_URLS` to point at local). Run engine smoke:
