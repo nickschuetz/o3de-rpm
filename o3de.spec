@@ -2106,31 +2106,16 @@ EOF
   this is the parallel entry for the 13th swap.
 
 * Mon May 11 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-47
-- system_googlebenchmark Stage 1 swap ACTIVATED in experimental
-  (plumbing landed 2026-05-08 as 2605.0-43 but bcond was OFF). Added
-  to SRPM_EXPERIMENTAL_FLAGS in Makefile and to the o3de-experimental
-  COPR chroot config (F44 + rawhide; CS10 paused per FOLLOW_UPS).
-  Replaces the closed PR #19738's intent in the architecturally-
-  correct shape -- the engine still ships AzTest + AzTestRunner + the
-  googletest/googlemock/googlebenchmark stack (per
-  `project_az_test_runner_architecture.md`), but the linkage now
-  pulls Fedora's `google-benchmark-devel` instead of the bundled
-  fetch. Linkage variance: Fedora ships only libbenchmark.so (no
-  libbenchmark.a), so AzTestRunner ends up dynamically linked rather
-  than statically. gbench's API is stable across the 1.7.0 (engine
-  pin) -> 1.9.5 (Fedora ship) range.
-- Stabilization channel promoted 7-pack -> 12-pack on 2026-05-11
-  (added system_assimp + system_libsamplerate + system_lua +
-  system_poly2tri + system_sqlite to the existing 7). Mirrors what
-  was already validated end-to-end on experimental as of
-  2026-05-08 (builds 10433646 12-pack + later 14-pack at 10442708).
-  Per `project_active_community_testers.md` the 7-pack has had >1
-  week soak with no community-reported regressions. Mechanical:
-  extended `o3de-stabilization` F44 + rawhide chroots' with_opts list
-  + added explicit `SRPM_STABILIZATION_FLAGS` to Makefile so
-  `make srpm-stabilization` produces an SRPM that matches the chroot.
-  Stage 2 swaps (mcpp/dxc/spirvcross) deliberately stay in
-  experimental until they soak longer.
+- system_googlebenchmark ACTIVATED in experimental (plumbing landed in
+  -43 with bcond OFF). Added to SRPM_EXPERIMENTAL_FLAGS + experimental
+  chroot config (F44 + rawhide). AzTestRunner now dynamically links
+  Fedora's libbenchmark.so instead of bundling; gbench API stable
+  across 1.7.0 -> 1.9.5 on the consumed surface.
+- Stabilization channel promoted 7-pack -> 12-pack 2026-05-11 (added
+  system_assimp + libsamplerate + lua + poly2tri + sqlite). Mirrors
+  validated experimental builds 10433646 + 10442708; 7-pack had >1
+  week soak with no community regressions. Stage 2 swaps stay in
+  experimental for longer soak.
 
 * Sun May 10 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-46
 - CS10 / RPM 4.19 fix (round 2): bulk-escape literal section-keyword
@@ -2170,31 +2155,18 @@ EOF
 - No code changes; documentation-only fix in the spec.
 
 * Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-44
-- Patch0011: Lua 5.5 LUA_NUMTAGS compat fix in
-  Code/Tools/LuaIDE/Source/LUA/WatchesPanel.cpp. Sibling to Patch0010
-  (lua_newstate signature) but covers a separate Lua 5.5 API break:
-  the LUA_NUMTAGS public macro was dropped in 5.5 (had been retained
-  in 5.4 as a deprecation-alias for LUA_NUMTYPES). WatchesPanel.cpp
-  references LUA_NUMTAGS at two sites (a `c > LUA_NUMTAGS` bounds
-  check and a `static_assert` on typeStringLUT size). Patch adds a
-  one-line `#define LUA_NUMTAGS LUA_NUMTYPES` shim guarded on
-  `#if LUA_VERSION_NUM >= 505 && !defined(LUA_NUMTAGS)` right after
-  the lua.h include, so existing call sites compile unchanged.
-- Caught on COPR build 10437498 (o3de-experimental, fedora-rawhide
-  chroot, 2026-05-08; the chain-built validation run for the Stage 2
-  rename + Patch0010 + system_mcpp). Patch0010 covered the engine
-  link in ScriptContext.cpp but the build progressed past that to
-  trip on this LuaIDE compile site. F44 chroot of the same build
-  separately failed with "Build root is locked by another process"
-  (transient COPR/mock infrastructure flake; not our code) -- the
-  next experimental build should succeed on F44 cleanly.
-- Caveat: there may be MORE Lua 5.5 break sites in the engine that
-  we haven't tripped on yet because they live in even-later-built
-  source files. Right way to find them all is `grep -rn LUA_NUMTAGS
-  Code/ Gems/` against the engine source on a CS10/F45-class
-  lua-devel-5.5 sysroot. Phase 2 (CS10 iteration) work; not blocking
-  this fix.
-- SBOM bumped 2605.0-43 -> 2605.0-44.
+- Patch0011: Lua 5.5 LUA_NUMTAGS compat fix in LuaIDE WatchesPanel.cpp.
+  Sibling to Patch0010 (lua_newstate signature) but covers a separate
+  Lua 5.5 API break: LUA_NUMTAGS macro dropped in 5.5 (was a 5.4
+  deprecation-alias for LUA_NUMTYPES). Patch shims it via guarded
+  #define right after the lua.h include.
+- Caught on rawhide chroot of build 10437498 (chain-build validating
+  Stage 2 rename + Patch0010 + system_mcpp). F44 chroot of the same
+  build failed separately on a transient mock "build root locked"
+  infrastructure flake.
+- Caveat: may be more Lua 5.5 break sites further along in the
+  build; full grep deferred to Phase 2 CS10 iteration.
+- SBOM -> 2605.0-44.
 
 * Fri May 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-43
 - Add system_googlebenchmark Stage 1 swap (PLUMBING ONLY; bcond OFF by
@@ -2346,29 +2318,17 @@ EOF
   carry-patch + upstream PR, "stays out" with sharpened framing).
 
 * Thu May 07 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-33
-- Docs sharpen: NvCloth status + Patch0009 PhysX4 timebomb annotation +
-  assimp Stage 1 audit summary. No code/build changes; spec changes are
-  comment-only (Patch0009 declaration block + this changelog entry).
+- Docs sharpen (no code/build changes): NvCloth status + Patch0009
+  PhysX4 timebomb annotation + assimp Stage 1 audit summary.
 - NvCloth confirmed standalone via three independent evidence types
-  (2026-05-06 + 2026-05-07): Cheddarspice runtime test (chicken prefab
-  with PhysX 4 removed + PhysX 5.6.1 active), Steve P [Amazon] code
-  review ("no direct references to physx4 library in any of the nvcloth
-  code"), and Cheddarspice structural fact ("NvCloth has its own
-  standalone PxShared library and Foundation"). Option A (drop the Gem)
-  is now well-supported, not tentative. PR #19726 (PhysX 4 retirement)
-  is imminent.
-- Patch0009 timebomb annotated in both the spec declaration block and
-  the patch file header: when PR #19726 merges upstream, the PhysX4
-  hunk fails to apply (PhysX4/ tree disappears). Fix is mechanical:
-  drop the PhysX4 hunk; regenerate Patch0009 with only the PhysX5 hunk.
-  Schedule for the same commit that pulls a fresh post-#19726 snapshot.
-- assimp audit (2026-05-07): clean Stage 1 candidate, all 27 types +
-  7 processing flags engine consumes are public C-API and 100% present
-  in Fedora 6.0.4 headers. Engine include style matches Fedora layout
-  exactly — no path-bridging needed. Fedora ships assimpConfig.cmake
-  config-mode export — no Find shim needed either. Major version delta
-  (5.4 → 6.0) is the only caveat; mitigation is pairing activation with
-  a Tier 6 FBX-bake integration test. Documented in BUNDLED_LIBRARIES.md.
+  (Cheddarspice runtime test, Steve P code review, structural fact
+  that NvCloth ships its own PxShared + Foundation). PR #19726
+  (PhysX 4 retirement) imminent.
+- Patch0009 timebomb annotated: when #19726 merges, the PhysX4 hunk
+  fails to apply (tree disappears). Fix is mechanical drop-the-hunk
+  + regenerate scheduled with the post-#19726 snapshot pull.
+- assimp Stage 1 audit confirms clean candidate (5.4 -> 6.0 delta
+  is the only caveat); see BUNDLED_LIBRARIES.md.
 
 * Thu May 07 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-32
 - Stage 1 9-pack: activate system_lua (no spec change — all wiring was
@@ -2390,31 +2350,19 @@ EOF
   audit-track wins on 2026-05-07.
 
 * Thu May 07 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-31
-- Stage 1 system_poly2tri swap (Patch0009 + Findpoly2tri-system.cmake).
-  poly2tri's bundle anchor lives in PhysX-Gem-internal PAL files
-  (Gems/PhysX/Core/PhysX{4,5}/Source/Platform/Linux/PAL_linux.cmake),
-  not in the standard cmake/3rdParty/Platform/Linux/BuiltInPackages…
-  surface — Patch0009 ships separately from Patch0006 for that reason.
-- Audit (issue #7, 2026-05-07): poly2tri consumers are exclusively in
-  Gems/PhysX/ (Editor's PolygonPrismMeshUtils for polygon-prism shape
-  colliders), zero references in core Code/. Engine uses public p2t::
-  namespace API only — no internal-symbol coupling.
-- Fedora's poly2tri-devel ships from Mason Green's BSD-3-Clause original
-  (commit 26242d0a, May 2013); license-clean and independent of the
-  bundled fork's attribution issue. Path-bridging in Findpoly2tri-system
-  adds /usr/include/poly2tri to include-dir so engine's `<poly2tri.h>`
-  consumer syntax resolves cleanly against Fedora's layout.
-- Activates --with system_poly2tri (BR poly2tri-devel,
-  Recommends poly2tri-devel, Requires poly2tri,
-  -DLY_USE_SYSTEM_POLY2TRI=ON, %%prep cp). Per-chroot
-  --rpmbuild-with system_poly2tri applied separately in COPR.
-- Channel-marker OR-chain extended; --with system_poly2tri now
-  triggers experimental channel labeling.
-- Audit-track confirmation: same playbook that delivered the AzCore Lua
-  PR (#19733) and the OpenEXR shim split now flips poly2tri from
-  "off-limits restricted bundle" to "Stage 1 swap candidate" — a
-  significantly better outcome than the original handling-options
-  framing in FEDORA_ROADMAP.md suggested.
+- Stage 1 system_poly2tri (Patch0009 + Findpoly2tri-system.cmake).
+  poly2tri's bundle anchor is in PhysX-Gem-internal PAL files, not
+  in the standard BuiltInPackages surface; Patch0009 ships separate
+  from Patch0006 for that reason.
+- Consumers exclusively in Gems/PhysX (Editor PolygonPrismMeshUtils);
+  engine uses public p2t:: API only.
+- Fedora's poly2tri-devel is Mason Green's BSD-3-Clause original
+  (commit 26242d0a, 2013); license-clean and independent of the
+  bundled fork's attribution issue. Findpoly2tri-system path-bridges
+  /usr/include/poly2tri so the engine's <poly2tri.h> include resolves.
+- Standard bcond + BR/Recommends/Requires/cmake/prep wires.
+- Audit-track win: same playbook as Lua PR #19733 + OpenEXR shim
+  flips poly2tri from "off-limits restricted bundle" to Stage 1 swap.
 
 * Thu May 07 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-30
 - Patch0008 (carry-patch, upstream-track candidate): drop AzCore's
@@ -2517,35 +2465,20 @@ EOF
   bundled-fallback path search and explicit empty-ENGINE_ID branch.
 
 * Mon May 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-24
-- Revert engine_name to upstream default "o3de" (was "o3de2605"). Surfaced
-  2026-05-04 by Nick: PM rejected adding the WarehouseAssets gem to a
-  project with:
-    Project may not be compatible with this engine
-    The following dependency requirements could not be satisfied:
-    WarehouseAssets is incompatible because: o3de2605 26.05.0 does not
-    match any version specifiers in the list of compatible engines:
-    ['o3de-sdk>=2.3.0', 'o3de>=2.3.0']
-  The gem's compatible_engines list hard-codes "o3de" / "o3de-sdk" as
-  the engine identity. Our previous override of
-  -DO3DE_INSTALL_ENGINE_NAME=%%{o3de_pkgname} (=o3de2605) made the
-  installed engine.json's engine_name "o3de2605", which doesn't match
-  any existing third-party gem's compat list — every gem fails the
-  check. Trace through cmake/Version.cmake in upstream confirms the
-  pristine default is engine_name="o3de" (read from the source's
-  engine.json), and CPACK's .deb output ships unversioned engine_name.
-  Match upstream by setting -DO3DE_INSTALL_ENGINE_NAME=o3de literally.
-  Other versioned identities stay (RPM name o3de2605, install path
-  /opt/O3DE/26.05.0, desktop files o3de2605.desktop, AppStream id
-  org.o3de.O3DE2605, dock WM_CLASS O3DE-2605, SBOM o3de2605.cdx.json):
-  these don't enter the gem-compat check, only engine.json's
-  engine_name does.
-- Trade-off accepted: the manifest's `engines_path` map keys by
-  engine_name, so multiple installed o3deNNNN majors all collide on
-  the "o3de" key. Only one is "registered" at a time; switching uses
-  scripts/o3de.sh register --this-engine from the desired install
-  root. This matches upstream's .deb multi-install UX exactly. Files
-  for multiple majors still coexist on disk (paths versioned); only
-  active registration is single-slot.
+- Revert engine_name to upstream default "o3de" (was "o3de2605").
+  PM rejected adding WarehouseAssets with "o3de2605 26.05.0 does not
+  match any version specifiers... ['o3de-sdk>=2.3.0', 'o3de>=2.3.0']":
+  third-party gems hard-code "o3de" in compatible_engines, so our
+  versioned engine_name broke every gem's compat check. Set
+  -DO3DE_INSTALL_ENGINE_NAME=o3de literally; matches upstream's .deb.
+- Other versioned identities stay (RPM name o3de2605, install path
+  /opt/O3DE/26.05.0, desktop files, AppStream id, WM_CLASS, SBOM):
+  these don't enter the gem-compat check.
+- Trade-off: manifest's engines_path map keys by engine_name, so
+  multiple o3deNNNN majors all collide on "o3de"; only one is
+  active-registered at a time, switching via o3de.sh register --this-
+  engine. Matches upstream .deb multi-install UX. Files coexist on
+  disk (paths versioned); active registration is single-slot.
 
 * Mon May 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-23
 - Devel split: introduce %{name}-devel subpackage carrying the engine's
@@ -2612,35 +2545,19 @@ EOF
   system_lua (AzCore lobject.h carry-patch) remain parked separately.
 
 * Sun May 03 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-19
-- Fix doubled-quote in installed engine.json's display_version field.
-  The two cmake vars feed DIFFERENT upstream consumers and have
-  ASYMMETRIC quoting requirements:
-  * O3DE_INSTALL_DISPLAY_VERSION_STRING → cmake/install/engine.json.in
-    has `"display_version": "@var@",` (template supplies JSON quotes)
-    → value must be UNQUOTED. Previously '"...":'  produced
-    `""26.05.0-experimental.246b46f""` — invalid JSON, surfaced by
-    Tier 2's display_version test on the o3de2605 install (test
-    correctly reported the malformed field as "still '00.00'"
-    because the field's actual value parsed as an empty string).
-  * O3DE_INSTALL_BUILD_VERSION → both
-    cmake/install/engine.json.in (`"build": @var@,` — no template
-    quotes; the field expects either a number or a quoted string
-    raw) AND Code/Editor/CMakeLists.txt's
-    `O3DE_BUILD_VERSION=${O3DE_INSTALL_BUILD_VERSION}` COMPILE_DEFINITION
-    (preprocessor needs a string literal, not bare tokens). Both
-    require the value to include quotes. Surfaced by build take 5
-    failing in CryEdit.cpp at compile time with
-    "use of undeclared identifier 'experimental'" because the
-    unquoted preprocessor expansion `2605.0-experimental.246b46f`
-    parsed as bare tokens.
-  Net change: drop quotes from the DISPLAY_VERSION_STRING line only,
-  keep them on BUILD_VERSION. engine.json now has a properly-quoted
-  display_version JSON string AND the build field stays as our
-  channel-marker quoted string (pre-existing behavior — upstream
-  expects a number here but the channel-marker convention has been
-  using a quoted string since the channel-marker work landed; that
-  schema mismatch is a separate FIXME for a future engine.json
-  schema review).
+- Fix doubled-quote in installed engine.json display_version. The two
+  cmake vars have asymmetric quoting requirements:
+  - O3DE_INSTALL_DISPLAY_VERSION_STRING: engine.json.in already wraps
+    @var@ in JSON quotes; value must be UNQUOTED. Previously double-
+    wrapped, producing invalid JSON caught by Tier 2.
+  - O3DE_INSTALL_BUILD_VERSION: feeds both engine.json.in's bare @var@
+    AND CryEdit's COMPILE_DEFINITION; both need the value to include
+    quotes. Build-5 failed at CryEdit with "use of undeclared
+    identifier 'experimental'" without them.
+  Net: drop quotes from DISPLAY_VERSION_STRING; keep on BUILD_VERSION.
+  Channel-marker quoted string in "build" field is a separate schema
+  mismatch (upstream expects a number); FIXME for future engine.json
+  schema review.
 
 * Sun May 03 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-18
 - Stage 1 baseline reduced to mikkelsen-only. Build 10421133 (5-pack:
