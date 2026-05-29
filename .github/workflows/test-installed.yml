@@ -302,9 +302,53 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      - name: Download RPM from COPR
+      - name: Download RPM from COPR (this chroot)
+        env:
+          DETECT_RPM_URL: ${{ needs.detect.outputs.rpm_url }}
+          CHROOT: ${{ matrix.chroot }}
         run: |
-          curl -fsSL -o /tmp/o3de.rpm "${{ needs.detect.outputs.rpm_url }}"
+          set -euo pipefail
+          # The detect job resolves a single fedora-44 RPM URL (used for
+          # pkgname derivation). Each matrix chroot must install ITS OWN
+          # chroot's RPM, not the fc44 one: a fc44-built RPM carries fc44
+          # SONAME auto-Requires (e.g. libOpenEXR-3_2.so.31) that a
+          # rawhide or el10 container can't satisfy once those distros
+          # move a library SONAME forward (rawhide's OpenEXR 3.2 -> 3.4
+          # broke exactly this on 2026-05-29). Re-resolve per chroot,
+          # pinned to the same name-version-release, against that
+          # chroot's own repodata. The dist tag floats across chroots
+          # (.fc44 / .fc45 / .el10) so we match on the NVR core and
+          # wildcard the dist.
+          #
+          # Derive the results-root (.../results/<owner>/<project>) by
+          # stripping the trailing "/<chroot>-x86_64/Packages/.../*.rpm"
+          # from the detect URL, then re-append THIS chroot. Trigger- and
+          # project-agnostic: works for schedule, repository_dispatch, and
+          # workflow_dispatch regardless of which COPR project the URL
+          # points at.
+          results_root=$(printf '%s' "$DETECT_RPM_URL" | sed -E 's|/[a-z0-9-]+-x86_64/.*$||')
+          # NVR core without dist+arch: o3de2605-2605.0-91.fc44.x86_64.rpm
+          # -> o3de2605-2605.0-91
+          base=$(basename "$DETECT_RPM_URL")
+          nvr_core=$(printf '%s' "$base" | sed -nE 's#^(o3de[0-9]+-[^[:space:]]+)\.(fc|el)[0-9]+\.x86_64\.rpm$#\1#p')
+          if [ -z "$results_root" ] || [ -z "$nvr_core" ]; then
+            echo "could not derive results-root / NVR core from: $DETECT_RPM_URL" >&2
+            exit 1
+          fi
+          repo="${results_root}/${CHROOT}-x86_64"
+          echo "Resolving ${nvr_core} for chroot ${CHROOT} under ${repo}"
+          primary=$(curl -fsSL "${repo}/repodata/repomd.xml" \
+            | grep -oE 'repodata/[a-f0-9]+-primary\.xml\.gz' | head -1)
+          rpm_rel=$(curl -fsSL "${repo}/${primary}" | gunzip -c \
+            | grep -oE "href=\"Packages/o/${nvr_core}\.(fc|el)[0-9]+\.x86_64\.rpm\"" \
+            | grep -v -- '-debug-' \
+            | head -1 \
+            | sed 's/^href="//; s/"$//')
+          if [ -z "$rpm_rel" ]; then
+            echo "could not find ${nvr_core} in ${CHROOT} repodata at ${repo}" >&2
+            exit 1
+          fi
+          curl -fsSL -o /tmp/o3de.rpm "${repo}/${rpm_rel}"
           ls -lh /tmp/o3de.rpm
 
       - name: Install
