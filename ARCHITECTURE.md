@@ -61,20 +61,23 @@ flowchart TB
     end
 
     subgraph DIST["Distribution channels"]
-        DC1A["COPR<br/>hellaenergy/o3de<br/>(tracks o3de/o3de:main =<br/>tagged stable releases;<br/>see POST_RELEASE.md)"]
-        DC1B["COPR<br/>hellaenergy/o3de-stabilization<br/>(community testers --<br/>pre-release validation)"]
+        DC1A["COPR<br/>hellaenergy/o3de<br/>(stable: tracks tagged<br/>upstream releases;<br/>see POST_RELEASE.md)"]
+        DC1T["COPR<br/>hellaenergy/o3de-testing<br/>(pre-promotion soak for stable;<br/>Fedora updates-testing semantics;<br/>main HEAD -> ~48h soak -> stable)"]
+        DC1B["COPR<br/>hellaenergy/o3de-stabilization<br/>(community testers --<br/>pre-release validation;<br/>active during stab/&lt;X&gt; windows)"]
         DC1S["COPR<br/>hellaenergy/o3de-development<br/>(tracks o3de/o3de:development;<br/>ad-hoc cadence)"]
         DC1C["COPR<br/>hellaenergy/o3de-experimental<br/>(in-flight Stage 1 migrations)"]
         DC2["o3debinaries.org<br/>(upstream to O3DE CI)"]
         DC3["Fedora repo<br/>(see FEDORA_ROADMAP.md)"]
         DC4["Flathub<br/>(future, separate repo)"]
         INST -.-> DC1A
+        INST -.-> DC1T
         INST -.-> DC1B
         INST -.-> DC1S
         INST -.-> DC1C
         INST -.-> DC2
         INST -.-> DC3
         INST -.-> DC4
+        DC1T -.->|"promote after soak"| DC1A
     end
 
     subgraph TEST["Test gate (community-shared)"]

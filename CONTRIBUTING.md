@@ -152,13 +152,16 @@ Five related projects under the same owner (`hellaenergy`):
 
 | Project | Purpose | Audience | Mid-flight changes? |
 |---|---|---|---|
-| `hellaenergy/o3de-dependencies` | Fedora-clean SRPMs for non-Fedora deps (custom Qt, PhysX, AWSNativeSDK, mikkelsen, …) | Consumed by the four engine projects via `additional_repos` | Rare — these are vetted system-library replacements |
-| `hellaenergy/o3de` | Tagged-release engine builds | End users wanting a stable release | Only at upstream release cadence |
-| `hellaenergy/o3de-stabilization` | Pre-release validation builds from upstream `stabilization/<release>` | Community testers Nick has invited to validate | **Hands off when testers are active** — see `MEMORY.md` |
+| `hellaenergy/o3de-dependencies` | Fedora-clean SRPMs for non-Fedora deps (custom Qt, PhysX, AWSNativeSDK, mikkelsen, the Stage 2 rebuilds, ...) | Consumed by the five engine projects via `additional_repos` | Rare; these are vetted system-library replacements |
+| `hellaenergy/o3de` | Tagged-release engine builds | End users wanting a stable release | Only at upstream release cadence + post-soak promotions from `o3de-testing` |
+| `hellaenergy/o3de-testing` | Pre-promotion soak channel for stable. Same engine source tag as stable, with packaging-side bug fixes + minor enhancements queued for promotion. Mirrors Fedora's `updates-testing` semantics. | Early adopters who want to validate packaging fixes before they reach broader stable | Push freely from main HEAD when user-facing fixes are ready; promote to stable after ~48h soak without regression reports |
+| `hellaenergy/o3de-stabilization` | Pre-release validation builds from upstream `stabilization/<release>` (e.g., `stabilization/26050`). Active during a 4-week pre-release window per release cycle. | Community testers Nick has invited to validate engine-side pre-release | **Hands off when testers are active** during a stabilization window; dormant between windows |
 | `hellaenergy/o3de-development` | Always tracks upstream `o3de/development` tip | Engine contributors validating the bleeding-edge branch | Push freely (ad-hoc cadence, no testers expecting regular cadence). For arbitrary other refs (e.g. qt6), create a dedicated COPR project per branch. |
-| `hellaenergy/o3de-experimental` | Packagers' staging channel for in-flight spec changes (future Stage 3+ migrations like OpenSSL 3, new `system_<X>` swap candidates, structural spec rework). Currently mirrors the stabilization swap set; distinguished by the `-experimental.<commit>` channel marker. | Just us, until validated | Push freely; promote to `-stabilization` when validated |
+| `hellaenergy/o3de-experimental` | Packagers' migration-work channel. New `system_<X>` swap candidates, COPR-rebuilt dep PoCs, structural spec rework validate here before promotion to stabilization (during a stab window) or testing (post-release). Distinguished by the `-experimental.<commit>` channel marker. | Just us, until validated | Push freely; promote to `-stabilization` or `-testing` when validated |
 
-The four engine projects all set `enable_net=true` (so cmake can fetch the remaining bundles from `packages.o3de.org` at build time; current set: NvCloth + squish-ccr restricted-by-license, plus tiff + OpenSSL + OIIO/OCIO + pyside2 + the six unaudited multiplatform deps still in transit toward Stage 1 or Stage 2 coverage) and pull `o3de-dependencies` via the chroot's `additional_repos` (build-time) and `runtime_dependencies` (consume-time, for end users).
+The five engine projects all set `enable_net=true` (so cmake can fetch the remaining bundles from `packages.o3de.org` at build time; current set: NvCloth + squish-ccr restricted-by-license, plus tiff + OpenSSL + OIIO/OCIO + pyside2 + the unaudited multiplatform deps still in transit toward Stage 1 or Stage 2 coverage) and pull `o3de-dependencies` via the chroot's `additional_repos` (build-time) and `runtime_dependencies` (consume-time, for end users).
+
+**Promotion flow for user-facing packaging fixes** (the standard cadence between upstream release cycles): `main HEAD` -> `make copr-testing-and-test` (publishes to `o3de-testing`; testers see it; CI runs Tier 1-7) -> soak ~48 hours, no regression reports -> `make copr-stable` (publishes the same SRPM to `o3de`). The testing channel exists specifically to absorb "oh wait, the Recommends broke something on a chroot we didn't think about" before it reaches stable users. Skip the testing soak only for the tagged-release ceremony (upstream releases land directly in stable per `POST_RELEASE.md`).
 
 Channel-marker bconds (set on the destination project's chroots via `--rpmbuild-with`): `--with experimental` on `o3de-experimental`, `--with stabilization` on `o3de-stabilization`, `--with development_snapshot` on `o3de-development`. Tagged-release builds going to `o3de` carry no channel bcond and the marker resolves to a clean version string. GUI version strings: `26.05.0-experimental.<sha>`, `26.05.0-stabilization`, `26.05.0-development.<sha>`, or `26.05.0` (stable). The marker reflects the destination *project*, not the active feature set (early Stage 1 logic used to infer `-experimental` from "any system_* swap active" but that broke once swaps graduated into the stab + stable channels too).
 
@@ -168,11 +171,13 @@ Workflow:
 
 ```bash
 make copr-init                       # prints one-time COPR setup commands (chroots, repos, etc.)
+make copr-testing                    # build SRPM, upload to hellaenergy/o3de-testing (pre-stable soak)
 make copr-stabilization              # build SRPM, upload to hellaenergy/o3de-stabilization
 make copr-development                # always dev-branch, uploads to hellaenergy/o3de-development
 make copr-experimental               # same SRPM, uploads to hellaenergy/o3de-experimental
-make copr-stable                     # tagged release builds
-make copr-stabilization-and-test     # full pipeline: build + watch + fire CI tests
+make copr-stable                     # tagged release builds (and post-soak promotions from testing)
+make copr-testing-and-test           # full pipeline: build + watch + fire CI tests against o3de-testing
+make copr-stabilization-and-test     # same, against the stabilization project
 make copr-development-and-test       # same, against the development project
 make copr-experimental-and-test      # same, against the experimental project
 ```

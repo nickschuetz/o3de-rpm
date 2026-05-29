@@ -21,11 +21,15 @@ name: test-installed
 #                         client_payload: { rpm_url, build_id }
 #   schedule              cron-poll COPR every 4 hours; on a new
 #                         succeeded build that's never been tested,
-#                         run automatically. Polls o3de-stabilization
-#                         (the community-tester channel) by default;
-#                         o3de-development is for dev-branch builds and
-#                         doesn't need cron-driven testing. Dedup via
-#                         actions/cache keyed on the COPR build_id.
+#                         run automatically. Polls o3de-testing (the
+#                         pre-promotion-to-stable channel, updates-
+#                         testing semantics) by default; o3de-
+#                         stabilization is the pre-release tester
+#                         channel which is dormant post-release until
+#                         the next stabilization/<X> branch opens;
+#                         o3de-development is for dev-branch builds
+#                         and doesn't need cron-driven testing. Dedup
+#                         via actions/cache keyed on the COPR build_id.
 
 on:
   workflow_dispatch:
@@ -75,10 +79,11 @@ on:
 env:
   COPR_OWNER: hellaenergy
   # The cron path polls this project for new builds. Defaults to
-  # o3de-stabilization since that's the regular community-tester
-  # channel; o3de-development is for ad-hoc development-branch builds
-  # and doesn't need cron-driven testing.
-  COPR_PROJECT: o3de-stabilization
+  # o3de-testing (the pre-promotion soak channel for stable; Fedora
+  # updates-testing semantics). o3de-stabilization stays dormant
+  # between engine-stabilization-branch windows. o3de-development is
+  # for ad-hoc dev-branch builds and doesn't need cron-driven testing.
+  COPR_PROJECT: o3de-testing
   # Opt JS-based actions (checkout, upload/download-artifact, cache) into
   # Node 24 ahead of GitHub's forced cutover on 2026-06-02. Surfaces any
   # Node 24 incompatibility now, on our schedule, instead of auto-flipping

@@ -59,6 +59,7 @@ PKGNAME := $(shell rpmspec --define "_sourcedir $(PWD)/sources" --define "_specd
 REF                          ?= stabilization/26050
 COPR_OWNER                   ?= hellaenergy
 COPR_PROJECT_STABLE          ?= o3de
+COPR_PROJECT_TESTING         ?= o3de-testing
 COPR_PROJECT_STABILIZATION   ?= o3de-stabilization
 COPR_PROJECT_DEVELOPMENT     ?= o3de-development
 COPR_PROJECT_EXPERIMENTAL    ?= o3de-experimental
@@ -631,6 +632,15 @@ copr-init:
 
 copr-stable: srpm
 	copr-cli build --timeout 28800 $(COPR_OWNER)/$(COPR_PROJECT_STABLE) \
+		~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
+
+# o3de-testing is the pre-promotion soak channel for stable. Same SRPM
+# as stable (same release tag + same with_opts via chroot config); the
+# difference is the destination project. Promotion flow:
+# main HEAD -> copr-testing-and-test (soak ~48h) -> copr-stable.
+# Mirrors Fedora's updates-testing semantics.
+copr-testing: srpm
+	copr-cli build --timeout 28800 $(COPR_OWNER)/$(COPR_PROJECT_TESTING) \
 		~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
 
 # release-stable: post-release-ceremony helper. Verifies the spec's
