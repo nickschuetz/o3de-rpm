@@ -136,10 +136,25 @@ ZLIB::ZLIB)`) trips engine-side `add_library(3rdParty::zlib ALIAS
 steps both by creating a real INTERFACE IMPORTED target and linking
 the system library via file path rather than via the stock target.
 
+Build 10522201 caught a third lesson: regenerate this patch against
+the spec's pinned snapshot commit, not the dev-tip checkout. The
+dev-tip BuiltInPackages_linux_x86_64.cmake may have evolved away from
+the snapshot's layout (e.g., dev-tip dropped assimp from the list at
+some point post-2026-05-23 while stabilization/26050 retained it).
+A patch regenerated against dev-tip will reject at %prep on the
+snapshot. The right workflow:
+
+  git -C ~/PROJECTS/o3de show <snapshot_commit>:cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake \\
+    > /tmp/orig.cmake
+  cp /tmp/orig.cmake /tmp/patched.cmake
+  # ... apply gates to /tmp/patched.cmake ...
+  diff -u /tmp/orig.cmake /tmp/patched.cmake > /tmp/newhunk.diff
+  patch -p1 --dry-run -i ... </tmp/orig.cmake  # verify clean
+
 ---
 --- a/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake
 +++ b/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake
-@@ -9,37 +9,105 @@
+@@ -9,38 +9,110 @@
  # this file allows you to specify all 3p packages (provided by O3DE or the operating system) for Linux.
  
  # shared by other platforms:
@@ -171,6 +186,11 @@ the system library via file path rather than via the stock target.
  ly_associate_package(PACKAGE_NAME expat-2.4.2-rev2-linux                            TARGETS expat                       PACKAGE_HASH 755369a919e744b9b3f835d1acc684f02e43987832ad4a1c0b6bbf884e6cd45b)
 +else()
 +    find_package(expat REQUIRED)
++endif()
++if (NOT LY_USE_SYSTEM_ASSIMP)
+ ly_associate_package(PACKAGE_NAME assimp-5.4.3-rev3-linux                           TARGETS assimp                      PACKAGE_HASH 62ddd306d520b9b9ac6f587927ff82a90fb1e9e81d7609d67984551da376cf98)
++else()
++    find_package(assimp REQUIRED)
 +endif()
  ly_associate_package(PACKAGE_NAME AWSNativeSDK-1.11.288-rev1-linux                  TARGETS AWSNativeSDK                PACKAGE_HASH 20421c93a5d32feae636c6dc46323b10547f2c5e7e62b63db00319765bb45331)
 +if (NOT LY_USE_SYSTEM_TIFF)

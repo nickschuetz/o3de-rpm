@@ -1,4 +1,24 @@
 %changelog
+* Thu May 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-86
+- Fix Patch0006: regenerate against stabilization/26050 snapshot pin.
+  Experimental build 10522201 failed at %prep on all three chroots
+  (F44, rawhide, CS10) with "1 out of 1 hunk FAILED" applying
+  0006-builtinpackages-gate-mikkelsen-on-system.patch. Root cause:
+  the patch was regenerated against my local dev-tip checkout
+  (~/PROJECTS/o3de) earlier today in the xxhash and cityhash commits,
+  but dev-tip has dropped the `assimp-5.4.3-rev3-linux` line from
+  BuiltInPackages_linux_x86_64.cmake while stabilization/26050 still
+  carries it. The dev-tip-derived patch's hunk shape did not match
+  the snapshot's actual layout.
+  Fix: regenerate Patch0006 against the snapshot pin commit 8e75050
+  via `git show 8e750500:cmake/.../BuiltInPackages_linux_x86_64.cmake`,
+  then verify clean with `patch -p1 --dry-run` against the same
+  source. Captured the lesson as a new third paragraph in the patch's
+  explanation header so future regenerations use the right basis.
+  This makes -86 the first revision that should build successfully
+  on experimental with the full Stage 1 swap set including the new
+  four (rapidxml, rapidjson, xxhash, cityhash).
+
 * Thu May 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-85
 - Stage 1 swap #18: system_cityhash against the license-clean COPR
   rebuild o3de2605-cityhash.
