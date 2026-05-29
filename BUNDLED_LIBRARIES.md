@@ -98,7 +98,7 @@ These have direct Fedora equivalents. Migration is per-package, low risk per mig
 
 **Validation status:** local `rpmbuild -bp` confirmed Patch0006 applies cleanly to commit `246b46f` and the find module gets dropped into the right place. End-to-end COPR build + CI-test run pending (this is the first build to exercise the experimental channel and the migration template).
 
-**Promotion to o3de-stabilization:** once an `o3de-experimental` build with `--with system_mikkelsen` passes the test-installed.yml workflow (Tier 1+2+3+6 across F44 + rawhide), the same SRPM can be uploaded to `o3de-stabilization` (the community testers' channel) for community validation — but only when Nick signals the testing window is open for new pushes. See `MEMORY.md` → "Active community testers on COPR".
+**Promotion to o3de-stabilization:** once an `o3de-experimental` build with `--with system_mikkelsen` passes the test-installed.yml workflow (Tier 1+2+3+6 across F44 + rawhide), the same SRPM can be uploaded to `o3de-stabilization` for community validation during active stabilization windows; but only when Nick signals the testing window is open for new pushes. See `MEMORY.md` for "Active community testers on COPR".
 
 **Pattern this template establishes:** every Stage 1 package gets its own `LY_USE_SYSTEM_<PACKAGE>` gate via the same patch shape, plus a `Find<package>-system.cmake`-style find module. Future migrations (zlib, freetype, libpng, …) follow this template — the diff for each is ~5 lines in `BuiltInPackages_linux_x86_64.cmake` plus one find module file plus ~6 lines in `o3de.spec` (bcond + Source + Patch + BR/Requires + prep cp + cmake flag) plus one line in `Makefile`'s `SRPM_EXPERIMENTAL_FLAGS`.
 
