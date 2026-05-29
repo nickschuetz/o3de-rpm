@@ -273,7 +273,7 @@ for swap in \
     "openexr-libs:libOpenEXR-3_[0-9]+\.so\.[0-9]+" \
     "libsamplerate:libsamplerate\.so\.[0-9]+" \
     "sqlite-libs:libsqlite3\.so\.[0-9]+" \
-    "poly2tri:libpoly2tri\.so\.[0-9]+" \
+    "poly2tri:libpoly2tri\.so\.[0-9]+(\.[0-9]+)*" \
     "google-benchmark:libbenchmark\.so\.[0-9]+" \
     "o3de2605-mcpp-az:libmcpp\.so\.[0-9]+" \
 ; do
