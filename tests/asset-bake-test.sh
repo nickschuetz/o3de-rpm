@@ -1,11 +1,11 @@
 #!/bin/bash
-# Tier 7 -- system-swap library-health check for an installed o3de RPM.
+# Tier 7: system-swap library-health check for an installed o3de RPM.
 #
 # History: this was originally an end-to-end "drive AssetProcessorBatch
 # against cube.fbx and grade the .azmodel output" test. That premise
 # was wrong (documented at length in memory note
 # `project_tier7_cold_cache_quirk.md`): FBX -> azmodel through SceneAPI
-# is NOT standalone from the Atom rendering pipeline -- even the
+# is NOT standalone from the Atom rendering pipeline; even the
 # simplest cube.fbx declares a JobDependency on
 # DefaultVertexBufferPool.resourcepool which transitively needs
 # shaders + SRG merge + Atom RPI gem. An empty scratch project can't
@@ -16,7 +16,7 @@
 # binding/library layer: verify each Stage 1 system-swap library is
 # loadable, has the expected SONAME, exposes the symbols the engine
 # uses, and is actually linked-against by an engine binary. Doesn't
-# claim behavior coverage -- the engine team owns SceneAPI integration
+# claim behavior coverage; the engine team owns SceneAPI integration
 # testing, and we'd need an upstream `--minimal-scope` flag on
 # AssetProcessorBatch to do that properly from a downstream packager
 # position.
@@ -57,7 +57,7 @@ RED='\033[1;31m'; GREEN='\033[1;32m'; YELLOW='\033[1;33m'; BOLD='\033[1m'; RST='
 
 pass=0; fail=0
 ok()   { printf "  ${GREEN}PASS${RST} %s\n" "$*"; pass=$((pass+1)); }
-nope() { printf "  ${RED}FAIL${RST} %s -- %s\n" "$1" "$2"; fail=$((fail+1)); }
+nope() { printf "  ${RED}FAIL${RST} %s: %s\n" "$1" "$2"; fail=$((fail+1)); }
 info() { printf "  %s\n" "$*"; }
 
 # Auto-detect installed versioned package (same pattern as the other tests).
@@ -84,7 +84,7 @@ REPRESENTATIVE_SO="$ENGINE_PATH/bin/Linux/profile/Default/libSceneBuilder.so"
 [ -f "$REPRESENTATIVE_SO" ] || REPRESENTATIVE_SO=$(find "$ENGINE_PATH/bin/Linux/profile/Default" -name 'lib*.so' | head -1)
 [ -f "$REPRESENTATIVE_SO" ] || { printf "prerequisite missing: no engine .so under %s\n" "$ENGINE_PATH" >&2; exit 2; }
 
-printf "${BOLD}=== Tier 7 -- system-swap library-health check ===${RST}\n"
+printf "${BOLD}=== Tier 7: system-swap library-health check ===${RST}\n"
 printf "package:    %s\n" "$O3DE_PKGNAME"
 printf "engine:     %s\n" "$ENGINE_PATH"
 printf "probe .so:  %s\n\n" "$REPRESENTATIVE_SO"
@@ -97,30 +97,38 @@ printf "probe .so:  %s\n\n" "$REPRESENTATIVE_SO"
 # The sample_symbol is something the engine calls at runtime; we look it up
 # in the library via `nm -D`. min_version_major is 0 to skip the version
 # check.
+# The soname column is an extended regex (ERE), not a literal string, so
+# the version component can be wildcarded. We resolve the concrete soname
+# from ldconfig by this pattern. Libraries whose Fedora ABI version drifts
+# across our chroots (rawhide ships Lua 5.5 / OpenEXR 3.4 where F44 ships
+# 5.4 / 3.2) must wildcard the version; the check's intent is "the system
+# library is present and exposes the symbol", not "this exact ABI". Dots
+# use a [.] character class so they match literally (avoids awk
+# dynamic-regex escape warnings).
 SWAPS=(
-    "assimp:libassimp.so.6:aiImportFile:6"
-    "lua:liblua-5.4.so:lua_newstate:5"
-    "sqlite:libsqlite3.so.0:sqlite3_open:3"
-    "libsamplerate:libsamplerate.so.0:src_new:0"
-    "expat:libexpat.so.1:XML_ParserCreate:0"
-    "freetype:libfreetype.so.6:FT_Init_FreeType:0"
-    "png:libpng16.so.16:png_create_read_struct:0"
-    "zlib:libz.so.1:inflateInit_:0"
-    "lz4:liblz4.so.1:LZ4_compress_default:0"
-    "mikkelsen:libmikktspace.so.0:genTangSpaceDefault:0"
-    "openexr:libOpenEXR-3_2.so.31:ImfApplyLut:0"
-    "poly2tri:libpoly2tri.so.1.0:_ZN3p2t12SweepContext12GetTrianglesEv:0"
+    "assimp:libassimp[.]so[.]6:aiImportFile:6"
+    "lua:liblua-5[.][0-9]+[.]so:lua_newstate:5"
+    "sqlite:libsqlite3[.]so[.]0:sqlite3_open:3"
+    "libsamplerate:libsamplerate[.]so[.]0:src_new:0"
+    "expat:libexpat[.]so[.]1:XML_ParserCreate:0"
+    "freetype:libfreetype[.]so[.]6:FT_Init_FreeType:0"
+    "png:libpng16[.]so[.]16:png_create_read_struct:0"
+    "zlib:libz[.]so[.]1:inflateInit_:0"
+    "lz4:liblz4[.]so[.]1:LZ4_compress_default:0"
+    "mikkelsen:libmikktspace[.]so[.]0:genTangSpaceDefault:0"
+    "openexr:libOpenEXR-3_[0-9]+[.]so[.][0-9]+:ImfApplyLut:0"
+    "poly2tri:libpoly2tri[.]so[.]1[.]0:_ZN3p2t12SweepContext12GetTrianglesEv:0"
     # googlebenchmark: activated 2026-05-11 in experimental (build 10444166 GREEN).
-    # SONAME libbenchmark.so.1. Sample symbol is benchmark::Initialize -- but
+    # SONAME libbenchmark.so.1. Sample symbol is benchmark::Initialize, but
     # the 1.9.x ABI added a help-callback function pointer parameter, so the
     # mangled name is the 4-arg form (not the 1.7.x 2-arg form):
     # benchmark::Initialize(int*, char**, void(*)()).
-    "googlebenchmark:libbenchmark.so.1:_ZN9benchmark10InitializeEPiPPcPFvvE:0"
+    "googlebenchmark:libbenchmark[.]so[.]1:_ZN9benchmark10InitializeEPiPPcPFvvE:0"
     # mcpp (Stage 2 library-link swap; promoted to stabilization 2026-05-14).
     # Linked into Gems/Atom/Asset/Shader/Code (Preprocessor.cpp consumes
     # mcpp_lib_main / mcpp_set_out_func / mcpp_set_report_include_callback).
     # SONAME libmcpp.so.0 (from o3de2605-mcpp-az COPR build, mcpp 2.7.2 + _az.2 patches).
-    "mcpp:libmcpp.so.0:mcpp_lib_main:0"
+    "mcpp:libmcpp[.]so[.]0:mcpp_lib_main:0"
 )
 
 # Stage 2 binary-shellout swaps (dxc, spirv-cross) and Stage 1
@@ -156,16 +164,23 @@ has_symbol() {
 
 printf "${BOLD}-- Per-swap library health --${RST}\n"
 for entry in "${SWAPS[@]}"; do
-    IFS=':' read -r swap soname symbol min_major <<< "$entry"
-    printf "[%s] %s\n" "$swap" "$soname"
-    path=$(ldcache_path "$soname")
-    if [ -z "$path" ]; then
-        nope "$swap" "SONAME $soname not in ldconfig cache"
+    IFS=':' read -r swap soname_re symbol min_major <<< "$entry"
+    # Resolve the concrete soname + path from ldconfig by matching the
+    # version-agnostic ERE, anchored to the full library name. This lets
+    # the check hold across chroots that ship a different ABI version
+    # (e.g. rawhide's liblua-5.5.so / libOpenEXR-3_4.so.NN vs F44's
+    # liblua-5.4.so / libOpenEXR-3_2.so.31).
+    line=$(ldconfig -p 2>/dev/null | awk -v re="^${soname_re}\$" '$1 ~ re {print $1 "\t" $NF; exit}')
+    if [ -z "$line" ]; then
+        nope "$swap" "no SONAME matching ${soname_re} in ldconfig cache"
         continue
     fi
+    soname="${line%%$'\t'*}"
+    path="${line#*$'\t'}"
+    printf "[%s] %s\n" "$swap" "$soname"
     actual_soname=$(soname_of "$path")
     if [ "$actual_soname" != "$soname" ]; then
-        nope "$swap" "expected SONAME $soname, file at $path reports $actual_soname"
+        nope "$swap" "ldconfig lists $soname at $path but objdump reports SONAME $actual_soname"
         continue
     fi
     if ! has_symbol "$path" "$symbol"; then
@@ -182,24 +197,26 @@ done
 printf "\n${BOLD}-- Engine binary linkage --${RST}\n"
 linkage=$(ldd "$REPRESENTATIVE_SO" 2>/dev/null || true)
 for entry in "${SWAPS[@]}"; do
-    IFS=':' read -r swap soname _ _ <<< "$entry"
-    if printf "%s\n" "$linkage" | grep -qE "[[:space:]]${soname}[[:space:]]"; then
+    IFS=':' read -r swap soname_re _ _ <<< "$entry"
+    # Match the actual linked soname (version-agnostic ERE) in ldd output.
+    matched=$(printf "%s\n" "$linkage" | awk -v re="^${soname_re}\$" '$1 ~ re {print $1; exit}')
+    if [ -n "$matched" ]; then
         # The library is linked. Confirm it resolves to a system path
         # (not a bundled copy under the install prefix).
-        resolved=$(printf "%s\n" "$linkage" | awk -v s="$soname" '$1==s{print $3; exit}')
+        resolved=$(printf "%s\n" "$linkage" | awk -v s="$matched" '$1==s{print $3; exit}')
         case "$resolved" in
             /usr/lib*|/lib*)
-                ok "$swap: $REPRESENTATIVE_SO links $soname from system path ($resolved)"
+                ok "$swap: $REPRESENTATIVE_SO links $matched from system path ($resolved)"
                 ;;
             "$ENGINE_PATH"*)
-                nope "$swap" "$REPRESENTATIVE_SO links $soname from BUNDLED path $resolved -- system swap not firing"
+                nope "$swap" "$REPRESENTATIVE_SO links $matched from BUNDLED path $resolved; system swap not firing"
                 ;;
             *)
-                info "$swap: $REPRESENTATIVE_SO links $soname from non-standard path $resolved (review)"
+                info "$swap: $REPRESENTATIVE_SO links $matched from non-standard path $resolved (review)"
                 ;;
         esac
     fi
-    # Not linking is fine -- not every system swap is exercised by every
+    # Not linking is fine; not every system swap is exercised by every
     # engine binary (e.g., poly2tri isn't pulled into SceneBuilder). The
     # per-library health check above is what gates the swap; this section
     # just adds smoke-test coverage that the swap is actually consumed.
@@ -222,7 +239,7 @@ if [ -n "$assimp_path" ]; then
         nope "assimp" "libassimp.so.6 in ldconfig cache but not readable at $assimp_path"
     fi
 else
-    nope "assimp" "libassimp.so.6 not in ldconfig cache -- system swap broken or Fedora rolled"
+    nope "assimp" "libassimp.so.6 not in ldconfig cache; system swap broken or Fedora rolled"
 fi
 
 printf "\n${BOLD}-- Summary --${RST}\n"
