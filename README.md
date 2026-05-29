@@ -1,6 +1,6 @@
 # o3de-rpm
 
-RPM packaging for the [Open 3D Engine](https://o3de.org), targeting **Fedora 44** with **rpm 4.20+**.
+RPM packaging for the [Open 3D Engine](https://o3de.org), targeting **Fedora 44+** (including rawhide) and **CentOS Stream 10+**. Builds run on rpm 4.19 (CS10) and rpm 4.20+ (F44 / rawhide); spec authoring conventions handle the parser divergence between them (see `project_cs10_debuginfo_quirk.md` memory note for the two CS10 RPM 4.19 quirks worked around so far).
 
 The same spec produces:
 
