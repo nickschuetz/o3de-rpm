@@ -137,7 +137,6 @@ spec-parse-experimental:
 	    --define "_with_system_png 1" \
 	    --define "_with_system_poly2tri 1" \
 	    --define "_with_system_rapidjson 1" \
-	    --define "_with_system_rapidxml 1" \
 	    --define "_with_system_spirvcross 1" \
 	    --define "_with_system_sqlite 1" \
 	    --define "_with_system_tiff 1" \
@@ -306,7 +305,6 @@ SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
                           --with system_png \
                           --with system_poly2tri \
                           --with system_rapidjson \
-                          --with system_rapidxml \
                           --with system_spirvcross \
                           --with system_sqlite \
                           --with system_vulkan_validation_layers \

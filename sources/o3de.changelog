@@ -1,4 +1,37 @@
 %changelog
+* Thu May 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-87
+- Walk back system_rapidxml: Fedora's stock rapidxml-devel lacks the
+  Amazon Lumberyard API extensions the engine depends on.
+  Experimental build 10522249 (-86) failed at %build:
+    Code/Framework/AzCore/AzCore/Serialization/ObjectStream.cpp:2069:
+      error: no member named 'isError' in 'rapidxml::xml_document<>'
+    Code/Framework/AzCore/AzCore/Serialization/ObjectStream.cpp:2071:
+      error: no member named 'getError' in 'rapidxml::xml_document<>'
+  Root cause: the bundled `RapidXML-1.13-rev1-multiplatform` package
+  contains Amazon Lumberyard's "AZ Extention" patches that add
+  `m_isError` / `m_error[512]` state plus `isError()` / `getError()` /
+  `resetError()` methods on `xml_document`. These replace upstream
+  RapidXML's exception-throwing error model with return-value error
+  reporting, which is required because O3DE builds with
+  `-D_HAS_EXCEPTIONS=0` (no C++ exceptions). Fedora's `rapidxml-devel`
+  ships the upstream form without these extensions; the engine code
+  cannot compile against it.
+  Same shape as libtiff: a "-rev1" / "_az" suffixed bundle is a
+  patched fork, not a re-versioned upstream. The Find shim, the
+  bcond `%bcond_with system_rapidxml` (defaulted off), the Source46
+  declaration, the BR/Recommends/cp/-D blocks, and the Patch0006
+  gate all remain in place as activation framework, in case a future
+  rebuild of the patched fork ships via COPR. For now,
+  `--with system_rapidxml` drops from SRPM_EXPERIMENTAL_FLAGS and the
+  spec-parse-experimental define list, and the matching chroot
+  with_opts entries will be removed via copr-cli edit-chroot before
+  the next experimental build fires.
+  Other three swaps from today (system_rapidjson, system_xxhash,
+  system_cityhash) verified upstream-only via grep for "AZ Extention"
+  / O3DE-specific patches in the bundled headers; no extension calls
+  in the engine's consumer files. Those three stay active.
+  Memory note added: `feedback_check_for_bundled_patched_apis.md`.
+
 * Thu May 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-86
 - Fix Patch0006: regenerate against stabilization/26050 snapshot pin.
   Experimental build 10522201 failed at %prep on all three chroots
