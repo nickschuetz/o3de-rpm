@@ -125,6 +125,18 @@ The announcement is a manual step; no auto-post from the test infrastructure.
 - Tag the spec commit (e.g., `release/2605.0`) so the post-release state is bookmarked.
 - Move on to dev-snapshot cadence: fire `make copr-development` to push a build of the new development tip into `hellaenergy/o3de-development`. This kicks off the next cycle's tracking.
 
+## Between releases (post-release packaging fixes)
+
+The release ceremony above goes direct to stable because the release has soaked in `o3de-stabilization` for weeks already. Routine post-release packaging fixes (a community-reported `Recommends:` gap, a Wayland workaround, a launcher tweak) do NOT go direct to stable. They flow through `hellaenergy/o3de-testing` first:
+
+```bash
+make copr-testing-and-test     # build + push to o3de-testing + fire CI tests
+# soak ~48 hours; watch for regression reports on the testing channel
+make copr-stable               # promote the same SRPM to o3de
+```
+
+See `CONTRIBUTING.md` "COPR Projects" section for the channel layout and the rationale.
+
 ## Failure modes
 
 - **sha256 mismatch in make srpm**: redownload the tarball; GitHub's CDN may have served partial bytes. Retry the sha256 + paste sequence.

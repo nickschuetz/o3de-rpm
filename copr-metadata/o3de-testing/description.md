@@ -1,0 +1,1 @@
+Open 3D Engine 26.05.x for Fedora: testing channel (pre-promotion to stable). Mirrors Fedora updates-testing semantics. Stable engine source tag plus packaging-side bug fixes and minor enhancements queued for the hellaenergy/o3de stable channel. Promotion flow: main HEAD -> testing (~48h soak window) -> stable. Most users should enable hellaenergy/o3de instead.
