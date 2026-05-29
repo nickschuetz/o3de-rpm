@@ -4,11 +4,11 @@ RPM packaging for the [Open 3D Engine](https://o3de.org), targeting **Fedora 44*
 
 The same spec produces:
 
-- **Stable release builds** — from upstream's tagged release tarball (`o3de_<tag>_lfs.tar.gz`).
-- **Snapshot builds** — from any git ref of `o3de/o3de`. Two upstream branches are common targets for this and they're *not* the same thing:
-  - **`stabilization/<X>`** (e.g. `stabilization/26050`) — the pre-release stabilization branch for the next tagged release (in this case 26.05). This is what `hellaenergy/o3de-stabilization` (the community testers' channel) ships from. When O3DE upstream tags `2605.0`, this branch's tip *is* the release — so snapshots from here are functionally release candidates.
-  - **`development`** — the bleeding-edge integration branch where new features land daily. Less stable than a stabilization branch; useful for engine contributors testing in-progress work, less appropriate for community testers expecting near-release quality.
-  - Or any other ref — feature branches, specific commits, tags.
+- **Stable release builds**, from upstream's tagged release tarball (`o3de_<tag>_lfs.tar.gz`). These ship to **`hellaenergy/o3de`** (the stable channel; broadest audience) and, before they're promoted there, to **`hellaenergy/o3de-testing`** (pre-promotion soak; Fedora updates-testing semantics; ~48h soak window for packaging-side fixes queued for stable). Both channels build from the same release tarball; the difference is whether the SRPM has soaked yet.
+- **Snapshot builds**, from any git ref of `o3de/o3de`. Two upstream branches are common targets and they're *not* the same thing:
+  - **`stabilization/<X>`** (e.g. `stabilization/26050`), the pre-release stabilization branch for the next tagged release. Ships to **`hellaenergy/o3de-stabilization`** during the upstream stabilization window (typically a 4-week period before each release tag). Dormant between cycles. When O3DE upstream tags `2605.0`, this branch's tip *is* the release, so snapshots from here are functionally release candidates.
+  - **`development`**, the bleeding-edge integration branch where new features land daily. Ships to **`hellaenergy/o3de-development`**. Less stable than a stabilization branch; useful for engine contributors testing in-progress work, less appropriate for community testers expecting near-release quality.
+  - Or any other ref, e.g. feature branches, specific commits, tags. Dedicated COPR project per ref rather than overloading the channels above.
 
 It also provides an extension point for bundling pre-built **O3DE 3rdParty packages** into the RPM, gated by per-package `--with` flags so you only pay for what you use.
 
