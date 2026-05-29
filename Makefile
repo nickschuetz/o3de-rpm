@@ -728,6 +728,13 @@ copr-stabilization-and-test: srpm-stabilization
 copr-experimental-and-test: srpm-experimental
 	@$(MAKE) _copr-and-test COPR_TARGET=$(COPR_PROJECT_EXPERIMENTAL)
 
+# copr-testing-and-test: build the stable SRPM, push to o3de-testing,
+# watch + trigger CI tests. Same SRPM as copr-stable; difference is
+# the destination project. Used for the routine "soak before stable"
+# cadence on packaging-side fixes.
+copr-testing-and-test: srpm
+	@$(MAKE) _copr-and-test COPR_TARGET=$(COPR_PROJECT_TESTING)
+
 # Internal helper: parameterized build-then-watch-then-trigger-tests.
 # Not a normal entry point; called from copr-{development,stabilization,experimental}-and-test.
 _copr-and-test:
