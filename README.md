@@ -286,7 +286,31 @@ The spec is RPM / DNF / mock-conformant with no Fedora-edition-specific assumpti
 To consume (end users):
 
 ```bash
-sudo dnf copr enable hellaenergy/o3de-stabilization   # pre-release tester channel
+# Pick ONE channel. Don't enable multiple at the same time.
+#
+#   hellaenergy/o3de              stable. Most users want this. Tracks
+#                                 upstream tagged releases (26.05.0,
+#                                 26.05.1, ...) and post-soak promotions
+#                                 from o3de-testing.
+#
+#   hellaenergy/o3de-testing      pre-promotion soak for stable. Same
+#                                 engine source tag, slightly newer
+#                                 packaging fixes queued for stable.
+#                                 ~48h soak window. Enable this if you
+#                                 want to validate packaging fixes a
+#                                 couple of days before they reach
+#                                 stable users; report regressions if
+#                                 you hit any.
+#
+#   hellaenergy/o3de-stabilization
+#                                 pre-release engine validation, active
+#                                 during the 4-week upstream stabilization
+#                                 window per release cycle. Dormant
+#                                 between cycles. Enable only when an
+#                                 upstream stabilization branch is
+#                                 active and you want to validate the
+#                                 NEXT release candidate.
+sudo dnf copr enable hellaenergy/o3de                  # change to o3de-testing if you want pre-stable soak
 sudo dnf install o3de2605                              # ~2 GB main + ~4 GB -devel (auto-pulled via Recommends);
                                                        # pass --setopt=install_weak_deps=False to skip -devel
                                                        # for runtime-only deployments.
