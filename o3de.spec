@@ -276,7 +276,7 @@ Version:        %{stable_tag}~%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        91%{?dist}
+Release:        92%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -905,6 +905,14 @@ Provides:       o3de = %{version}-%{release}
 #   - clang: O3DE projects compile with clang on Linux
 #   - mesa-libGL-devel + mesa-libGLU-devel: OpenGL headers
 #   - libxcb-devel: XCB (X11 protocol bindings)
+#   - xcb-util-*-devel: the XCB util suite Qt's xcb platform plugin
+#     pulls in at compile time. We already BuildRequire all five for
+#     the engine build; a consumer project that links the same Qt needs
+#     the same headers. xcb-util-keysyms-devel was the field-confirmed
+#     miss (2026-05-29 alex7900 report: project build failed in a clean
+#     Fedora Toolbox until it was installed by hand); the other four are
+#     listed alongside it to match the BuildRequires set so the next
+#     header isn't a second surprise.
 #   - libxkbcommon-devel + libxkbcommon-x11-devel: keyboard layout headers
 #   - fontconfig-devel: font config headers
 #   - libunwind-devel: stack unwinding headers
@@ -920,6 +928,11 @@ Recommends:     clang
 Recommends:     mesa-libGL-devel
 Recommends:     mesa-libGLU-devel
 Recommends:     libxcb-devel
+Recommends:     xcb-util-devel
+Recommends:     xcb-util-image-devel
+Recommends:     xcb-util-keysyms-devel
+Recommends:     xcb-util-renderutil-devel
+Recommends:     xcb-util-wm-devel
 Recommends:     libxkbcommon-devel
 Recommends:     libxkbcommon-x11-devel
 Recommends:     fontconfig-devel

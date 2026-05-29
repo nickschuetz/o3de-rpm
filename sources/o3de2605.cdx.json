@@ -1,32 +1,32 @@
 {
   "bomFormat": "CycloneDX",
   "specVersion": "1.6",
-  "serialNumber": "urn:uuid:o3de2605-rpm-2605.0-90",
+  "serialNumber": "urn:uuid:o3de2605-rpm-2605.0-92",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-05-29T00:00:00Z",
+    "timestamp": "2026-05-29T17:00:00Z",
     "tools": {
       "components": [
         {
           "type": "application",
           "name": "o3de-rpm",
-          "version": "2605.0-90",
+          "version": "2605.0-92",
           "description": "O3DE RPM packaging spec (versioned package: o3de2605)"
         }
       ]
     },
     "component": {
-      "bom-ref": "pkg:rpm/fedora/o3de2605@2605.0-90",
+      "bom-ref": "pkg:rpm/fedora/o3de2605@2605.0-92",
       "type": "application",
       "name": "o3de2605",
-      "version": "2605.0-90",
-      "description": "Open 3D Engine 26.05 line \u2014 real-time, multi-platform 3D engine",
+      "version": "2605.0-92",
+      "description": "Open 3D Engine 26.05 line: real-time, multi-platform 3D engine",
       "licenses": [
         {
           "expression": "Apache-2.0 OR MIT"
         }
       ],
-      "purl": "pkg:rpm/fedora/o3de2605@2605.0-90?arch=x86_64",
+      "purl": "pkg:rpm/fedora/o3de2605@2605.0-92?arch=x86_64",
       "externalReferences": [
         {
           "type": "website",
@@ -101,7 +101,7 @@
       "name": "qt",
       "version": "5.15.2-rev9",
       "scope": "required",
-      "description": "Custom-patched Qt 5.15 bundled by upstream O3DE via packages.o3de.org. System Qt5 cannot substitute \u2014 the rev9 patches are load-bearing for the editor. Tracked for Bundling Library Exception filing in FEDORA_ROADMAP.md (stage 5).",
+      "description": "Custom-patched Qt 5.15 bundled by upstream O3DE via packages.o3de.org. System Qt5 cannot substitute; the rev9 patches are load-bearing for the editor. Tracked for Bundling Library Exception filing in FEDORA_ROADMAP.md (stage 5).",
       "licenses": [
         {
           "expression": "LGPL-3.0-only OR GPL-3.0-only"
@@ -194,7 +194,7 @@
   ],
   "dependencies": [
     {
-      "ref": "pkg:rpm/fedora/o3de2605@2605.0-90",
+      "ref": "pkg:rpm/fedora/o3de2605@2605.0-92",
       "dependsOn": [
         "build-dep:cmake",
         "build-dep:ninja-build",

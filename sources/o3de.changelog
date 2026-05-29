@@ -1,4 +1,18 @@
 %changelog
+* Fri May 29 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-92
+- Add the xcb-util-*-devel suite to the project-build Recommends:
+  xcb-util-devel, xcb-util-image-devel, xcb-util-keysyms-devel,
+  xcb-util-renderutil-devel, xcb-util-wm-devel.
+  Building a project against the installed engine compiles against
+  Qt's xcb platform plugin headers, which need the XCB util suite.
+  These were already BuildRequires for the engine build itself but
+  were missing from the runtime project-build Recommends, so a clean
+  environment without them (e.g. a Fedora Toolbox) failed a project
+  build until they were installed by hand.
+  Field report: alex7900 on Bazzite 43 / Fedora 44 Toolbox hit the
+  missing xcb-util-keysyms-devel; the rest of the suite is added
+  alongside it to match the BuildRequires set. Recommends (weak) so
+  runtime-only installs can still opt out with install_weak_deps=False.
 * Thu May 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-91
 - Escape literal section markers in changelog entries.
   CS10's RPM 4.19 parser misreads any unescaped %%<section> in
