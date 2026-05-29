@@ -1,4 +1,39 @@
 %changelog
+* Thu May 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-91
+- Escape literal section markers in changelog entries.
+  CS10's RPM 4.19 parser misreads any unescaped %%<section> in
+  %%include'd content as a section start; the first such token after
+  the legitimate %%changelog header looks like a second %%install /
+  %%build section, breaking SRPM build.
+  Caught by o3de-testing first-fire build 10522782: CS10 chroot
+  failed at buildsrpm with "error: line 809: second %%install"
+  referring to a prose mention of an `%%install-time symlink` in the
+  -82 RapidXML walkback entry which CS10's parser interpreted as a
+  section header. F44 and rawhide RPM 6.x parse the same content
+  idempotently; only CS10 trips.
+  Memory note: project_cs10_debuginfo_quirk.md (the second of two
+  CS10 RPM 4.19 quirks documented there).
+  Six instances escaped across the changelog history. The first-line
+  %%changelog header that the spec's %%include expects stays
+  unescaped.
+  Same SRPM content as -90 except for the escape characters; no
+  functional change to the built package.
+
+* Thu May 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-90
+- Introduce hellaenergy/o3de-testing channel (pre-promotion soak for
+  stable, Fedora updates-testing semantics). Promotion flow:
+  main HEAD to testing (~48h soak) to stable. Adds COPR_PROJECT_TESTING
+  Makefile variable + copr-testing / copr-testing-and-test targets,
+  README + CONTRIBUTING + ARCHITECTURE (with Mermaid diagram update) +
+  FEDORA_ROADMAP + POST_RELEASE documentation sweep, CI workflow cron-
+  poll default changed to o3de-testing, SBOM externalReferences updated
+  with new "distribution" entries for both stable and testing COPR
+  channels. Out-of-repo: COPR project hellaenergy/o3de-testing created
+  with stable's swap set mirrored (17-item with_opts; NO experimental
+  swap activations) and additional_repos pointing at o3de-dependencies.
+  Per the Release-bump-for-SRPM-coherence rule: -90 ships the new SBOM
+  + spec content; no functional change to the binary RPM.
+
 * Thu May 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-89
 - Auto-apply QT_FONT_DPI=100 workaround for Wayland XWayland.
   Community report 2026-05-28 (adwaita on Fedora 44 + GNOME Wayland +
@@ -52,7 +87,7 @@
 * Thu May 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-87
 - Walk back system_rapidxml: Fedora's stock rapidxml-devel lacks the
   Amazon Lumberyard API extensions the engine depends on.
-  Experimental build 10522249 (-86) failed at %build:
+  Experimental build 10522249 (-86) failed at %%build:
     Code/Framework/AzCore/AzCore/Serialization/ObjectStream.cpp:2069:
       error: no member named 'isError' in 'rapidxml::xml_document<>'
     Code/Framework/AzCore/AzCore/Serialization/ObjectStream.cpp:2071:
@@ -84,7 +119,7 @@
 
 * Thu May 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-86
 - Fix Patch0006: regenerate against stabilization/26050 snapshot pin.
-  Experimental build 10522201 failed at %prep on all three chroots
+  Experimental build 10522201 failed at %%prep on all three chroots
   (F44, rawhide, CS10) with "1 out of 1 hunk FAILED" applying
   0006-builtinpackages-gate-mikkelsen-on-system.patch. Root cause:
   the patch was regenerated against my local dev-tip checkout
@@ -194,7 +229,7 @@
 
 * Thu May 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-81
 - Bump Release for SRPM coherence after the spec-body restructure in
-  commit aa443f9 (%changelog body moved into sources/o3de.changelog,
+  commit aa443f9 (%%changelog body moved into sources/o3de.changelog,
   pulled back in via Source99 + %include). The restructured spec
   produces a different SRPM than the published 2605.0-80; bumping to
   -81 keeps the NVR-to-SRPM mapping clean. No COPR build was fired in
@@ -316,7 +351,7 @@
       (was `o3de_<TAG>_lfs.tar.gz` with underscores). Source0 URL
       updated accordingly; comment in stable_sha256 area refreshed.
     * Release tarball ships content at the root (no wrapping `o3de/`
-      directory). Spec's `%autosetup` now uses `-c -n` in stable mode
+      directory). Spec's `%%autosetup` now uses `-c -n` in stable mode
       to create the wrapping directory at extract time, matching the
       previous snapshot-mode path where the tarball already wraps.
   Makefile updates: `srpm` target now passes `--without snapshot` so
@@ -598,7 +633,7 @@
   the equivalent change on 2026-05-08 as PR o3de/o3de#19734
   (dda736e0, "libtiff: migrate legacy typedefs to C99 standard
   types"); our carry-patch is now dead code. Directive commented out
-  in spec so %autosetup skips it. Patch file retained in sources/ as
+  in spec so %%autosetup skips it. Patch file retained in sources/ as
   historical reference.
 - Discovered during the upstream-pitch preparation pass: rebasing our
   libtiff-c99-typedef-migration branch onto current upstream/development
@@ -806,7 +841,7 @@
   spirv-cross from the o3de-spirv-cross package (sibling COPR project
   hellaenergy/o3de-dependencies; PoC 10434617 GREEN). Engine treats
   spirv-cross as a binary shellout (zero #include of SPIRV-Cross C++
-  headers per 2026-05-07 audit), so an %install-time symlink at the
+  headers per 2026-05-07 audit), so an %%install-time symlink at the
   expected runtime path is sufficient; no engine code change needed.
   Patch0006 gate deferred until a Findspirvcross-system.cmake shim
   exists; for now upstream fetch stays but is overlaid by the symlink.
