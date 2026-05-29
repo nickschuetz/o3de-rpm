@@ -143,6 +143,20 @@ for path in sys.argv[2:]:
     touch "$migration_marker" 2>/dev/null || :
 fi
 
+# Qt 5.15-rev9 auto-DPI quirk on Wayland XWayland: the bundled Qt
+# version mis-detects font scale, producing oversized or tiny fonts
+# in Project Manager. Community report 2026-05-28 (adwaita on F44 +
+# GNOME Wayland + 4K + amdgpu) confirms the same workaround used by
+# the upstream Debian .deb package: set QT_FONT_DPI=100 to disable
+# auto-scaling. Default only when the user hasn't set it AND we're
+# on a Wayland session; X11 sessions behave correctly without this.
+# Will become irrelevant when Qt 6 migration lands in 26.10.0
+# (vanilla Qt 6 + system qt6-qtwayland resolves both this and the
+# missing-wayland-platform-plugin gap).
+if [ -z "${QT_FONT_DPI:-}" ] && [ "${XDG_SESSION_TYPE:-}" = "wayland" ]; then
+    export QT_FONT_DPI=100
+fi
+
 exec "$BIN_DIR/o3de" \
     -name "O3DE" \
     --engine-path="$ENGINE_PATH" \

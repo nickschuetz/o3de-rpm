@@ -1,4 +1,27 @@
 %changelog
+* Thu May 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-89
+- Auto-apply QT_FONT_DPI=100 workaround for Wayland XWayland.
+  Community report 2026-05-28 (adwaita on Fedora 44 + GNOME Wayland +
+  4K + amdgpu): bundled Qt 5.15-rev9 mis-detects font scale on
+  Wayland XWayland; without `QT_FONT_DPI=100` fonts in Project
+  Manager render at the wrong size. Same workaround used by the
+  upstream Debian .deb package (so it's a Qt-bundle issue, not a
+  Fedora-specific packaging issue).
+  Fix: the launcher script now sets QT_FONT_DPI=100 automatically
+  when XDG_SESSION_TYPE=wayland AND the user hasn't already set
+  QT_FONT_DPI. X11 sessions are unaffected. Users who want a
+  different value can still export QT_FONT_DPI before launch.
+  Also: README Known Limitations section gains two entries:
+  - Bundled Qt 5.15-rev9 ships only xcb / offscreen / minimal
+    platform plugins; no wayland plugin. System qt5-qtwayland
+    cannot substitute because the bundle is isolated. GNOME / KDE
+    Wayland users get XCB via XWayland. Will resolve with the Qt 6
+    migration targeted for 26.10.0.
+  - Qt 5.15-rev9 auto-DPI mis-detection on Wayland XWayland;
+    automatically worked around by the launcher as of -89.
+  This is a downstream-only doc + launcher change; no engine source
+  touched, no upstream PR needed.
+
 * Thu May 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-88
 - Auto-pull o3de2605-devel via Recommends from the main package.
   Community report 2026-05-28 (Adwaita installing 2605.0-1 from
