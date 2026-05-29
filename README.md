@@ -176,8 +176,8 @@ This roughly doubles build time (debug compiles all the same TUs at `-O0` with f
 
 The o3de2605 RPM is split into a small number of subpackages so each install can match the actual workload. Concrete value:
 
-- **Smaller default install.** The post-split main package is ~1.7 GB compressed (down from ~2.2 GB pre-split — roughly 22% smaller). On disk, runtime-only deployments save ~4 GB by skipping the engine static archives that only native-C++-gem authors need.
-- **Right tool for your use case.** Three orthogonal install dimensions: *runtime* (everything in the main package), *static-archive surface for native C++ gem development* (`-devel`), *step-through debuggability of engine internals* (`-debug`). End users + Lua/ScriptCanvas project authors install just the main package; gem developers add `-devel`; engine-internal debuggers add `-debug`. No use case is forced to carry the others.
+- **Smaller default install.** The post-split main package is ~1.7 GB compressed (down from ~2.2 GB pre-split — roughly 22% smaller). On disk, runtime-only deployments save ~4 GB by skipping the engine static archives. (The default `dnf install o3de2605` still pulls `-devel` via `Recommends:` so project authors get a working build out of the box; runtime-only consumers opt out with `--setopt=install_weak_deps=False`.)
+- **Right tool for your use case.** Three orthogonal install dimensions: *runtime* (the main package's binaries; sufficient to launch Project Manager + the Editor), *static-archive link surface for building projects* (`-devel`; auto-recommended), *step-through debuggability of engine internals* (`-debug`). Project authors get the runtime + `-devel` pair by default; engine-internal debuggers add `-debug`; pure runtime-only deployments opt out of `-devel`.
 - **CI- and container-friendly.** Game distribution servers shipping pre-built games, CI test containers, and minimal Docker images can skip ~4 GB of compiler-side material. `dnf install --setopt=install_weak_deps=False o3de2605` opts out of even the project-build `*-devel` system Recommends list — the absolute floor for a runtime-only deployment.
 - **Aligned with Fedora packaging guidelines.** Fedora's [Packaging Guidelines](https://docs.fedoraproject.org/en-US/packaging-guidelines/) require a `-devel` subpackage for any C/C++ package shipping static libraries, and recommend split-by-purpose for large packages. Doing this split proactively (rather than during the Fedora package review) removes one entire class of review friction. Same with the project-build `*-devel` Recommends pattern (clang, mesa-libGL[U]-devel, libxcb-devel, libxkbcommon-devel, libxkbcommon-x11-devel, fontconfig-devel, libcurl-devel, pcre2-devel, openssl-devel, libunwind-devel, libzstd-devel, zlib-devel, vim-common, plus per-active Stage 1 swap like mikkelsen-devel) — testers get a working build experience by default; minimal users opt out.
 - **Forward-compatible with multi-major.** When `o3de2605-devel` and `o3de2610-devel` both exist someday, they're independent — install the devel surface only for the major you actually develop against, not all of them.
@@ -188,11 +188,11 @@ The main RPM ships alongside up to two optional subpackages:
 
 | Package | Contents | When to install |
 |---|---|---|
-| `o3de2605` (main) | Engine binaries (`bin/Linux/profile/Default/`), runtime cmake config + per-target import files, headers, gem sources, scripts, Templates, Editor assets, Python bootstrap, SBOM | Always — the runtime + the materials needed to compile a project against the engine's `.so`s |
-| `o3de2605-devel` | Static archives (`lib/Linux/profile/Default/*.a` + `lib64/`) — ~178 `.a` files, ~4 GB. Test framework, builder targets, static-only engine internals. | Add when writing native C++ gems that static-link against engine internals, or when building the engine's own test infrastructure. End users running games + Lua/ScriptCanvas project authors don't need this. |
+| `o3de2605` (main) | Engine binaries (`bin/Linux/profile/Default/`), runtime cmake config + per-target import files, headers, gem sources, scripts, Templates, Editor assets, Python bootstrap, SBOM. **Recommends `o3de2605-devel`** so dnf pulls it in by default. | Always. The runtime + the materials needed to launch the Editor and Project Manager. |
+| `o3de2605-devel` | Static archives (`lib/Linux/profile/Default/*.a` + `lib64/`) — ~178 `.a` files, ~4 GB. Includes `libAzGameFramework.a`, `libAzCore` static surfaces, `libAtomCore.a`, `libAssetBuilderSDK.a`, and the rest of the engine's `.a` link surface. | Always for project authors. **Project Manager's "Build" workflow links any GameLauncher / ServerLauncher / HeadlessServerLauncher target against these archives**; without `-devel` the cmake `--build` step fails at ninja with `libAzGameFramework.a, needed by ..., missing`. The only case for skipping `-devel` is a pure runtime-only deployment (e.g., headless server host running pre-built binaries from elsewhere) which is rare. |
 | `o3de2605-debug` | Debug-config binaries (`bin/Linux/debug/`) + matching static archives (`lib/Linux/debug/`). Full debug symbols, `-O0`. | Add when you need to step through engine code in a debugger. Set `O3DE_BUILD_CONFIG=debug` to launch the debug build. |
 
-`dnf install o3de2605` (default) gets you the runtime + project-build materials; `dnf install o3de2605 o3de2605-devel` adds the static-archive surface needed for native gem development. The project-build `*-devel` system packages (clang, mesa-libGL[U]-devel, libxcb-devel, libxkbcommon-devel, libxkbcommon-x11-devel, fontconfig-devel, libcurl-devel, pcre2-devel, openssl-devel, libunwind-devel, libzstd-devel, zlib-devel, vim-common, plus the `*-devel` for any active Stage 1 system-library swap like mikkelsen-devel) are pulled in via the main package's `Recommends:` list — installed by default unless you pass `--setopt=install_weak_deps=False`.
+`dnf install o3de2605` (default) pulls in `o3de2605-devel` automatically via the main package's `Recommends:`. If you want to override this and install runtime-only, pass `--setopt=install_weak_deps=False`. The project-build `*-devel` system packages (clang, mesa-libGL[U]-devel, libxcb-devel, libxkbcommon-devel, libxkbcommon-x11-devel, fontconfig-devel, libcurl-devel, pcre2-devel, openssl-devel, libunwind-devel, libzstd-devel, zlib-devel, vim-common, plus the `*-devel` for any active Stage 1 system-library swap like mikkelsen-devel) are pulled in via the same `Recommends:` list — installed by default unless you pass `--setopt=install_weak_deps=False`.
 
 ---
 
@@ -286,20 +286,11 @@ To consume (end users):
 
 ```bash
 sudo dnf copr enable hellaenergy/o3de-stabilization   # pre-release tester channel
-sudo dnf install o3de2605                              # ~2 GB download (compressed)
+sudo dnf install o3de2605                              # ~2 GB main + ~4 GB -devel (auto-pulled via Recommends);
+                                                       # pass --setopt=install_weak_deps=False to skip -devel
+                                                       # for runtime-only deployments.
 o3de2605                                               # launch Project Manager (GUI)
 o3de2605-cli --help                                    # CLI for project / gem / engine management
-
-sudo dnf install o3de2605-devel                        # OPTIONAL: add ~178 static archives
-                                                       # (~4 GB, lib/Linux/profile/Default/*.a) for
-                                                       # native C++ gem development. REQUIRED if your
-                                                       # project's native target links AzGameFramework /
-                                                       # AzCore / SceneCore etc. directly (e.g. a
-                                                       # .GameLauncher project produced by Project
-                                                       # Manager). End users running games and
-                                                       # Lua/ScriptCanvas authors don't need it. See
-                                                       # "Subpackages overview" below for the full
-                                                       # split rationale.
 ```
 
 The package name follows a `o3deNNNN` convention (postgresql-style): `NNNN` is the upstream major as `YYMM` (`2605` for 26.05.x, `2610` for the next major). The install path under `/opt/O3DE/<DISPLAY_VERSION>/` matches what the upstream `.deb` and Windows `.msi` installers ship — same path mental model across distros and OSes.

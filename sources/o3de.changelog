@@ -1,4 +1,31 @@
 %changelog
+* Thu May 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-88
+- Auto-pull o3de2605-devel via Recommends from the main package.
+  Community report 2026-05-28 (Adwaita installing 2605.0-1 from
+  hellaenergy/o3de): cmake configure succeeded, `cmake --build` failed
+  at ninja with `libAzGameFramework.a, needed by libDefaultProject.so,
+  missing and no known rule to make it`. Root cause: the static archives
+  needed for ANY project build (DefaultProject's GameLauncher target was
+  the trigger; same applies to MultiplayerSample, NewspaperDeliveryGame,
+  and any user-created project from Project Manager) live in
+  o3de2605-devel, not the main runtime package. The user had only
+  installed o3de2605 because the README framed -devel as "for native
+  gem development" -- which mis-scoped the actual requirement.
+  Fix: add `Recommends: %{name}-devel = %{version}-%{release}` to the
+  main package's Recommends list. dnf pulls in both by default; users
+  who want runtime-only (rare; headless server hosts running pre-built
+  binaries) can still opt out via `--setopt=install_weak_deps=False`.
+  Recommends rather than Requires preserves the headless-runtime-only
+  use case as a legitimate path.
+  Also: README clarity pass. The Subpackages overview table now
+  describes -devel as the link-time material every project build
+  needs (not "for native gem development"); the install snippet shows
+  `dnf install o3de2605` pulling -devel automatically; the consumer
+  example line drops the separate -devel install (auto-recommended).
+  Doesn't help users already on -1 (they need a manual
+  `sudo dnf install o3de2605-devel`); fix lands on the next stable
+  rebuild.
+
 * Thu May 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-87
 - Walk back system_rapidxml: Fedora's stock rapidxml-devel lacks the
   Amazon Lumberyard API extensions the engine depends on.

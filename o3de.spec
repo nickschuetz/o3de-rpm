@@ -276,7 +276,7 @@ Version:        %{stable_tag}~%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        87%{?dist}
+Release:        88%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -799,6 +799,16 @@ Requires:       python3
 # silently). Default install pulls cmake; minimal installs can opt out
 # via `dnf install --setopt=install_weak_deps=False`.
 Recommends:     cmake
+
+# The -devel subpackage ships the static archives (*.a) every project
+# build links: libAzGameFramework.a, libAzCore (Object/Static variants),
+# libAtomCore.a, libAssetBuilderSDK.a, and the rest of the AzFramework /
+# AzNetworking / AssetProcessor.Static surfaces. Any project that runs
+# `cmake --build .../GameLauncher` will fail at the ninja link step
+# without -devel installed (caught 2026-05-28 by a community report).
+# We Recommend rather than Require so the (rare) headless-runtime-only
+# use case can still opt out via `--setopt=install_weak_deps=False`.
+Recommends:     %{name}-devel = %{version}-%{release}
 
 # Stage 1 system-library runtime side. RPM auto-Requires picks up the
 # .so.N dependencies by ldd-walking engine binaries, but listing the
