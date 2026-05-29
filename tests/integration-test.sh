@@ -28,13 +28,13 @@ RUN_PROJECT=0
 # Engine path defaults from O3DE_ENGINE_PATH (legacy name preserved), or
 # auto-detect from the package's installed engine.json, or last-resort
 # default. Prefer the actual install when O3DE_PKGNAME resolves to a
-# real package — handles both /opt/o3de (legacy) and /opt/O3DE/<v>/
+# real package; handles both /opt/o3de (legacy) and /opt/O3DE/<v>/
 # (post-rename) layouts transparently.
 if [ -n "${O3DE_ENGINE_PATH:-}" ]; then
     ENGINE_PATH="$O3DE_ENGINE_PATH"
 else
     # The package contains TWO engine.json files:
-    #   - /opt/O3DE/<v>/engine.json          (engine-root marker — what we want)
+    #   - /opt/O3DE/<v>/engine.json          (engine-root marker; what we want)
     #   - /opt/O3DE/<v>/bin/Linux/profile/Default/engine.json  (per-build artifact)
     # Pick the shorter path (= shallower in the tree = the engine root).
     ENGINE_PATH=$(rpm -ql "$O3DE_PKGNAME" 2>/dev/null \
@@ -67,23 +67,23 @@ done
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 ok()    { printf '  '"$PASS"' %s\n' "$1"; pass+=1; }
-nope()  { printf '  '"$FAIL"' %s — %s\n' "$1" "$2"; fail+=1; failures+=("$1: $2"); }
+nope()  { printf '  '"$FAIL"' %s: %s\n' "$1" "$2"; fail+=1; failures+=("$1: $2"); }
 nope_v(){ # capture stderr/stdout into the failure msg
     local name="$1"; shift
     local out; out=$("$@" 2>&1)
     if [ $? -eq 0 ]; then ok "$name"; else nope "$name" "${out//$'\n'/ }"; fi
 }
-skipped(){ printf '  '"$SKIP"' %s — %s\n' "$1" "$2"; skip+=1; }
+skipped(){ printf '  '"$SKIP"' %s: %s\n' "$1" "$2"; skip+=1; }
 
 require() { command -v "$1" >/dev/null 2>&1 || { printf 'prerequisite missing: %s\n' "$1" >&2; exit 2; }; }
 for cmd in rpm desktop-file-validate appstream-util; do require "$cmd"; done
 
 # ── Tier 1: RPM-level integrity ──────────────────────────────────────────────
-printf "$HEADER" "Tier 1 — package metadata"
+printf "$HEADER" "Tier 1: package metadata"
 
 # Derive the version-suffix that's appended to several installed names
 # (e.g., AppStream component ID `org.o3de.O3DE2605`, WM_CLASS `O3DE-2605`).
-# For a legacy `o3de` package (no digit suffix), MAJOR_TAG is empty —
+# For a legacy `o3de` package (no digit suffix), MAJOR_TAG is empty;
 # tests fall back to the un-versioned identifiers.
 MAJOR_TAG="${O3DE_PKGNAME#o3de}"
 APPSTREAM_ID="org.o3de.O3DE${MAJOR_TAG}"
@@ -106,9 +106,9 @@ LIC=$(rpm -q --qf '%{LICENSE}' "$O3DE_PKGNAME")
 [ "$LIC" = "Apache-2.0 OR MIT" ] && ok "license: $LIC" || nope "license" "expected 'Apache-2.0 OR MIT', got '$LIC'"
 
 # ── Tier 2: install integrity ────────────────────────────────────────────────
-printf "$HEADER" "Tier 2 — installed file integrity"
+printf "$HEADER" "Tier 2: installed file integrity"
 
-# Required entry points (always required) — all derived from $O3DE_PKGNAME.
+# Required entry points (always required); all derived from $O3DE_PKGNAME.
 for path in \
     "/usr/bin/$O3DE_PKGNAME" \
     "/usr/share/applications/$O3DE_PKGNAME.desktop" \
@@ -149,9 +149,9 @@ if rpm -ql "$O3DE_PKGNAME" 2>/dev/null | grep -qx "/usr/bin/${O3DE_PKGNAME}-cli"
     if printf '%s\n' "$cli_out" | grep -qE 'usage: o3de\.py|Sub-Commands'; then
         ok "/usr/bin/${O3DE_PKGNAME}-cli --help reaches the upstream o3de.py argparse"
     elif printf '%s\n' "$cli_out" | grep -qE 'Python has not been downloaded|get_python\.sh first'; then
-        ok "/usr/bin/${O3DE_PKGNAME}-cli is reachable (wrapper → o3de.sh → python.sh — venv setup pending; run get_python.sh or pass --setup)"
+        ok "/usr/bin/${O3DE_PKGNAME}-cli is reachable (wrapper -> o3de.sh -> python.sh; venv setup pending; run get_python.sh or pass --setup)"
     else
-        nope "/usr/bin/${O3DE_PKGNAME}-cli reachable" "no argparse and no Python-setup hint — wrapper or o3de.sh path broken: ${cli_out//$'\n'/ | }"
+        nope "/usr/bin/${O3DE_PKGNAME}-cli reachable" "no argparse and no Python-setup hint; wrapper or o3de.sh path broken: ${cli_out//$'\n'/ | }"
     fi
 else
     skipped "/usr/bin/${O3DE_PKGNAME}-cli checks" "RPM doesn't declare it (pre-CLI build); skipping"
@@ -163,7 +163,7 @@ nope_v "$O3DE_PKGNAME.desktop validates" desktop-file-validate "/usr/share/appli
 nope_v "$O3DE_PKGNAME-editor.desktop validates" desktop-file-validate "/usr/share/applications/$O3DE_PKGNAME-editor.desktop"
 nope_v "metainfo validates" appstream-util validate-relax --nonet "/usr/share/metainfo/$O3DE_PKGNAME.metainfo.xml"
 
-# AppStream sees the package (appstreamcli is optional — only if installed)
+# AppStream sees the package (appstreamcli is optional; only if installed)
 if command -v appstreamcli >/dev/null 2>&1; then
     if appstreamcli search "$APPSTREAM_ID" 2>/dev/null | grep -qE "^Identifier: ${APPSTREAM_ID}"; then
         ok "AppStream registers $APPSTREAM_ID"
@@ -176,7 +176,7 @@ fi
 
 # StartupWMClass values (for dock icon matching).
 # Project Manager: versioned to match what the launcher's Qt -name arg
-#   sets at runtime — multiple installed majors get distinct dock identities.
+#   sets at runtime; multiple installed majors get distinct dock identities.
 # Editor: NOT versioned. The Editor is exec'd by Project Manager directly,
 #   bypassing our launcher, so its WM_CLASS comes from Qt's internal
 #   setApplicationName("O3DE Editor"). Verified live via xprop:
@@ -204,7 +204,7 @@ fi
 DV=$(grep '"display_version"' "$ENGINE_PATH/engine.json" | awk -F'"' '{print $4}')
 [ "$DV" != "00.00" ] && [ -n "$DV" ] && \
     ok "display_version set: $DV (splash will show this, not 'Development Build')" || \
-    nope "display_version" "still '00.00' — splash will say 'Development Build'"
+    nope "display_version" "still '00.00'; splash will say 'Development Build'"
 
 # No world-writable files in the engine root
 WW=$(find "$ENGINE_PATH" -perm -o+w -type f 2>/dev/null | head -3)
@@ -215,7 +215,7 @@ WW=$(find "$ENGINE_PATH" -perm -o+w -type f 2>/dev/null | head -3)
 for pkg in scripts/o3de Tools/LyTestTools Tools/RemoteConsole/ly_remote_console; do
     sdists=$(ls "$ENGINE_PATH/$pkg/dist/"*.tar.gz 2>/dev/null | head -1)
     if [ -n "$sdists" ]; then ok "sdist present: $pkg/dist/$(basename "$sdists")"
-    else nope "sdist: $pkg" "missing — user-project cmake configure will fail"; fi
+    else nope "sdist: $pkg" "missing; user-project cmake configure will fail"; fi
 done
 
 # ldd on the launcher's eventual target binary (needs symlinks first)
@@ -232,7 +232,7 @@ done
 # Stage 1 system-library swap consistency. For each migration where the
 # RPM declares a system Requires:, verify the package's auto-Requires
 # (computed by RPM walking ldd of every .so it ships) includes the
-# expected soname — catches the failure mode where the spec activates
+# expected soname; catches the failure mode where the spec activates
 # the swap but cmake silently falls through to the upstream bundle
 # (which would link statically, leaving the soname missing from auto-
 # Requires entirely).
@@ -245,25 +245,37 @@ done
 # layout (which can vary across gem/component structure changes).
 #
 # Add a row per activated migration. Format:
-#   "<rpm-package-name>:<expected-soname>"
-#   rpm-package — matches `rpm -q --requires o3de` to detect activation
-#   soname      — looked for in `rpm -q --requires` as `<soname>(...)`
+#   "<rpm-package-name>:<soname-ere>"
+#   rpm-package: matches `rpm -q --requires o3de` to detect activation
+#   soname-ere : an extended regex matched against `rpm -q --requires`
+#                 (auto-Requires tokens look like `libfoo.so.N()(64bit)`).
+#
+# The soname is matched as an ERE with the version component wildcarded
+# rather than a fixed string. The test's job is to confirm the swap took
+# effect (the system soname appears in auto-Requires, i.e. the bundle is
+# NOT statically linked); the specific ABI version is irrelevant to that
+# and drifts across our chroots. e.g. rawhide ships Lua 5.5
+# (liblua-5.5.so) and OpenEXR 3.4 (libOpenEXR-3_4.so.NN) where F44 ships
+# Lua 5.4 / OpenEXR 3.2; pinning the F44 version string made the rawhide
+# test job spuriously fail even though the swap was working. Wildcarding
+# the version keeps the "did the swap take effect" assertion intact while
+# being distro-version agnostic.
 for swap in \
-    "expat:libexpat.so.1" \
-    "freetype:libfreetype.so.6" \
-    "mikkelsen:libmikktspace.so.0" \
-    "libpng:libpng16.so.16" \
-    "libtiff:libtiff.so.6" \
-    "zlib:libz.so.1" \
-    "assimp:libassimp.so.6" \
-    "lua-libs:liblua-5.4.so" \
-    "lz4-libs:liblz4.so.1" \
-    "openexr-libs:libOpenEXR-3_2.so.31" \
-    "libsamplerate:libsamplerate.so.0" \
-    "sqlite-libs:libsqlite3.so.0" \
-    "poly2tri:libpoly2tri.so.1.0" \
-    "google-benchmark:libbenchmark.so.1" \
-    "o3de2605-mcpp-az:libmcpp.so.0" \
+    "expat:libexpat\.so\.[0-9]+" \
+    "freetype:libfreetype\.so\.[0-9]+" \
+    "mikkelsen:libmikktspace\.so\.[0-9]+" \
+    "libpng:libpng16\.so\.[0-9]+" \
+    "libtiff:libtiff\.so\.[0-9]+" \
+    "zlib:libz\.so\.[0-9]+" \
+    "assimp:libassimp\.so\.[0-9]+" \
+    "lua-libs:liblua-5\.[0-9]+\.so" \
+    "lz4-libs:liblz4\.so\.[0-9]+" \
+    "openexr-libs:libOpenEXR-3_[0-9]+\.so\.[0-9]+" \
+    "libsamplerate:libsamplerate\.so\.[0-9]+" \
+    "sqlite-libs:libsqlite3\.so\.[0-9]+" \
+    "poly2tri:libpoly2tri\.so\.[0-9]+" \
+    "google-benchmark:libbenchmark\.so\.[0-9]+" \
+    "o3de2605-mcpp-az:libmcpp\.so\.[0-9]+" \
 ; do
     # Stage 2 binary-shellout swaps (o3de2605-dxc-spirv, o3de2605-spirv-cross)
     # don't appear in auto-Requires (engine shells out to the binaries at
@@ -274,16 +286,23 @@ for swap in \
     pkg="${swap%%:*}"
     soname="${swap#*:}"
     if rpm -q --requires "$O3DE_PKGNAME" 2>/dev/null | grep -qE "^${pkg}(\\s|\$|>|=)"; then
-        if rpm -q --requires "$O3DE_PKGNAME" 2>/dev/null | grep -qF "${soname}("; then
-            ok "system-lib swap took effect: $O3DE_PKGNAME Requires:$pkg AND $soname appears in auto-Requires"
+        # Capture the concrete soname token (e.g. liblua-5.5.so) for the
+        # message; the soname column is a version-wildcarded ERE. Match
+        # the soname up to its trailing "(" (start of the "()(64bit)"
+        # suffix in auto-Requires) so we anchor on a complete token, then
+        # strip that "(" for display.
+        match=$(rpm -q --requires "$O3DE_PKGNAME" 2>/dev/null | grep -oE "${soname}\\(" | head -1)
+        match="${match%(}"
+        if [ -n "$match" ]; then
+            ok "system-lib swap took effect: $O3DE_PKGNAME Requires:$pkg AND $match appears in auto-Requires"
         else
-            nope "system-lib swap: $pkg" "RPM declares Requires:$pkg but $soname is missing from auto-Requires — likely the swap regressed and the bundle is still being statically linked"
+            nope "system-lib swap: $pkg" "RPM declares Requires:$pkg but no ${soname} soname in auto-Requires; likely the swap regressed and the bundle is still being statically linked"
         fi
     fi
 done
 
 # ── Tier 3: first-run user setup (opt-in) ────────────────────────────────────
-printf "$HEADER" "Tier 3 — user-side first-run setup"
+printf "$HEADER" "Tier 3: user-side first-run setup"
 
 if [ "$RUN_SETUP" -eq 1 ]; then
     # get_python.sh sets up the per-user venv. This downloads ~200MB of pip
@@ -303,11 +322,11 @@ if [ "$RUN_SETUP" -eq 1 ]; then
     if grep -q 'O3DE_ENGINE_PATH' "$HOME/.o3de/Python/venv/"*/lib/python*/site-packages/o3de/manifest.py 2>/dev/null; then
         ok "manifest.py patch active in venv (O3DE_ENGINE_PATH branch)"
     else
-        nope "manifest.py patch" "venv copy missing the env-var branch — engine path resolution will misbehave"
+        nope "manifest.py patch" "venv copy missing the env-var branch; engine path resolution will misbehave"
     fi
 
     # Engine registration. Prefer the PATH-installed CLI wrapper (which
-    # forwards to <engine>/scripts/o3de.sh) when available — this double-
+    # forwards to <engine>/scripts/o3de.sh) when available; this double-
     # duties as an end-to-end reachability test of the wrapper now that
     # the per-user venv is set up. Fall back to the absolute path for
     # older RPMs that don't ship the wrapper.
@@ -334,7 +353,7 @@ else
 fi
 
 # ── Tier 4: engine smoke ─────────────────────────────────────────────────────
-printf "$HEADER" "Tier 4 — engine binary smoke"
+printf "$HEADER" "Tier 4: engine binary smoke"
 
 # Launcher resolves to *some* config (auto-detection works)
 if env -u O3DE_HOME bash -c "
@@ -382,7 +401,7 @@ else
 fi
 
 # ── Tier 5: end-to-end project (opt-in) ──────────────────────────────────────
-printf "$HEADER" "Tier 5 — project cmake configure"
+printf "$HEADER" "Tier 5: project cmake configure"
 
 if [ "$RUN_PROJECT" -eq 1 ]; then
     if [ "$RUN_SETUP" -eq 0 ] && [ ! -f "$HOME/.o3de/Python/venv/"*/lib/python*/site-packages/o3de/__init__.py ]; then
@@ -409,7 +428,7 @@ if [ "$RUN_PROJECT" -eq 1 ]; then
                 # default; debug is opt-in via a separate cmake invocation.
                 [ -f build/linux/build-profile.ninja ] && ok "ninja file generated for profile" || \
                     nope "ninja file" "build-profile.ninja missing (cmake configure produced no per-config ninja file)"
-                # Don't actually compile — would take hours on a fresh project.
+                # Don't actually compile; would take hours on a fresh project.
             else
                 nope "cmake configure" "see /tmp/o3de-test-cmake.log"
             fi
