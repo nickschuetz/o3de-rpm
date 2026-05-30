@@ -276,7 +276,7 @@ Version:        %{stable_tag}~%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        92%{?dist}
+Release:        93%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -943,6 +943,29 @@ Recommends:     pcre2-devel
 Recommends:     openssl-devel
 Recommends:     zlib-devel
 Recommends:     vim-common
+
+# Editor GUI helper dialogs (Open Export Settings, Open Android Project
+# Generator, Open CMake GUI) drive the editor's bundled Python via
+# tkinter. That bundled Python's _tkinter is built against Tk 8.6 and is
+# DT_NEEDED-linked to libtk8.6.so + libtcl8.6.so. Fedora 44 moved the
+# default tk/tcl to 9.x and split the 8.6 runtime into the tk8 / tcl8
+# packages, so a clean install no longer has libtk8.6.so and these tools
+# fail with "ImportError: libtk8.6.so: cannot open shared object file".
+# The bundled Python is fetched per-user by get_python.sh after install,
+# so rpm's auto-Requires never scans its _tkinter.so and can't detect
+# these; list them explicitly.
+#
+# Export Settings additionally uses tkinter.tix, which needs the system
+# Tix package (tix). tix alone isn't enough: Fedora installs Tix to
+# /usr/lib64/tcl/ which the bundled Tcl's auto_path doesn't cover, so the
+# launcher also adds that dir to TCLLIBPATH (sources/o3de-launcher.sh).
+# Community report 2026-05-29 (adwglds, F44): libtk8.6.so ImportError on
+# Android Project Generator; Export Settings stuck on the missing Tix
+# package even after installing tix by hand. Both reproduced + verified
+# fixed locally against the bundled python 3.10.
+Recommends:     tk8
+Recommends:     tcl8
+Recommends:     tix
 
 # Stage 1 system-library swap activations also expose their *-devel as
 # project-build dependencies. When `--with system_<X>` is on, the engine's

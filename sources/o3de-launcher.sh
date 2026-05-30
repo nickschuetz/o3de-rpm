@@ -157,6 +157,23 @@ if [ -z "${QT_FONT_DPI:-}" ] && [ "${XDG_SESSION_TYPE:-}" = "wayland" ]; then
     export QT_FONT_DPI=100
 fi
 
+# The editor's GUI helper dialogs (Open Export Settings, Open Android
+# Project Generator, Open CMake GUI) drive the bundled Python's tkinter.
+# Export Settings uses tkinter.tix, which does `package require Tix`.
+# Fedora ships the Tix Tcl package under /usr/lib64/tcl/Tix<ver>/, but
+# the bundled Tcl's auto_path only covers the version-specific
+# /usr/lib64/tcl8.6 + /usr/share/tcl8.6 dirs, so it can't find Tix even
+# when the tix package is installed. Add /usr/lib64/tcl to TCLLIBPATH
+# (Tcl searches each entry plus its immediate subdirs for a pkgIndex) so
+# Tix resolves. Harmless when tix isn't installed: just an unused search
+# path. Guarded so a user-set TCLLIBPATH is preserved and not doubled.
+# Community report 2026-05-29 (adwglds, F44); see the tk8/tcl8/tix
+# Recommends in the spec.
+case " ${TCLLIBPATH:-} " in
+    *" /usr/lib64/tcl "*) : ;;
+    *) export TCLLIBPATH="${TCLLIBPATH:+$TCLLIBPATH }/usr/lib64/tcl" ;;
+esac
+
 exec "$BIN_DIR/o3de" \
     -name "O3DE" \
     --engine-path="$ENGINE_PATH" \
