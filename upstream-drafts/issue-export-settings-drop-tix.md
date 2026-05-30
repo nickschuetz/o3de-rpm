@@ -1,5 +1,5 @@
 <!--
-DRAFT GitHub issue for o3de/o3de  (NOT filed)
+FILED as o3de/o3de#19793 (2026-05-30)
 Title:  Remove the deprecated tkinter.tix dependency from the project export settings UI
 Labels: kind/bug, sig/build
 -->

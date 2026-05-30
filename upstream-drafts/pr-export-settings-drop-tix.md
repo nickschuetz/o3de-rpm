@@ -1,9 +1,9 @@
 <!--
-DRAFT GitHub PR for o3de/o3de  (NOT filed)
+FILED as o3de/o3de#19794 (2026-05-30)
 Title:  Drop deprecated tkinter.tix from the project export settings UI
 Branch: fix/export-settings-drop-tix  ->  o3de/o3de:development
-Note:   "Addresses #ISSUE" is used intentionally (not "Fixes") to avoid an
-        accidental auto-close. Replace #ISSUE with the real number; change
+Note:   "Addresses #19793" is used intentionally (not "Fixes") to avoid an
+        accidental auto-close. Replace #19793 with the real number; change
         "Addresses" to "Fixes" only if you want the issue auto-closed on merge.
 -->
 
@@ -39,4 +39,4 @@ Net effect: the export tool works on more systems, not fewer. Verified against t
 
 ## Related
 
-The missing-Tix failure was reported in #18291 and #18246; #18252 added a clearer message. Addresses #ISSUE.
+The missing-Tix failure was reported in #18291 and #18246; #18252 added a clearer message. Addresses #19793.
