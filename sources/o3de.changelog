@@ -1,8 +1,23 @@
 %changelog
+* Fri May 29 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-94
+- Pull in the Project Manager's build + CMake GUI tooling.
+  - Recommends: ninja-build. The PM 'Build' action and `cmake --build`
+    use the Ninja generator; ninja was a BuildRequires for the engine
+    build but was missing from the runtime project-build deps, so a
+    project 'Build' failed on a clean install. Upstream's .deb declares
+    it for the same reason.
+  - Recommends: cmake-gui. The PM 'Open CMake GUI' action execs the
+    system cmake-gui binary, which on Fedora is a SEPARATE package from
+    cmake, so a clean install with cmake still failed 'Open CMake GUI'
+    with "Failed to start CMake GUI". Community-verified 2026-05-29.
+  Cross-platform note: upstream's .deb/Snap declare neither cmake-gui
+  nor a Tk runtime, so the tkinter and CMake-GUI Project Manager tools
+  are broken on a clean Debian/Ubuntu install too; see upstream-drafts/.
 * Fri May 29 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-93
 - Make the editor's tkinter GUI helper dialogs work on Fedora 44.
-  Open Export Settings, Open Android Project Generator, and Open CMake
-  GUI drive the editor's bundled Python via tkinter. That bundled
+  Open Export Settings and Open Android Project Generator drive the
+  editor's bundled Python via tkinter (Open CMake GUI is separate; it
+  execs the system cmake-gui binary, addressed in -94). That bundled
   Python's _tkinter is built against Tk 8.6 (DT_NEEDED libtk8.6.so +
   libtcl8.6.so). Fedora 44 moved the default tk/tcl to 9.x and split
   the 8.6 runtime into the tk8 / tcl8 packages, so a clean install lacks

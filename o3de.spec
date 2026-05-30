@@ -276,7 +276,7 @@ Version:        %{stable_tag}~%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        93%{?dist}
+Release:        94%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -800,6 +800,22 @@ Requires:       python3
 # via `dnf install --setopt=install_weak_deps=False`.
 Recommends:     cmake
 
+# Project Manager build + tooling the editor shells out to:
+#   - ninja-build: the PM 'Build' action (ProjectManager's
+#     FindSupportedNinja) and `cmake --build` use the Ninja generator.
+#     It was a BuildRequires for the engine build but was missing from
+#     the runtime project-build deps, so 'Build' fails on a clean
+#     install. Upstream's .deb declares ninja-build for the same reason.
+#   - cmake-gui: the PM 'Open CMake GUI' action execs the system
+#     cmake-gui binary. On Fedora that is a SEPARATE package from cmake
+#     (cmake-gui), so a clean install that has cmake still fails 'Open
+#     CMake GUI' with "Failed to start CMake GUI". Community-verified
+#     2026-05-29. Upstream's .deb/Snap declare neither cmake-gui nor a
+#     Tk runtime, so these tools are broken on a clean Debian/Ubuntu
+#     install too (see the upstream-drafts/ note).
+Recommends:     ninja-build
+Recommends:     cmake-gui
+
 # The -devel subpackage ships the static archives (*.a) every project
 # build links: libAzGameFramework.a, libAzCore (Object/Static variants),
 # libAtomCore.a, libAssetBuilderSDK.a, and the rest of the AzFramework /
@@ -944,9 +960,11 @@ Recommends:     openssl-devel
 Recommends:     zlib-devel
 Recommends:     vim-common
 
-# Editor GUI helper dialogs (Open Export Settings, Open Android Project
-# Generator, Open CMake GUI) drive the editor's bundled Python via
-# tkinter. That bundled Python's _tkinter is built against Tk 8.6 and is
+# Two of the Project Manager's helper dialogs (Open Export Settings,
+# Open Android Project Generator) drive the editor's bundled Python via
+# tkinter. (Open CMake GUI is NOT one of them; it execs the system
+# cmake-gui binary -- see the cmake-gui Recommends above.)
+# That bundled Python's _tkinter is built against Tk 8.6 and is
 # DT_NEEDED-linked to libtk8.6.so + libtcl8.6.so. Fedora 44 moved the
 # default tk/tcl to 9.x and split the 8.6 runtime into the tk8 / tcl8
 # packages, so a clean install no longer has libtk8.6.so and these tools
