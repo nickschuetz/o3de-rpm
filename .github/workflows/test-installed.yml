@@ -285,7 +285,7 @@ jobs:
             sudo curl rpm dnf-plugins-core \
             desktop-file-utils libappstream-glib appstream \
             python3 cmake ninja-build vulkan-loader \
-            findutils diffutils \
+            findutils diffutils binutils \
             xorg-x11-server-Xvfb xdpyinfo scrot xdotool wmctrl \
             mesa-vulkan-drivers
           # The integration tests need a regular user (not root) for Tiers 3-6.
