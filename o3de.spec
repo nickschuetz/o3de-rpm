@@ -276,7 +276,7 @@ Version:        %{stable_tag}~%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        94%{?dist}
+Release:        95%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -813,8 +813,15 @@ Recommends:     cmake
 #     2026-05-29. Upstream's .deb/Snap declare neither cmake-gui nor a
 #     Tk runtime, so these tools are broken on a clean Debian/Ubuntu
 #     install too (see the upstream-drafts/ note).
+#   - xdg-utils: the PM 'Open Project folder' action and the
+#     "open build log" / "open export output" links use Qt's
+#     QDesktopServices::openUrl, which on Linux shells out to xdg-open
+#     (from xdg-utils). Without it those actions silently no-op on a
+#     minimal install (no error dialog, just a qDebug). Lower severity
+#     than the others but the same missing-tool class.
 Recommends:     ninja-build
 Recommends:     cmake-gui
+Recommends:     xdg-utils
 
 # The -devel subpackage ships the static archives (*.a) every project
 # build links: libAzGameFramework.a, libAzCore (Object/Static variants),

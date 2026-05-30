@@ -1,4 +1,12 @@
 %changelog
+* Sat May 30 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-95
+- Recommends: xdg-utils. The Project Manager's 'Open Project folder'
+  action and the "open build log" / "open export output" links use
+  Qt's QDesktopServices::openUrl, which on Linux shells out to xdg-open
+  (from xdg-utils). Without it those actions silently no-op on a minimal
+  install. Completes the Project Manager helper-tool dependency coverage
+  alongside the -92 xcb-util, -93 tk8/tcl8/tix, and -94 cmake-gui/ninja
+  additions.
 * Fri May 29 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-94
 - Pull in the Project Manager's build + CMake GUI tooling.
   - Recommends: ninja-build. The PM 'Build' action and `cmake --build`
