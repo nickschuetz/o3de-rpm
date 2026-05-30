@@ -41,15 +41,24 @@ engine-side.
 ### Proposed fixes, strongest first
 
 **1. (Preferred, fixes every platform) Drop the deprecated `tkinter.tix`.**
-The export-settings UI (`scripts/o3de/o3de/ui/export_project.py`) uses
+The export-settings UI (`scripts/o3de/o3de/ui/export_project.py`) imports
 `tkinter.tix`, which Python itself reports as deprecated and unmaintained
 ("the tkinter.tix wrapper module is deprecated in favor of tkinter.ttk").
-Migrating that UI to `tkinter.ttk` removes the `tix` dependency entirely
-on every platform -- no tix package to ship, and no Tix-lookup-path
-problem to solve. Scope depends on which Tix widgets the panel uses (ttk
-has direct equivalents for most; some Tix-specific widgets may need a
-small reimplementation), so this is a real but bounded code change. This
-is the fix that actually retires the problem.
+The migration is small and well-scoped: that 539-line file already builds
+its UI with `ttk` (`ttk.Frame`, `ttk.Notebook`), and its entire Tix
+footprint is exactly two things:
+- `class MainWindow(tkp.Tk)` -- swap the root to the standard
+  `tkinter.Tk`.
+- one `tkp.Balloon` tooltip, used through ~10 uniform
+  `tool_tip.bind_widget(widget, balloonmsg=...)` calls.
+There are no other Tix-only APIs (no `Tix` widgets beyond Balloon, no
+`package require Tix` evals). A drop-in tooltip helper (~30 lines of
+standard tkinter: a Toplevel shown on `<Enter>` / hidden on `<Leave>`)
+that keeps the same `bind_widget(widget, balloonmsg=...)` signature
+replaces the one `tkp.Balloon` construction with no churn at the ~10 call
+sites. Net result: the `tix` dependency and the Tix-lookup-path problem
+are gone on every platform. This is the fix that actually retires the
+problem, and it is genuinely small.
 
 **2. (Interim engine fix, if Tix is kept) Make the bundled Tcl find a
 system Tix.** When `tix` IS installed, the bundled Python's Tcl still
@@ -75,16 +84,23 @@ example in its own `.deb`/Snap:
   only if option 1 is not taken).
 Downstream packagers (Fedora, etc.) do the equivalent for their distro.
 
-### Open questions before filing
+### Status of the open items (none block filing the issue)
 
-1. Which Tix widgets does `export_project.py` actually use -- i.e. how big
-   is the ttk migration (option 1)?
-2. Exact Ubuntu package names for the `.deb` (`cmake-qt-gui` vs
-   `cmake-gui`; Tk runtime), and confirm `ninja-build` covers the PM Build
-   action on the `.deb`.
-3. Was #18252's messaging-only resolution a deliberate "keep the package
-   lean" stance? If so, frame option 1 as removing the dependency rather
-   than adding to it -- which should align with that goal.
+The first contact here is an issue / sig-build proposal, not a finished
+PR, so these do not all need answers up front:
+
+1. RESOLVED (folded into option 1 above): the ttk migration is small --
+   only `tkp.Tk` + one `tkp.Balloon` tooltip; the rest is already ttk.
+2. PR-time detail, not issue-blocking: exact Ubuntu package names for the
+   `.deb` (`cmake-qt-gui` vs `cmake-gui`; Tk runtime), and confirming
+   `ninja-build` covers the PM Build action there. These belong with the
+   per-distro packaging change (option 3), which a Debian maintainer
+   would own; they do not gate proposing the fix direction.
+3. A question to pose to sig-build in the issue, not something to
+   pre-answer: was #18252's messaging-only resolution a deliberate
+   "keep the package lean" stance? Either way, option 1 *removes* a
+   dependency, which aligns with a lean-package goal -- worth stating
+   that explicitly when raising it.
 
 ### Downstream reference (what Fedora did, as the interim)
 
