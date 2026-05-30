@@ -1,84 +1,95 @@
 # DRAFT (for Nick's review -- NOT submitted)
 
-## Upstream gap: O3DE Linux packaging does not declare the Project Manager tool dependencies
+## O3DE Project Manager Linux tools fail on a clean install (and the deeper cause is a deprecated Tix dependency)
 
-Status: draft. Nothing filed. Needs Nick's sign-off ("fully baked") and a
-re-check against `development` before anything goes to o3de/o3de. Package
-names below are from the 26.05.0 install + Ubuntu conventions and must be
-verified against the .deb's target Ubuntu version.
+Status: draft. Nothing filed. Needs Nick's sign-off and a re-verify against
+`development` at filing time. Verified 2026-05-29 against `origin/development`:
+the gap still exists there (see below), so this is not stale.
 
-### Summary
+### The symptom
 
-Several Project Manager per-project tools shell out to software the
-Linux installers do not declare as dependencies, so they fail on a clean
-install:
+Several Project Manager per-project menu tools fail on a clean Linux
+install because they depend on software the install does not provide:
 
-- **Open Export Settings** and **Open Android Project Generator** drive
-  the bundled Python's `tkinter`. `_tkinter` is DT_NEEDED-linked to
-  `libtk8.6.so` + `libtcl8.6.so`; Export Settings also uses
-  `tkinter.tix` (`package require Tix`).
-- **Open CMake GUI** execs the system `cmake-gui` binary.
-- **Build** uses the Ninja generator.
+- **Open Export Settings** -- drives the bundled Python's `tkinter`, and
+  specifically `tkinter.tix` (`package require Tix`).
+- **Open Android Project Generator** -- plain `tkinter` (Tk 8.6 runtime:
+  `libtk8.6.so` / `libtcl8.6.so`).
+- **Open CMake GUI** -- execs the system `cmake-gui` binary.
+- **Build** -- uses the Ninja generator.
 
-### Evidence this is cross-platform, not Fedora-specific
+### Why this is upstream-wide, not one distro's problem
 
-Read from the engine's own packaging configs (26.05.0):
+The exact `_tkinter.TclError: can't find package Tix` was reported on
+**Ubuntu with the `.deb`** in 2024: o3de/o3de#18291 and #18246 (identical
+traceback at `tkinter/tix.py:221`). Both were closed by o3de/o3de#18252
+("Improve messaging for missing Tix package"), which only edited
+`export_project.py` to print a friendlier "install tix" message, plus a
+docs PR. That was a fair triage at the time, but it left the user to
+hand-install the dependency and did not address CMake GUI or the Tix
+lookup problem. Verified against `origin/development` (2026-05-29): the
+`.deb` `package_dependencies` still carries only `ninja-build` +
+`libxcb-keysyms1-dev` with no Tk runtime / tix / cmake-gui, and the Snap
+`stage-packages` still has `libtk8.6`/`libtcl8.6` but no tix / cmake-gui.
+So the functional gap persists on dev.
 
-- `.deb` (`cmake/Platform/Linux/Packaging_linux.cmake`,
-  `CPACK_DEBIAN_PACKAGE_DEPENDS`) declares clang, ninja-build, the Qt/xcb
-  build libs incl. `libxcb-keysyms1-dev`, libxkbcommon, pcre2, zlib,
-  unwind, zstd -- but **no Tk runtime, no tix, no cmake-gui**.
-- Snap (`cmake/Platform/Linux/Packaging/snapcraft.yaml.in`,
-  `stage-packages`) adds `libtcl8.6` + `libtk8.6` -- but still **no tix
-  and no cmake-gui**.
+A shipped menu item that fails on a clean install with a Python traceback
+is a poor first-run experience; the user did nothing wrong. So rather than
+keep pushing the dependency onto the user, the better outcomes are
+engine-side.
 
-Prior upstream reports, both on Ubuntu with the `.deb`, both the exact
-`_tkinter.TclError: can't find package Tix` from `tkinter/tix.py:221`:
+### Proposed fixes, strongest first
 
-- o3de/o3de#18291 (24.09, Ubuntu .deb, "Open Export settings")
-- o3de/o3de#18246 (stabilization/2409, Ubuntu 22, `o3de.sh export-project`)
+**1. (Preferred, fixes every platform) Drop the deprecated `tkinter.tix`.**
+The export-settings UI (`scripts/o3de/o3de/ui/export_project.py`) uses
+`tkinter.tix`, which Python itself reports as deprecated and unmaintained
+("the tkinter.tix wrapper module is deprecated in favor of tkinter.ttk").
+Migrating that UI to `tkinter.ttk` removes the `tix` dependency entirely
+on every platform -- no tix package to ship, and no Tix-lookup-path
+problem to solve. Scope depends on which Tix widgets the panel uses (ttk
+has direct equivalents for most; some Tix-specific widgets may need a
+small reimplementation), so this is a real but bounded code change. This
+is the fix that actually retires the problem.
 
-Both were closed by **o3de/o3de#18252 "Improve messaging for missing Tix
-package"** (+ cherry-pick #18320), which only edited
-`scripts/o3de/o3de/export_project.py` to print a friendlier "install
-tix" message, plus a docs PR (o3de.org#2580). That was a reasonable
-triage for the time, but it deliberately left the dependency for the
-user to install by hand; it did not declare tix/tk in the `.deb`/Snap,
-and it did not address `cmake-gui` or the Tix lookup-path problem. So the
-functional gap persists on `development` / 26.05.0 (re-reported by a
-Fedora tester 2026-05-29; reproduced + fixed downstream).
+**2. (Interim engine fix, if Tix is kept) Make the bundled Tcl find a
+system Tix.** When `tix` IS installed, the bundled Python's Tcl still
+cannot load it because the package lands outside the bundled Tcl's
+`auto_path`, and the location is distro-specific (Fedora:
+`/usr/lib64/tcl/Tix*`; Debian elsewhere). So "just install tix" is not
+sufficient even with tix present. The engine could append the right
+directory to `auto_path` / `TCLLIBPATH` before `Tix.Tk()`. Because the
+path differs per distro, this is inherently messy compared to option 1 --
+which is the main argument for option 1.
 
-### Proposed change (the actual dependency declarations)
+**3. (Complementary packaging, per distro) Declare the runtime deps.**
+Independent of the Tix question, the PM tools need their runtime present:
+the Tk 8.6 runtime (Android Generator + Export Settings if Tix is kept),
+the `cmake-gui` binary (CMake GUI), and Ninja (Build). O3DE can lead by
+example in its own `.deb`/Snap:
+- `.deb` `package_dependencies` (`cmake/Platform/Linux/Packaging_linux.cmake`):
+  add the Tk 8.6 runtime + the CMake-GUI package (Ubuntu names to verify,
+  likely `libtk8.6`, `libtcl8.6`, `cmake-qt-gui`; `tix` only if option 1
+  is not taken).
+- Snap `stage-packages` (`snapcraft.yaml.in` + the core20 variant): add
+  the CMake-GUI package (`libtk8.6`/`libtcl8.6` already present; `tix`
+  only if option 1 is not taken).
+Downstream packagers (Fedora, etc.) do the equivalent for their distro.
 
-`.deb` -- add to `package_dependencies` in
-`cmake/Platform/Linux/Packaging_linux.cmake` (verify exact names on the
-target Ubuntu): `libtk8.6`, `libtcl8.6`, `tix`, `cmake-qt-gui`.
+### Open questions before filing
 
-Snap -- add to `stage-packages` in `snapcraft.yaml.in` (+ the core20
-variant): `tix`, `cmake-qt-gui` (libtk8.6/libtcl8.6 already present).
-
-### Open questions to resolve before filing
-
-1. **Tix lookup path.** On Fedora, installing `tix` is not sufficient:
-   Fedora puts Tix under `/usr/lib64/tcl/` which the bundled Tcl's
-   `auto_path` does not cover, so we set `TCLLIBPATH=/usr/lib64/tcl` in
-   our launcher. Need to confirm whether Ubuntu's `tix` installs into a
-   path the bundled Tcl already searches, or whether the engine needs an
-   equivalent `TCLLIBPATH` (or `auto_path` append) for the `.deb`/Snap
-   too -- in which case the right fix is engine-side in `o3de.sh` /
-   `export_project.py`, benefiting all platforms including ours.
-2. **cmake-gui package name** on the target Ubuntu (`cmake-qt-gui` vs
-   `cmake-gui`); confirm `ninja-build` is sufficient for the PM Build
+1. Which Tix widgets does `export_project.py` actually use -- i.e. how big
+   is the ttk migration (option 1)?
+2. Exact Ubuntu package names for the `.deb` (`cmake-qt-gui` vs
+   `cmake-gui`; Tk runtime), and confirm `ninja-build` covers the PM Build
    action on the `.deb`.
-3. Whether to split these into a runtime-only group vs the current
-   combined build+runtime `package_dependencies` (the list mixes `-dev`
-   build deps with runtime libs today).
+3. Was #18252's messaging-only resolution a deliberate "keep the package
+   lean" stance? If so, frame option 1 as removing the dependency rather
+   than adding to it -- which should align with that goal.
 
-### Downstream reference (what Fedora did)
+### Downstream reference (what Fedora did, as the interim)
 
-hellaenergy o3de2605 RPM: `Recommends: tk8 tcl8 tix cmake-gui
-ninja-build` + launcher `TCLLIBPATH=/usr/lib64/tcl`. Reproduced and
-verified against the bundled python 3.10. The cleanest upstream outcome
-would be (1) declare the deps in `.deb`/Snap and (2) move the Tix
-`auto_path`/TCLLIBPATH handling engine-side so every platform's
-packaging benefits, not just ours.
+hellaenergy o3de2605 RPM: `Recommends: tk8 tcl8 tix cmake-gui ninja-build`
++ launcher `TCLLIBPATH=/usr/lib64/tcl` (option 2, Fedora-specific path).
+Reproduced and verified against the bundled python 3.10. This unblocks
+Fedora users today, but it is exactly the per-distro workaround that
+option 1 would make unnecessary everywhere.
