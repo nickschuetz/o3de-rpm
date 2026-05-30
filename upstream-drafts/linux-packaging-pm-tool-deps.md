@@ -38,17 +38,17 @@ is a poor first-run experience; the user did nothing wrong. So rather than
 keep pushing the dependency onto the user, the better outcomes are
 engine-side.
 
-### Who actually does this
+### Who could carry this
 
-O3DE's Linux packaging (.deb / Snap) is, in practice, thinly maintained:
-there is no active dedicated maintainer for it right now, and the closest
-person is already overloaded. That reality is itself an argument for
-option 1 below: a single engine-side change fixes every platform in one
-PR that the core / sig-build review path can take, instead of N separate
-per-distro packaging changes that each need an owner who does not exist.
-This is effectively on us (sig-build / the Fedora effort). The realistic
-path is for us to author the small engine-side fix and shepherd it,
-rather than file an issue and wait for a maintainer to pick it up.
+Beyond being the cleanest fix, option 1 has a practical advantage: it is a
+single engine-side change that resolves every Linux packaging target at
+once (the .deb, the Snap, and downstream distro packages such as the
+Fedora RPM), so it does not require coordinating separate per-distro
+packaging changes. The Fedora packaging effort / sig-build is glad to
+author and shepherd the engine-side change (a draft already exists), so it
+need not add work for anyone looking after the other Linux package
+formats. If folks would rather keep Tix, we are also happy to help with
+the per-distro dependency declarations.
 
 ### Proposed fixes, strongest first
 
@@ -106,9 +106,8 @@ PR, so these do not all need answers up front:
 2. PR-time detail, not issue-blocking: exact Ubuntu package names for the
    `.deb` (`cmake-qt-gui` vs `cmake-gui`; Tk runtime), and confirming
    `ninja-build` covers the PM Build action there. These belong with the
-   per-distro packaging change (option 3). Since Linux packaging is
-   effectively unmaintained, if we want option 3 done we likely carry it
-   ourselves; but it does not gate option 1, which is the priority.
+   per-distro packaging change (option 3); we are glad to help with those,
+   and either way they do not gate option 1, which is the priority.
 3. A question to pose to sig-build in the issue, not something to
    pre-answer: was #18252's messaging-only resolution a deliberate
    "keep the package lean" stance? Either way, option 1 *removes* a
