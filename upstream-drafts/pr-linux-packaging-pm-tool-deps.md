@@ -1,5 +1,5 @@
 <!--
-DRAFT GitHub PR for o3de/o3de  (NOT filed)
+FILED as o3de/o3de#19796 (2026-05-30)
 Title:  Declare the Project Manager tool runtime deps for the Linux .deb and Snap
 Branch: fix/linux-packaging-pm-tool-deps (nickschuetz/o3de)  ->  o3de/o3de:development
 Commit: 6157614b34 (DCO signed)
