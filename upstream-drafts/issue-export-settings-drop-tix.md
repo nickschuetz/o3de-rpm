@@ -29,6 +29,8 @@ Migrating the root to `tkinter.Tk` and replacing the one `Balloon` with a small 
 
 This is not a single distribution's problem. The `.deb` and Snap packaging do not declare a Tk/Tix runtime either, so the same failure occurs there. Removing the dependency fixes every Linux packaging target at once, with no per-distro packaging changes required.
 
+This also helps older and minimal distributions rather than hurting them. The engine bundles its own Python (currently 3.10) via `get_python.sh`, so the system Python version does not factor in; the bundled `_tkinter` already links Tk 8.6, which this keeps; and the UI already uses `ttk`. The change only removes the `tix` extension, which is the piece most often missing on older or minimal installs. So the export tool becomes usable on more systems, not fewer.
+
 ## A question for sig-build
 
 Was the messaging-only approach in #18252 a deliberate choice to keep the packages lean? If so, removing the dependency aligns with that goal rather than working against it.

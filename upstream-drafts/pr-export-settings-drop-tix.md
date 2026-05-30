@@ -27,6 +27,16 @@ Ran the export-settings UI with the engine's bundled Python in the failing condi
 - Current code: fails with `_tkinter.TclError: can't find package Tix`.
 - This change: constructs and renders the full window successfully; tooltips display correctly on hover; the existing `ttk` UI is unchanged.
 
+## Compatibility (older and minimal distros)
+
+This change lowers the runtime requirements rather than raising them, so it is safe for older and minimal Linux installs:
+
+- O3DE ships its own Python (currently 3.10) via `get_python.sh`, identical on every platform, so the distribution's system Python version does not factor in here.
+- The bundled Python's `_tkinter` already links Tk/Tcl 8.6, and this change keeps that. It removes only the separate `tix` extension, which is the piece most often absent on minimal or older installs.
+- The window already used `ttk` (`ttk.Frame`, `ttk.Notebook`). The only widgets this change adds are `tkinter.Tk`, `tkinter.Toplevel`, and `ttk.Label`, all available since Tk 8.5.
+
+Net effect: the export tool works on more systems, not fewer. Verified against the engine's bundled Python (Tk 8.6).
+
 ## Related
 
 The missing-Tix failure was reported in #18291 and #18246; #18252 added a clearer message. Addresses #ISSUE.
