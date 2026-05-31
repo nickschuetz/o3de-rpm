@@ -14,9 +14,9 @@ flowchart TB
     end
 
     subgraph DEPS["Build-time dependencies"]
-        DPK1["Fedora repos<br/>(Stage 1 system swaps:<br/>zlib, freetype, libpng, expat, lz4,<br/>mikkelsen, openexr, poly2tri, lua,<br/>assimp, sqlite, libsamplerate,<br/>googlebenchmark, vulkan-validation-layers,<br/>xxhash, rapidjson [F44/rawhide only])"]
+        DPK1["Fedora repos<br/>(Stage 1 system swaps:<br/>zlib, freetype, libpng, expat, lz4,<br/>mikkelsen, openexr, poly2tri, lua,<br/>assimp, sqlite, libsamplerate,<br/>googlebenchmark, vulkan-validation-layers,<br/>xxhash, rapidjson (F44/rawhide only))"]
         DPK2["COPR<br/>hellaenergy/o3de-dependencies<br/>(Qt5-rev9, PhysX, AWS SDK, azslc,<br/>ISPCTexComp, astc-encoder, mikkelsen,<br/>o3de2605-spirv-cross + o3de2605-dxc-spirv + o3de2605-mcpp-az<br/>(Stage 2 3-pack) + o3de2605-cityhash (Stage 1 swap, lib not in Fedora);<br/>o3deNNNN-<dep> naming))"]
-        DPK3["packages.o3de.org CDN<br/>(remaining bundled 3rdParty:<br/>restricted (NvCloth, squish-ccr) +<br/>libtiff (exception draft) +<br/>blocked-stage-3 (OIIO/OCIO, pyside2) +<br/>blocked-stage-4 (OpenSSL) +<br/>remaining multiplatform deps<br/>(RapidXML [walked back, AZ fork],<br/>pybind11, glad))"]
+        DPK3["packages.o3de.org CDN<br/>(remaining bundled 3rdParty:<br/>restricted (NvCloth, squish-ccr) +<br/>libtiff (exception draft) +<br/>blocked-stage-3 (OIIO/OCIO, pyside2) +<br/>blocked-stage-4 (OpenSSL) +<br/>remaining multiplatform deps<br/>(RapidXML (walked back, AZ fork),<br/>pybind11, glad))"]
     end
 
     subgraph SPEC["o3de.spec"]
