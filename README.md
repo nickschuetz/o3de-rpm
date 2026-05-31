@@ -56,10 +56,11 @@ o3de-rpm/
     ├── 0001-clang21-warning-suppressions.patch        # 13 active patches (0001-0013); see "Patches" section for the table
     ├── 0002-manifest-py-engine-path-detection.patch   #   six carry TIMEBOMB notes (upstream-merged equivalents pending in stab)
     ├── ... (0003 through 0013)                        #   plus 0012-v2-assetbuilder-parent-watchdog.patch (the shipping v2)
-    ├── Findmikkelsen-system.cmake                     # 16 Stage 1 + 2 find-shims (copied to cmake/3rdParty/Find<X>.cmake at %prep
+    ├── Findmikkelsen-system.cmake                     # Stage 1 + Stage 2 find-shims (copied to cmake/3rdParty/Find<X>.cmake at %prep
     ├── Findexpat-system.cmake                         #   when the matching --with system_<lib> bcond is on):
     ├── FindZLIB-system.cmake                          #   Stage 1: mikkelsen, expat, ZLIB, Freetype, PNG, Lua, lz4, OpenEXR,
-    ├── ... (FindFreetype, FindPNG, FindLua,           #     Imath, assimp, libsamplerate, poly2tri, SQLite, GoogleBenchmark
+    ├── ... (FindFreetype, FindPNG, FindLua,           #     Imath, assimp, libsamplerate, poly2tri, SQLite, GoogleBenchmark,
+    ├──      Find{RapidJSON,xxhash,cityhash},          #     RapidJSON (F44/rawhide only -- CS10 EPEL rapidjson too old), xxhash, cityhash
     ├──      Findlz4, FindOpenEXR, FindImath,          #     (no vulkan_validation_layers shim — that swap is runtime-discovered
     ├──      Findassimp, Findlibsamplerate,            #      via VK_LAYER_PATH, no cmake-side find shim)
     ├──      Findpoly2tri, FindSQLite,                 #   Stage 2 library-link: Findmcpp-system.cmake
