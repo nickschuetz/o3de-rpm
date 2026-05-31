@@ -276,6 +276,7 @@ for swap in \
     "poly2tri:libpoly2tri\.so\.[0-9]+(\.[0-9]+)*" \
     "google-benchmark:libbenchmark\.so\.[0-9]+" \
     "o3de2605-mcpp-az:libmcpp\.so\.[0-9]+" \
+    "o3de2605-cityhash:libcityhash\.so\.[0-9]+" \
 ; do
     # Stage 2 binary-shellout swaps (o3de2605-dxc-spirv, o3de2605-spirv-cross)
     # don't appear in auto-Requires (engine shells out to the binaries at

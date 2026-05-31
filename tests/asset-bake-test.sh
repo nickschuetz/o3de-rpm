@@ -129,6 +129,13 @@ SWAPS=(
     # mcpp_lib_main / mcpp_set_out_func / mcpp_set_report_include_callback).
     # SONAME libmcpp.so.0 (from o3de2605-mcpp-az COPR build, mcpp 2.7.2 + _az.2 patches).
     "mcpp:libmcpp[.]so[.]0:mcpp_lib_main:0"
+    # cityhash (Stage 1 swap; o3de2605-cityhash COPR build, google/cityhash
+    # f5dc541, MIT). SONAME libcityhash.so.0. Sample symbol is CityHash64,
+    # mangled _Z10CityHash64PKcm (CityHash64(char const*, unsigned long)).
+    # rapidjson + xxhash are header-only swaps (no .so), so they have no
+    # SONAME to assert here; their activation is validated by the build
+    # compiling against the system headers.
+    "cityhash:libcityhash[.]so[.][0-9]+:_Z10CityHash64PKcm:0"
 )
 
 # Stage 2 binary-shellout swaps (dxc, spirv-cross) and Stage 1
