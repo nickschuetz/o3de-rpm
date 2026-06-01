@@ -768,7 +768,7 @@ trigger-tests:
 	@[ -n "$(BUILD_ID)" ] || { echo "usage: make trigger-tests BUILD_ID=<copr-build-id> [COPR_PROJECT=<project>]"; exit 2; }
 	@repo="https://download.copr.fedorainfracloud.org/results/$(COPR_OWNER)/$(COPR_PROJECT)/fedora-44-x86_64" ; \
 	primary=$$(curl -fsSL "$$repo/repodata/repomd.xml" | grep -oE 'repodata/[a-f0-9]+-primary\.xml\.gz' | head -1) ; \
-	rpm_rel=$$(curl -fsSL "$$repo/$$primary" | gunzip -c | grep -oE 'href="Packages/o/o3de[0-9]+-[^"]+\.x86_64\.rpm"' | grep -v -- '-debug-' | head -1 | sed 's/^href="//; s/"$$//') ; \
+	rpm_rel=$$(curl -fsSL "$$repo/$$primary" | gunzip -c | grep -oE 'href="Packages/o/o3de[0-9]+-[0-9][^"]+\.x86_64\.rpm"' | sed 's/^href="//; s/"$$//' | sort -V | tail -1) ; \
 	if [ -z "$$rpm_rel" ]; then \
 	    echo "ERROR: no F44 o3de RPM in repodata at $$repo" ; exit 1 ; \
 	fi ; \

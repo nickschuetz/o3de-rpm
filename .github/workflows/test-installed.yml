@@ -142,16 +142,26 @@ jobs:
               repo="https://download.copr.fedorainfracloud.org/results/${COPR_OWNER}/${COPR_PROJECT}/fedora-44-x86_64"
               primary=$(curl -fsSL "${repo}/repodata/repomd.xml" \
                 | grep -oE 'repodata/[a-f0-9]+-primary\.xml\.gz' | head -1)
-              # Match versioned package names (o3de2605, o3de2610, ...).
-              # When a project hosts multiple majors simultaneously, this
-              # picks the alphabetically-first match in repodata order;
-              # for now, that's whatever the latest succeeded build wrote.
-              # Future enhancement: prefer the highest-NNNN match.
+              # Match versioned package names (o3de2605, o3de2610, ...) and
+              # pick the HIGHEST version-release via `sort -V`. The repo
+              # keeps several builds at once (e.g. -91 through -95 until
+              # COPR prunes), and repodata order is not sorted -- the old
+              # `head -1` grabbed a stale NVR (it was pulling -91 while -95
+              # was current), so the cron tested an outdated build and
+              # failed newer swap-health checks (e.g. the cityhash Tier 7
+              # entry, which -91 predates). sort -V on the filenames orders
+              # 2605.0-95 above 2605.0-91 (and a higher major above a lower
+              # one), so tail -1 is the newest.
+              # The [0-9] right after o3de<major>- matches only the main
+              # package (its version starts with a digit, e.g.
+              # o3de2605-2605.0-95...), excluding the -devel / -debug
+              # subpackages (o3de2605-devel-..., a letter after the dash) --
+              # otherwise sort -V|tail -1 would pick o3de2605-devel-...-95,
+              # which sorts after the main package.
               rpm_rel=$(curl -fsSL "${repo}/${primary}" | gunzip -c \
-                | grep -oE 'href="Packages/o/o3de[0-9]+-[^"]+\.x86_64\.rpm"' \
-                | grep -v -- '-debug-' \
-                | head -1 \
-                | sed 's/^href="//; s/"$//')
+                | grep -oE 'href="Packages/o/o3de[0-9]+-[0-9][^"]+\.x86_64\.rpm"' \
+                | sed 's/^href="//; s/"$//' \
+                | sort -V | tail -1)
               if [ -z "$rpm_rel" ]; then
                 echo "could not find o3deNNNN F44 RPM in repodata at ${repo}"
                 exit 1
