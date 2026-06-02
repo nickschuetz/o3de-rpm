@@ -63,6 +63,16 @@ COPR_PROJECT_TESTING         ?= o3de-testing
 COPR_PROJECT_STABILIZATION   ?= o3de-stabilization
 COPR_PROJECT_DEVELOPMENT     ?= o3de-development
 COPR_PROJECT_EXPERIMENTAL    ?= o3de-experimental
+# Debug-config sibling channels. Each mirrors its namesake's with_opts
+# (set on the chroots) PLUS the `debug` bcond, so the build emits the
+# o3de2605-debug subpackage (-O0 + full symbols) for tester crash
+# reports. The -debug subpackage hard-Requires the EXACT NVR of the
+# main package (Requires: %{name}%{?_isa} = %{version}-%{release}), so a
+# debug channel MUST be refreshed from the same SRPM / NVR as its
+# sibling or `dnf install o3de2605-debug` breaks. AppStream is off on
+# these so the duplicate main package doesn't show as a second app.
+COPR_PROJECT_TESTING_DEBUG       ?= o3de-testing-debug
+COPR_PROJECT_DEVELOPMENT_DEBUG   ?= o3de-development-debug
 # COPR_PROJECT picks which project trigger-tests targets (defaults to
 # the stabilization channel testers consume; override on the command line:
 #     make trigger-tests BUILD_ID=N COPR_PROJECT=o3de-experimental
@@ -78,6 +88,7 @@ RPMBUILD_DEFINES = \
         srpm-stabilization srpm-experimental \
         rpm rpm-snapshot rpm-debug rpm-snapshot-debug rpm-experimental \
         copr-stable copr-development copr-stabilization copr-experimental \
+        copr-testing copr-testing-debug copr-development-debug \
         copr-development-and-test copr-stabilization-and-test copr-experimental-and-test _copr-and-test \
         trigger-tests copr-init \
         copr-metadata-pull copr-metadata-diff copr-metadata-push \
@@ -629,6 +640,26 @@ copr-init:
 	@echo "# as project audience and currently-active features evolve."
 	@echo "# copr-cli supports --description and --instructions; --homepage"
 	@echo "# and --contact need the API directly (see CONTRIBUTING.md)."
+	@echo
+	@echo "# 7. Debug-config sibling projects ($(COPR_PROJECT_TESTING_DEBUG),"
+	@echo "# $(COPR_PROJECT_DEVELOPMENT_DEBUG)). Each mirrors its namesake's"
+	@echo "# chroot with_opts PLUS the 'debug' bcond, emitting o3de2605-debug"
+	@echo "# (-O0 + full symbols) for tester crash reports. Create with"
+	@echo "# --appstream off (the duplicate main package must not register as a"
+	@echo "# second GNOME Software app) and --auto-prune on (debug artifacts are"
+	@echo "# large). Wire each chroot with the SAME --repos + --rpmbuild-with"
+	@echo "# list as its namesake (section 5) and append --rpmbuild-with debug:"
+	@echo "  copr-cli create $(COPR_OWNER)/$(COPR_PROJECT_TESTING_DEBUG) \\"
+	@echo "      --chroot fedora-44-x86_64 --chroot fedora-rawhide-x86_64 \\"
+	@echo "      --chroot centos-stream-10-x86_64 \\"
+	@echo "      --enable-net on --appstream off --auto-prune on \\"
+	@echo "      --description 'O3DE debug-config binaries mirroring hellaenergy/o3de-testing'"
+	@echo "# (then edit-chroot each with o3de-testing's with_opts + debug; CS10"
+	@echo "#  also needs the EPEL-10 repo. Same shape for $(COPR_PROJECT_DEVELOPMENT_DEBUG)"
+	@echo "#  but with the development_snapshot + debug pair, all-bundled.)"
+	@echo "# Refresh via 'make copr-testing-debug' / 'make copr-development-debug',"
+	@echo "# always from the SAME NVR as the sibling channel (lockstep -- the"
+	@echo "# -debug subpackage hard-Requires the main package's exact NVR)."
 
 copr-stable: srpm
 	copr-cli build --timeout 28800 $(COPR_OWNER)/$(COPR_PROJECT_STABLE) \
@@ -698,6 +729,34 @@ copr-stabilization: srpm-stabilization
 # project; different audience: only us until a change is validated.
 copr-experimental: srpm-experimental
 	copr-cli build --timeout 28800 $(COPR_OWNER)/$(COPR_PROJECT_EXPERIMENTAL) \
+		~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
+
+# Debug-config sibling builds. Same SRPM as the namesake channel; the
+# `debug` bcond lives on the project's chroots (so the binary build
+# emits o3de2605-debug). Higher --timeout (64800 = 18h) because the
+# debug config roughly doubles build time, and --nowait because (a) an
+# 18h build isn't worth blocking on and (b) it sidesteps the large-SRPM
+# client wedge (see feedback_copr_cli_hangs_after_large_srpm_upload).
+# Sizing: the first testing-debug validation (build 10532647, 2026-06-01)
+# took 10h48m against a 12h cap -- only ~1h12m of headroom -- and the
+# development-debug build is HEAVIER still (all-bundled compiles the 3p
+# from source instead of linking the system swaps), so 12h was too close.
+# 18h gives margin; the cap is a ceiling, not a duration, so finishing
+# early costs nothing.
+#
+# LOCKSTEP: fire these from the SAME spec state (same NVR) as their
+# sibling channel, ideally back-to-back, e.g.
+#     make copr-testing && make copr-testing-debug
+# Both reuse the same on-disk $(PKGNAME)-*.src.rpm, so the NVRs match
+# and `dnf install o3de2605-debug` resolves against the channel's main
+# package. If you bump Release between the two, they drift and the
+# debug subpackage won't install.
+copr-testing-debug: srpm
+	copr-cli build --timeout 64800 --nowait $(COPR_OWNER)/$(COPR_PROJECT_TESTING_DEBUG) \
+		~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
+
+copr-development-debug: srpm-snapshot-development
+	copr-cli build --timeout 64800 --nowait $(COPR_OWNER)/$(COPR_PROJECT_DEVELOPMENT_DEBUG) \
 		~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
 
 # 28800s = 8 hr. Default COPR project timeout is 5 hr (18000s); build
