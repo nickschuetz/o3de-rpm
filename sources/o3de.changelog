@@ -1,4 +1,20 @@
 %changelog
+* Tue Jun 02 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-96
+- Gate the Lua 5.5 compat patches (Patch0010 lua_newstate, Patch0011
+  WatchesPanel LUA_NUMTAGS) on the system_lua bcond. Lua 5.5 is only ever
+  reached through the system swap (the bundled package is Lua-5.4.4, and
+  F44's system Lua is 5.4.8; only rawhide's system Lua is 5.5), so for
+  every all-bundled build these shims are inert and need not apply. Beyond
+  the correctness tidy-up this stops them failing %prep when an all-bundled
+  upstream branch reworks one of the patched files, which is exactly what
+  the Qt6 branch did to WatchesPanel.cpp. Behavior-neutral for the
+  system_lua channels (testing, stable-with-swap), which still apply both.
+- BuildRequires: dbus-devel. The bundled Qt6's libQt6DBus.so.6 carries
+  versioned references to libdbus-1 and must resolve them at link time;
+  Fedora's minimal mock buildroot does not pull libdbus in by default, so
+  a Qt6 build fails at link. Harmless for the current Qt5 bundle (its
+  QtDBus is not linked this way). Enables the in-progress Qt6 migration.
+
 * Sat May 30 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-95
 - Recommends: xdg-utils. The Project Manager's 'Open Project folder'
   action and the "open build log" / "open export output" links use

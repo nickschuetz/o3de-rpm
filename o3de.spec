@@ -276,7 +276,7 @@ Version:        %{stable_tag}~%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        95%{?dist}
+Release:        96%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -457,12 +457,22 @@ Patch0008:      0008-azcore-drop-lua-lobject-include.patch
 Patch0009:      0009-physx-pal-gate-poly2tri-on-system.patch
 %endif
 
+# Lua 5.5 compat patches (0010 + 0011). Gated on system_lua because Lua
+# 5.5 is only ever reached via the system swap (the bundled package is
+# Lua-5.4.4-rev1, and F44's system Lua is 5.4.8 -- only rawhide's system
+# Lua is 5.5). All-bundled builds (development, qt6, stable-without-swap)
+# build against 5.4.4 where the 2-arg lua_newstate / LUA_NUMTAGS exist
+# natively, so these shims are inert there AND need not apply -- which
+# also stops them breaking %prep when an all-bundled branch (e.g. qt6)
+# reworks one of the patched files. See project_lua_5_5_newstate_break.md.
+%if %{with system_lua}
+
 # Lua 5.5 added a required third parameter to `lua_newstate` (a hash-seed
 # randomization parameter). Engine's ScriptContext.cpp:4359 still calls
 # the 5.4 two-arg form, which fails compilation on any distro shipping
 # Lua 5.5+. Patch wraps the call in a `#if LUA_VERSION_NUM >= 505` guard
 # that passes seed=0 on Lua 5.5+ and falls through to the original
-# two-arg form on Lua 5.4. Applies unconditionally; behavior-preserving
+# two-arg form on Lua 5.4. Behavior-preserving
 # on Lua 5.4 (the #if branch evaluates false) so bundled-Lua builds are
 # unaffected. Caught on COPR build 10436540 (o3de-experimental 14-pack
 # fedora-rawhide chroot, 2026-05-08); Fedora 44 still ships Lua 5.4.8
@@ -483,6 +493,7 @@ Patch0010:      0010-azcore-script-lua-5-5-newstate-signature-compat.patch
 # LuaIDE compile happens later in the build than ScriptContext.cpp.
 # Memory: project_lua_5_5_newstate_break.md.
 Patch0011:      0011-luaide-watchespanel-lua-5-5-numtags-compat.patch
+%endif
 
 # Patch0012 v2 -- AssetBuilder child-side parent-death watchdog.
 #
@@ -626,6 +637,15 @@ BuildRequires:  xcb-util-renderutil-devel
 BuildRequires:  xcb-util-wm-devel
 BuildRequires:  libxkbcommon-devel
 BuildRequires:  libxkbcommon-x11-devel
+
+# D-Bus: the bundled Qt6's libQt6DBus.so.6 carries versioned references to
+# libdbus-1 (@LIBDBUS_1_3) and must resolve them at link time. Fedora's
+# minimal mock buildroot does not pull libdbus in by default, so the link
+# fails ("undefined reference to dbus_*"); o3de's own Ubuntu CI passes only
+# because its base image already has libdbus present. Harmless for the Qt5
+# bundle (its QtDBus isn't linked this way). Caught on the first qt6 test
+# build (o3de-development-qt6 build 10541804, 2026-06-02).
+BuildRequires:  dbus-devel
 
 # System libs — validated against auto-Requires from the built binaries.
 BuildRequires:  pkgconfig(fontconfig)
