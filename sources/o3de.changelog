@@ -1,11 +1,27 @@
 %changelog
+* Tue Jun 02 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-97
+- Add a qt6 bcond to fence the Qt6-migration-specific build deps and steps
+  off from the Qt5 channels. The o3de/o3de:qt6 branch (vanilla Qt6 +
+  PySide6) is a 26.10-track forward test only (it is NOT backported to
+  26.05); the o3de-development-qt6 COPR channel sets --rpmbuild-with qt6.
+- Move the dbus-devel BuildRequires (bundled Qt6 QtDBus link dep) under the
+  qt6 bcond, so the Qt5 stable/testing/development channels no longer pull
+  it. Behavior-neutral for them (it was an unused BR there at -96).
+- Under the qt6 bcond, add an %%install rpath cleanup (via patchelf) for the
+  bundled PySide6 binaries. The pyside6 3rdParty package bakes an absolute
+  o3de CI build path (/home/runner/...) and a misplaced $ORIGIN into the
+  RUNPATH of shiboken6 / libpyside6 / the *.abi3.so modules, which Fedora's
+  check-rpaths QA rejects (ERROR 0002 + 0008). The cleanup strips the dead
+  CI path and keeps only the $ORIGIN-relative entries. Self-limited to
+  files that carry the CI path. Surfaced by qt6 build 10549660.
+
 * Tue Jun 02 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-96
 - Gate the Lua 5.5 compat patches (Patch0010 lua_newstate, Patch0011
   WatchesPanel LUA_NUMTAGS) on the system_lua bcond. Lua 5.5 is only ever
   reached through the system swap (the bundled package is Lua-5.4.4, and
   F44's system Lua is 5.4.8; only rawhide's system Lua is 5.5), so for
   every all-bundled build these shims are inert and need not apply. Beyond
-  the correctness tidy-up this stops them failing %prep when an all-bundled
+  the correctness tidy-up this stops them failing %%prep when an all-bundled
   upstream branch reworks one of the patched files, which is exactly what
   the Qt6 branch did to WatchesPanel.cpp. Behavior-neutral for the
   system_lua channels (testing, stable-with-swap), which still apply both.

@@ -110,6 +110,16 @@
 # motivated this gate.
 %bcond_with development_snapshot
 
+# Qt6 forward-test gate. The o3de/o3de:qt6 branch swaps the custom Qt 5.15
+# bundle for vanilla Qt6 + PySide6, and its 3rdParty brings build deps and
+# binary quirks the Qt5 bundle does not. This bcond fences those off so the
+# Qt5 channels (stable / testing / development) are untouched: it pulls the
+# bundled-Qt6 link dep (dbus-devel) and runs an %%install rpath cleanup on the
+# PySide6 binaries. Set ONLY on the o3de-development-qt6 forward-test chroots
+# (--rpmbuild-with qt6). 26.10-track; qt6 is NOT backported to 26.05.
+# See project_o3de_bundles_custom_qt.md.
+%bcond_with qt6
+
 # ── Version pinning ──────────────────────────────────────────────────────────
 %global stable_tag      2605.0
 # Compute with: sha256sum o3de-<tag>-lfs.tar.gz  (2605.0+ naming convention;
@@ -276,7 +286,7 @@ Version:        %{stable_tag}~%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        96%{?dist}
+Release:        97%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -463,7 +473,7 @@ Patch0009:      0009-physx-pal-gate-poly2tri-on-system.patch
 # Lua is 5.5). All-bundled builds (development, qt6, stable-without-swap)
 # build against 5.4.4 where the 2-arg lua_newstate / LUA_NUMTAGS exist
 # natively, so these shims are inert there AND need not apply -- which
-# also stops them breaking %prep when an all-bundled branch (e.g. qt6)
+# also stops them breaking %%prep when an all-bundled branch (e.g. qt6)
 # reworks one of the patched files. See project_lua_5_5_newstate_break.md.
 %if %{with system_lua}
 
@@ -642,10 +652,14 @@ BuildRequires:  libxkbcommon-x11-devel
 # libdbus-1 (@LIBDBUS_1_3) and must resolve them at link time. Fedora's
 # minimal mock buildroot does not pull libdbus in by default, so the link
 # fails ("undefined reference to dbus_*"); o3de's own Ubuntu CI passes only
-# because its base image already has libdbus present. Harmless for the Qt5
-# bundle (its QtDBus isn't linked this way). Caught on the first qt6 test
-# build (o3de-development-qt6 build 10541804, 2026-06-02).
+# because its base image already has libdbus present. Gated on the qt6
+# bcond so the Qt5 channels do not pull it. patchelf is used by the qt6
+# %%install rpath cleanup below. Caught on the first qt6 test builds
+# (o3de-development-qt6 builds 10541804 + 10549660, 2026-06-02).
+%if %{with qt6}
 BuildRequires:  dbus-devel
+BuildRequires:  patchelf
+%endif
 
 # System libs — validated against auto-Requires from the built binaries.
 BuildRequires:  pkgconfig(fontconfig)
@@ -1597,6 +1611,32 @@ done
 # Ship the SBOM next to the license/docs so it's discoverable post-install.
 install -D -m 0644 %{SOURCE13} \
     %{buildroot}%{_datadir}/%{o3de_pkgname}/sbom/%{o3de_pkgname}.cdx.json
+
+%if %{with qt6}
+# Qt6 PySide6 rpath cleanup. The bundled pyside6 3rdParty package ships
+# shiboken6 + the libpyside6 / *.abi3.so binaries with their build-machine
+# RUNPATH baked in (an absolute /home/runner/... o3de CI path) and $ORIGIN
+# at the wrong position. Fedora's check-rpaths QA (ERROR 0002 invalid
+# runpath + ERROR 0008 $ORIGIN position) rejects them in %%install. The
+# absolute CI path is dead on any real machine anyway, so strip every
+# non-$ORIGIN entry and keep only the $ORIGIN-relative ones (which also
+# puts $ORIGIN first, clearing 0008). Self-limited to files that actually
+# carry the CI path, so clean engine binaries are untouched. Upstream fix
+# belongs in o3de/3p-package-source's pyside6 recipe.
+find %{buildroot}%{o3de_install_prefix} -type f \
+        \( -name 'shiboken6' -o -name '*.abi3.so*' -o -name 'libpyside6*' -o -name 'libshiboken6*' \) \
+        | while read -r f; do
+    rp=$(patchelf --print-rpath "$f" 2>/dev/null) || continue
+    case "$rp" in
+        *home/runner/*)
+            clean=$(printf '%s' "$rp" | tr ':' '\n' | grep -E '^\$ORIGIN' | paste -sd:)
+            [ -z "$clean" ] && clean='$ORIGIN'
+            patchelf --set-rpath "$clean" "$f"
+            echo "qt6 rpath-cleaned: ${f#%{buildroot}}"
+            ;;
+    esac
+done
+%endif
 
 # ── CHECK ────────────────────────────────────────────────────────────────────
 %check
