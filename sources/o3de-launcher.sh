@@ -150,10 +150,16 @@ fi
 # the upstream Debian .deb package: set QT_FONT_DPI=100 to disable
 # auto-scaling. Default only when the user hasn't set it AND we're
 # on a Wayland session; X11 sessions behave correctly without this.
-# Will become irrelevant when Qt 6 migration lands in 26.10.0
-# (vanilla Qt 6 + system qt6-qtwayland resolves both this and the
-# missing-wayland-platform-plugin gap).
-if [ -z "${QT_FONT_DPI:-}" ] && [ "${XDG_SESSION_TYPE:-}" = "wayland" ]; then
+#
+# Qt5-only: a fixed QT_FONT_DPI on Qt 6 SUPPRESSES the correct
+# per-monitor scaling it would otherwise do (the very bug this papers
+# over does not exist there). Detect the bundled Qt generation from
+# the deployed runtime rather than the build flags so one launcher
+# serves every channel: qt6-era builds (o3de-development-qt6 today,
+# 26.10.x if the migration lands) ship libQt6Core.so.6 in BIN_DIR,
+# Qt5-era builds ship libQt5Core there instead.
+if [ -z "${QT_FONT_DPI:-}" ] && [ "${XDG_SESSION_TYPE:-}" = "wayland" ] \
+    && [ ! -e "$BIN_DIR/libQt6Core.so.6" ]; then
     export QT_FONT_DPI=100
 fi
 

@@ -1,4 +1,11 @@
 %changelog
+* Thu Jun 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-100
+- launcher: skip the Wayland QT_FONT_DPI=100 workaround on qt6-era
+  builds (runtime-detected via libQt6Core.so.6 in BIN_DIR). The fixed
+  DPI papers over a Qt 5.15 auto-DPI bug that does not exist on Qt 6,
+  where it would instead suppress correct per-monitor scaling. Qt5
+  channels keep the workaround unchanged.
+
 * Thu Jun 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-99
 - qt6 builds: drop the dangling libQt6Qml.so.6 auto-Require via a
   qt6-gated __requires_exclude extension. The deployed lupdate
