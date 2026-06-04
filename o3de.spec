@@ -120,6 +120,19 @@
 # See project_o3de_bundles_custom_qt.md.
 %bcond_with qt6
 
+# Prototype gate for the central system-swap download hook (Patch0014).
+# When set, Patch0014 wraps ly_download_associated_package() in a
+# per-package LY_USE_SYSTEM_<NAME> opt-out, and Patch0006 (the per-line
+# BuiltInPackages gating it replaces) is skipped. Patch0009 and
+# Patch0013 are deliberately KEPT: 0009 is a gem-local gate that
+# coexists, and 0013 carries non-download hunks (VULKAN_VALIDATION_LAYER
+# unset + VK_LAYER_PATH SetEnv) the hook does not cover. Default OFF so
+# every shipping channel is unchanged; exercised on the o3de-experimental
+# chroots as the validation build for the upstream hook proposal
+# discussed with nick-l-o3de 2026-06-03. See the Patch0014 header and
+# project_system_swap_shim_two_mechanisms.md.
+%bcond_with swap_hook
+
 # ── Version pinning ──────────────────────────────────────────────────────────
 %global stable_tag      2605.0
 # Compute with: sha256sum o3de-<tag>-lfs.tar.gz  (2605.0+ naming convention;
@@ -286,7 +299,7 @@ Version:        %{stable_tag}~%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        97%{?dist}
+Release:        98%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -418,7 +431,7 @@ Patch0007:      0007-libtiff-c99-typedefs.patch
 # o3de-development COPR project intentionally has no `system_*` swaps active
 # (see make-snapshot-tarball.sh + edit-chroot config) so the gate-flags
 # aren't needed there anyway.
-%if %{without development_snapshot}
+%if %{without development_snapshot} && %{without swap_hook}
 Patch0006:      0006-builtinpackages-gate-mikkelsen-on-system.patch
 %endif
 
@@ -554,8 +567,29 @@ Patch0012:      0012-v2-assetbuilder-parent-watchdog.patch
 # context. Stabilization/26050 still has the original layout, so all
 # three hunks apply cleanly there. Gated under %%without
 # development_snapshot for the same reason as Patch0006.
-%if %{without development_snapshot}
+%if %{without development_snapshot} && %{without swap_hook}
 Patch0013:      0013-vulkan-validationlayers-gate-on-system.patch
+%endif
+
+# Patch0015 -- swap_hook variant of Patch0013: the two runtime hunks
+# (PAL_linux.cmake dependency removal + Instance.cpp VK_LAYER_PATH
+# SetEnv flip) WITHOUT the BuiltInPackages associate-gate hunk. That
+# hunk's context assumed Patch0006 had already rewritten the file, and
+# under the lazy model it is unnecessary anyway: ly_associate_package
+# only registers, and with the reference removed the resolver never
+# fires for it. See the patch header.
+%if %{without development_snapshot} && %{with swap_hook}
+Patch0015:      0015-vulkan-validationlayers-system-runtime-hunks.patch
+%endif
+
+# Patch0014 -- the central system-swap download hook (prototype). One
+# guard inside ly_download_associated_package() replaces Patch0006's
+# per-line gating; the trailing find_package at every call site then
+# resolves our Find<X>.cmake shims. See the patch header for the call
+# site sweep and the Imath multi-target note. Applied only with the
+# swap_hook bcond (o3de-experimental validation builds).
+%if %{with swap_hook}
+Patch0014:      0014-3rdpartypackages-system-swap-download-hook.patch
 %endif
 
 # Stage 1 system-library find modules. Copied into cmake/3rdParty/
@@ -1329,7 +1363,7 @@ cmake \
     %{?with_system_lz4:-DLY_USE_SYSTEM_LZ4=ON} \
     %{?with_system_mcpp:-DLY_USE_SYSTEM_MCPP=ON} \
     %{?with_system_mikkelsen:-DLY_USE_SYSTEM_MIKKELSEN=ON} \
-    %{?with_system_openexr:-DLY_USE_SYSTEM_OPENEXR=ON} \
+    %{?with_system_openexr:-DLY_USE_SYSTEM_OPENEXR=ON -DLY_USE_SYSTEM_IMATH=ON} \
     %{?with_system_png:-DLY_USE_SYSTEM_PNG=ON} \
     %{?with_system_poly2tri:-DLY_USE_SYSTEM_POLY2TRI=ON} \
     %{?with_system_rapidjson:-DLY_USE_SYSTEM_RAPIDJSON=ON} \

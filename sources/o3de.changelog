@@ -1,4 +1,24 @@
 %changelog
+* Wed Jun 03 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-98
+- Add Patch0014 + the swap_hook bcond: a prototype of the central
+  system-swap download hook proposed upstream (one LY_USE_SYSTEM_<NAME>
+  guard inside ly_download_associated_package, replacing Patch0006's
+  per-line BuiltInPackages gating; the trailing find_package at each
+  call site then resolves our Find<X> shims). Default OFF, so every
+  shipping channel builds exactly as before; the o3de-experimental
+  chroots set it to validate the mechanism for the upstream proposal.
+  Patch0009 is kept under the hook (gem-local gate, coexists). Patch0013
+  is swapped for Patch0015 under the hook: the same two runtime hunks
+  (PAL_linux dependency removal, VK_LAYER_PATH SetEnv flip) minus the
+  BuiltInPackages associate-gate hunk, whose context assumed Patch0006
+  and which the lazy model makes unnecessary (associate lines only
+  register; with the reference removed, nothing ever resolves it).
+- Pass -DLY_USE_SYSTEM_IMATH=ON alongside -DLY_USE_SYSTEM_OPENEXR=ON.
+  The OpenEXR 3rdParty association declares TARGETS OpenEXR Imath, and
+  the hook keys per target, so without the Imath flag a 3rdParty::Imath
+  reference would still download the bundled OpenEXR package. Inert for
+  the Patch0006 path (nothing there reads the Imath flag).
+
 * Tue Jun 02 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-97
 - Add a qt6 bcond to fence the Qt6-migration-specific build deps and steps
   off from the Qt5 channels. The o3de/o3de:qt6 branch (vanilla Qt6 +

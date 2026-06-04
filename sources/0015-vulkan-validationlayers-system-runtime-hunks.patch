@@ -1,0 +1,60 @@
+Vulkan validation layers system swap -- runtime hunks only (swap_hook variant).
+
+The two non-download hunks of Patch0013, for builds where Patch0014's
+central download hook replaces per-line ly_associate_package gating:
+
+- PAL_linux.cmake: leave VULKAN_VALIDATION_LAYER unset so the gem's
+  BUILD_DEPENDENCIES expands to nothing (the system package provides the
+  layer at runtime instead).
+- Instance.cpp: flip the VK_LAYER_PATH SetEnv overwrite flag from 1 to 0
+  so a distro/Flatpak launcher pre-setting that env var wins over the
+  engine's exeDirectory default.
+
+Patch0013's third hunk (gating the vulkan-validationlayers
+ly_associate_package line in BuiltInPackages_linux_x86_64.cmake) is
+deliberately ABSENT here: ly_associate_package only registers an
+association, and with the PAL_linux hunk removing the only
+3rdParty::vulkan-validationlayers reference, the lazy resolver never
+fires for it, so no download happens and no gate is needed. A nice
+side-finding for the upstream hook proposal: under the lazy model the
+associate lines never need touching at all.
+
+--- a/Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/PAL_linux.cmake
++++ b/Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/PAL_linux.cmake
+@@ -8,4 +8,15 @@
+ 
+ set(PAL_TRAIT_ATOM_RHI_VULKAN_SUPPORTED TRUE)
+ set(PAL_TRAIT_AFTERMATH_AVAILABLE FALSE)
+-set(VULKAN_VALIDATION_LAYER 3rdParty::vulkan-validationlayers)
++if(LY_USE_SYSTEM_VULKAN_VALIDATION_LAYERS)
++    # Distro packagers (Fedora, etc.) installing the system
++    # vulkan-validation-layers package: the Vulkan loader discovers
++    # libVkLayer_khronos_validation.so via its default search paths or
++    # via VK_LAYER_PATH (which Instance.cpp now respects when pre-set).
++    # No cmake-side dep needed, so VULKAN_VALIDATION_LAYER is left
++    # empty -- ${VULKAN_VALIDATION_LAYER} in BUILD_DEPENDENCIES expands
++    # to nothing.
++    set(VULKAN_VALIDATION_LAYER)
++else()
++    set(VULKAN_VALIDATION_LAYER 3rdParty::vulkan-validationlayers)
++endif()
+diff --git a/Gems/Atom/RHI/Vulkan/Code/Source/RHI/Instance.cpp b/Gems/Atom/RHI/Vulkan/Code/Source/RHI/Instance.cpp
+index 418193c2..1916a89d 100644
+--- a/Gems/Atom/RHI/Vulkan/Code/Source/RHI/Instance.cpp
++++ b/Gems/Atom/RHI/Vulkan/Code/Source/RHI/Instance.cpp
+@@ -70,7 +70,12 @@ namespace AZ
+                 AZ::Utils::GetExecutableDirectory(exeDirectory, AZ_ARRAY_SIZE(exeDirectory));
+ 
+                 //This env var (VK_LAYER_PATH) is used by the drivers to look for VkLayer_khronos_validation.dll
+-                AZ::Utils::SetEnv("VK_LAYER_PATH", exeDirectory, 1);
++                //Use overwrite=0 (respect pre-set value) so distro/flatpak/snap packagers
++                //pointing VK_LAYER_PATH at a system loader-discovery path
++                //(e.g. /usr/share/vulkan/explicit_layer.d on Linux) win over the bundled
++                //exeDirectory default. Bundled-engine installs with VK_LAYER_PATH unset
++                //fall through to the previous behavior (set to exeDirectory).
++                AZ::Utils::SetEnv("VK_LAYER_PATH", exeDirectory, 0);
+ 
+                 RawStringList validationLayers = Debug::GetValidationLayers();
+                 m_descriptor.m_optionalLayers.insert(m_descriptor.m_optionalLayers.end(), validationLayers.begin(), validationLayers.end());
+diff --git a/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake b/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake
+index d7e375bc..443f04d6 100644

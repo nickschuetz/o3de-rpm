@@ -1,0 +1,58 @@
+Central system-library download hook (prototype for an upstream proposal).
+
+Wraps the body of ly_download_associated_package() -- the single choke
+point every bundled-3rdParty download funnels through (the generic
+3rdParty dependency loop, the BuiltInPackages ZLIB bootstrap, and both
+LYWrappers branches all call it, then call
+find_package(<name> REQUIRED MODULE)) -- in a per-package opt-out:
+when -DLY_USE_SYSTEM_<NAME>=ON is passed, the bundled download is
+skipped and the trailing find_package resolves a system Find module
+from CMAKE_MODULE_PATH (our Find<X>.cmake shims) instead.
+
+This replaces Patch0006's per-line gating of every ly_associate_package
+entry in BuiltInPackages_linux_x86_64.cmake with one ~10-line change to
+core machinery that rarely churns. Behavior is byte-identical for any
+package whose flag is not set (Python, Qt, AWSNativeSDK, ... keep
+downloading exactly as before).
+
+Two notes:
+- find_library_name is uppercased before the flag check so the existing
+  uppercase flag spellings (LY_USE_SYSTEM_LUA, ...) match mixed-case
+  target names (Lua, RapidJSON, ZLIB, ...).
+- The hook keys per TARGET while the per-line gate keyed per PACKAGE.
+  The one multi-target association (OpenEXR-3.1.3 declares TARGETS
+  OpenEXR Imath) therefore needs LY_USE_SYSTEM_IMATH passed alongside
+  LY_USE_SYSTEM_OPENEXR, which the spec now does.
+
+Gated behind the swap_hook bcond; exercised on the o3de-experimental
+channel as the validation for the upstream "add a hook / standardize it"
+conversation with nick-l-o3de (2026-06-03). If upstream adopts this (or
+the explicit per-line alternative), Patch0006 retires entirely.
+
+--- a/cmake/3rdPartyPackages.cmake
++++ b/cmake/3rdPartyPackages.cmake
+@@ -710,10 +710,20 @@
+ # is brought into scope (and if necessary, downloaded.)
+ macro(ly_download_associated_package find_library_name)
+     unset(package_name)
+-    ly_get_package_association(${find_library_name} package_name)
+-    if (package_name)
+-        # it is an associated package.
+-        ly_enable_package(${package_name})
++    # System-library override: when LY_USE_SYSTEM_<NAME> is ON (NAME being the
++    # uppercased find_library_name), skip the bundled-package download entirely
++    # and let the caller's find_package(<find_library_name> REQUIRED MODULE)
++    # resolve a system Find module from CMAKE_MODULE_PATH instead. Opt-in per
++    # package: anything without a flag set (e.g. Python) downloads exactly as
++    # before. Uppercasing keeps one flag spelling (LY_USE_SYSTEM_LUA) working
++    # for mixed-case target names (Lua, RapidJSON, ZLIB, ...).
++    string(TOUPPER "${find_library_name}" ly_download_associated_package_name_upper)
++    if (NOT LY_USE_SYSTEM_${ly_download_associated_package_name_upper})
++        ly_get_package_association(${find_library_name} package_name)
++        if (package_name)
++            # it is an associated package.
++            ly_enable_package(${package_name})
++        endif()
+     endif()
+ endmacro()
+ 
