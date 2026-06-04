@@ -1,4 +1,13 @@
 %changelog
+* Thu Jun 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-101
+- launcher: ROS2 environment autodetect. Detect /opt/ros/<distro>/ and
+  import the ROS env (AMENT_*/COLCON_*/ROS_*/RMW_*, LD_LIBRARY_PATH,
+  PATH, CMAKE_PREFIX_PATH) so menu-launched sessions can load the ROS2
+  gem's librcl/librmw without a manually sourced shell. Newest distro
+  wins (codenames are alphabetical by release); O3DE_ROS_DISTRO pins
+  one; O3DE_DISABLE_ROS2=1 opts out. PYTHONPATH is deliberately NOT
+  imported (system-Python site-packages poison the bundled 3.10 venv).
+
 * Thu Jun 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-100
 - launcher: skip the Wayland QT_FONT_DPI=100 workaround on qt6-era
   builds (runtime-detected via libQt6Core.so.6 in BIN_DIR). The fixed

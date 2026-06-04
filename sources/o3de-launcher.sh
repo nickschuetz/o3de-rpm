@@ -180,6 +180,51 @@ case " ${TCLLIBPATH:-} " in
     *) export TCLLIBPATH="${TCLLIBPATH:+$TCLLIBPATH }/usr/lib64/tcl" ;;
 esac
 
+# ROS2 environment autodetect. The ROS2 gem's C++ side needs the ROS
+# env (AMENT_PREFIX_PATH, librcl/librmw on the library path) at Editor
+# and AssetProcessor runtime. Terminal users source setup.bash
+# themselves; menu launches arrive here with a clean environment and a
+# ROS2-gem project then fails with unsatisfied librcl/librmw deps.
+# Detect /opt/ros/<distro>/ (the layout shared by Open Robotics
+# packages and the hellaenergy/ros2* COPR RPMs) and import the ROS env
+# selectively.
+#
+# - Newest distro wins by default: ROS 2 codenames are alphabetical by
+#   release (humble < jazzy < kilted < lyrical ...), so the
+#   lexicographically last /opt/ros/ entry is the newest installed.
+# - O3DE_ROS_DISTRO=<name> pins a specific distro.
+# - O3DE_DISABLE_ROS2=1 skips detection entirely.
+# - PYTHONPATH is deliberately NOT imported: the distro setup points it
+#   at the system-Python site-packages (3.13/3.14-built .so modules),
+#   which segfault when imported into the engine's bundled Python 3.10
+#   venv. The gem's C++ side only needs the library path, so the
+#   majority case works without ROS Python. Everything else the setup
+#   exports is taken via whitelist (AMENT_*/COLCON_*/ROS_*/RMW_*,
+#   LD_LIBRARY_PATH, PATH, CMAKE_PREFIX_PATH) rather than a blind env
+#   copy, so shell internals never leak through.
+if [ -z "${O3DE_DISABLE_ROS2:-}" ]; then
+    ros_setup=""
+    if [ -n "${O3DE_ROS_DISTRO:-}" ]; then
+        if [ -r "/opt/ros/${O3DE_ROS_DISTRO}/setup.bash" ]; then
+            ros_setup="/opt/ros/${O3DE_ROS_DISTRO}/setup.bash"
+        fi
+    else
+        for ros_candidate in /opt/ros/*/setup.bash; do
+            [ -r "$ros_candidate" ] && ros_setup="$ros_candidate"
+        done
+    fi
+    if [ -n "$ros_setup" ]; then
+        while IFS='=' read -r -d '' ros_k ros_v; do
+            case "$ros_k" in
+                AMENT_*|COLCON_*|ROS_*|RMW_*|LD_LIBRARY_PATH|PATH|CMAKE_PREFIX_PATH)
+                    export "$ros_k=$ros_v" ;;
+            esac
+        done < <(bash -c "source '$ros_setup' >/dev/null 2>&1 && env -0")
+        unset ros_k ros_v
+    fi
+    unset ros_setup ros_candidate
+fi
+
 exec "$BIN_DIR/o3de" \
     -name "O3DE" \
     --engine-path="$ENGINE_PATH" \
