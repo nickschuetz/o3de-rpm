@@ -283,7 +283,20 @@
 # This goes away when Stage 5 of FEDORA_ROADMAP.md ships a license-clean
 # DXC rebuilt against system clang. Don't add new entries to this regex
 # without checking — most Requires we'd want to drop are real.
+%if %{with qt6}
+# qt6 builds additionally ship Qt's lupdate (LinguistTools), which links
+# libQt6Qml.so.6 (it parses QML for translatable strings), but the qt 3p
+# package's deploy list ships no Qml libraries. The dangling auto-Require
+# (incl. the Qt_6_PRIVATE_API versioned symbol) makes the RPM
+# dnf-uninstallable. lupdate is the only payload binary linking Qml
+# (verified by a full payload NEEDED scan, 2026-06-04) and the PySide6
+# QtQml module is not shipped, so nothing can dlopen it either. Drop the
+# Require until upstream either deploys libQt6Qml or drops lupdate from
+# the installed image.
+%global __requires_exclude ^libclang-12\\.so.*|^libtinfo\\.so\\.6.*|^libQt6Qml\\.so\\.6.*
+%else
 %global __requires_exclude ^libclang-12\\.so.*|^libtinfo\\.so\\.6.*
+%endif
 
 Name:           %{o3de_pkgname}
 %if %{with snapshot}
@@ -299,7 +312,7 @@ Version:        %{stable_tag}~%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        98%{?dist}
+Release:        99%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT

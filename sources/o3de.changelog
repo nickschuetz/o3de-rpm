@@ -1,4 +1,14 @@
 %changelog
+* Thu Jun 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-99
+- qt6 builds: drop the dangling libQt6Qml.so.6 auto-Require via a
+  qt6-gated __requires_exclude extension. The deployed lupdate
+  (LinguistTools) links libQt6Qml but the qt 3p package deploys no Qml
+  libraries, leaving an unsatisfiable Require (incl. Qt_6_PRIVATE_API)
+  that made the o3de-development-qt6 RPMs dnf-uninstallable. lupdate is
+  the only payload binary linking Qml (full payload NEEDED scan,
+  2026-06-04) and the PySide6 QtQml module is not shipped. Qt5 channels
+  unchanged (the exclusion is inside the qt6 bcond).
+
 * Wed Jun 03 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-98
 - Add Patch0014 + the swap_hook bcond: a prototype of the central
   system-swap download hook proposed upstream (one LY_USE_SYSTEM_<NAME>
