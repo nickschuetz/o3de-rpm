@@ -158,8 +158,15 @@ jobs:
               # subpackages (o3de2605-devel-..., a letter after the dash) --
               # otherwise sort -V|tail -1 would pick o3de2605-devel-...-95,
               # which sorts after the main package.
+              # The [^"^] class ALSO excludes the legacy caret-delimited
+              # snapshot NVRs (o3de2605-2605.0^...). GNU sort -V applies the
+              # Debian tilde rule (~ sorts before everything), so a stale
+              # ^-era RPM lingering in a repo outsorts every current ~-NVR
+              # and tail -1 picks it. Caught 2026-06-03 when trigger-tests
+              # resolved a 2026-05-23 ^-era leftover in o3de-experimental
+              # instead of the fresh ~...-98 build.
               rpm_rel=$(curl -fsSL "${repo}/${primary}" | gunzip -c \
-                | grep -oE 'href="Packages/o/o3de[0-9]+-[0-9][^"]+\.x86_64\.rpm"' \
+                | grep -oE 'href="Packages/o/o3de[0-9]+-[0-9][^"^]+\.x86_64\.rpm"' \
                 | sed 's/^href="//; s/"$//' \
                 | sort -V | tail -1)
               if [ -z "$rpm_rel" ]; then
