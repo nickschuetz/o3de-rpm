@@ -427,6 +427,25 @@ jobs:
           fi
           su -l runner -c "O3DE_PKGNAME='${{ needs.detect.outputs.pkgname }}' $GITHUB_WORKSPACE/tests/asset-bake-test.sh --keep-tmp"
 
+      - name: Upload tier logs on failure
+        # The Tier 1-5 scripts redirect each heavyweight step's full
+        # output to /tmp/o3de-test-<step>.log and print only a one-line
+        # pointer on failure. Runners are ephemeral, so without this
+        # upload that pointer references a file that no longer exists
+        # anywhere (bit us on the 2026-06-04 Tier 3 get_python flake,
+        # run 26921801808: 0.24s failure, evidence discarded).
+        # Security note for future editors: artifact CONTENTS are not
+        # secret-masked the way the Actions log is. This workflow uses
+        # no custom secrets today; if one is ever added, re-review what
+        # can end up in these logs before keeping this step.
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: tier-logs-${{ matrix.chroot }}
+          path: /tmp/o3de-test-*.log
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Upload screenshots
         if: ${{ needs.detect.outputs.run_ui == 'true' && always() }}
         uses: actions/upload-artifact@v4
