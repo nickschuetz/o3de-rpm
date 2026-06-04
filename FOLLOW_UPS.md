@@ -6,6 +6,14 @@ This file is intentionally a living scratchpad. Entries get added or removed as 
 
 ---
 
+## Carry-patch retirement audit (run 2026-06-04): zero retirements, one 26.10 obligation
+
+Full four-check sweep against the 2605.0 tag, stabilization/26050, and development ee805f49. All six merged-upstream patches (0001/#19748, 0002/#19751, 0005/#19750, 0007/#19734, 0008/#19733, 0012/#19747) are in development ONLY; stabilization/26050 has zero commits since the release tag, so no channel can drop anything and the development_snapshot gating is exactly right. Dev-channel applied set (0003+0004) dry-runs clean at tip; Lua 5.5 re-grep found the same 3 covered sites, no new ones.
+
+**Forward obligation: regenerate Patch0009 PhysX5-only when stabilization/26100 cuts.** PhysX4 Deprecation (o3de/o3de#19726) merged 2026-05-08; `Gems/PhysX/Core/PhysX4/Source/Platform/Linux/PAL_linux.cmake` no longer exists on development. Do NOT regenerate earlier: the 26.05-era refs the patch actually applies to still carry PhysX4. Next audit trigger: stabilization/26100 opening, or any commit landing on stabilization/26050 (would also be the 26.05.1 / UV-fix cherry-pick signal).
+
+---
+
 ## 26.05.0 release validation (closed 2026-05-28)
 
 **Stable RPM validated end-to-end against two community game projects.** Build 10519208 (o3de2605-2605.0-1.fc44) installed cleanly via the announcement install sequence (`dnf copr enable hellaenergy/o3de && dnf install o3de2605`). All tier passes against the clean install:
