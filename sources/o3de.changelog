@@ -1,4 +1,16 @@
 %changelog
+* Fri Jun 05 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-103
+- qt6 builds: extend the qt6-gated __requires_exclude to all four
+  dangling auto-Requires found by a full 192-capability audit of the
+  RPM against the F44 repos (the -99 fix covered only the first
+  reported one). New exclusions: libjpeg.so.8 + libtiff.so.5 (the qt
+  package's imageformat plugins link the Ubuntu build host's sonames;
+  Qt skips unloadable plugins gracefully, jpeg/tiff QImage formats
+  unavailable until upstream rebuilds them) and libclang-1[0-9] (the
+  dev-era DXC links host libclang-15 and no longer bundles it; the
+  binary is runtime-broken on Fedora regardless, system_dxc overlay is
+  the real fix). Qt5 channels evaluate the exact prior regex.
+
 * Thu Jun 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-102
 - Add Patch0016 (TIFF_DISABLE_DEPRECATED before <tiffio.h> in the three
   consumer TUs) and reactivate the system_tiff Stage 1 swap on the

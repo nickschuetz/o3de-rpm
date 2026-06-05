@@ -284,18 +284,32 @@
 # DXC rebuilt against system clang. Don't add new entries to this regex
 # without checking — most Requires we'd want to drop are real.
 %if %{with qt6}
-# qt6 builds additionally ship Qt's lupdate (LinguistTools), which links
-# libQt6Qml.so.6 (it parses QML for translatable strings), but the qt 3p
-# package's deploy list ships no Qml libraries. The dangling auto-Require
-# (incl. the Qt_6_PRIVATE_API versioned symbol) makes the RPM
-# dnf-uninstallable. lupdate is the only payload binary linking Qml
-# (verified by a full payload NEEDED scan, 2026-06-04) and the PySide6
-# QtQml module is not shipped, so nothing can dlopen it either. Drop the
-# Require until upstream either deploys libQt6Qml or drops lupdate from
-# the installed image.
-%global __requires_exclude ^libclang-12\\.so.*|^libtinfo\\.so\\.6.*|^libQt6Qml\\.so\\.6.*
+# qt6/dev-branch builds carry FOUR dangling auto-Requires (full 192-cap
+# audit against F44 repos, 2026-06-05), all the same upstream disease:
+# 3p binaries built on Ubuntu hosts linking host-library sonames Fedora
+# never shipped.
+# - libQt6Qml.so.6: lupdate (LinguistTools) links it but the qt deploy
+#   ships no Qml libraries; lupdate is the only Qml linker in the
+#   payload (full NEEDED scan 2026-06-04).
+# - libjpeg.so.8 + libtiff.so.5: the qt package's imageformat plugins
+#   (libqjpeg/libqtiff) link the build host's sonames; Fedora ships
+#   libjpeg-turbo/libtiff.so.6. Qt skips unloadable plugins gracefully
+#   (verified live in the container rounds), so jpeg/tiff QImage
+#   formats are unavailable until upstream rebuilds the plugins against
+#   Qt's internal codecs or bundles the libs.
+# - libclang-1X (dev-era DXC moved 12 -> 15): the newer DXC rev links
+#   host libclang-15 and, unlike the 26.05 package, does NOT bundle it
+#   under Builders/DirectXShaderCompiler/lib/ (only libdxcompiler.so
+#   ships). The dxc binary is runtime-broken on Fedora either way;
+#   excluding the Require unblocks install, and enabling the
+#   system_dxc overlay on the channel is the actual fix for shader
+#   bakes. Pattern is 1[0-9] to survive the next DXC clang bump.
+%global __requires_exclude ^libclang-1[0-9]\\.so.*|^libtinfo\\.so\\.6.*|^libQt6Qml\\.so\\.6.*|^libjpeg\\.so\\.8.*|^libtiff\\.so\\.5.*
 %else
-%global __requires_exclude ^libclang-12\\.so.*|^libtinfo\\.so\\.6.*
+# libclang-1[0-9]: the dev-era DXC moved its internal clang from 12 to
+# 15; the version-tolerant pattern keeps the next Sunday dev-channel
+# cron installable when its snapshot picks up the new DXC pin.
+%global __requires_exclude ^libclang-1[0-9]\\.so.*|^libtinfo\\.so\\.6.*
 %endif
 
 Name:           %{o3de_pkgname}
@@ -312,7 +326,7 @@ Version:        %{stable_tag}~%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        102%{?dist}
+Release:        103%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
