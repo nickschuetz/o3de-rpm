@@ -1,4 +1,16 @@
 %changelog
+* Thu Jun 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-102
+- Add Patch0016 (TIFF_DISABLE_DEPRECATED before <tiffio.h> in the three
+  consumer TUs) and reactivate the system_tiff Stage 1 swap on the
+  experimental channel, parked since -17. Modern libtiff guards its
+  legacy non-prefixed typedefs behind TIFF_DISABLE_DEPRECATED; with all
+  consumers already on the C99 names (Patch0007 / o3de/o3de#19734) the
+  guard removes the tiff side of the int64/uint64 collision with
+  CryCommon/BaseTypes.h without touching CryCommon, sidestepping the
+  Option A failure mode from -27. Gated on system_tiff; shipping
+  channels unchanged. If experimental validates, this is the upstream
+  pitch and the Bundling Library Exception (Option C) retires.
+
 * Thu Jun 04 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-101
 - launcher: ROS2 environment autodetect. Detect /opt/ros/<distro>/ and
   import the ROS env (AMENT_*/COLCON_*/ROS_*/RMW_*, LD_LIBRARY_PATH,

@@ -319,6 +319,7 @@ SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
                           --with system_rapidjson \
                           --with system_spirvcross \
                           --with system_sqlite \
+                          --with system_tiff \
                           --with system_vulkan_validation_layers \
                           --with system_xxhash \
                           --with system_zlib \

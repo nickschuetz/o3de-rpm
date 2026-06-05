@@ -312,7 +312,7 @@ Version:        %{stable_tag}~%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        101%{?dist}
+Release:        102%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -603,6 +603,25 @@ Patch0015:      0015-vulkan-validationlayers-system-runtime-hunks.patch
 # swap_hook bcond (o3de-experimental validation builds).
 %if %{with swap_hook}
 Patch0014:      0014-3rdpartypackages-system-swap-download-hook.patch
+%endif
+
+# Patch0016 -- define TIFF_DISABLE_DEPRECATED before <tiffio.h> in the
+# three consumer TUs. Modern libtiff (4.5+) still emits its legacy
+# non-prefixed typedefs by default and the int64/uint64 pair collides
+# with CryCommon/BaseTypes.h (long long vs long on LP64), the conflict
+# that parked system_tiff at -17 (2026-05-03). The guard removes the
+# tiff side of the collision; CryCommon stays untouched, which
+# sidesteps the Cry_ValidNumber.h ordering trap that killed the
+# Option A narrow-guard at -27. Safe because every tiffio.h consumer
+# is already on the C99 names (Patch0007 / upstream o3de/o3de#19734
+# migrated two; FrameCaptureSystemComponent.cpp was born clean,
+# verified on pin 8e75050 and dev tip 2026-06-04). Generated against
+# the pin with Patch0007 applied (ordering dependency, applies after
+# 0007). Gated on system_tiff while the swap revalidates on
+# o3de-experimental; if it proves out, candidate for upstream and the
+# Bundling Library Exception (Option C) retires.
+%if %{with system_tiff}
+Patch0016:      0016-tiff-disable-deprecated-typedefs.patch
 %endif
 
 # Stage 1 system-library find modules. Copied into cmake/3rdParty/
