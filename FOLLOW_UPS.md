@@ -6,6 +6,18 @@ This file is intentionally a living scratchpad. Entries get added or removed as 
 
 ---
 
+## TRIGGER: qt6 merges into o3de/development (decision pending with Nick_L, asked 2026-06-07)
+
+Guillaume rebased the qt6 branch on development + fixed DCO; pyside6 rev2 (#381, merged) was the last Linux consumable; Nick asked Nick_L for the merge call in the QT6 Support thread. The day it merges, the o3de-development channel's Sunday cron builds a Qt6 engine WITHOUT the qt6 gates, so:
+
+1. Add `qt6` to the o3de-development chroots' with_opts (all 3; full-list edit-chroot, verify with get-chroot) BEFORE the next cron tick, or the build fails at link (dbus-devel BR is qt6-gated) and, if it survives, ships with dangling requires (the jpeg8/tiff5/Qml excludes are qt6-gated).
+2. Confirm the merged dev tip actually carries the rev6 qt + rev2 pyside6 pins (Guillaume's rebase). If yes, our %install patchelf RUNPATH cleanup is a no-op against the clean rev2 package and can be RETIRED (it was the workaround for #378).
+3. Run the promised #380 verification round on the first post-merge build: configure with system qt6-qtbase-devel installed (contamination fix live) + native-wayland PM startup (deploy fix live), report back on #380.
+4. Decide the o3de-development-qt6 channel's future: redundant once qt6 IS development; probably retire after one overlap cycle (it has the channel description + testers pointed at it; coordinate, don't just delete).
+5. The Lua gating reminder: dev tip on Qt6 reworked WatchesPanel.cpp; Patch0010/0011 are system_lua-gated already (caught in the qt6 channel era), no action, just don't re-add.
+
+---
+
 ## Carry-patch retirement audit (run 2026-06-04): zero retirements, one 26.10 obligation
 
 Full four-check sweep against the 2605.0 tag, stabilization/26050, and development ee805f49. All six merged-upstream patches (0001/#19748, 0002/#19751, 0005/#19750, 0007/#19734, 0008/#19733, 0012/#19747) are in development ONLY; stabilization/26050 has zero commits since the release tag, so no channel can drop anything and the development_snapshot gating is exactly right. Dev-channel applied set (0003+0004) dry-runs clean at tip; Lua 5.5 re-grep found the same 3 covered sites, no new ones.
