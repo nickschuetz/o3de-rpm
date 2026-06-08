@@ -95,8 +95,17 @@ jobs:
             gh issue edit "$existing" --body-file issue-body.md
           fi
 
+      - name: Warn on fetch outage (exit 2)
+        # Exit 2 means the COPR lookups failed/timed out, not real drift.
+        # Don't fail the run red over an upstream API hiccup -- surface a
+        # warning so the next scheduled run (or a manual re-run) settles it.
+        if: steps.drift.outputs.exit_code == '2'
+        run: |
+          echo "::warning::dep-drift check could not reach COPR (fetch outage, exit 2); not a drift signal. Re-run when COPR is healthy."
+
       - name: Fail if drift detected
-        if: steps.drift.outputs.exit_code != '0'
+        # Only a real drift signal (exit 1) fails the run.
+        if: steps.drift.outputs.exit_code == '1'
         run: |
           echo "::error::dependency drift detected; see the sticky issue."
           exit 1

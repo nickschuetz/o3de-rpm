@@ -146,11 +146,21 @@ def _scalar(v: str) -> Any:
 # --- shell helpers ---------------------------------------------------------
 
 
-def run(cmd: list[str], check: bool = True) -> str:
+def run(cmd: list[str], check: bool = True, timeout: int = 60) -> str:
+    # timeout guards against a hung remote call (a slow COPR API turned a
+    # single cron run into 83 minutes on 2026-06-08). A timed-out call
+    # returns "" so the caller's empty-output path handles it; with
+    # check=True it's fatal (exit 2) like any other command failure.
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        proc = subprocess.run(
+            cmd, capture_output=True, text=True, check=False, timeout=timeout
+        )
     except FileNotFoundError as exc:
         die(f"command not found: {cmd[0]} ({exc})")
+    except subprocess.TimeoutExpired:
+        if check:
+            die(f"command timed out after {timeout}s: {' '.join(cmd)}")
+        return ""
     if check and proc.returncode != 0:
         die(f"command failed ({proc.returncode}): {' '.join(cmd)}\n{proc.stderr}")
     return proc.stdout
@@ -181,23 +191,27 @@ def fetch_tracked_branches(repo: str, branches: list[dict[str, str]]) -> list[di
         compare_to = entry.get("compare_to") or "development"
         desc = entry.get("description") or ""
         issue = entry.get("issue_url") or ""
+        # check=False: a tracked branch that gets merged away (deleted
+        # upstream) 404s, and that is expected state to report, not a
+        # reason to crash the tool. run(check=True) would die() here
+        # rather than raise, so an empty/unparseable result is the signal.
+        raw = run(["gh", "api", f"repos/{repo}/branches/{name}"], check=False)
         try:
-            raw = run(["gh", "api", f"repos/{repo}/branches/{name}"], check=True)
             br = json.loads(raw)
             sha = br["commit"]["sha"][:7]
             date_str = br["commit"]["commit"]["author"]["date"]
             last = datetime.datetime.fromisoformat(date_str.replace("Z", "+00:00"))
             stale_days = (now - last).days
-        except subprocess.CalledProcessError:
-            out.append({"branch": name, "error": "branch not found or API error",
+        except (json.JSONDecodeError, KeyError, ValueError):
+            out.append({"branch": name, "error": "branch not found (merged/deleted?) or API error",
                         "description": desc, "issue": issue})
             continue
+        raw = run(["gh", "api", f"repos/{repo}/compare/{compare_to}...{name}"], check=False)
         try:
-            raw = run(["gh", "api", f"repos/{repo}/compare/{compare_to}...{name}"], check=True)
             cmp = json.loads(raw)
             ahead = cmp.get("ahead_by", "?")
             behind = cmp.get("behind_by", "?")
-        except (subprocess.CalledProcessError, ValueError):
+        except (json.JSONDecodeError, ValueError):
             ahead = behind = "?"
         out.append({
             "branch": name, "sha": sha, "date": date_str[:10], "stale_days": stale_days,
@@ -220,12 +234,12 @@ def fetch_tracked_prs(repo: str, prs: list[dict[str, Any]]) -> list[dict[str, An
     for entry in prs:
         num = entry.get("number")
         desc = entry.get("description") or ""
+        raw = run(["gh", "pr", "view", str(num), "--repo", repo,
+                   "--json", "state,mergedAt,updatedAt,baseRefName,headRefName,"
+                             "additions,deletions,changedFiles,statusCheckRollup"], check=False)
         try:
-            raw = run(["gh", "pr", "view", str(num), "--repo", repo,
-                       "--json", "state,mergedAt,updatedAt,baseRefName,headRefName,"
-                                 "additions,deletions,changedFiles,statusCheckRollup"], check=True)
             pr = json.loads(raw)
-        except subprocess.CalledProcessError:
+        except json.JSONDecodeError:
             out.append({"number": num, "error": "PR not found or API error", "description": desc})
             continue
         updated = datetime.datetime.fromisoformat(pr["updatedAt"].replace("Z", "+00:00"))
@@ -370,12 +384,17 @@ def fetch_copr_versions(owner: str, project: str, packages: dict[str, str]) -> d
             check=False,
         )
         if not text.strip():
-            out[copr_name] = "missing"
+            # Empty output means the copr-cli call failed or timed out, NOT
+            # that the package is absent. Distinct sentinel so main() can
+            # tell a COPR outage (most lookups fetch-failed) apart from real
+            # drift and exit 2 instead of crying drift. See the 2026-06-08
+            # false alarm: a hung COPR API scored every dep "missing".
+            out[copr_name] = "fetch-failed"
             continue
         try:
             data = json.loads(text)
         except json.JSONDecodeError:
-            out[copr_name] = "missing"
+            out[copr_name] = "fetch-failed"
             continue
         sb = data.get("latest_succeeded_build")
         if not sb:
@@ -491,6 +510,11 @@ def classify(engine_ver: str, copr_ver: str) -> str:
     """Compare engine vs COPR version. Returns one of:
     in-sync, minor-drift, out-of-date, ahead-of-engine.
     """
+    if copr_ver == "fetch-failed":
+        # COPR lookup failed/timed out -- not a version comparison we can
+        # make. Surfaced in the report but never counted as drift (main()
+        # exits 2 if these dominate).
+        return "fetch-failed"
     if not copr_ver or copr_ver in ("missing", "no-succeeded-build"):
         return "out-of-date"
     en = normalize_version(engine_ver)
@@ -524,9 +548,31 @@ def classify(engine_ver: str, copr_ver: str) -> str:
         # confirmed the underlying upstream version matches, and the
         # rev label forms aren't meaningfully comparable.
         return "in-sync"
-    # If either side looks like a git-commit pin (hex sha) and they
-    # don't match literally, treat as out-of-date -- numeric ordering
-    # is meaningless across commits.
+    # Git-snapshot pins: compare the embedded commit hash, not the
+    # surrounding version string. Fedora's NVR form for a git snapshot is
+    # e.g. "0-0.5.20210402git36b80aa" while the engine pins "36b80aa-rev1"
+    # -- same commit, different formatting, so a literal string compare
+    # spuriously reads out-of-date (the ISPCTexComp false positive,
+    # 2026-06-08). If both sides carry the same >=7-hex-char hash, the
+    # source matches; only the rev/packaging label differs -> minor-drift.
+    # Match either a git-prefixed run or a hex run that contains at least
+    # one a-f letter, so an all-digit date (e.g. "20210402") is not
+    # mistaken for a commit hash.
+    def _hashes(v: str) -> set[str]:
+        found = set()
+        for m in re.findall(r"git([0-9a-f]{7,40})|\b([0-9a-f]{7,40})\b", v):
+            tok = m[0] or m[1]
+            if m[0] or re.search(r"[a-f]", tok):
+                found.add(tok[:7])
+        return found
+    en_sha = _hashes(engine_ver)
+    cp_sha = _hashes(copr_ver)
+    if en_sha and cp_sha:
+        if en_sha & cp_sha:
+            return "minor-drift"
+        return "out-of-date"
+    # Only one side looks like a git pin: not comparable by numeric
+    # ordering, treat as out-of-date.
     if re.search(r"\b[0-9a-f]{6,40}\b", engine_ver) or re.search(r"\bgit[0-9a-f]{6,40}\b", copr_ver):
         return "out-of-date"
     # COPR ahead vs behind the engine pin?
@@ -569,14 +615,16 @@ def render_report(
     lines.append("| Status | Engine package | Engine pin | COPR package | COPR version | 3p build_config |")
     lines.append("|--------|----------------|------------|--------------|--------------|-----------------|")
     order = {
-        "out-of-date": 0,
-        "gap": 1,
-        "minor-drift": 2,
-        "ahead-of-engine": 3,
-        "cruft": 4,
-        "bundled-exception": 5,
-        "covered-by-spec": 6,
-        "in-sync": 7,
+        "fetch-failed": 0,
+        "out-of-date": 1,
+        "gap": 2,
+        "minor-drift": 3,
+        "ahead-of-engine": 4,
+        "cruft": 5,
+        "accepted-drift": 6,
+        "bundled-exception": 7,
+        "covered-by-spec": 8,
+        "in-sync": 9,
     }
     for r in sorted(rows, key=lambda r: (order.get(r["status"], 9), r["engine_name"])):
         lines.append(
@@ -595,6 +643,8 @@ def render_report(
     lines.append("- **bundled-exception** -- engine bundles it; intentionally NOT in COPR + NOT a spec swap. Documented in BUNDLED_LIBRARIES.md.")
     lines.append("- **covered-by-spec** -- engine references it; covered by `%bcond_with system_<X>` in o3de.spec.")
     lines.append("- **cruft** -- COPR ships it but the engine no longer references it.")
+    lines.append("- **accepted-drift** -- COPR version intentionally diverges from the engine pin, with a documented reason in dep-map.yaml (informational, does not fail the run).")
+    lines.append("- **fetch-failed** -- the COPR lookup errored or timed out; NOT a real version comparison. When these dominate the run exits 2 (script error) rather than reporting drift.")
     return "\n".join(lines) + "\n"
 
 
@@ -619,6 +669,7 @@ def main(argv: list[str]) -> int:
     bcond_aliases = cfg.get("spec_bcond_aliases") or {}
     ignore = set(cfg.get("ignore_engine_packages") or [])
     bundling_exception = set(cfg.get("bundling_exception") or [])
+    accepted_drift = cfg.get("accepted_drift") or {}
 
     spec_bconds = read_spec_bconds(Path(args.spec))
 
@@ -649,6 +700,11 @@ def main(argv: list[str]) -> int:
             copr_ver = copr_versions.get(copr_name, "missing")
             threep_ver = threep_versions.get(engine_name, "missing")
             status = classify(info["version"], copr_ver)
+            # A documented, accepted divergence is informational, not drift
+            # -- unless the lookup actually failed (keep fetch-failed so the
+            # systemic-outage guard still counts it).
+            if engine_name in accepted_drift and status not in ("fetch-failed",):
+                status = "accepted-drift"
         elif bcond_name and bcond_name in spec_bconds:
             status = "covered-by-spec"
             copr_ver = "(spec swap)"
@@ -704,14 +760,14 @@ def main(argv: list[str]) -> int:
         {
             "branch": "qt6",
             "compare_to": "development",
-            "description": "Qt 6 migration target for 26.10.0 (volunteer-paced; not guaranteed)",
+            "description": "Qt 6 migration target for 26.10.0 (rebased on development + DCO fixed 2026-06-07; merge decision pending with sig-core)",
             "issue_url": "https://github.com/o3de/o3de/issues/19081",
         },
-        {
-            "branch": "qt6_pyside",
-            "compare_to": "qt6",
-            "description": "PySide6 migration -- WIP sub-branch off qt6, the major blocker per PR #19567",
-        },
+        # qt6_pyside dropped 2026-06-08: the PySide6 work merged into the
+        # qt6 branch and the sub-branch was deleted upstream (its 404 used
+        # to crash this tool; see the fetch_tracked_branches check=False
+        # fix). The 3p-package-source pyside6 RUNPATH fixes (#378/#381/#382)
+        # are the live PySide6 thread now, tracked via build_config drift.
     ]
     tracked_prs = [
         {
@@ -731,6 +787,22 @@ def main(argv: list[str]) -> int:
         tracked_b = fetch_tracked_branches(engine_repo, tracked_branches)
         tracked_p = fetch_tracked_prs(engine_repo, [p for p in tracked_prs if p["number"] == 19567])
         sys.stdout.write(render_branch_tracking(tracked_b, tracked_p))
+
+    # Systemic-fetch-failure guard: if COPR lookups mostly failed (an API
+    # outage / timeout, not real absence), this is a script error, not
+    # drift. Exit 2 so the workflow distinguishes it and doesn't post a
+    # false "everything is out-of-date" drift report. Threshold: more than
+    # a third of the attempted COPR lookups came back fetch-failed.
+    copr_attempts = [v for v in copr_versions.values()]
+    fetch_failed = [v for v in copr_attempts if v == "fetch-failed"]
+    if copr_attempts and len(fetch_failed) > len(copr_attempts) / 3:
+        print(
+            f"ERROR: {len(fetch_failed)}/{len(copr_attempts)} COPR lookups "
+            "failed -- treating as a fetch outage, not drift. Re-run when "
+            "COPR is healthy.",
+            file=sys.stderr,
+        )
+        return 2
 
     has_drift = any(r["status"] == "out-of-date" for r in rows)
     return 1 if has_drift else 0

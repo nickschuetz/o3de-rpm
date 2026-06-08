@@ -147,3 +147,15 @@ bundling_exception:
   # vulkan-validationlayers: newer in Fedora than engine pin; needs O3DE
   # loader-interaction verification before flipping.
   - vulkan-validationlayers
+
+# Engine packages whose COPR version intentionally diverges from the
+# engine pin, with a documented reason. Classified `accepted-drift`
+# (informational) instead of `out-of-date` (which fails the run). Use
+# this for known-and-justified gaps, NOT to silence real drift.
+accepted_drift:
+  # qt: o3de-qt5 ships 5.15.1-rev7-equivalent because O3DE's 5.15.2-rev9
+  # source isn't published as a branch (only as a binary on
+  # packages.o3de.org). Documented in project_o3de_bundles_custom_qt.
+  # The 3p build_config showing 6.10.2-rev6 is the qt6 migration landing
+  # in 3p main, not a 26.05 concern. Revisit when qt6 ships in 26.10.
+  qt: "o3de-qt5 is the 5.15.1-rev7-equivalent build; 5.15.2-rev9 source unpublished"
