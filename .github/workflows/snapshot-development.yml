@@ -53,8 +53,15 @@ jobs:
             rpm-build copr-cli git git-lfs make python3 jq tar gzip
           git lfs install
 
-      - name: Checkout o3de-rpm
+      - name: Checkout o3de-rpm (development branch = dev-channel spec)
         uses: actions/checkout@v4
+        with:
+          # The development-channel spec lives on o3de-rpm's `development`
+          # branch (dev-channel carry-patch gating, qt6 merge tooling, etc.);
+          # `main` carries the stable/release spec. Scheduled runs fire from
+          # main's copy of this workflow, but the build must use development's
+          # spec + Makefile + tools, so pin the checkout here.
+          ref: development
 
       - name: Configure COPR auth
         env:
@@ -105,6 +112,20 @@ jobs:
               echo "dev_tip=$DEV_TIP" >> "$GITHUB_OUTPUT"
               echo ">> dev-tip ${DEV_TIP:0:8} differs from last build (${LAST_SHA:-none}), firing fresh build."
           fi
+
+      - name: qt6-merge gate
+        if: steps.dedup.outputs.skip == 'false'
+        run: |
+          # Block the unattended cron from building a Qt6 development tip while
+          # the o3de-development chroots still lack the qt6 bcond (dbus-devel
+          # BR, dangling-Requires excludes, PySide6 rpath cleanup all gated on
+          # it). The probe uses the raw.githubusercontent fallback here (no gh
+          # CLI in this container); the chroot check uses the COPR auth set up
+          # above. NOT-YET passes; an upstream fetch outage warns and proceeds.
+          # On a Qt6-merged-but-unflipped state this fails the job (no build),
+          # which is the intended halt. See FOLLOW_UPS.md "TRIGGER: qt6 merges
+          # into o3de/development".
+          make qt6-merge-gate
 
       - name: Build SRPM + submit to COPR
         if: steps.dedup.outputs.skip == 'false'
