@@ -6,21 +6,38 @@ This file is intentionally a living scratchpad. Entries get added or removed as 
 
 ---
 
-## TRIGGER: qt6 merges into o3de/development (decision pending with Nick_L, asked 2026-06-07)
+## TRIGGER: qt6 merges into o3de/development (MERGE IMMINENT per sig-build, 2026-06-09; live state validated below)
 
-Guillaume rebased the qt6 branch on development + fixed DCO; pyside6 rev2 (#381, merged) was the last Linux consumable; Nick asked Nick_L for the merge call in the QT6 Support thread. The day it merges, the o3de-development channel's Sunday cron builds a Qt6 engine WITHOUT the qt6 gates, so:
+Merge PR: o3de/o3de#19567 ("Build against Qt6.10.2", base development <- head qt6). As of 2026-06-09 16:50 UTC it is OPEN + APPROVED + CLEAN + MERGEABLE (one click from merge; sig-build planned to start the merge ~2026-06-10 09:30 PT). `make check-qt6-merge` reports this PR's state plus the authoritative BuiltInPackages Qt-pin verdict.
 
-1. Add `qt6` to the o3de-development chroots' with_opts (all 3; full-list edit-chroot, verify with get-chroot) BEFORE the next cron tick, or the build fails at link (dbus-devel BR is qt6-gated) and, if it survives, ships with dangling requires (the jpeg8/tiff5/Qml excludes are qt6-gated).
+Guillaume rebased the qt6 branch on development + fixed DCO; pyside6 rev2 (#381, merged) was the last Linux consumable; sig-build is getting ready to merge. The day it merges, the o3de-development channel's Sunday cron builds a Qt6 engine WITHOUT the qt6 gates, so:
+
+Live state verified 2026-06-09: o3de-development chroots = `with_opts=['development_snapshot']`; o3de-development-qt6 chroots = `with_opts=['development_snapshot','qt6']` (green at -103). The flip below just moves o3de-development to the qt6 project's already-green config.
+
+1. Add `qt6` to the o3de-development chroots' with_opts (all 3) BEFORE the next cron tick, or the build fails at link (dbus-devel BR is qt6-gated) and, if it survives, ships with dangling requires (the jpeg8/tiff5/Qml excludes are qt6-gated). edit-chroot REPLACES, so pass the full list: `copr-cli edit-chroot hellaenergy/o3de-development/<chroot> --rpmbuild-with 'development_snapshot qt6'` for each of fedora-44-x86_64, fedora-rawhide-x86_64, centos-stream-10-x86_64, then `get-chroot` to confirm `['development_snapshot','qt6']`. DE-RISKED: target config is identical to the o3de-development-qt6 chroots that are already green, and the SRPM is bcond-neutral (the qt6 forward-test SRPM is built WITHOUT --with development_snapshot yet its chroots apply it), so no Makefile / `make copr-development` change is needed, only the chroot flip + a normal rebuild. CANNOT pre-flip: development is still Qt5 today and --with qt6 on a Qt5 tree is untested/wrong, so the flip has to land in the window between the merge and the next cron.
 2. Confirm the merged dev tip actually carries the rev6 qt + rev2 pyside6 pins (Guillaume's rebase). If yes, our %install patchelf RUNPATH cleanup is a no-op against the clean rev2 package and can be RETIRED (it was the workaround for #378).
 3. Run the promised #380 verification round on the first post-merge build: configure with system qt6-qtbase-devel installed (contamination fix live) + native-wayland PM startup (deploy fix live), report back on #380.
 4. Decide the o3de-development-qt6 channel's future: redundant once qt6 IS development; probably retire after one overlap cycle (it has the channel description + testers pointed at it; coordinate, don't just delete).
 5. The Lua gating reminder: dev tip on Qt6 reworked WatchesPanel.cpp; Patch0010/0011 are system_lua-gated already (caught in the qt6 channel era), no action, just don't re-add.
+6. Surface the native-Wayland Editor crash to dev-channel testers: o3de/o3de#19835 (qt6 Editor SIGSEGVs in the Vulkan swapchain surface-format query under native Wayland on NVIDIA; `QT_QPA_PLATFORM=xcb` is the workaround; retested 2026-06-09 on driver 595.80, still crashes). Once development IS qt6, every dev-channel tester on NVIDIA + Wayland hits this on first Editor launch, so add the xcb workaround to the o3de-development COPR project description / a KNOWN_ISSUES note with the flip.
+7. Local dev-branch build + install on Nick's host (he wants to test it the same way as the 2026-06-09 qt6 local build): `make rpm-local-development` (mirrors the validated qt6 recipe with REF=development, now Qt6 -- all-patches SRPM, builddep the Qt6 deps, --rebuild with --with snapshot --with development_snapshot --with qt6; ~70 min). Then install main + devel together: `sudo dnf install --allow-downgrade ~/rpmbuild/RPMS/x86_64/o3de2605-*.rpm` (the -devel subpackage pins the exact NVR). Run ONLY after the merge -- before it, development is Qt5 and --with qt6 is wrong (the qt6 BuildRequires + parse were pre-validated 2026-06-09; only the compile is untested-until-merge, and it is identical to the green qt6 build).
+
+### Personal fork sync (independent of the RPM pipeline)
+
+The RPM snapshot build pulls o3de/o3de directly (make-snapshot-tarball.sh), so a fork sync is NOT required for packaging. But Nick's own dev forks should be brought current after the merge: `gh repo sync nickschuetz/o3de --branch development`, then locally `cd ~/PROJECTS/o3de && git fetch upstream && git branch -f development upstream/development` (local checkout sits on a patch branch, not development). Optionally the other dev-tracking forks too: o3de-extras, o3de.org (both default development), 3p-package-source (main).
+
+## Merge-day tooling (built 2026-06-09, ready)
+- `make check-qt6-merge` -- probe: has qt6 merged into development? (watches the Linux x86_64 3rdParty Qt5->Qt6/pyside flip; exit 0 not-yet / 10 merged / 2 unknown, version-agnostic, outage-aware). tools/check-qt6-merge.py.
+- `qt6-merge-gate` -- pre-flight interlock auto-run by copr-development / -debug / -and-test: hard-stops the COPR build if development is merged to Qt6 but the target chroots lack the qt6 bcond, printing the exact edit-chroot flip commands. NOT-YET passes through; upstream outage warns + proceeds.
+- `make rpm-local-development` -- local host build of the dev branch (item 7).
 
 ---
 
 ## Carry-patch retirement audit (run 2026-06-04): zero retirements, one 26.10 obligation
 
 Full four-check sweep against the 2605.0 tag, stabilization/26050, and development ee805f49. All six merged-upstream patches (0001/#19748, 0002/#19751, 0005/#19750, 0007/#19734, 0008/#19733, 0012/#19747) are in development ONLY; stabilization/26050 has zero commits since the release tag, so no channel can drop anything and the development_snapshot gating is exactly right. Dev-channel applied set (0003+0004) dry-runs clean at tip; Lua 5.5 re-grep found the same 3 covered sites, no new ones.
+
+UPDATE 2026-06-09: Patch0004 is now SUPERSEDED upstream by o3de/o3de#19752 ("LYPython: install from sdist when engine is installed (read-only)", merged into development 2026-06-09, same cmake/LYPython.cmake read-only fix). Applying 0004 against development tip now reports "previously applied", so it would have failed %prep on the next development_snapshot build. Gated it under `%if %{without development_snapshot}` like the other merged patches (seven now: 0001/0002/0004/0005/0007/0008/0012). Patch0003 (get_python.sh) is untouched by #19752 and stays the only ungated dev-channel patch. Non-dev channels keep 0004 (stabilization/26050 still lacks #19752).
 
 **Forward obligation: regenerate Patch0009 PhysX5-only when stabilization/26100 cuts.** PhysX4 Deprecation (o3de/o3de#19726) merged 2026-05-08; `Gems/PhysX/Core/PhysX4/Source/Platform/Linux/PAL_linux.cmake` no longer exists on development. Do NOT regenerate earlier: the 26.05-era refs the patch actually applies to still carry PhysX4. Next audit trigger: stabilization/26100 opening, or any commit landing on stabilization/26050 (would also be the 26.05.1 / UV-fix cherry-pick signal).
 

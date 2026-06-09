@@ -120,6 +120,17 @@
 # See project_o3de_bundles_custom_qt.md.
 %bcond_with qt6
 
+# Native-Wayland Vulkan surface support (EXPERIMENTAL). O3DE's Linux build
+# defaults to XCB-only (PAL_TRAIT_LINUX_WINDOW_MANAGER_XCB=ON,
+# PAL_TRAIT_LINUX_WINDOW_MANAGER_WAYLAND=OFF in cmake/Platform/Linux/PAL_linux.cmake).
+# Under a Qt6 native-Wayland session the Editor then builds an XCB VkSurfaceKHR
+# for a wl_surface window, and the NVIDIA driver faults at
+# vkGetPhysicalDeviceSurfaceFormatsKHR (o3de/o3de#19835). This bcond compiles in
+# the engine's existing Wayland surface path (vkCreateWaylandSurfaceKHR) via
+# -DPAL_TRAIT_LINUX_WINDOW_MANAGER_WAYLAND=ON and pulls its build deps. Default
+# OFF; validation gate for #19835, only meaningful alongside %bcond_with qt6.
+%bcond_with wayland
+
 # Prototype gate for the central system-swap download hook (Patch0014).
 # When set, Patch0014 wraps ly_download_associated_package() in a
 # per-package LY_USE_SYSTEM_<NAME> opt-out, and Patch0006 (the per-line
@@ -748,6 +759,19 @@ BuildRequires:  libxkbcommon-x11-devel
 %if %{with qt6}
 BuildRequires:  dbus-devel
 BuildRequires:  patchelf
+%endif
+
+# Wayland surface path (--with wayland). At configure the engine runs
+# wayland-scanner over wayland-protocols .xml (xdg-shell, xdg-decoration,
+# cursor-shape, tablet-v2, pointer-constraints, relative-pointer) and links
+# wayland-client, wayland-cursor, and xkbcommon. wayland-devel supplies the
+# scanner + client + cursor libs, wayland-protocols-devel the protocol .xml
+# pkgdatadir, libxkbcommon-devel the xkbcommon target. See
+# platform_nativeui_linux.cmake's PAL_TRAIT_LINUX_WINDOW_MANAGER_WAYLAND block.
+%if %{with wayland}
+BuildRequires:  wayland-devel
+BuildRequires:  wayland-protocols-devel
+BuildRequires:  libxkbcommon-devel
 %endif
 
 # System libs — validated against auto-Requires from the built binaries.
@@ -1408,6 +1432,7 @@ cmake \
     -DCMAKE_USE_PTHREADS_INIT=1 \
     -DCMAKE_EXE_LINKER_FLAGS_INIT="-Wl,-z,relro -Wl,-z,now" \
     -DCMAKE_SHARED_LINKER_FLAGS_INIT="-Wl,-z,relro -Wl,-z,now" \
+    %{?with_wayland:-DPAL_TRAIT_LINUX_WINDOW_MANAGER_WAYLAND=ON} \
     %{?with_system_assimp:-DLY_USE_SYSTEM_ASSIMP=ON} \
     %{?with_system_cityhash:-DLY_USE_SYSTEM_CITYHASH=ON} \
     %{?with_system_expat:-DLY_USE_SYSTEM_EXPAT=ON} \

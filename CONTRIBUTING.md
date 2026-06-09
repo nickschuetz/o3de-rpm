@@ -64,7 +64,7 @@ If you change *anything* in the spec or sources/, **update the README's layout b
 
 ## Patches
 
-Sixteen patches in `sources/`. **Seven TIMEBOMBs** -- upstream-equivalents merged to `development` but not to `stabilization/26050`; they retire when a channel's engine ref absorbs the change. The `--with development_snapshot` bcond (2026-05-18) gates all seven off so `make copr-development` (run from the o3de-rpm `development` branch) can build against dev-branch tip without `%prep` failing to apply them — local SRPM-build only; for COPR you also need `--rpmbuild-with development_snapshot` on the chroot:
+Sixteen patches in `sources/`. **Seven TIMEBOMBs** -- upstream-equivalents merged to `development` but not to `stabilization/26050`; they retire when a channel's engine ref absorbs the change. The `--with development_snapshot` bcond (2026-05-18) gates all seven off so `make copr-development` can build against dev-branch tip without `%prep` failing to apply them — local SRPM-build only; for COPR you also need `--rpmbuild-with development_snapshot` on the chroot:
 
 - Patch0001 (clang21 `-Wno-error=`) <- [#19748](https://github.com/o3de/o3de/pull/19748) merged 2026-05-14
 - Patch0002 (manifest.py `O3DE_ENGINE_PATH`) <- [#19751](https://github.com/o3de/o3de/pull/19751) merged 2026-05-14

@@ -53,15 +53,8 @@ jobs:
             rpm-build copr-cli git git-lfs make python3 jq tar gzip
           git lfs install
 
-      - name: Checkout o3de-rpm (development branch = dev-channel spec)
+      - name: Checkout o3de-rpm
         uses: actions/checkout@v4
-        with:
-          # The development-channel spec lives on o3de-rpm's `development`
-          # branch (dev-channel carry-patch gating, qt6 merge tooling, etc.);
-          # `main` carries the stable/release spec. Scheduled runs fire from
-          # main's copy of this workflow, but the build must use development's
-          # spec + Makefile + tools, so pin the checkout here.
-          ref: development
 
       - name: Configure COPR auth
         env:

@@ -86,13 +86,13 @@ RPMBUILD_DEFINES = \
         print-pkgname \
         snapshot srpm srpm-snapshot srpm-snapshot-ref srpm-snapshot-qt6 srpm-snapshot-development \
         srpm-stabilization srpm-experimental \
-        rpm rpm-snapshot rpm-debug rpm-snapshot-debug rpm-experimental \
+        rpm rpm-snapshot rpm-debug rpm-snapshot-debug rpm-experimental rpm-local-development \
         copr-stable copr-development copr-stabilization copr-experimental \
         copr-testing copr-testing-debug copr-development-debug \
         copr-development-and-test copr-stabilization-and-test copr-experimental-and-test _copr-and-test \
         trigger-tests copr-init \
         copr-metadata-pull copr-metadata-diff copr-metadata-push \
-        check-deps-drift \
+        check-deps-drift check-qt6-merge qt6-merge-gate \
         test test-setup test-full test-ui test-ui-full test-asset-bake test-ap-spawn test-multiplayer-sample test-newspaper-delivery test-branch clean
 
 help:
@@ -499,6 +499,28 @@ rpm-snapshot-debug:
 rpm-experimental:
 	rpmbuild -bb $(SRPM_EXPERIMENTAL_FLAGS) $(RPMBUILD_DEFINES) o3de.spec
 
+# rpm-local-development: build the development-branch RPM on THIS host and
+# leave it in ~/rpmbuild/RPMS for local install/test. After the qt6 merge,
+# development IS Qt6, so this mirrors the validated qt6 local build (2026-06-09)
+# with REF swapped to development: an all-patches SRPM, builddep the Qt6 build
+# deps (dbus-devel + patchelf, exposed only with --with qt6), then --rebuild
+# with the full qt6 bcond set. ~70 min on a 32 GB workstation.
+# RUN ONLY AFTER the qt6 merge + chroot flip: before the merge development is
+# still Qt5 and --with qt6 against a Qt5 tree is wrong (same reason we cannot
+# pre-flip the chroots). Install hint printed at the end (the -devel subpackage
+# pins the exact NVR, so install main + devel together with --allow-downgrade).
+rpm-local-development:
+	$(MAKE) srpm-snapshot-ref REF=development
+	sudo dnf builddep -y o3de.spec \
+	    --define "_sourcedir $(PWD)/sources" \
+	    --define "_with_snapshot 1" \
+	    --define "_with_development_snapshot 1" \
+	    --define "_with_qt6 1"
+	rpmbuild --rebuild --with snapshot --with development_snapshot --with qt6 \
+	    ~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
+	@echo ">> Built. To install (run main + devel together; --allow-downgrade for same-NVR swap):"
+	@echo "   sudo dnf install --allow-downgrade ~/rpmbuild/RPMS/x86_64/$(PKGNAME)-*.rpm"
+
 # ── COPR upload ─────────────────────────────────────────────────────────────
 # Requires `copr-cli` configured (~/.config/copr) with API token.
 # The o3de project on COPR must have enable_net=true (so cmake can fetch
@@ -720,6 +742,7 @@ release-stable:
 # arbitrary other-ref builds (rare; e.g., qt6), create a dedicated
 # COPR project and fire srpm-snapshot-ref at it directly via copr-cli.
 copr-development: srpm-snapshot-development
+	@$(MAKE) --no-print-directory qt6-merge-gate
 	copr-cli build --timeout 28800 $(COPR_OWNER)/$(COPR_PROJECT_DEVELOPMENT) \
 		~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
 
@@ -762,6 +785,7 @@ copr-testing-debug: srpm
 		~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
 
 copr-development-debug: srpm-snapshot-development
+	@$(MAKE) --no-print-directory qt6-merge-gate GATE_PROJECT=$(COPR_PROJECT_DEVELOPMENT_DEBUG)
 	copr-cli build --timeout 64800 --nowait $(COPR_OWNER)/$(COPR_PROJECT_DEVELOPMENT_DEBUG) \
 		~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
 
@@ -785,6 +809,7 @@ copr-development-debug: srpm-snapshot-development
 # copr-stabilization for the testers' channel, copr-experimental for
 # in-flight migration work.
 copr-development-and-test: srpm-snapshot-development
+	@$(MAKE) --no-print-directory qt6-merge-gate
 	@$(MAKE) _copr-and-test COPR_TARGET=$(COPR_PROJECT_DEVELOPMENT)
 
 copr-stabilization-and-test: srpm-stabilization
@@ -1017,6 +1042,55 @@ test-branch:
 # runs this weekly and sticky-issues the result.
 check-deps-drift:
 	python3 tools/check-deps-drift.py
+
+# ── qt6-merge watch ─────────────────────────────────────────────────────────
+
+# Has the o3de/o3de qt6 branch merged into development yet? Watches the Linux
+# x86_64 3rdParty Qt association for the Qt5 -> Qt6/PySide6 flip. Exit 0 =
+# not-yet, 10 = MERGED (run the FOLLOW_UPS.md chroot flip before the next
+# o3de-development cron), 2 = UNKNOWN (fetch/parse failed, re-probe). Outage is
+# reported as UNKNOWN, never not-merged.
+check-qt6-merge:
+	python3 tools/check-qt6-merge.py
+
+# qt6-merge-gate: safety interlock the development build targets run BEFORE
+# firing a COPR build. If the qt6 branch has merged into o3de/development
+# (probe exit 10) but the target project's chroots do NOT yet carry the `qt6`
+# bcond, HARD-STOP -- otherwise the cron links against Qt6 without the qt6
+# gates (dbus-devel BR, dangling-Requires excludes, PySide6 rpath cleanup) and
+# fails at link or ships dangling requires. NOT-YET (exit 0) proceeds; an
+# upstream fetch outage (exit 2, UNKNOWN) WARNS but proceeds -- outage is not
+# drift (feedback_drift_detector_outage_vs_drift). See FOLLOW_UPS.md "TRIGGER:
+# qt6 merges into o3de/development".
+GATE_PROJECT ?= $(COPR_PROJECT_DEVELOPMENT)
+qt6-merge-gate:
+	@set -u; \
+	python3 tools/check-qt6-merge.py; rc=$$?; \
+	if [ $$rc -eq 0 ]; then \
+	  echo "qt6-merge-gate: development still Qt5, proceeding."; \
+	elif [ $$rc -eq 2 ]; then \
+	  echo "qt6-merge-gate: WARNING -- probe UNKNOWN (could not verify upstream). Proceeding WITHOUT the gate; re-run 'make check-qt6-merge' once GitHub is reachable."; \
+	elif [ $$rc -eq 10 ]; then \
+	  echo "qt6-merge-gate: development is MERGED to Qt6 -- checking $(GATE_PROJECT) chroots for the qt6 bcond..."; \
+	  missing=""; \
+	  for ch in fedora-44-x86_64 fedora-rawhide-x86_64 centos-stream-10-x86_64; do \
+	    opts=$$(copr-cli get-chroot $(COPR_OWNER)/$(GATE_PROJECT)/$$ch 2>/dev/null | python3 -c 'import sys,json; print(",".join(json.load(sys.stdin).get("with_opts",[])))' 2>/dev/null); \
+	    case ",$$opts," in *,qt6,*) : ;; *) missing="$$missing $$ch";; esac; \
+	  done; \
+	  if [ -n "$$missing" ]; then \
+	    echo "ERROR: qt6 has merged into development but these $(GATE_PROJECT) chroots lack the qt6 bcond:$$missing"; \
+	    echo "Flip them BEFORE building (edit-chroot REPLACES -- pass the FULL list):"; \
+	    for ch in $$missing; do \
+	      echo "  copr-cli edit-chroot $(COPR_OWNER)/$(GATE_PROJECT)/$$ch --rpmbuild-with 'development_snapshot qt6'"; \
+	    done; \
+	    echo "Verify: copr-cli get-chroot $(COPR_OWNER)/$(GATE_PROJECT)/<chroot>"; \
+	    echo "Runbook: FOLLOW_UPS.md 'TRIGGER: qt6 merges into o3de/development'."; \
+	    exit 2; \
+	  fi; \
+	  echo "qt6-merge-gate: $(GATE_PROJECT) chroots already carry qt6, proceeding."; \
+	else \
+	  echo "qt6-merge-gate: WARNING -- unexpected probe exit $$rc; proceeding."; \
+	fi
 
 # ── Clean ───────────────────────────────────────────────────────────────────
 
