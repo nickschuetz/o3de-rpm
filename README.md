@@ -39,6 +39,11 @@ o3de-rpm/
 │       {homepage,contact}.txt                        #   make copr-metadata-{pull,diff,push}
 ├── scripts/                                           # repo tooling (not packaged into the RPM)
 │   └── copr-metadata.sh                               #   sync copr-metadata/ ↔ live COPR
+├── tools/                                             # repo tooling (not packaged into the RPM)
+│   ├── check-deps-drift.py                            #   weekly 3rdParty dep-pin drift report (make check-deps-drift)
+│   ├── check-qt6-merge.py                             #   probe: has o3de qt6 merged into development? (make check-qt6-merge)
+│   ├── dep-map.yaml                                   #   drift detector's package↔dep map
+│   └── README.md
 └── sources/                                           # rpm SOURCES dir (sources + patches)
     ├── o3de-launcher.sh                               # /usr/bin/o3deNNNN wrapper (Project Manager / Editor GUI)
     ├── o3de-cli                                       # /usr/bin/o3deNNNN-cli wrapper (project / gem / engine management)
@@ -53,9 +58,9 @@ o3de-rpm/
     ├── o3de-editor-{16,32,48,64,128,256}x*.png        # hicolor app icons (Editor — Windows o3de_editor.ico extract)
     ├── o3de-material-editor-*.png                     # hicolor app icons (Material Editor — Windows MaterialEditor.ico extract)
     ├── o3de-material-canvas-*.png                     # hicolor app icons (Material Canvas — Windows MaterialCanvas.ico extract)
-    ├── 0001-clang21-warning-suppressions.patch        # 13 active patches (0001-0013); see "Patches" section for the table
-    ├── 0002-manifest-py-engine-path-detection.patch   #   six carry TIMEBOMB notes (upstream-merged equivalents pending in stab)
-    ├── ... (0003 through 0013)                        #   plus 0012-v2-assetbuilder-parent-watchdog.patch (the shipping v2)
+    ├── 0001-clang21-warning-suppressions.patch        # 16 patches (0001-0016); see "Patches" section for the table
+    ├── 0002-manifest-py-engine-path-detection.patch   #   seven carry TIMEBOMB notes (upstream-merged; gated off by --with development_snapshot)
+    ├── ... (0003 through 0016)                        #   incl. 0012-v2 (shipping AssetBuilder watchdog); 0014/0015 swap_hook-only; 0016 system_tiff-only
     ├── Findmikkelsen-system.cmake                     # Stage 1 + Stage 2 find-shims (copied to cmake/3rdParty/Find<X>.cmake at %prep
     ├── Findexpat-system.cmake                         #   when the matching --with system_<lib> bcond is on):
     ├── FindZLIB-system.cmake                          #   Stage 1: mikkelsen, expat, ZLIB, Freetype, PNG, Lua, lz4, OpenEXR,
@@ -109,6 +114,8 @@ The spec's `--with snapshot` mode builds from any git ref of `o3de/o3de` instead
 - **arbitrary other ref** (e.g. a hypothetical `qt6` migration branch) → dedicated COPR project per branch (`hellaenergy/o3de-qt6` etc.). Build locally with `make srpm-snapshot-ref REF=<other>` and `copr-cli build` directly.
 
 Both paths use `--with snapshot` under the hood; the project split is a publishing-channel choice, not a build-mode choice. See the bullets at the top of this README for the upstream-branch distinction.
+
+> **Two o3de-rpm branches** (distinct from the O3DE *engine* refs above). The packaging repo itself has two branches: **`main`** carries the stable/release spec and is the repo default; **`development`** carries the dev-channel spec -- the seven `--with development_snapshot`-gated carry-patches plus dev-only tooling (the qt6-merge probe/gate and the default-off `wayland` bcond). The development COPR channels (`o3de-development`, `o3de-development-debug`, `o3de-development-qt6`) build from `development`; the stable channels (`o3de`, `o3de-testing`, `o3de-testing-debug`, `o3de-stabilization`, `o3de-experimental`) build from `main`. Only `o3de-development` is automated -- the Sunday `snapshot-development.yml` cron pins its checkout to `development`. For every other (manual) build, **check out the matching branch first**: `git checkout development` before a dev-channel `make copr-development` / `rpm-local-development`, `main` before a stable build.
 
 ```bash
 # 1. Generate a reproducible snapshot tarball + checksum.
@@ -500,14 +507,14 @@ Re-generate the static SBOM when bumping the version: edit `sources/o3deNNNN.cdx
 
 ## Patches
 
-Sixteen patches declared (the applied set varies by bcond: 0014/0015 are swap_hook-only, 0016 is system_tiff-only). **Six carry TIMEBOMB notes** -- upstream-equivalents merged to `development` but NOT to `stabilization/26050` (our snapshot source branch); they retire when stabilization absorbs the changes: Patch0001 (clang21, [#19748](https://github.com/o3de/o3de/pull/19748) merged 2026-05-14), Patch0002 (manifest.py env var, [#19751](https://github.com/o3de/o3de/pull/19751) merged 2026-05-14), Patch0005 (AzQtComponents title, [#19750](https://github.com/o3de/o3de/pull/19750) merged 2026-05-14), Patch0007 (libtiff C99, [#19734](https://github.com/o3de/o3de/pull/19734) merged 2026-05-08), Patch0008 (AzCore lobject include, [#19733](https://github.com/o3de/o3de/pull/19733) merged 2026-05-08), Patch0012 v2 (AssetBuilder watchdog, [#19747](https://github.com/o3de/o3de/pull/19747) merged 2026-05-15). The `--with development_snapshot` bcond (2026-05-18) gates these six off so dev-branch-tip builds (`make copr-development`) succeed without patch-apply rejects; default OFF so stabilization / development / experimental channels apply all thirteen as before. Patch0013 v4 gates the vulkan-validationlayers Stage 1 swap (three-hunk: cmake gate + PAL_linux variable + Instance.cpp env-var fix), validated end-to-end on build 10457745 (2026-05-13/14). See [`CONTRIBUTING.md`](CONTRIBUTING.md#patches) for the full table including each patch's upstream-worthy assessment. Quick summary:
+Sixteen patches declared (the applied set varies by bcond: 0014/0015 are swap_hook-only, 0016 is system_tiff-only). **Seven carry TIMEBOMB notes** -- upstream-equivalents merged to `development` but NOT to `stabilization/26050`; they retire for a given channel once that channel's engine ref absorbs the change: Patch0001 (clang21, [#19748](https://github.com/o3de/o3de/pull/19748) merged 2026-05-14), Patch0002 (manifest.py env var, [#19751](https://github.com/o3de/o3de/pull/19751) merged 2026-05-14), Patch0004 (LYPython sdist install, [#19752](https://github.com/o3de/o3de/pull/19752) merged 2026-06-09), Patch0005 (AzQtComponents title, [#19750](https://github.com/o3de/o3de/pull/19750) merged 2026-05-14), Patch0007 (libtiff C99, [#19734](https://github.com/o3de/o3de/pull/19734) merged 2026-05-08), Patch0008 (AzCore lobject include, [#19733](https://github.com/o3de/o3de/pull/19733) merged 2026-05-08), Patch0012 v2 (AssetBuilder watchdog, [#19747](https://github.com/o3de/o3de/pull/19747) merged 2026-05-15). The `--with development_snapshot` bcond (2026-05-18) gates all seven off so dev-branch-tip builds (`make copr-development`, run from the o3de-rpm `development` branch) succeed without patch-apply rejects; default OFF so the stable channels (built from `main` against `stabilization/26050`, where these have not merged) apply them as before. Patch0013 v4 gates the vulkan-validationlayers Stage 1 swap (three-hunk: cmake gate + PAL_linux variable + Instance.cpp env-var fix), validated end-to-end on build 10457745 (2026-05-13/14). See [`CONTRIBUTING.md`](CONTRIBUTING.md#patches) for the full table including each patch's upstream-worthy assessment. Quick summary:
 
 | # | Target | Purpose |
 |---|---|---|
 | 0001 | `cmake/Platform/Common/Clang/Configurations_clang.cmake` | Suppress clang 21+ `-Werror` failures. **TIMEBOMB:** [#19748](https://github.com/o3de/o3de/pull/19748) merged to `development` 2026-05-14 (release-cherry-pick candidate per nick-l-o3de). |
 | 0002 | `scripts/o3de/o3de/manifest.py` | Honor `O3DE_ENGINE_PATH` for engine-root detection. **TIMEBOMB:** [#19751](https://github.com/o3de/o3de/pull/19751) merged to `development` 2026-05-14. |
 | 0003 | `python/get_python.sh` | Per-user venv linkage + engine-id reconciliation |
-| 0004 | `cmake/LYPython.cmake` | Non-editable pip install for read-only engine roots |
+| 0004 | `cmake/LYPython.cmake` | Non-editable pip install for read-only engine roots. **TIMEBOMB:** superseded upstream by [#19752](https://github.com/o3de/o3de/pull/19752) (LYPython sdist install when engine is installed) merged to `development` 2026-06-09; gated off under `--with development_snapshot` (applying it against dev tip now reports "previously applied"). |
 | 0005 | `Code/Framework/AzQtComponents/.../WindowDecorationWrapper.cpp` | Propagate guest title to WM-drawn titlebar in `OptionDisabled` mode. **TIMEBOMB:** [#19750](https://github.com/o3de/o3de/pull/19750) merged to `development` 2026-05-14. |
 | 0006 | `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` | Establish the `LY_USE_SYSTEM_<X>` gating convention used by Stage 1 system-library swaps |
 | 0007 | `.../TIFFLoader.cpp` + `Code/Editor/Util/ImageTIF.cpp` | Migrate legacy libtiff `uint8`/`uint16`/`uint32` typedefs to standard C99 (libtiff 4.5+ deprecates the legacy names). **TIMEBOMB:** upstream merged [#19734](https://github.com/o3de/o3de/pull/19734) into `development` on 2026-05-08 but not into `stabilization/26050`; retires when stabilization absorbs the change. |

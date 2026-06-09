@@ -414,7 +414,16 @@ Patch0001:      0001-clang21-warning-suppressions.patch
 Patch0002:      0002-manifest-py-engine-path-detection.patch
 %endif
 Patch0003:      0003-get-python-sh-rpm-venv-fixes.patch
+# Patch0004 -- superseded upstream by o3de/o3de#19752 ("LYPython: install from
+# sdist when engine is installed (read-only)", merged into development
+# 2026-06-09, same cmake/LYPython.cmake read-only-installed-engine fix; #19752's
+# no-sdist fallback is our non-editable pip path). Confirmed: applying 0004
+# against development tip reports "previously applied" (2026-06-09), so it would
+# fail %prep on the development channel. development only -- stabilization/26050
+# still lacks it, so the non-dev channels keep the patch.
+%if %{without development_snapshot}
 Patch0004:      0004-lypython-non-editable-pip-for-installed-engine.patch
+%endif
 # Patch0005 -- merged upstream as o3de/o3de#19750 (development only).
 %if %{without development_snapshot}
 Patch0005:      0005-windowdecorationwrapper-propagate-initial-title.patch

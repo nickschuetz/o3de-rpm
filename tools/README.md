@@ -30,6 +30,43 @@ Per-package classification:
 
 Dependencies: stdlib + `gh` CLI + `copr-cli`. No PyPI packages.
 
+## check-qt6-merge.py
+
+Probe: has the o3de/o3de `qt6` branch merged into `development` yet? Watches the
+discriminating signal -- the Linux x86_64 3rdParty Qt association in
+`cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` -- for the
+flip from `qt-5.15.x` + `pyside2` to `qt-6.x` + `pyside6` (x86_64 is the file
+that flips; the qt6 branch keeps aarch64 on Qt5), and reports the merge PR
+(o3de/o3de#19567) status alongside.
+
+Run locally:
+
+    make check-qt6-merge
+    # or:
+    python3 tools/check-qt6-merge.py
+    QT6_PROBE_BRANCH=qt6 python3 tools/check-qt6-merge.py   # exercise the MERGED path
+
+Exit codes (so callers/CI can react):
+
+- **0 NOT-YET** -- development is still Qt5; no action.
+- **10 MERGED** -- development carries Qt6/PySide6; run the FOLLOW_UPS.md
+  "TRIGGER: qt6 merges into o3de/development" chroot flip before the next
+  o3de-development cron.
+- **2 UNKNOWN** -- could not fetch/parse (network/API outage or a 3rdParty
+  layout change); re-probe. An outage is reported as UNKNOWN, never as
+  not-merged (outage is not drift).
+
+Version-agnostic (matches the `qt-6` major, not the exact rev, so an upstream
+rev bump does not spuriously flip the verdict) and outage-aware. The
+`qt6-merge-gate` Makefile target builds on it: a pre-flight interlock wired into
+`make copr-development` / `copr-development-debug` / `copr-development-and-test`
+and the `snapshot-development.yml` cron, it hard-stops a build if development has
+gone Qt6 but the target COPR chroots still lack the `qt6` bcond, printing the
+exact `edit-chroot` flip commands.
+
+Dependencies: stdlib + `gh` CLI (falls back to raw.githubusercontent if absent)
++ `copr-cli` (for the gate's chroot check). No PyPI packages.
+
 ## .github/workflows/check-deps-drift.yml
 
 Scheduled weekly (Monday 06:00 UTC) and `workflow_dispatch`. Runs the
