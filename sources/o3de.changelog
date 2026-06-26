@@ -1,4 +1,15 @@
 %changelog
+* Thu Jun 25 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-104
+- qt6 PySide6 rpath cleanup: also normalize relative '.'-based RUNPATH
+  entries, not just the absolute CI path. The pyside6-6.10.2-rev3
+  shiboken6 executable ships '$ORIGIN:./../lib'; the './../lib' relative
+  entry trips check-rpaths ERROR 0004 and failed %%install on the first
+  development-tip build after the qt6 merge into development. The cleanup
+  now converts a leading './' (or a lone '.') to $ORIGIN before keeping
+  only $ORIGIN entries, so shiboken6 resolves to '$ORIGIN:$ORIGIN/../lib'.
+  The absolute CI-path case is unchanged. qt6-gated; Qt5 channels
+  evaluate the exact prior behavior.
+
 * Fri Jun 05 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-103
 - qt6 builds: extend the qt6-gated __requires_exclude to all four
   dangling auto-Requires found by a full 192-capability audit of the

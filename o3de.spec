@@ -337,7 +337,7 @@ Version:        %{stable_tag}~%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        103%{?dist}
+Release:        104%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -1741,14 +1741,21 @@ find %{buildroot}%{o3de_install_prefix} -type f \
         \( -name 'shiboken6' -o -name '*.abi3.so*' -o -name 'libpyside6*' -o -name 'libshiboken6*' \) \
         | while read -r f; do
     rp=$(patchelf --print-rpath "$f" 2>/dev/null) || continue
-    case "$rp" in
-        *home/runner/*)
-            clean=$(printf '%s' "$rp" | tr ':' '\n' | grep -E '^\$ORIGIN' | paste -sd:)
-            [ -z "$clean" ] && clean='$ORIGIN'
-            patchelf --set-rpath "$clean" "$f"
-            echo "qt6 rpath-cleaned: ${f#%{buildroot}}"
-            ;;
-    esac
+    # Normalize to secure $ORIGIN-relative entries only. Two bad forms ship
+    # from the pyside6 3rdParty package: an absolute CI path (/home/runner/...,
+    # dead anywhere) and a relative '.'-based path (shiboken6 carries
+    # '$ORIGIN:./../lib'; the './../lib' trips check-rpaths ERROR 0004). Convert
+    # leading './' (or a lone '.') to $ORIGIN, then keep only $ORIGIN entries.
+    # The find is scoped to pyside6/shiboken6 files, so normalizing all of them
+    # is safe; clean engine binaries are never touched.
+    clean=$(printf '%s' "$rp" | tr ':' '\n' \
+        | sed -E 's#^\./#$ORIGIN/#; s#^\.$#$ORIGIN#' \
+        | grep -E '^\$ORIGIN' | paste -sd:)
+    [ -z "$clean" ] && clean='$ORIGIN'
+    if [ "$clean" != "$rp" ]; then
+        patchelf --set-rpath "$clean" "$f"
+        echo "qt6 rpath-cleaned: ${f#%{buildroot}} -> $clean"
+    fi
 done
 %endif
 
