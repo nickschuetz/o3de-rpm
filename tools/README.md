@@ -28,6 +28,17 @@ Per-package classification:
 - **covered-by-spec** -- engine references it; covered by `%bcond_with system_<X>` in `o3de.spec`.
 - **cruft** -- COPR ships it but the engine no longer references it.
 
+It also runs two informational/tripwire sections that do not use the COPR
+comparison above:
+
+- **Upstream migration tracking** -- passive state of branches + PRs we plan
+  to react to (e.g. the qt6 work).
+- **Rev watch** -- fires (turns the run red, like out-of-date) when a watched
+  pin on `development` moves off a verified baseline. Armed for `qt` and
+  `pyside6` so a rev bump (e.g. 3p#385) cannot land before we re-verify the
+  shiboken6 RUNPATH our spec normalizes. Re-arm by bumping the baseline in
+  `dep-map.yaml` `rev_watch` after re-verifying. See "Updating dep-map.yaml".
+
 Dependencies: stdlib + `gh` CLI + `copr-cli`. No PyPI packages.
 
 ## check-qt6-merge.py
@@ -90,6 +101,11 @@ or when the engine adds a new `ly_associate_package` entry, edit
   for "no spec swap available".
 - `ignore_engine_packages:` -- multiplatform header-only or build-tooling
   deps the script should silently skip.
+- `rev_watch:` -- pins on `rev_watch_ref` (default `development`) to fire on
+  when they move off a verified baseline. Each value is a single
+  pipe-delimited string `"baseline|target|note"`. After a watch fires and you
+  re-verify, bump `baseline` to the new pinned rev to re-arm. Add a package
+  here when a new carry-fix depends on a specific upstream binary form.
 
 The YAML loader in `check-deps-drift.py` is a minimal regex-only parser
 that handles the structure described in the file's own header. If you

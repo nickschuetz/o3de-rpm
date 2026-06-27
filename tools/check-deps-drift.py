@@ -316,6 +316,82 @@ def render_branch_tracking(branches: list[dict[str, Any]], prs: list[dict[str, A
     return "\n".join(lines)
 
 
+def _parse_watch(spec: str) -> tuple[str, str, str]:
+    """Split a rev_watch value "baseline|target|note" into its parts."""
+    parts = (spec or "").split("|")
+    baseline = parts[0].strip() if len(parts) > 0 else ""
+    target = parts[1].strip() if len(parts) > 1 else ""
+    note = parts[2].strip() if len(parts) > 2 else ""
+    return baseline, target, note
+
+
+def fetch_rev_watch(engine_repo: str, ref: str, watches: dict[str, str]) -> list[dict[str, Any]]:
+    """Watch specific 3rdParty pins on `ref` and fire when one moves off a
+    known-verified baseline rev.
+
+    `watches` maps engine package name -> "baseline|target|note". We read the
+    live pin from BuiltInPackages on `ref` and compare against the baseline:
+    any difference fires the tripwire (re-verify, then bump the baseline in
+    dep-map.yaml to re-arm). Reaching the named target rev is flagged
+    explicitly. Returns rows ready for render_rev_watch().
+    """
+    if not watches:
+        return []
+    pins = fetch_engine_pins(engine_repo, ref)
+    out: list[dict[str, Any]] = []
+    for name, spec in watches.items():
+        baseline, target, note = _parse_watch(spec)
+        info = pins.get(name)
+        current = info["version"] if info else ""
+        fired = bool(current) and current != baseline
+        out.append({
+            "package": name,
+            "current": current or "(not pinned)",
+            "baseline": baseline,
+            "target": target,
+            "note": note,
+            "fired": fired,
+            "hit_target": bool(current) and current == target,
+        })
+    return out
+
+
+def render_rev_watch(ref: str, rows: list[dict[str, Any]]) -> str:
+    """Render the rev-watch tripwire section."""
+    if not rows:
+        return ""
+    fired = [r for r in rows if r["fired"]]
+    lines: list[str] = []
+    lines.append("")
+    lines.append("## Rev watch")
+    lines.append("")
+    lines.append(
+        f"Pins on `{ref}` that need a manual re-verify when they move off a "
+        "known-verified baseline (a new rev rebuilds the binaries and can "
+        "shift their RUNPATH form). A fired watch turns the run red, like "
+        "out-of-date, so the bump cannot land silently. After re-verifying, "
+        "bump the baseline in `dep-map.yaml` (`rev_watch`) to re-arm."
+    )
+    lines.append("")
+    if fired:
+        lines.append(
+            f"**TRIPPED: {len(fired)} watch(es) fired -- re-verify per the note, "
+            "then bump the baseline to clear.**"
+        )
+        lines.append("")
+    lines.append("| Watch | Package | Current pin | Baseline | Target | Re-verify note |")
+    lines.append("|-------|---------|-------------|----------|--------|----------------|")
+    for r in rows:
+        marker = "FIRED (target)" if (r["fired"] and r["hit_target"]) else ("FIRED" if r["fired"] else "ok")
+        lines.append(
+            "| {marker} | `{package}` | `{current}` | `{baseline}` | `{target}` | {note} |".format(
+                marker=marker, **r
+            )
+        )
+    lines.append("")
+    return "\n".join(lines)
+
+
 def fetch_engine_pins(engine_repo: str, ref: str) -> dict[str, dict[str, str]]:
     """Return {engine_pkg_name: {"version": "...", "raw": "..."}}.
 
@@ -670,6 +746,8 @@ def main(argv: list[str]) -> int:
     ignore = set(cfg.get("ignore_engine_packages") or [])
     bundling_exception = set(cfg.get("bundling_exception") or [])
     accepted_drift = cfg.get("accepted_drift") or {}
+    rev_watch = cfg.get("rev_watch") or {}
+    rev_watch_ref = cfg.get("rev_watch_ref") or "development"
 
     spec_bconds = read_spec_bconds(Path(args.spec))
 
@@ -788,6 +866,25 @@ def main(argv: list[str]) -> int:
         tracked_p = fetch_tracked_prs(engine_repo, [p for p in tracked_prs if p["number"] == 19567])
         sys.stdout.write(render_branch_tracking(tracked_b, tracked_p))
 
+    # Rev-watch tripwire: fire when a watched pin on rev_watch_ref (default
+    # development) moves off its verified baseline. Currently arms qt +
+    # pyside6 so a rev bump (e.g. 3p#385: qt rev7->rev8, pyside6 rev4->rev5)
+    # cannot land before we re-verify the shiboken6 RUNPATH our spec
+    # normalizes (commit 6e76c4f). Gating: a fired watch counts like
+    # out-of-date and turns the run red.
+    rev_rows: list[dict[str, Any]] = []
+    if rev_watch:
+        print(f"# Fetching rev-watch pins from {engine_repo}@{rev_watch_ref}...", file=sys.stderr)
+        rev_rows = fetch_rev_watch(engine_repo, rev_watch_ref, rev_watch)
+        sys.stdout.write(render_rev_watch(rev_watch_ref, rev_rows))
+        for r in rev_rows:
+            if r["fired"]:
+                print(
+                    f"::warning::rev-watch FIRED: {r['package']} on {rev_watch_ref} "
+                    f"is {r['current']} (baseline {r['baseline']}); {r['note']}",
+                    file=sys.stderr,
+                )
+
     # Systemic-fetch-failure guard: if COPR lookups mostly failed (an API
     # outage / timeout, not real absence), this is a script error, not
     # drift. Exit 2 so the workflow distinguishes it and doesn't post a
@@ -805,7 +902,8 @@ def main(argv: list[str]) -> int:
         return 2
 
     has_drift = any(r["status"] == "out-of-date" for r in rows)
-    return 1 if has_drift else 0
+    rev_tripped = any(r["fired"] for r in rev_rows)
+    return 1 if (has_drift or rev_tripped) else 0
 
 
 if __name__ == "__main__":

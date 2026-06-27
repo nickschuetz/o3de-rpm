@@ -22,6 +22,35 @@
 # override this via the ENGINE_REF env var.
 engine_ref: stabilization/26050
 
+# Branch the rev_watch tripwire reads (independent of engine_ref above).
+# qt6 / pyside6 live on development, not stabilization, so the watch
+# targets development by default.
+rev_watch_ref: development
+
+# Rev watch: specific 3rdParty pins on rev_watch_ref that, when they move
+# off a known-verified baseline rev, require a manual re-verify before our
+# snapshot build trusts the new package. The script fires the tripwire on
+# ANY change off baseline (turns the run red, like out-of-date) so the
+# bump cannot land silently. After re-verifying, bump the baseline here to
+# re-arm.
+#
+# Format (the tiny loader only does flat two-space maps, so each value is a
+# single pipe-delimited string): "<baseline-version>|<expected-target>|<note>".
+#   baseline -- the version+rev currently pinned AND verified-clean.
+#   target   -- the rev we expect it to move to next (context only; the
+#               watch fires on any change, not just reaching target).
+#   note     -- what to re-verify when it fires.
+#
+# Live reason these two are watched: pyside6 ships shiboken6 with an
+# insecure relative RUNPATH ($ORIGIN:./../lib) that fails Fedora %install;
+# our spec carries a normalization (commit 6e76c4f). A new pyside6/qt rev
+# rebuilds those binaries and can shift the rpath form, so re-check the
+# rpath on the first dev-tip build after either pin moves. 3p#385 is the
+# PR that bumps qt rev7->rev8 + pyside6 rev4->rev5 upstream.
+rev_watch:
+  qt: "6.10.2-rev6|6.10.2-rev8|re-verify lrelease + shiboken6 RUNPATH form on first dev-tip build (3p#385 territory)"
+  pyside6: "6.10.2-py3.10-rev4|6.10.2-py3.10-rev5|re-verify shiboken6 RUNPATH; our carry-fix 6e76c4f normalizes ./../lib -> $ORIGIN/../lib (3p#385 does NOT fix it upstream)"
+
 # Engine repo + 3p package-source repo (rarely change).
 engine_repo: o3de/o3de
 threep_repo: o3de/3p-package-source
