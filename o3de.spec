@@ -325,19 +325,32 @@
 
 Name:           %{o3de_pkgname}
 %if %{with snapshot}
-# Tilde (~) is the RPM pre-release delimiter, so the snapshot version
-# compares LESS than the bare release tag. This is the correct semantic:
-# a snapshot built from stabilization/26050 ahead of 2605.0 ships as
-# 2605.0~<date>git<sha> which auto-upgrades to 2605.0-1 once the stable
-# release lands. Previously this used `^` (the post-release delimiter)
-# which inverted the comparison and blocked snapshot-to-stable upgrades.
-# Caught 2026-05-28 when dnf refused to upgrade from 2605.0^...8e75050
-# to 2605.0-1. See FOLLOW_UPS.md ("Packaging correctness") for context.
+%if %{with stabilization}
+# Stabilization (and experimental, which rides the same stabilization
+# source) is the PRE-release branch of the current tag, so its snapshots
+# use the tilde (~) pre-release delimiter: 2605.0~<date>git<sha> compares
+# LESS than the bare release tag and auto-upgrades to 2605.0-1 once the
+# stable release lands. Using `^` here inverted the comparison and blocked
+# snapshot-to-stable upgrades (caught 2026-05-28 when dnf refused to
+# upgrade from 2605.0^...8e75050 to 2605.0-1).
 Version:        %{stable_tag}~%{snapshot_date}git%{shortcommit}
+%else
+# Development (and qt6 / arbitrary-ref) snapshots are POST-release: they
+# track o3de/development after the current tag shipped, heading to the
+# next release. They use the caret (^) post-release delimiter so
+# 2605.0^<date>git<sha> sorts ABOVE 2605.0-1 and successive dev snapshots
+# order monotonically by date. Using ~ here (the pre-release marker, from
+# the 2026-05-28 stabilization fix applied too broadly) made every dev
+# build sort below the bare tag, so a single legacy ^ build (20260521)
+# outranked every newer ~ build in o3de-development and pinned dev users
+# to a stale snapshot they could never upgrade past. Caught 2026-07-07;
+# see FOLLOW_UPS.md ("Packaging correctness").
+Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
+%endif
 %else
 Version:        %{stable_tag}
 %endif
-Release:        104%{?dist}
+Release:        105%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT

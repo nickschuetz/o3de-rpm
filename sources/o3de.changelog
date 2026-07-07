@@ -1,4 +1,16 @@
 %changelog
+* Tue Jul 07 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-105
+- Snapshot Version delimiter is now channel-aware. Stabilization and
+  experimental (pre-release of the current tag) keep the '~' pre-release
+  form, but development / qt6 / arbitrary-ref snapshots (post-release,
+  tracking o3de/development toward the next release) now use the '^'
+  post-release delimiter. The unconditional '~' from the 2026-05-28
+  stabilization fix made every development build sort below the bare tag,
+  so a single legacy '^' build (20260521) outranked every newer '~' build
+  in o3de-development and pinned dev-channel users to a stale snapshot
+  they could never upgrade past. With '^', development snapshots sort
+  above 2605.0-1 and order monotonically by date.
+
 * Thu Jun 25 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-104
 - qt6 PySide6 rpath cleanup: also normalize relative '.'-based RUNPATH
   entries, not just the absolute CI path. The pyside6-6.10.2-rev3
