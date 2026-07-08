@@ -155,8 +155,8 @@ fi
 # per-monitor scaling it would otherwise do (the very bug this papers
 # over does not exist there). Detect the bundled Qt generation from
 # the deployed runtime rather than the build flags so one launcher
-# serves every channel: qt6-era builds (o3de-development-qt6 today,
-# 26.10.x if the migration lands) ship libQt6Core.so.6 in BIN_DIR,
+# serves every channel: qt6-era builds (o3de-development since the
+# 2026-06-15 Qt6 merge, and 26.10.x) ship libQt6Core.so.6 in BIN_DIR,
 # Qt5-era builds ship libQt5Core there instead.
 if [ -z "${QT_FONT_DPI:-}" ] && [ "${XDG_SESSION_TYPE:-}" = "wayland" ] \
     && [ ! -e "$BIN_DIR/libQt6Core.so.6" ]; then

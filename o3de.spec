@@ -113,10 +113,13 @@
 # Qt6 forward-test gate. The o3de/o3de:qt6 branch swaps the custom Qt 5.15
 # bundle for vanilla Qt6 + PySide6, and its 3rdParty brings build deps and
 # binary quirks the Qt5 bundle does not. This bcond fences those off so the
-# Qt5 channels (stable / testing / development) are untouched: it pulls the
-# bundled-Qt6 link dep (dbus-devel) and runs an %%install rpath cleanup on the
-# PySide6 binaries. Set ONLY on the o3de-development-qt6 forward-test chroots
-# (--rpmbuild-with qt6). 26.10-track; qt6 is NOT backported to 26.05.
+# Qt5 channels (stable / testing / stabilization / experimental) are
+# untouched: it pulls the bundled-Qt6 link dep (dbus-devel) and runs an
+# %%install rpath cleanup on the PySide6 binaries. Set on the
+# o3de-development chroots (--rpmbuild-with qt6) since Qt6 merged into
+# upstream development 2026-06-15 (previously a dedicated
+# o3de-development-qt6 forward-test project, retired 2026-07-08).
+# 26.10-track; qt6 is NOT backported to 26.05.
 # See project_o3de_bundles_custom_qt.md.
 %bcond_with qt6
 
