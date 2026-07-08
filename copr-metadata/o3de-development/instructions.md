@@ -4,7 +4,7 @@
 
 **For pre-release validation of the next release line, use [hellaenergy/o3de-stabilization](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-stabilization/)** -- that channel ships builds from upstream's `stabilization/<release>` branch, closer to release quality, validated continuously.
 
-**For an in-progress migration branch** (e.g. the Qt6 migration): a separate dedicated COPR project is created (e.g. `hellaenergy/o3de-development-qt6`). This project (`o3de-development`) is exclusively for the `development` branch so chroot config can stay simple and predictable.
+**For an in-progress migration branch:** a separate dedicated COPR project is created rather than overloading this one (as was done for the Qt6 migration, which has since merged into development). This project (`o3de-development`) is exclusively for the `development` branch so chroot config can stay simple and predictable.
 
 **If you're here looking for development-branch builds:**
 
