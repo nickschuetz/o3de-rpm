@@ -73,16 +73,40 @@ jobs:
       - name: Determine dev-tip + last-built sha
         id: dedup
         run: |
-          DEV_TIP=$(git ls-remote https://github.com/o3de/o3de.git refs/heads/development | awk '{print $1}')
+          # git ls-remote and copr-cli have no built-in timeout; wrap both so
+          # a GitHub/COPR outage SKIPS this cron tick cleanly rather than
+          # hanging the runner or firing a build on incomplete state
+          # (outage != drift). Manual `force` still bypasses dedup below.
+          DEV_TIP=$(timeout 60 git ls-remote https://github.com/o3de/o3de.git refs/heads/development 2>/dev/null | awk '{print $1}') || true
+          if [ -z "$DEV_TIP" ]; then
+              echo "::warning::could not read o3de/development tip from GitHub; skipping this cron tick"
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+          fi
           echo "dev-tip: $DEV_TIP"
 
-          # Pull last successful build's SRPM URL, extract snapshot_commit
-          # from the filename (pattern: o3de2605-<ver>^<date>git<sha>-...).
-          LAST_SHA=$(copr-cli list-builds hellaenergy/o3de-development --output-format json 2>/dev/null \
+          # Pull the last successful build's SRPM URL and extract its
+          # snapshot_commit (filename pattern: o3de2605-<ver>git<sha>-...).
+          # NOTE: use the api_3 build/list endpoint, NOT `copr-cli list-builds
+          # --output-format json` -- the latter returns only id/name/state
+          # (no source_package.url), so the old parse always produced an empty
+          # LAST_SHA and the cron never deduped (it rebuilt every week even
+          # when development had not moved). Hardened curl: timeouts + retries;
+          # a fetch failure skips the tick (outage != drift). A clean-but-empty
+          # result (no builds yet) legitimately falls through to a build.
+          api="https://copr.fedorainfracloud.org/api_3/build/list/?ownername=hellaenergy&projectname=o3de-development&limit=20"
+          LAST_BUILDS_JSON=$(curl -fsSL --connect-timeout 15 --max-time 60 --retry 3 \
+                                  --retry-delay 5 --retry-all-errors "$api") || {
+              echo "::warning::could not read COPR build list; skipping this cron tick"
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+          }
+          LAST_SHA=$(printf '%s' "$LAST_BUILDS_JSON" \
             | python3 -c "
           import sys, json, re
           data = json.load(sys.stdin)
-          for b in data:
+          items = data.get('items', data) if isinstance(data, dict) else data
+          for b in items:
               if b.get('state') == 'succeeded':
                   src = (b.get('source_package') or {}).get('url', '')
                   m = re.search(r'git([0-9a-f]{7,40})', src)

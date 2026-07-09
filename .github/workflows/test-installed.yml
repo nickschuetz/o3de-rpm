@@ -373,9 +373,23 @@ jobs:
           fi
           repo="${results_root}/${CHROOT}-x86_64"
           echo "Resolving ${nvr_core} for chroot ${CHROOT} under ${repo}"
-          primary=$(curl -fsSL "${repo}/repodata/repomd.xml" \
+          # Hardened COPR fetch (mirrors the detect job): timeouts + retries
+          # + a stall guard so a slow/unreachable COPR fails fast after
+          # retries instead of hanging until the job is cancelled (the
+          # outage that sank runs 458/459). No fixed --max-time here because
+          # the RPM is ~1.6 GB; --speed-limit/--speed-time aborts a stalled
+          # transfer without capping a legitimately slow one. A sustained
+          # outage exits non-zero so the build is retried next cron (the
+          # record dedup marker only writes on test success).
+          copr_curl() { curl -fsSL --connect-timeout 15 --retry 3 --retry-delay 5 \
+                             --retry-all-errors --speed-limit 1024 --speed-time 60 "$@"; }
+          repomd=$(copr_curl "${repo}/repodata/repomd.xml") \
+            || { echo "COPR fetch failed (repomd.xml) after retries" >&2; exit 1; }
+          primary=$(printf '%s' "$repomd" \
             | grep -oE 'repodata/[a-f0-9]+-primary\.xml\.gz' | head -1)
-          rpm_rel=$(curl -fsSL "${repo}/${primary}" | gunzip -c \
+          copr_curl "${repo}/${primary}" -o "${RUNNER_TEMP:-/tmp}/primary.xml.gz" \
+            || { echo "COPR fetch failed (primary.xml.gz) after retries" >&2; exit 1; }
+          rpm_rel=$(gunzip -c "${RUNNER_TEMP:-/tmp}/primary.xml.gz" \
             | grep -oE "href=\"Packages/o/${nvr_core}\.(fc|el)[0-9]+\.x86_64\.rpm\"" \
             | grep -v -- '-debug-' \
             | head -1 \
@@ -384,7 +398,8 @@ jobs:
             echo "could not find ${nvr_core} in ${CHROOT} repodata at ${repo}" >&2
             exit 1
           fi
-          curl -fsSL -o /tmp/o3de.rpm "${repo}/${rpm_rel}"
+          copr_curl -o /tmp/o3de.rpm "${repo}/${rpm_rel}" \
+            || { echo "COPR fetch failed (RPM download) after retries" >&2; exit 1; }
           ls -lh /tmp/o3de.rpm
 
       - name: Install

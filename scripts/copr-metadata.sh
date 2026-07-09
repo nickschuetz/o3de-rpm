@@ -38,7 +38,8 @@ field_filename() {
 fetch_live() {
     # Prints the live JSON for one project to stdout.
     local project=$1
-    curl -fsS "https://copr.fedorainfracloud.org/api_3/project?ownername=${OWNER}&projectname=${project}"
+    curl -fsS --connect-timeout 15 --max-time 60 --retry 2 --retry-delay 3 --retry-all-errors \
+        "https://copr.fedorainfracloud.org/api_3/project?ownername=${OWNER}&projectname=${project}"
 }
 
 extract_field() {
@@ -152,7 +153,8 @@ cmd_push() {
         [[ -n "${homepage%$'\n'}" ]] && form+=(-F "homepage=${homepage%$'\n'}")
         [[ -n "${contact%$'\n'}"  ]] && form+=(-F "contact=${contact%$'\n'}")
         if (( ${#form[@]} )); then
-            curl -fsS -u "${login}:${token}" -X POST \
+            curl -fsS --connect-timeout 15 --max-time 60 --retry 2 --retry-delay 3 \
+                -u "${login}:${token}" -X POST \
                 "https://copr.fedorainfracloud.org/api_3/project/edit/${OWNER}/${project}" \
                 "${form[@]}" >/dev/null
         fi

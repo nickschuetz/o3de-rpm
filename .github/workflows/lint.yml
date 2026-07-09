@@ -93,7 +93,13 @@ jobs:
             exit 0
           fi
           dnf install -y --setopt=install_weak_deps=False git patch
-          git clone --depth 1 https://github.com/o3de/o3de "/tmp/o3de" 2>&1 | tail -3
+          # Bound the clone so a GitHub outage skips the patch dry-run rather
+          # than hanging the lint job (outage != drift). Patch health is
+          # re-checked on every push, so skipping one run is harmless.
+          if ! timeout 300 git clone --depth 1 -q https://github.com/o3de/o3de "/tmp/o3de"; then
+            echo "clone of o3de timed out/failed (network?); skipping patch dry-run"
+            exit 0
+          fi
           cd /tmp/o3de
           git fetch --depth 1 origin "$PIN" 2>/dev/null || \
             { echo "commit $PIN not reachable from a shallow clone — skipping patch dry-run"; exit 0; }
