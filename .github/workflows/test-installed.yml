@@ -124,11 +124,25 @@ jobs:
               echo "build_id=${{ github.event.client_payload.build_id }}" >> "$GITHUB_OUTPUT"
               ;;
             schedule)
+              # Hardened COPR fetch: timeouts + retries so a slow or
+              # unreachable COPR makes this cron tick SKIP CLEANLY rather
+              # than hang for minutes and get cancelled (outage != drift;
+              # runs 458/459 on 2026-07-09 hung ~15 min during a COPR blip).
+              # --retry-all-errors also retries transient HTTP 5xx.
+              copr_curl() { curl -fsSL --connect-timeout 15 --max-time 120 \
+                                 --retry 3 --retry-delay 5 --retry-all-errors "$@"; }
+              skip_tick() { # $1 = which fetch failed
+                echo "::warning::COPR fetch failed ($1); skipping this cron tick"
+                echo "rpm_url=" >> "$GITHUB_OUTPUT"
+                echo "build_id=" >> "$GITHUB_OUTPUT"
+                exit 0
+              }
               # Query COPR for the most recent succeeded build. The api_3
               # build-list endpoint takes ownername+projectname as query
               # params, not path components — the path form returns 404.
               api="https://copr.fedorainfracloud.org/api_3/build/list/?ownername=${COPR_OWNER}&projectname=${COPR_PROJECT}&limit=20"
-              build_id=$(curl -fsSL "$api" | jq -r '.items | map(select(.state == "succeeded")) | .[0].id // empty')
+              builds_json=$(copr_curl "$api") || skip_tick "api_3/build/list"
+              build_id=$(printf '%s' "$builds_json" | jq -r '.items | map(select(.state == "succeeded")) | .[0].id // empty')
               if [ -z "$build_id" ]; then
                 echo "no succeeded builds in ${COPR_OWNER}/${COPR_PROJECT} yet"
                 echo "rpm_url=" >> "$GITHUB_OUTPUT"
@@ -140,7 +154,8 @@ jobs:
               # into the createrepo-managed Packages/o/ tree at the repo
               # root, so we have to look it up via repodata.
               repo="https://download.copr.fedorainfracloud.org/results/${COPR_OWNER}/${COPR_PROJECT}/fedora-44-x86_64"
-              primary=$(curl -fsSL "${repo}/repodata/repomd.xml" \
+              repomd=$(copr_curl "${repo}/repodata/repomd.xml") || skip_tick "repomd.xml"
+              primary=$(printf '%s' "$repomd" \
                 | grep -oE 'repodata/[a-f0-9]+-primary\.xml\.gz' | head -1)
               # Match versioned package names (o3de2605, o3de2610, ...) and
               # pick the HIGHEST version-release via `sort -V`. The repo
@@ -165,7 +180,11 @@ jobs:
               # and tail -1 picks it. Caught 2026-06-03 when trigger-tests
               # resolved a 2026-05-23 ^-era leftover in o3de-experimental
               # instead of the fresh ~...-98 build.
-              rpm_rel=$(curl -fsSL "${repo}/${primary}" | gunzip -c \
+              # primary.xml.gz is binary; download to a file (command
+              # substitution mangles NUL bytes) so it can be both retried
+              # and gunzipped safely.
+              copr_curl "${repo}/${primary}" -o "${RUNNER_TEMP:-/tmp}/primary.xml.gz" || skip_tick "primary.xml.gz"
+              rpm_rel=$(gunzip -c "${RUNNER_TEMP:-/tmp}/primary.xml.gz" \
                 | grep -oE 'href="Packages/o/o3de[0-9]+-[0-9][^"^]+\.x86_64\.rpm"' \
                 | sed 's/^href="//; s/"$//' \
                 | sort -V | tail -1)
