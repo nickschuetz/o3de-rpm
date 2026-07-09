@@ -777,14 +777,25 @@ BuildRequires:  dbus-devel
 BuildRequires:  patchelf
 %endif
 
-# Wayland surface path (--with wayland). At configure the engine runs
-# wayland-scanner over wayland-protocols .xml (xdg-shell, xdg-decoration,
-# cursor-shape, tablet-v2, pointer-constraints, relative-pointer) and links
-# wayland-client, wayland-cursor, and xkbcommon. wayland-devel supplies the
-# scanner + client + cursor libs, wayland-protocols-devel the protocol .xml
-# pkgdatadir, libxkbcommon-devel the xkbcommon target. See
-# platform_nativeui_linux.cmake's PAL_TRAIT_LINUX_WINDOW_MANAGER_WAYLAND block.
-%if %{with wayland}
+# Wayland dev stack. Two independent consumers pull it in:
+#   1. --with wayland: the engine's native wayland window manager. At
+#      configure the engine runs wayland-scanner over wayland-protocols .xml
+#      (xdg-shell, xdg-decoration, cursor-shape, tablet-v2,
+#      pointer-constraints, relative-pointer) and links wayland-client,
+#      wayland-cursor, xkbcommon. See platform_nativeui_linux.cmake's
+#      PAL_TRAIT_LINUX_WINDOW_MANAGER_WAYLAND block.
+#   2. --with qt6: qt-6.10.2-rev8 (o3de/3p-package-source#385) makes
+#      "WaylandClient" a REQUIRED Qt component in FindQt.cmake, whose config
+#      pulls a third-party find_package(Wayland) needing
+#      Wayland::Client/Server/Cursor/Egl. So the wayland dev stack is a
+#      build-time need for every qt6 build even when the engine's own wayland
+#      windowing is off. Caught 2026-07-09: the first rev8 dev build failed
+#      cmake configure with 'Failed to find required Qt component
+#      "WaylandClient"'; rev6 did not require it.
+# wayland-devel supplies the scanner + client/server/cursor/egl libs,
+# wayland-protocols-devel the protocol .xml pkgdatadir, libxkbcommon-devel
+# the xkbcommon target.
+%if %{with wayland} || %{with qt6}
 BuildRequires:  wayland-devel
 BuildRequires:  wayland-protocols-devel
 BuildRequires:  libxkbcommon-devel
