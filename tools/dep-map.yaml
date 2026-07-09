@@ -48,8 +48,8 @@ rev_watch_ref: development
 # rpath on the first dev-tip build after either pin moves. 3p#385 is the
 # PR that bumps qt rev7->rev8 + pyside6 rev4->rev5 upstream.
 rev_watch:
-  qt: "6.10.2-rev6|6.10.2-rev8|re-verify lrelease + shiboken6 RUNPATH form on first dev-tip build (3p#385 territory)"
-  pyside6: "6.10.2-py3.10-rev4|6.10.2-py3.10-rev5|re-verify shiboken6 RUNPATH; our carry-fix 6e76c4f normalizes ./../lib -> $ORIGIN/../lib (3p#385 does NOT fix it upstream)"
+  qt: "6.10.2-rev8|6.10.2-rev8|rev8 verified green 2026-07-09 (build 10703057). rev8 made WaylandClient a required Qt component (needs wayland-devel BR, fix 4407305). Re-verify lrelease + shiboken6 RUNPATH on the next rev bump."
+  pyside6: "6.10.2-py3.10-rev5|6.10.2-py3.10-rev5|rev5 verified green 2026-07-09 (build 10703057): bin/shiboken6 ships clean $ORIGIN, engine-side shiboken generation works, so carry-fix 6e76c4f is now a no-op/retireable. Re-verify shiboken6 RUNPATH on the next rev bump."
 
 # Engine repo + 3p package-source repo (rarely change).
 engine_repo: o3de/o3de
