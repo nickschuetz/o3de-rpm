@@ -429,10 +429,25 @@ Source67:       o3de-material-canvas-256x256.png
 Source99:       o3de.changelog
 
 # Patches against the upstream tree (apply with -p1).
+#
+# TIMEBOMB retirement model (post-26.05.0 release, shipped 2026-05-27):
+# seven carry-patches (0001/0002/0004/0005/0007/0008/0012) have upstream
+# equivalents that merged to `development` only. Retirement is PER-CHANNEL
+# and fires when a channel's engine ref rebases onto the 26.10 base -- i.e.
+# stabilization/26100 when it opens, then the 26.10 release tarball -- both
+# of which branch from development and so already contain the fix. NOTE:
+# stabilization/26050 shipped AS 26.05.0 and is frozen; it will NOT backport
+# these dev-only merges, so it is NOT the retirement trigger. Until a channel
+# moves to the 26.10 base it keeps the patch (the 26.05.0 tarball the stable
+# channel serves lacks all seven). The `--with development_snapshot` bcond
+# already gates all seven off for the development channel (they would
+# otherwise "previously applied"). References below to "NOT in
+# stabilization/26050" are factual provenance, not a wait-on-26050 trigger.
+#
 # Patch0001 -- merged upstream as o3de/o3de#19748 (in development, NOT in
-# stabilization/26050). Active for stabilization builds; gated off when
+# stabilization/26050). Active for the 26.05-line channels; gated off when
 # building development snapshots so it doesn't fail-to-apply against a tree
-# that already contains the change.
+# that already contains the change. See TIMEBOMB retirement model above.
 %if %{without development_snapshot}
 Patch0001:      0001-clang21-warning-suppressions.patch
 %endif
@@ -446,8 +461,8 @@ Patch0003:      0003-get-python-sh-rpm-venv-fixes.patch
 # 2026-06-09, same cmake/LYPython.cmake read-only-installed-engine fix; #19752's
 # no-sdist fallback is our non-editable pip path). Confirmed: applying 0004
 # against development tip reports "previously applied" (2026-06-09), so it would
-# fail %prep on the development channel. development only -- stabilization/26050
-# still lacks it, so the non-dev channels keep the patch.
+# fail %prep on the development channel. The 26.05-line channels keep it (see
+# TIMEBOMB retirement model above); the development channel gates it off.
 %if %{without development_snapshot}
 Patch0004:      0004-lypython-non-editable-pip-for-installed-engine.patch
 %endif
@@ -468,14 +483,13 @@ Patch0005:      0005-windowdecorationwrapper-propagate-initial-title.patch
 #
 # TIMEBOMB: upstream MERGED PR o3de/o3de#19734 (commit dda736e0,
 # 2026-05-08) into `development` but NOT into `stabilization/26050`.
-# Our snapshot pin currently sources from stabilization/26050 (commit
-# 246b46f), which still has the legacy typedefs. When stabilization
-# absorbs #19734 (either via cherry-pick to 26050 or when a new
-# stabilization branch is cut from development with #19734 in it),
-# this patch becomes dead code and retires. Until then it must stay.
-# Earlier-2026-05-12 retirement attempt was reverted after grepping
-# stabilization/26050 still showed 9+33 legacy typedef hits in the
-# two target files. See project_branch_alignment_before_retirement.md
+# The 26.05.0 release tarball still has the legacy typedefs. Retires
+# per the TIMEBOMB retirement model above -- when a channel rebases onto
+# the 26.10 base (stabilization/26100, then the 26.10 tarball), which
+# carries #19734 via development. stabilization/26050 shipped and will not
+# backport it. Earlier-2026-05-12 retirement attempt was reverted after
+# grepping stabilization/26050 still showed 9+33 legacy typedef hits in
+# the two target files. See project_branch_alignment_before_retirement.md
 # memory note for the gotcha pattern.
 %if %{without development_snapshot}
 Patch0007:      0007-libtiff-c99-typedefs.patch
@@ -512,8 +526,8 @@ Patch0006:      0006-builtinpackages-gate-mikkelsen-on-system.patch
 #
 # TIMEBOMB: upstream MERGED PR o3de/o3de#19733 (commit 3e715c61,
 # 2026-05-08) into `development` but NOT into `stabilization/26050`.
-# Same retirement-gating story as Patch0007 -- stays active until
-# stabilization absorbs the upstream change. See
+# Same retirement-gating story as Patch0007 -- retires per the TIMEBOMB
+# retirement model above when a channel rebases onto the 26.10 base. See
 # project_branch_alignment_before_retirement.md memory note.
 %if %{without development_snapshot}
 Patch0008:      0008-azcore-drop-lua-lobject-include.patch
@@ -535,10 +549,12 @@ Patch0008:      0008-azcore-drop-lua-lobject-include.patch
 # TIMEBOMB: this patch has hunks against BOTH PhysX4 AND PhysX5 PAL_linux.cmake.
 # o3de/o3de PR #19726 (PhysX 4 retirement) has now landed in o3de/development
 # (verified 2026-05-21: Gems/PhysX/Core/PhysX4/ tree gone). The PhysX4 hunk
-# fails-to-apply on dev tip. Stabilization/26050 still has PhysX4, so the
-# patch applies cleanly there. Gated under %%without development_snapshot.
-# Eventual proper fix when stabilization absorbs the PhysX4 retirement:
-# drop the PhysX4 hunk from this patch and regenerate with only PhysX5.
+# fails-to-apply on dev tip. The 26.05 base still has PhysX4, so the
+# patch applies cleanly on the 26.05-line channels. Gated under %%without
+# development_snapshot. Eventual proper fix when a channel rebases onto
+# the 26.10 base (stabilization/26100 cut, which inherits the PhysX4
+# retirement from development): drop the PhysX4 hunk from this patch and
+# regenerate with only PhysX5. See FOLLOW_UPS.md forward-obligation note.
 %if %{without development_snapshot}
 Patch0009:      0009-physx-pal-gate-poly2tri-on-system.patch
 %endif

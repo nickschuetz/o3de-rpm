@@ -20,6 +20,12 @@
 
 # Active engine branch the script targets by default. The workflow can
 # override this via the ENGINE_REF env var.
+#
+# This is deliberately the 26.05-LINE base: 26.05.0 shipped 2026-05-27 and
+# the stable channel we currently serve is built from that line, so drift is
+# measured against stabilization/26050's BuiltInPackages. It is NOT stale.
+# Roll this to stabilization/26100 when that branch opens for the 26.10 cycle
+# (the next release; see the TIMEBOMB retirement model in o3de.spec).
 engine_ref: stabilization/26050
 
 # Branch the rev_watch tripwire reads (independent of engine_ref above).
