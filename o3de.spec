@@ -353,7 +353,7 @@ Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        105%{?dist}
+Release:        106%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -1455,6 +1455,16 @@ unset CFLAGS CXXFLAGS LDFLAGS
 # exactly upstream's multi-install UX on .deb. Multi-install on disk
 # still works (paths versioned at /opt/O3DE/<v>/); only the active
 # registration is single-slot.
+# O3DE_FETCHCONTENT_FORCE_GIT: upstream o3de/o3de#19622 (merged 2026-07-16)
+# switched ~10 3rdParty deps (googletest, assimp, meshoptimizer, Ogg, vorbis,
+# miniaudio, v-hacd, RecastNavigation, Manifold, OpenMesh) from git-clone to
+# URL-archive FetchContent. The archives are cached named-by-hash with no
+# extension, which CMake < 4.0 cannot extract ("Do not know how to extract").
+# CS10 ships CMake 3.31.8 and dies at configure (build 10742547); F44/rawhide
+# ship CMake 4.x, which sniffs the type by content and succeeds. Upstream's own
+# escape hatch (added in the same PR) forces the prior git-clone path for every
+# dep at once, matching what built green on all chroots before 2026-07-16.
+# Retire when #19622's URL path works on CMake 3.x, or CS10 ships CMake 4.x.
 cmake \
     -S . -B build \
     -G "Ninja Multi-Config" \
@@ -1469,6 +1479,7 @@ cmake \
     -DO3DE_INSTALL_BUILD_VERSION='"%{_o3de_build_version}"' \
     -DLY_DISABLE_TEST_MODULES=ON \
     -DLY_STRIP_DEBUG_SYMBOLS=OFF \
+    -DO3DE_FETCHCONTENT_FORCE_GIT=ON \
     -DTHREADS_PREFER_PTHREAD_FLAG=ON \
     -DCMAKE_THREAD_LIBS_INIT=-lpthread \
     -DCMAKE_HAVE_THREADS_LIBRARY=1 \

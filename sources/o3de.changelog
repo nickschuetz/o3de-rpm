@@ -1,4 +1,18 @@
 %changelog
+* Wed Jul 22 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-106
+- Force git-clone mode for 3rdParty FetchContent (-DO3DE_FETCHCONTENT_FORCE_GIT=ON).
+  Upstream o3de/o3de#19622 (merged 2026-07-16) switched ~10 3rdParty deps
+  (googletest, assimp, meshoptimizer, Ogg, vorbis, miniaudio, v-hacd,
+  RecastNavigation, Manifold, OpenMesh) from git-clone to URL-archive
+  FetchContent. The archives are cached named-by-hash with no extension,
+  which CMake older than 4.0 cannot extract. CentOS Stream 10 ships CMake
+  3.31.8 and failed at cmake configure on the googletest extract (development
+  build 10742547); Fedora 44 and rawhide (CMake 4.x) were unaffected because
+  they detect the archive type by content. This forces upstream's own git
+  fallback for every dep, restoring the behavior that built green on all
+  chroots before 2026-07-16. Retire when #19622's URL path works on CMake
+  3.x, or when CS10 ships CMake 4.x.
+
 * Tue Jul 07 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-105
 - Snapshot Version delimiter is now channel-aware. Stabilization and
   experimental (pre-release of the current tag) keep the '~' pre-release
