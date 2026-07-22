@@ -10,3 +10,10 @@ tools/__pycache__/
 # Not relevant to the packaging work itself.
 backtrace.log
 imgui.ini
+
+# Working drafts for upstream posts/patches. These are local scratch and are
+# deliberately NOT published to this public repo (committing them, even
+# briefly, would put them in public history permanently). The single
+# intentionally-published doc is un-ignored below.
+upstream-drafts/
+!upstream-drafts/bundling-exception-libtiff.md
