@@ -147,6 +147,20 @@
 # project_system_swap_shim_two_mechanisms.md.
 %bcond_with swap_hook
 
+# Prototype gate for shipping the Monolithic (release, static) engine
+# permutation ALONGSIDE the default profile (shared) build, so that a
+# release game export (Project Manager "Export Launcher" default, or
+# `export-project --config release`) finds the monolithic libraries in the
+# installed SDK instead of failing with "No monolithic artifacts are
+# detected in the engine installation." Producing it is a SECOND full
+# cmake configure+build+install pass (LY_MONOLITHIC_GAME=ON, release
+# config, into build-mono/); that pass builds game-runtime targets only
+# (LY_MONOLITHIC_GAME disables host/GUI tools + tests) and installs the
+# MONOLITHIC / MONOLITHIC_RELEASE components into the same tree. Materially
+# larger package + longer build, so default OFF; exercised on the
+# o3de-experimental chroots. See FOLLOW_UPS.md "GAP: RPM ships profile-only".
+%bcond_with monolithic
+
 # ── Version pinning ──────────────────────────────────────────────────────────
 %global stable_tag      2605.0
 # Compute with: sha256sum o3de-<tag>-lfs.tar.gz  (2605.0+ naming convention;
@@ -353,7 +367,7 @@ Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        106%{?dist}
+Release:        107%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -1544,6 +1558,83 @@ cmake --build build --config profile --parallel %{o3de_build_jobs}
 cmake --build build --config debug --parallel %{o3de_build_jobs}
 %endif
 
+%if %{with monolithic}
+# ── MONOLITHIC (release) permutation ─────────────────────────────────────────
+# A second, independent configure+build into build-mono/ with
+# LY_MONOLITHIC_GAME=ON + release config. This is the game-runtime-only
+# permutation (LY_MONOLITHIC_GAME disables host/GUI tools + tests) whose
+# static libraries + cmake/Platform/Linux/Monolithic/ConfigurationTypes_*.cmake
+# are what `export-project --config release` looks for. Reuses the SAME
+# LY_3RDPARTY_PATH so 3rdParty packages are not re-fetched. EXPERIMENT: the
+# common flags are duplicated from the profile configure above rather than
+# factored out, to keep the proven profile path untouched; DRY it if this
+# graduates past o3de-experimental.
+cmake \
+    -S . -B build-mono \
+    -G "Ninja Multi-Config" \
+    -DCMAKE_CONFIGURATION_TYPES="release" \
+    -DLY_MONOLITHIC_GAME=ON \
+    -DCMAKE_C_COMPILER=clang \
+    -DCMAKE_CXX_COMPILER=clang++ \
+    -DCMAKE_INSTALL_PREFIX=%{o3de_install_prefix} \
+    -DLY_3RDPARTY_PATH=%{_builddir}/%{o3de_source_dir}/3rdParty \
+    -DO3DE_INSTALL_ENGINE_NAME=o3de \
+    -DO3DE_INSTALL_VERSION_STRING=%{engine_cmake_version} \
+    -DO3DE_INSTALL_DISPLAY_VERSION_STRING=%{_o3de_display_version} \
+    -DO3DE_INSTALL_BUILD_VERSION='"%{_o3de_build_version}"' \
+    -DLY_DISABLE_TEST_MODULES=ON \
+    -DLY_STRIP_DEBUG_SYMBOLS=OFF \
+    -DO3DE_FETCHCONTENT_FORCE_GIT=ON \
+    -DTHREADS_PREFER_PTHREAD_FLAG=ON \
+    -DCMAKE_THREAD_LIBS_INIT=-lpthread \
+    -DCMAKE_HAVE_THREADS_LIBRARY=1 \
+    -DCMAKE_USE_PTHREADS_INIT=1 \
+    -DCMAKE_EXE_LINKER_FLAGS_INIT="-Wl,-z,relro -Wl,-z,now" \
+    -DCMAKE_SHARED_LINKER_FLAGS_INIT="-Wl,-z,relro -Wl,-z,now" \
+    %{?with_wayland:-DPAL_TRAIT_LINUX_WINDOW_MANAGER_WAYLAND=ON} \
+    %{?with_system_assimp:-DLY_USE_SYSTEM_ASSIMP=ON} \
+    %{?with_system_cityhash:-DLY_USE_SYSTEM_CITYHASH=ON} \
+    %{?with_system_expat:-DLY_USE_SYSTEM_EXPAT=ON} \
+    %{?with_system_freetype:-DLY_USE_SYSTEM_FREETYPE=ON} \
+    %{?with_system_googlebenchmark:-DLY_USE_SYSTEM_GOOGLEBENCHMARK=ON} \
+    %{?with_system_libsamplerate:-DLY_USE_SYSTEM_LIBSAMPLERATE=ON} \
+    %{?with_system_lua:-DLY_USE_SYSTEM_LUA=ON} \
+    %{?with_system_lz4:-DLY_USE_SYSTEM_LZ4=ON} \
+    %{?with_system_mcpp:-DLY_USE_SYSTEM_MCPP=ON} \
+    %{?with_system_mikkelsen:-DLY_USE_SYSTEM_MIKKELSEN=ON} \
+    %{?with_system_openexr:-DLY_USE_SYSTEM_OPENEXR=ON -DLY_USE_SYSTEM_IMATH=ON} \
+    %{?with_system_png:-DLY_USE_SYSTEM_PNG=ON} \
+    %{?with_system_poly2tri:-DLY_USE_SYSTEM_POLY2TRI=ON} \
+    %{?with_system_rapidjson:-DLY_USE_SYSTEM_RAPIDJSON=ON} \
+    %{?with_system_rapidxml:-DLY_USE_SYSTEM_RAPIDXML=ON} \
+    %{?with_system_sqlite:-DLY_USE_SYSTEM_SQLITE=ON} \
+    %{?with_system_tiff:-DLY_USE_SYSTEM_TIFF=ON} \
+    %{?with_system_vulkan_validation_layers:-DLY_USE_SYSTEM_VULKAN_VALIDATION_LAYERS=ON} \
+    %{?with_system_xxhash:-DLY_USE_SYSTEM_XXHASH=ON} \
+    %{?with_system_zlib:-DLY_USE_SYSTEM_ZLIB=ON}
+
+# Same gtest clang-21 workaround as the profile build, guarded: the
+# monolithic permutation disables tests so googletest may not be fetched,
+# in which case the [ -f ] guard simply skips this.
+gtest_cmake_mono=build-mono/_deps/googletest-src/googletest/CMakeLists.txt
+if [ -f "$gtest_cmake_mono" ]; then
+    cat >> "$gtest_cmake_mono" <<'EOF'
+
+# clang 21+ compatibility (added by Fedora RPM build).
+foreach(_t IN ITEMS gtest gtest_main)
+    if(TARGET ${_t})
+        target_compile_options(${_t} PRIVATE
+            -Wno-error=character-conversion
+            -Wno-error=deprecated-volatile)
+    endif()
+endforeach()
+EOF
+    cmake -S . -B build-mono
+fi
+
+cmake --build build-mono --config release --parallel %{o3de_build_jobs}
+%endif
+
 # Build sdists for the Python packages O3DE's LYPython.cmake would
 # otherwise try to `pip install -e` from inside the read-only engine
 # tree. Patch0004 makes the cmake function prefer dist/<name>-X.Y.Z.tar.gz
@@ -1567,6 +1658,18 @@ DESTDIR=%{buildroot} cmake --install build --config profile --component DEFAULT
 DESTDIR=%{buildroot} cmake --install build --config profile --component DEFAULT_PROFILE
 %if %{with debug}
 DESTDIR=%{buildroot} cmake --install build --config debug --component DEFAULT_DEBUG
+%endif
+%if %{with monolithic}
+# Monolithic (release) permutation into the same tree. CORE is shared and
+# already installed from the profile pass above, so only the
+# permutation-specific components (MONOLITHIC = config-independent,
+# MONOLITHIC_RELEASE = release binaries/static libs) are added here. These
+# land under bin/Linux/release/Monolithic and lib/Linux/release/Monolithic,
+# plus cmake/Platform/Linux/Monolithic/ConfigurationTypes_*.cmake, and are
+# swept into the main package by the catch-all %%{o3de_install_prefix} in
+# %%files (the profile-only .a excludes there do not touch them).
+DESTDIR=%{buildroot} cmake --install build-mono --config release --component MONOLITHIC
+DESTDIR=%{buildroot} cmake --install build-mono --config release --component MONOLITHIC_RELEASE
 %endif
 
 # Normalize ambiguous '#!/usr/bin/env python' shebangs to 'python3' across

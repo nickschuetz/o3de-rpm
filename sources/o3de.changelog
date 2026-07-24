@@ -1,4 +1,16 @@
 %changelog
+* Fri Jul 24 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-107
+- Add the `monolithic` bcond (off by default). When enabled it does a second
+  build+install pass (LY_MONOLITHIC_GAME=ON, release config) that ships the
+  Monolithic (release, static) engine permutation alongside the default
+  profile (shared) build: lib/Linux/release/Monolithic/*.a plus
+  cmake/Platform/Linux/Monolithic/ConfigurationTypes_release.cmake. This is
+  what a release game export (Project Manager "Export Launcher", or
+  export-project --config release) needs; without it the export fails with
+  "No monolithic artifacts are detected in the engine installation." Costs
+  ~10 min extra build and ~0.7 GB installed. Exercised on the o3de-experimental
+  chroots (realigned to development + monolithic); default channels unchanged.
+
 * Wed Jul 22 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-106
 - Force git-clone mode for 3rdParty FetchContent (-DO3DE_FETCHCONTENT_FORCE_GIT=ON).
   Upstream o3de/o3de#19622 (merged 2026-07-16) switched ~10 3rdParty deps
