@@ -4,8 +4,11 @@ name: check-deps-drift
 # BuiltInPackages_linux_x86_64.cmake pins against what we ship in
 # hellaenergy/o3de-dependencies and what o3de/3p-package-source pins
 # in build_config.json. Sticky-issues the result so a single GitHub
-# issue tracks the current state. Workflow fails (red dot) when the
-# script reports any "out-of-date" entries.
+# issue tracks the current state: the issue is OPEN only while there is
+# real drift. A clean run auto-closes it (recording the clean snapshot);
+# the next run with real drift reopens the same issue rather than spawning
+# a duplicate. A fetch outage (exit 2) never flips the issue's state.
+# Workflow fails (red dot) when the script reports any "out-of-date" entries.
 
 on:
   schedule:
@@ -67,33 +70,74 @@ jobs:
           cat issue-body.md
           set -e
 
-      - name: Update sticky issue
+      - name: Manage sticky issue
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRIFT_EXIT: ${{ steps.drift.outputs.exit_code }}
         run: |
           set -euo pipefail
-          # Find the sticky issue by exact title; create if missing.
-          # We restrict the search to open issues authored by github-actions
-          # so manual issues with the same title are not clobbered.
-          existing=$(gh issue list \
-            --state open \
-            --search "in:title \"$ISSUE_TITLE\"" \
-            --json number,title,author \
-            --jq '.[] | select(.title == env.ISSUE_TITLE) | .number' \
-            | head -n1)
-          if [ -z "$existing" ]; then
-            echo "no existing issue, creating..."
-            gh issue create \
-              --title "$ISSUE_TITLE" \
-              --body-file issue-body.md \
-              --label "drift" || \
-            gh issue create \
-              --title "$ISSUE_TITLE" \
-              --body-file issue-body.md
-          else
-            echo "updating issue #$existing..."
-            gh issue edit "$existing" --body-file issue-body.md
-          fi
+          # Locate the sticky issue by exact title, authored by the actions
+          # bot (login contains "github-actions"), so a manual issue with the
+          # same title is never touched. Search ALL states so a previously
+          # auto-closed issue can be reopened when drift returns rather than
+          # spawning a duplicate.
+          find_sticky() {
+            gh issue list --state "$1" \
+              --search "in:title \"$ISSUE_TITLE\"" \
+              --json number,title,author,state \
+              --jq '.[]
+                    | select(.title == env.ISSUE_TITLE
+                             and (.author.login | ascii_downcase | contains("github-actions")))
+                    | .number' \
+              | head -n1
+          }
+          open_issue=$(find_sticky open || true)
+          any_issue=$(find_sticky all || true)
+
+          case "${DRIFT_EXIT:-0}" in
+            2)
+              # Fetch outage (exit 2): not a real drift signal. Do NOT flip
+              # open/closed state and do NOT create -- a transient COPR hiccup
+              # must not close a live drift issue or spawn a new one. Only
+              # refresh an already-open issue's body so it shows the outage.
+              if [ -n "$open_issue" ]; then
+                gh issue edit "$open_issue" --body-file issue-body.md
+                echo "outage: refreshed open issue #$open_issue, state unchanged"
+              else
+                echo "outage: no open issue; left everything as-is"
+              fi
+              ;;
+            1)
+              # Real drift (exit 1): ensure an OPEN issue exists with the
+              # latest report. Reopen a previously auto-closed one instead of
+              # creating a duplicate.
+              if [ -n "$open_issue" ]; then
+                gh issue edit "$open_issue" --body-file issue-body.md
+                echo "drift: updated open issue #$open_issue"
+              elif [ -n "$any_issue" ]; then
+                gh issue reopen "$any_issue"
+                gh issue edit "$any_issue" --body-file issue-body.md
+                echo "drift: reopened + updated issue #$any_issue"
+              else
+                gh issue create --title "$ISSUE_TITLE" --body-file issue-body.md --label drift \
+                  || gh issue create --title "$ISSUE_TITLE" --body-file issue-body.md
+                echo "drift: created new sticky issue"
+              fi
+              ;;
+            *)
+              # Clean (exit 0): the dashboard should not sit perpetually open.
+              # Refresh the body to the last-known-clean snapshot, then close
+              # it. Never create an issue when clean.
+              if [ -n "$open_issue" ]; then
+                gh issue edit "$open_issue" --body-file issue-body.md
+                gh issue close "$open_issue" \
+                  --comment "No dependency drift as of this run; auto-closed. It will reopen automatically if drift returns."
+                echo "clean: closed issue #$open_issue"
+              else
+                echo "clean: no open issue to close"
+              fi
+              ;;
+          esac
 
       - name: Warn on fetch outage (exit 2)
         # Exit 2 means the COPR lookups failed/timed out, not real drift.
