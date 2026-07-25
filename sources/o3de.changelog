@@ -1,4 +1,18 @@
 %changelog
+* Fri Jul 24 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-108
+- monolithic: work around an upstream gap where the engine never installs
+  libmeshoptimizer.a into the SDK and ships an empty IMPORTED INTERFACE
+  Findmeshoptimizer.cmake (unlike miniaudio/ogg). Without this, a monolithic
+  release game export fails at the launcher link with "undefined symbol:
+  meshopt_decodeIndexBuffer / meshopt_decodeVertexBuffer" (libAtom_RPI.Public.a
+  references them but no meshoptimizer lib is shipped; the profile build is
+  unaffected because meshopt is folded into libAtom_RPI.Public.so with hidden
+  visibility). The monolithic %install now installs the static lib the build
+  produced and replaces the stub Findmeshoptimizer.cmake with a STATIC IMPORTED
+  one, mirroring Findogg.cmake. Validated: `export-project -cfg release` on a
+  test project links a 182 MB monolithic GameLauncher with 0 undefined meshopt
+  symbols, root-free. Gated to the monolithic bcond; retire when upstream lands.
+
 * Fri Jul 24 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-107
 - Add the `monolithic` bcond (off by default). When enabled it does a second
   build+install pass (LY_MONOLITHIC_GAME=ON, release config) that ships the

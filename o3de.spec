@@ -367,7 +367,7 @@ Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        107%{?dist}
+Release:        108%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -1670,6 +1670,40 @@ DESTDIR=%{buildroot} cmake --install build --config debug --component DEFAULT_DE
 # %%files (the profile-only .a excludes there do not touch them).
 DESTDIR=%{buildroot} cmake --install build-mono --config release --component MONOLITHIC
 DESTDIR=%{buildroot} cmake --install build-mono --config release --component MONOLITHIC_RELEASE
+
+# UPSTREAM GAP WORKAROUND (meshoptimizer): the engine never ly_install's
+# libmeshoptimizer.a and ships an empty `add_library(meshoptimizer IMPORTED
+# INTERFACE)` installer Findmeshoptimizer.cmake (unlike miniaudio/ogg, which
+# install their .a + a STATIC IMPORTED installer Find file). Profile export is
+# fine (meshopt is folded into libAtom_RPI.Public.so with hidden visibility),
+# but a MONOLITHIC release export links libAtom_RPI.Public.a, which references
+# meshopt_decode* externally and needs libmeshoptimizer.a at launcher-link time
+# -- so the export dies with "undefined symbol: meshopt_decodeIndexBuffer".
+# Install the static lib the monolithic pass built and replace the stub Find
+# file with a STATIC IMPORTED one pointing at it. Retire when the upstream fix
+# lands (see upstream-drafts/meshoptimizer-monolithic-sdk-issue.md).
+mesh_a=$(find build-mono -name libmeshoptimizer.a 2>/dev/null | head -1)
+if [ -n "$mesh_a" ]; then
+    install -Dm644 "$mesh_a" \
+        %{buildroot}%{o3de_install_prefix}/lib/Linux/release/libmeshoptimizer.a
+    cat > %{buildroot}%{o3de_install_prefix}/cmake/3rdParty/Findmeshoptimizer.cmake <<'MESHEOF'
+# Replaced by the Fedora RPM build: upstream ships an empty IMPORTED INTERFACE
+# stub and does not install libmeshoptimizer.a, which breaks monolithic export.
+# This points at the static lib the RPM installs, mirroring Findogg.cmake.
+set(MESHOPTIMIZER_TARGET meshoptimizer)
+if (TARGET 3rdParty::${MESHOPTIMIZER_TARGET})
+    return()
+endif()
+set(BASE_LIBRARY_FOLDER "${LY_ROOT_FOLDER}/lib/${PAL_PLATFORM_NAME}")
+add_library(${MESHOPTIMIZER_TARGET} STATIC IMPORTED GLOBAL)
+set_target_properties(${MESHOPTIMIZER_TARGET} PROPERTIES
+    IMPORTED_LOCATION         "${BASE_LIBRARY_FOLDER}/release/libmeshoptimizer.a"
+    IMPORTED_LOCATION_RELEASE "${BASE_LIBRARY_FOLDER}/release/libmeshoptimizer.a"
+    IMPORTED_LOCATION_PROFILE "${BASE_LIBRARY_FOLDER}/release/libmeshoptimizer.a")
+add_library(3rdParty::${MESHOPTIMIZER_TARGET} ALIAS ${MESHOPTIMIZER_TARGET})
+set(meshoptimizer_FOUND TRUE)
+MESHEOF
+fi
 %endif
 
 # Normalize ambiguous '#!/usr/bin/env python' shebangs to 'python3' across
