@@ -288,18 +288,14 @@ SRPM_STABILIZATION_FLAGS = --with snapshot \
                            --with system_vulkan_validation_layers \
                            --with system_zlib
 
-# srpm-experimental: snapshot + every active Stage 1 system-library
-# swap. Add new --with flags here as each migration is activated.
-#
-# IMPORTANT — the --with flags here only affect SRPM-build evaluation
-# (which Sources/Patches make it into the .src.rpm); they do NOT
-# propagate to COPR's binary build. For the bcond-gated BR/Requires/
-# %prep/%build content to fire on COPR, the experimental project's
-# chroots also need `--rpmbuild-with system_<lib>` set via
-# `copr-cli edit-chroot`. See `make copr-init` for the one-time
-# command. Keep the SRPM flags in sync with the chroot config so the
-# SRPM faithfully shows what activations are intended even if a
-# reviewer downloads the SRPM directly.
+# DEPRECATED / UNWIRED as of 2026-07-24: o3de-experimental was realigned
+# onto o3de/development + monolithic (srpm-experimental now aliases
+# srpm-snapshot-development, rpm-experimental builds development+monolithic),
+# so this Stage-1 system-swap flag set is no longer referenced by any target.
+# Kept only because the trailing comments below document individual swaps
+# (system_dxc, swap_hook, ...) that other channels (stabilization/stable)
+# still care about. Do NOT re-wire experimental to these; if a future channel
+# needs a Stage-1 swap set, give it its own flags var.
 SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
                           --with stabilization \
                           --with system_assimp \
@@ -469,9 +465,15 @@ SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
 # #19733 (approved by nick-l-o3de 2026-05-07, awaiting merge); when
 # that lands, our Patch0008 becomes redundant and can drop.
 
-srpm-experimental:
-	$(SRPM_CLEAN)
-	rpmbuild -bs $(SRPM_EXPERIMENTAL_FLAGS) $(RPMBUILD_DEFINES) o3de.spec
+# srpm-experimental: o3de-experimental was realigned 2026-07-24 onto
+# o3de/development + the monolithic permutation, off its old Stage-1
+# system-swap base (stabilization is retired: 26050 frozen, no 26100 yet).
+# It now builds the SAME development-snapshot SRPM as copr-development; the
+# experimental chroots carry `development_snapshot qt6 monolithic` (set via
+# edit-chroot), so the only per-channel difference from o3de-development is
+# the monolithic bcond. Alias kept so the copr-experimental* targets that
+# depend on it keep working.
+srpm-experimental: srpm-snapshot-development
 
 # ── RPM builds ──────────────────────────────────────────────────────────────
 # Default: profile-config only (one RPM, ~70 min on a 32GB workstation).
@@ -490,14 +492,16 @@ rpm-debug:
 rpm-snapshot-debug:
 	rpmbuild -bb --with snapshot --with debug $(RPMBUILD_DEFINES) o3de.spec
 
-# Local mirror of `make srpm-experimental` — same Stage 1 swap activations
-# as the experimental COPR chroot, but built end-to-end on this host. Use
-# this to validate spec changes faster than the COPR round-trip (~70 min
-# locally on a 32 GB workstation vs ~5 hr on COPR). Doesn't exercise the
-# F44 + rawhide chroot matrix that COPR provides — that part still needs
-# the COPR build.
+# Local mirror of the experimental COPR build: development snapshot + Qt6 +
+# monolithic, built end-to-end on this host. Mirrors the o3de-experimental
+# chroot config (development_snapshot qt6 monolithic). Use it to validate
+# spec changes faster than the COPR round-trip. Doesn't exercise the
+# F44 + rawhide + CS10 chroot matrix that COPR provides — that part still
+# needs the COPR build.
 rpm-experimental:
-	rpmbuild -bb $(SRPM_EXPERIMENTAL_FLAGS) $(RPMBUILD_DEFINES) o3de.spec
+	$(MAKE) srpm-snapshot-ref REF=development SNAPSHOT_REF_EXTRA_BCOND="--with development_snapshot"
+	rpmbuild --rebuild --with snapshot --with development_snapshot --with qt6 --with monolithic \
+	    ~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
 
 # rpm-local-development: build the development-branch RPM on THIS host and
 # leave it in ~/rpmbuild/RPMS for local install/test. After the qt6 merge,
@@ -596,33 +600,16 @@ copr-init:
 	@echo "          --rpmbuild-with system_zlib; \\"
 	@echo "  done"
 	@echo
-	@echo "#    b. Stage 1 + Stage 2 system-library swaps on o3de-experimental"
-	@echo "#       chroots. Keep this list in sync with SRPM_EXPERIMENTAL_FLAGS"
-	@echo "#       above; both must move together to avoid divergence between"
-	@echo "#       SRPM-content and binary-build activation."
-	@echo "  for chroot in fedora-44-x86_64 fedora-rawhide-x86_64; do \\"
+	@echo "#    b. o3de-experimental (realigned 2026-07-24 onto development +"
+	@echo "#       monolithic; off the old Stage-1 system-swap base). Same as the"
+	@echo "#       o3de-development chroots plus the monolithic bcond, which ships"
+	@echo "#       the release/Monolithic static libs for release game export."
+	@echo "  for chroot in fedora-44-x86_64 fedora-rawhide-x86_64 centos-stream-10-x86_64; do \\"
 	@echo "      copr-cli edit-chroot $(COPR_OWNER)/$(COPR_PROJECT_EXPERIMENTAL)/\$$chroot \\"
-	@echo "          --rpmbuild-with snapshot \\"
-	@echo "          --rpmbuild-with stabilization \\"
-	@echo "          --rpmbuild-with system_assimp \\"
-	@echo "          --rpmbuild-with system_dxc \\"
-	@echo "          --rpmbuild-with system_expat \\"
-	@echo "          --rpmbuild-with system_freetype \\"
-	@echo "          --rpmbuild-with system_libsamplerate \\"
-	@echo "          --rpmbuild-with system_lua \\"
-	@echo "          --rpmbuild-with system_lz4 \\"
-	@echo "          --rpmbuild-with system_mcpp \\"
-	@echo "          --rpmbuild-with system_mikkelsen \\"
-	@echo "          --rpmbuild-with system_openexr \\"
-	@echo "          --rpmbuild-with system_png \\"
-	@echo "          --rpmbuild-with system_poly2tri \\"
-	@echo "          --rpmbuild-with system_spirvcross \\"
-	@echo "          --rpmbuild-with system_sqlite \\"
-	@echo "          --rpmbuild-with system_zlib; \\"
+	@echo "          --rpmbuild-with development_snapshot \\"
+	@echo "          --rpmbuild-with qt6 \\"
+	@echo "          --rpmbuild-with monolithic; \\"
 	@echo "  done"
-	@echo "#       (system_tiff stays parked -- Option C / Bundling Library Exception"
-	@echo "#        per the 2026-05-05 CryCommon int64 audit; bcond + Find shim"
-	@echo "#        + Source declaration stay in place for future activation.)"
 	@echo
 	@echo "#    c. o3de-development chroots set --rpmbuild-with development_snapshot"
 	@echo "#       (gates off the carry-patches whose upstream equivalents have"
@@ -752,11 +739,16 @@ copr-stabilization: srpm-stabilization
 	copr-cli build --timeout 28800 $(COPR_OWNER)/$(COPR_PROJECT_STABILIZATION) \
 		~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
 
-# Parallel project for in-flight migration / structural work that isn't
-# ready to expose to o3de-stabilization's community testers. Same chroots
-# and same enable_net + o3de-dependencies repo wiring as the stabilization
-# project; different audience: only us until a change is validated.
+# o3de-experimental: realigned 2026-07-24 onto o3de/development + the
+# monolithic permutation (chroots carry `development_snapshot qt6 monolithic`).
+# Builds the SAME dev-snapshot SRPM as copr-development (via the
+# srpm-experimental alias); the only per-channel difference is the monolithic
+# bcond, which ships the release/Monolithic static libs so a release game
+# export works (see FOLLOW_UPS "monolithic"). Our sandbox for work not yet
+# ready for the community channels. qt6-merge-gate hard-stops if development
+# is on Qt6 but the experimental chroots lack the qt6 bcond.
 copr-experimental: srpm-experimental
+	@$(MAKE) --no-print-directory qt6-merge-gate GATE_PROJECT=$(COPR_PROJECT_EXPERIMENTAL)
 	copr-cli build --timeout 28800 $(COPR_OWNER)/$(COPR_PROJECT_EXPERIMENTAL) \
 		~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
 
@@ -816,6 +808,7 @@ copr-stabilization-and-test: srpm-stabilization
 	@$(MAKE) _copr-and-test COPR_TARGET=$(COPR_PROJECT_STABILIZATION)
 
 copr-experimental-and-test: srpm-experimental
+	@$(MAKE) --no-print-directory qt6-merge-gate GATE_PROJECT=$(COPR_PROJECT_EXPERIMENTAL)
 	@$(MAKE) _copr-and-test COPR_TARGET=$(COPR_PROJECT_EXPERIMENTAL)
 
 # copr-testing-and-test: build the stable SRPM, push to o3de-testing,
