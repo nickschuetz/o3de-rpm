@@ -7,7 +7,7 @@
   meshopt_decodeIndexBuffer / meshopt_decodeVertexBuffer" (libAtom_RPI.Public.a
   references them but no meshoptimizer lib is shipped; the profile build is
   unaffected because meshopt is folded into libAtom_RPI.Public.so with hidden
-  visibility). The monolithic %install now installs the static lib the build
+  visibility). The monolithic %%install now installs the static lib the build
   produced and replaces the stub Findmeshoptimizer.cmake with a STATIC IMPORTED
   one, mirroring Findogg.cmake. Validated: `export-project -cfg release` on a
   test project links a 182 MB monolithic GameLauncher with 0 undefined meshopt
