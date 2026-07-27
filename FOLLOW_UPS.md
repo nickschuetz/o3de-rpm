@@ -92,7 +92,19 @@ The RPM snapshot build pulls o3de/o3de directly (make-snapshot-tarball.sh), so a
 
 ---
 
-## WATCH: o3de/3p-package-source#387 bumps bundled OpenSSL 1.1.1 -> 3.6.3 (APPROVED + CLEAN as of 2026-07-21, merge imminent)
+## CHECK OUR FIND-SHIMS: Find*.cmake scoping bug flagged by Nick_L (2026-07-25, #sig-build)
+
+While building OpenImageIO, Nick_L flagged that O3DE's general Find*.cmake pattern is subtly wrong about SCOPE: the files use an include-guard (`if(TARGET 3rdParty::<X>) return()`) and then create the imported target `add_library(<X> STATIC IMPORTED GLOBAL)` (global) AND set the find-result variables (`<X>_FOUND`, `<X>_INCLUDE_DIR`, ...) in the CURRENT scope. Because the target is GLOBAL but the variables are LOCAL, a later `find_package(<X>)` from a DIFFERENT scope hits the guard, returns early (target already exists), and never sets those variables in that scope. Any consumer in that scope that reads `<X>_INCLUDE_DIR` (rather than linking the target) gets nothing. Correct pattern: set the variables FIRST (so every calling scope gets them), THEN create the target only `if(NOT TARGET ...)`.
+
+ACTION: audit OUR system-swap Find shims (sources/Find<X>-system.cmake: zlib, freetype, png, expat, lz4, mikkelsen, openexr/imath, poly2tri, lua, assimp, sqlite, libsamplerate, googlebenchmark, tiff, mcpp, rapidjson, xxhash, cityhash) for the same pattern. Most of ours likely mirror the engine's guard-then-create-then-set order, so they may carry the same latent bug. Low urgency (works today because consumers mostly link the target, not read the vars), but worth fixing to match the correct order and pre-empt a scope-dependent break. Relates to [[project_system_stub_recommends_cross_check]] and [[project_system_swap_shim_two_mechanisms]].
+
+---
+
+## o3de/3p-package-source#387 bumps bundled OpenSSL 1.1.1 -> 3.6.3 -- MERGED 2026-07-23
+
+FIRES NOW that #387 merged (was: watch for merge): (1) reword the `bundling_exception: OpenSSL` "EOL 1.1.1t" rationale in tools/dep-map.yaml + BUNDLED_LIBRARIES.md -- the EOL argument is dissolving at the 3p level, keep the exception on Fedora's no-bundled-libs argument. (2) Our #376 rebase-onto-387 + re-validate commitment is now due once #376 itself moves. (3) NOTE: the ENGINE still pins OpenSSL-1.1.1t-rev1-linux in BuiltInPackages; a separate engine-side PR must bump it to consume the new 3.6.3 package before our builds change (dev-tip 20260726 still statically links 1.1.1t, seen in the monolithic launcher link). Watch for that engine PR.
+
+
 
 **State 2026-07-21:** out of draft, APPROVED by nick-l-o3de (2026-07-20T16:08Z), mergeStateStatus CLEAN, 19 files (+77/-116), Android build fixed 2026-07-21T13:54Z. Merge can land any time, which arms both follow-ups below.
 
