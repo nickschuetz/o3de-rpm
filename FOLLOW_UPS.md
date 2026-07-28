@@ -107,6 +107,8 @@ WHY IT MATTERS TO FEDORA PACKAGING (three ways):
 
 NET: if upstream adopts this, our "one spec, snapshot the monorepo" model is obsoleted and reframed around lockfiles-of-objects; it reshapes the whole FEDORA_ROADMAP staging plan. CAVEAT: it's a fork's ambitious pitch, adoption undecided; "warming up" (Nick_L demoing in Discord #sig-build-ish) is the signal, not a decision. WATCH: the accesspointmg repos for activity, and any o3de/o3de or sig-core/sig-build RFC thread when it lands upstream. Not yet reflected in FEDORA_ROADMAP (offered; Nick to decide).
 
+NICK'S PUBLIC OFFER (Discord, 2026-07-28): "I'd be happy to test/PoC it at some point if given implementation and prerequisite instructions. I'm noting this in my O3DE rpm work as well." So the trigger for our hands-on involvement is: getting build/assembly prerequisite instructions (likely the o3de-pilot README + the RFC's resolve/assemble flow). Candidate next step when Nick wants: scope o3de-pilot's setup requirements (does it need Python? a particular CLI? what does "assemble a workspace + build" actually require on a Fedora host) and, if reasonable, run the pilot to produce a working engine as a hands-on read on the model. Low priority until Nick says go or instructions materialize.
+
 ---
 
 ## CHECK OUR FIND-SHIMS: Find*.cmake scoping bug flagged by Nick_L (2026-07-25, #sig-build)
