@@ -94,6 +94,21 @@ The RPM snapshot build pulls o3de/o3de directly (make-snapshot-tarball.sh), so a
 
 ---
 
+## STRATEGIC WATCH: "O3DE 2.0.0 -- The Object Model" RFC + working implementation (flagged by Nick, 2026-07-28, "starting to warm up")
+
+Links: RFC https://github.com/accesspointmg/org.o3de.repo.o3de/blob/development/Engines/o3de/rfc/o3de-2.0.0.md | 117 split object repos https://github.com/orgs/accesspointmg/repositories | tooling https://github.com/accesspointmg/o3de-pilot
+
+WHAT: An accesspointmg fork's re-architecture (NOT yet in o3de/o3de) that recasts engine/gems/projects/templates/overlays as versioned "canonical objects" (e.g. org.o3de.engine.o3de 4.2.0) with a PubGrub dependency solver, a uniform 3-channel release model (git refs / code archives / prebuilt per-platform BINARIES), and a manifest-driven CMake build. It is a WORKING system, not a proposal: 117 org.o3de.repo.* repos already extracted from the monorepo via git filter-repo (Phase D done), solver/workspaces/binary-consumption working (1055 tests), current with upstream through tag 2510.2. o3de-pilot is a CLI-first, npm-like, AI-powered (Claude/Ollama) REPLACEMENT for Project Manager that follows the RFC spec, downloads the object repos, assembles a workspace, and builds a working O3DE. Project Manager is "removed" in their status table.
+
+WHY IT MATTERS TO FEDORA PACKAGING (three ways):
+1. It directly dissolves our biggest Fedora blockers: the monolith (gems inside engine, 10GB LFS clone) -> per-object repos, "O3DE 25.10 is a lockfile not a 10GB clone"; source-only-assembly -> a first-class prebuilt BINARY channel with <name>Config.cmake consumable by find_package; no-versioned-resolution -> the solver. Linux binaries advertise a glibc ABI floor (resolver picks highest compatible) -- maps onto our CS10 glibc-2.28 vs F44/rawhide problem.
+2. OR it becomes a COMPETING distribution: their own registry (canonical.o3de.org) + solver + lockfiles is itself a distribution mechanism overlapping dnf/rpm. If O3DE ships object-distribution, the question is how a Fedora RPM relates to it.
+3. It replaces the exact tooling our RPM wraps: we ship o3de.sh / o3de2605-cli + the C++ Project Manager; this retires PM for a new npm-style workspace-assembly CLI. Our launcher wrappers + "monolithic engine to /opt" shape would need rethinking.
+
+NET: if upstream adopts this, our "one spec, snapshot the monorepo" model is obsoleted and reframed around lockfiles-of-objects; it reshapes the whole FEDORA_ROADMAP staging plan. CAVEAT: it's a fork's ambitious pitch, adoption undecided; "warming up" (Nick_L demoing in Discord #sig-build-ish) is the signal, not a decision. WATCH: the accesspointmg repos for activity, and any o3de/o3de or sig-core/sig-build RFC thread when it lands upstream. Not yet reflected in FEDORA_ROADMAP (offered; Nick to decide).
+
+---
+
 ## CHECK OUR FIND-SHIMS: Find*.cmake scoping bug flagged by Nick_L (2026-07-25, #sig-build)
 
 While building OpenImageIO, Nick_L flagged that O3DE's general Find*.cmake pattern is subtly wrong about SCOPE: the files use an include-guard (`if(TARGET 3rdParty::<X>) return()`) and then create the imported target `add_library(<X> STATIC IMPORTED GLOBAL)` (global) AND set the find-result variables (`<X>_FOUND`, `<X>_INCLUDE_DIR`, ...) in the CURRENT scope. Because the target is GLOBAL but the variables are LOCAL, a later `find_package(<X>)` from a DIFFERENT scope hits the guard, returns early (target already exists), and never sets those variables in that scope. Any consumer in that scope that reads `<X>_INCLUDE_DIR` (rather than linking the target) gets nothing. Correct pattern: set the variables FIRST (so every calling scope gets them), THEN create the target only `if(NOT TARGET ...)`.
