@@ -265,7 +265,9 @@ In addition to the DXC asks in the "Restricted bundles" subsection above:
 When stages 1–5 are done:
 
 1. Create a Fedora packager account (FAS).
-2. Find a sponsor for the new package review.
+2. Get sponsored into the `packager` group (required before dist-git push). TWO complementary routes, verified current 2026-07-29:
+   - **FE-NEEDSPONSOR (primary for a new-package entry):** file the review bug (step 3) and make it BLOCK the `FE-NEEDSPONSOR` Bugzilla tracking bug -- this flags the review as needing a sponsor, which sponsors browse.
+   - **packager-sponsors direct request:** raise an issue at https://pagure.io/packager-sponsors/issues (live + active; requests filed daily) to ask for a sponsor by language/domain. Sensible complement for O3DE given it's a niche, large, complex package where a willing sponsor likely needs proactive outreach, not just a passive review listing.
 3. File a Fedora Package Review bug at `bugzilla.redhat.com/enter_bug.cgi?product=Fedora&component=Package%20Review`.
 4. Iterate on review feedback.
 5. Once approved: `fedpkg request-repo o3de`, push to dist-git, build via Koji.
