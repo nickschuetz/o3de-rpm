@@ -6,6 +6,16 @@ This file is intentionally a living scratchpad. Entries get added or removed as 
 
 ---
 
+## monolithic PROMOTED to o3de-development (2026-08-03)
+
+DONE (Nick's go): all 3 o3de-development chroots flipped via `edit-chroot --rpmbuild-with 'development_snapshot qt6 monolithic'` (F44 / rawhide / CS10), verified with get-chroot. o3de-development now carries the identical bcond set to o3de-experimental. All three promotion prerequisites were MET beforehand: (1) second green experimental build across a dev-tip movement (10780077), (2) meshoptimizer fix validated on real COPR builders, (3) upstream issue filed as o3de/o3de#19962.
+
+Docs synced in the same pass: README (both the `development` snapshot bullet and the COPR-project bullet now state monolithic + release-export works; `make copr-development` one-liner), Makefile (`copr-development` header comment), and the o3de-development COPR metadata (description.md + instructions.md, pushed live via `scripts/copr-metadata.sh push o3de-development`, verified `monolithic` present in the live API description). Cost carried into every dev build: ~+0.7 GB, ~+1.5 h (proven acceptable, experimental ran the same config green twice under the 8h COPR --timeout with ~1.2h margin).
+
+TWO THINGS STILL OPEN:
+- **The chroot flip only affects FUTURE builds.** The RPMs currently published in o3de-development are still profile-only; the next build (weekly Sunday 06:00 UTC cron, or a manual `make copr-development`) is the one that ships monolithic. Until then a release export against the *installed* o3de-development RPM still fails at the "No monolithic artifacts" gate.
+- **o3de-development and o3de-experimental are now byte-identical** (same SRPM, same `development_snapshot qt6 monolithic` chroots). Experimental has lost its distinguishing purpose. Decide what experimental becomes next (retask to the next sandbox experiment, or leave as a redundant mirror for now). The Makefile `copr-experimental` header comment still says "the only per-channel difference is the monolithic bcond" which is now STALE and needs rewording once experimental's next identity is decided.
+
 ## o3de-experimental REALIGNED to development + monolithic (2026-07-22), monolithic proof build running
 
 Decision (Nick, 2026-07-22): stabilization is dead (26050 frozen, no 26100), so o3de-experimental is realigned off its old Stage-1 base (stabilization + all system swaps + swap_hook, idle since 2026-06-05, last green build 10570032 @ snapshot 20260523 / -102) onto **development** (Qt6 forward branch, 26.10-bound). Chosen over stable because stable is a frozen shipped 2605.0 Qt5 tarball (backward-looking, off-purpose for an experimental sandbox), and development matches the config the monolithic work was validated against locally.

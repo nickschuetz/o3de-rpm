@@ -725,9 +725,13 @@ release-stable:
 # copr-development: always builds from upstream's development branch
 # (via srpm-snapshot-development, which sets REF=development +
 # --with development_snapshot to gate off the carry-patches whose
-# upstream equivalents have already landed in development). For
-# arbitrary other-ref builds (rare; e.g., qt6), create a dedicated
-# COPR project and fire srpm-snapshot-ref at it directly via copr-cli.
+# upstream equivalents have already landed in development). Its chroots
+# carry `development_snapshot qt6 monolithic` (the monolithic bcond was
+# promoted here from o3de-experimental on 2026-08-03), so the build ships
+# the release/Monolithic static libs and a release game export works from
+# the installed RPM (see FOLLOW_UPS "monolithic"). For arbitrary other-ref
+# builds (rare; e.g., qt6), create a dedicated COPR project and fire
+# srpm-snapshot-ref at it directly via copr-cli.
 copr-development: srpm-snapshot-development
 	@$(MAKE) --no-print-directory qt6-merge-gate
 	copr-cli build --timeout 28800 $(COPR_OWNER)/$(COPR_PROJECT_DEVELOPMENT) \
