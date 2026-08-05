@@ -1086,16 +1086,18 @@ PENDING Nick's go: cross-link comments drafted in upstream-drafts/graphcanvas-19
 
 Verified before closing: #19966 OPEN (2026-08-02, covers the same ResetDisplay/invalidate crash, broader = 3 bugs, engaged author jabbadablack, tracked by umbrella #19855 "Qt6 identified regressions"); #19977 was ours (nickschuetz), a later strict subset; nothing lost (stack trace persists in the closed issue + PR #19978 references both). Closed #19977 NOT_PLANNED with a dup-of-#19966 comment. Did NOT post the #19966 courtesy/credit comment (PR's "Addresses #19966" already auto-links it in #19966's timeline). No competing PR (only #19978 fixes #19966). PR #19978 still says "Addresses #19977" (now a closed dup) -- harmless, left as-is.
 
-## PARKED NEXT: #19972 Script Canvas in-place-save regression (pick up AFTER #19978 settles)
+## RESOLVED: #19972 Script Canvas in-place-save regression -> PR #19979 filed 2026-08-05
 
-Decision (Nick 2026-08-05): take #19972 after PR #19978 (NodePalette) settles, so we don't have two GraphCanvas/Script Canvas PRs in flight muddying each other.
+PR: https://github.com/o3de/o3de/pull/19979 (branch nickschuetz:fix/scriptcanvas-inplace-save off upstream/development, commit 6e7c73190e, DCO-signed). Labels feature/scripting + kind/bug + sig/content (matched #19850, same file). Body: upstream-drafts/pr-19972-body.md. Body says "Addresses #19972" (cross-ref, no auto-close per convention). Awaiting review/CI.
 
-#19972 (KylerSF, 2026-08-04, Windows 11, Development): Ctrl+S / Save on an already-saved Script Canvas graph opens Save-As every time instead of overwriting. Regression ("like it did in the past"). Labels kind/bug, sig/content, needs-triage. Separate bug from the NodePalette crash -- NOT part of #19978.
+#19972 (KylerSF, 2026-08-04, Windows 11, Development): Ctrl+S / Save on an already-saved Script Canvas graph opens Save-As every time instead of overwriting. Regression ("like it did in the past"). Separate bug from the NodePalette crash -- NOT part of #19978.
 
-DIAGNOSIS ALREADY DONE (Gems/ScriptCanvas/Code/Editor/View/Windows/MainWindow.cpp, dev HEAD 3a4b256277):
-- OnFileSave (line ~1661): decision is correct -- Save::As only if tab metaData->m_fileState == ScriptCanvasFileState::NEW, else Save::InPlace.
-- OnSaveComplete (line ~1813+): DOES transition state to UNMODIFIED after save (tabData->m_fileState = UNMODIFIED at saveTabIndex; m_tabBar->SetTabData; m_activeGraph = fileAssetId where fileAssetId = SourceHandle::MarkAbsolutePath(...)).
-- So both halves look correct on the surface => the bug is a STATE-LOOKUP MISMATCH: after save, OnFileSave's GetTabData(m_activeGraph) still reads NEW. Leading hypothesis: SourceHandle identity -- after MarkAbsolutePath stamps the path, m_activeGraph no longer matches the tab's stored handle (AnyEquals), so GetTabData misses the UNMODIFIED tab and falls back to Save-As. NOT a one-liner; needs runtime tracing (log the handle/state around save) reproduced in the editor. Warm build at /home/nschuetz/o3de-validate/src covers it.
+ROOT CAUSE (confirmed by runtime tracing + verified against history, NOT the earlier hypothesis):
+- The earlier "state-lookup mismatch / SourceHandle identity" hypothesis was WRONG. Runtime tracing showed OnFileSave correctly reads state=1 (not NEW) on the 2nd save and correctly calls SaveAssetImpl(Save::InPlace). The bug is downstream in SaveAssetImpl itself.
+- SaveAssetImpl (MainWindow.cpp ~1693) ran the GetSaveFileName Save-As dialog UNCONDITIONALLY. For Save::InPlace the branch just above already fills selectedFile from the existing abs path and sets isValidFileName=true, so the dialog should be skipped.
+- Regression from #19850 (Grant Kim / enpinion, merged 2026-07-13, "Fix an infinite loop if Save As cancelled"): it removed the surrounding `while (!isValidFileName)` loop. For an in-place save isValidFileName was already true, so the loop body never ran -- THAT was the implicit dialog guard. Removing the loop (verified in its diff: `-        while (!isValidFileName)`) dropped the guard, so the dialog began firing for in-place saves too.
+- FIX: wrap the dialog block in `if (!isValidFileName)`. In-place saves skip it and overwrite; Save-As runs the dialog at most once so a cancelled Save-As still doesn't loop (preserves #19850). Also dropped a dead `QString filter` local (unused even pre-#19850; single occurrence in file confirmed).
+- VALIDATED at runtime on the warm build /home/nschuetz/o3de-validate/src (Fedora 44, clang, Qt 6.10): new graph -> save as Test_S1 (dialog, expected) -> change -> Ctrl+S overwrote Test_S1 silently in the same second (no dialog, no Test_S2 on disk). SC19972 trace logging added then stripped before commit. Not Qt6-specific (reporter on Windows 11); pure control-flow logic.
 
 ## CORRECTION: #19977 REOPENED (2026-08-05)
 
