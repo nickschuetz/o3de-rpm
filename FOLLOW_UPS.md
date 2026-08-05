@@ -1085,3 +1085,14 @@ PENDING Nick's go: cross-link comments drafted in upstream-drafts/graphcanvas-19
 ## UPDATE: #19977 closed as dup of #19966 (2026-08-05)
 
 Verified before closing: #19966 OPEN (2026-08-02, covers the same ResetDisplay/invalidate crash, broader = 3 bugs, engaged author jabbadablack, tracked by umbrella #19855 "Qt6 identified regressions"); #19977 was ours (nickschuetz), a later strict subset; nothing lost (stack trace persists in the closed issue + PR #19978 references both). Closed #19977 NOT_PLANNED with a dup-of-#19966 comment. Did NOT post the #19966 courtesy/credit comment (PR's "Addresses #19966" already auto-links it in #19966's timeline). No competing PR (only #19978 fixes #19966). PR #19978 still says "Addresses #19977" (now a closed dup) -- harmless, left as-is.
+
+## PARKED NEXT: #19972 Script Canvas in-place-save regression (pick up AFTER #19978 settles)
+
+Decision (Nick 2026-08-05): take #19972 after PR #19978 (NodePalette) settles, so we don't have two GraphCanvas/Script Canvas PRs in flight muddying each other.
+
+#19972 (KylerSF, 2026-08-04, Windows 11, Development): Ctrl+S / Save on an already-saved Script Canvas graph opens Save-As every time instead of overwriting. Regression ("like it did in the past"). Labels kind/bug, sig/content, needs-triage. Separate bug from the NodePalette crash -- NOT part of #19978.
+
+DIAGNOSIS ALREADY DONE (Gems/ScriptCanvas/Code/Editor/View/Windows/MainWindow.cpp, dev HEAD 3a4b256277):
+- OnFileSave (line ~1661): decision is correct -- Save::As only if tab metaData->m_fileState == ScriptCanvasFileState::NEW, else Save::InPlace.
+- OnSaveComplete (line ~1813+): DOES transition state to UNMODIFIED after save (tabData->m_fileState = UNMODIFIED at saveTabIndex; m_tabBar->SetTabData; m_activeGraph = fileAssetId where fileAssetId = SourceHandle::MarkAbsolutePath(...)).
+- So both halves look correct on the surface => the bug is a STATE-LOOKUP MISMATCH: after save, OnFileSave's GetTabData(m_activeGraph) still reads NEW. Leading hypothesis: SourceHandle identity -- after MarkAbsolutePath stamps the path, m_activeGraph no longer matches the tab's stored handle (AnyEquals), so GetTabData misses the UNMODIFIED tab and falls back to Save-As. NOT a one-liner; needs runtime tracing (log the handle/state around save) reproduced in the editor. Warm build at /home/nschuetz/o3de-validate/src covers it.
