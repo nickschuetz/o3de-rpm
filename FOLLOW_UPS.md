@@ -1088,7 +1088,9 @@ Verified before closing: #19966 OPEN (2026-08-02, covers the same ResetDisplay/i
 
 ## RESOLVED: #19972 Script Canvas in-place-save regression -> PR #19979 filed 2026-08-05
 
-PR: https://github.com/o3de/o3de/pull/19979 (branch nickschuetz:fix/scriptcanvas-inplace-save off upstream/development, commit 6e7c73190e, DCO-signed). Labels feature/scripting + kind/bug + sig/content (matched #19850, same file). Body: upstream-drafts/pr-19972-body.md. Body says "Addresses #19972" (cross-ref, no auto-close per convention). Awaiting review/CI.
+PR: https://github.com/o3de/o3de/pull/19979 (branch nickschuetz:fix/scriptcanvas-inplace-save off upstream/development, commit 6e7c73190e, DCO-signed). Labels feature/scripting + kind/bug + sig/content (matched #19850, same file). Body: upstream-drafts/pr-19972-body.md. Body says "Addresses #19972" (cross-ref, no auto-close per convention).
+
+STATUS 2026-08-06: APPROVED by nick-l-o3de + MERGEABLE. CI 17/18 green (DCO + all Linux/Mac/Windows/Android builds + Linux/Windows Test). The 1 failure is iOS-Asset / Build "timed out after 330 minutes" -- pure infra flake (5h40m runner, unrelated to an Editor-only ScriptCanvas change; iOS asset build doesn't touch this path). Decision (Nick): leave it; a maintainer re-runs iOS-Asset and merges. No comment posted, watcher stood down.
 
 #19972 (KylerSF, 2026-08-04, Windows 11, Development): Ctrl+S / Save on an already-saved Script Canvas graph opens Save-As every time instead of overwriting. Regression ("like it did in the past"). Separate bug from the NodePalette crash -- NOT part of #19978.
 
