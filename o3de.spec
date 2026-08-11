@@ -199,15 +199,11 @@
 # defaults only apply if no --define was passed. Lets parameterized
 # targets like `make srpm-snapshot-ref REF=qt6` override the snapshot
 # pin via --define snapshot_commit=... without editing the spec.
-# NOTE (2026-08-11 stabilization/26100 flip): commit + date bumped to the
-# 26100 tip; snapshot_sha256 is a placeholder (64 zeros) and MUST be
-# regenerated before any local end-to-end build --
-# `cd sources && ./make-snapshot-tarball.sh stabilization/26100` prints the
-# real sha. COPR stabilization builds override all three via --define from the
-# fresh tarball (make srpm-snapshot-ref), so the placeholder does not affect them.
+# Pinned to stabilization/26100 tip (9bc3b9d, 2026-08-11), regenerated via
+# `cd sources && ./make-snapshot-tarball.sh stabilization/26100`.
 %{?!snapshot_commit:%global snapshot_commit 9bc3b9d6eb4c2e222c112e1d98f39acdc0309264}
 %{?!snapshot_date:%global snapshot_date 20260811}
-%{?!snapshot_sha256:%global snapshot_sha256 0000000000000000000000000000000000000000000000000000000000000000}
+%{?!snapshot_sha256:%global snapshot_sha256 819f7b363187cd28107fcd44e5ad9abb0e2a8382417a2c42c579c0257fbde1c0}
 %global shortcommit %(c=%{snapshot_commit}; echo ${c:0:7})
 
 # Channel-identifying suffix for the version strings the GUI displays.
