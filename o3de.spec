@@ -15,7 +15,7 @@
 #
 # Build for the community-tester channel (stabilization/<release> branch
 # — what o3de-stabilization on COPR ships):
-#     ./sources/make-snapshot-tarball.sh stabilization/26050
+#     ./sources/make-snapshot-tarball.sh stabilization/26100
 #     # paste the printed snapshot_commit / snapshot_date / snapshot_sha256
 #     rpmbuild -bb --with snapshot --with stabilization ...
 # Build a one-off from upstream's bleeding-edge `development` branch
@@ -101,12 +101,15 @@
 # upstream equivalents have already landed in development. Each such patch is
 # wrapped below in `%%if %%{without development_snapshot}` so its declaration
 # (and %%autosetup application) drops out when this flag is set. Default OFF
-# so stabilization / snapshot / experimental channels (which build against
-# stabilization/26050, where these merges have NOT yet been cherry-picked)
-# remain unchanged. Wired into the Makefile's `copr-snapshot-development`
-# target only -- other ref-based snapshot builds (e.g., qt6) still apply
-# every patch unless their own audit says otherwise. See
-# project_branch_alignment_before_retirement.md for the gotcha pattern that
+# so one-off snapshot builds against older refs still apply every patch.
+# As of 2026-08-11 the stabilization channel repointed from stabilization/26050
+# to stabilization/26100, which was cut from development tip and therefore
+# already carries these merges -- so `make srpm-stabilization` now sets
+# `--with development_snapshot` too (the channel marker stays -stabilization via
+# the priority order below). This is the documented "retires when the channel
+# rebases onto the 26.10 base" retirement. Other ref-based snapshot builds
+# (e.g., qt6) still apply every patch unless their own audit says otherwise.
+# See project_branch_alignment_before_retirement.md for the gotcha pattern that
 # motivated this gate.
 %bcond_with development_snapshot
 
@@ -189,16 +192,22 @@
 %global o3de_install_prefix /opt/O3DE/%{engine_cmake_version}
 
 # Snapshot pin -- populated by sources/make-snapshot-tarball.sh.
-# Pinned to stabilization/26050 tip for end-to-end build test.
+# Pinned to stabilization/26100 tip for end-to-end build test.
 #
 # The %%{?!foo:%%global foo BAR} idiom makes each pin conditional:
 # rpmbuild's --define on the command line takes precedence, the spec's
 # defaults only apply if no --define was passed. Lets parameterized
 # targets like `make srpm-snapshot-ref REF=qt6` override the snapshot
 # pin via --define snapshot_commit=... without editing the spec.
-%{?!snapshot_commit:%global snapshot_commit 8e750500f23c9c45f08266200463fd31996638b7}
-%{?!snapshot_date:%global snapshot_date 20260523}
-%{?!snapshot_sha256:%global snapshot_sha256 d6470fdb233b218c12c4ce23d6448927fe13be717e80a8b455fe1ef2040d64b2}
+# NOTE (2026-08-11 stabilization/26100 flip): commit + date bumped to the
+# 26100 tip; snapshot_sha256 is a placeholder (64 zeros) and MUST be
+# regenerated before any local end-to-end build --
+# `cd sources && ./make-snapshot-tarball.sh stabilization/26100` prints the
+# real sha. COPR stabilization builds override all three via --define from the
+# fresh tarball (make srpm-snapshot-ref), so the placeholder does not affect them.
+%{?!snapshot_commit:%global snapshot_commit 9bc3b9d6eb4c2e222c112e1d98f39acdc0309264}
+%{?!snapshot_date:%global snapshot_date 20260811}
+%{?!snapshot_sha256:%global snapshot_sha256 0000000000000000000000000000000000000000000000000000000000000000}
 %global shortcommit %(c=%{snapshot_commit}; echo ${c:0:7})
 
 # Channel-identifying suffix for the version strings the GUI displays.

@@ -13,8 +13,8 @@
 #                            workflow, plus ad-hoc via make copr-development)
 #
 # Usage:
-#   make-snapshot-tarball.sh [ref]                 # ref defaults to stabilization/26050
-#   make-snapshot-tarball.sh stabilization/26050   # next-release branch (recommended)
+#   make-snapshot-tarball.sh [ref]                 # ref defaults to stabilization/26100
+#   make-snapshot-tarball.sh stabilization/26100   # next-release branch (recommended)
 #   make-snapshot-tarball.sh development           # bleeding-edge HEAD
 #   make-snapshot-tarball.sh <commit-sha>          # pinned commit
 #
@@ -22,7 +22,7 @@
 # paste into o3de.spec (snapshot_commit / snapshot_date / sha256).
 set -euo pipefail
 
-REF="${1:-stabilization/26050}"
+REF="${1:-stabilization/26100}"
 REPO_URL="${O3DE_REPO_URL:-https://github.com/o3de/o3de.git}"
 OUT_DIR="${OUT_DIR:-$PWD}"
 

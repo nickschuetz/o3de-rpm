@@ -26,7 +26,7 @@
 #   make clean                        rm -rf rpmbuild/{BUILD,BUILDROOT,RPMS,SRPMS} (NOT SOURCES)
 #
 # Variables:
-#   REF=stabilization/26050              git ref for `make snapshot` (default)
+#   REF=stabilization/26100              git ref for `make snapshot` (default)
 #   COPR_OWNER=hellaenergy                COPR owner
 #   COPR_PROJECT_STABLE=o3de                          tagged stable releases
 #   COPR_PROJECT_STABILIZATION=o3de-stabilization     testers' channel; pre-release validation
@@ -56,7 +56,7 @@ PKGNAME := $(shell rpmspec --define "_sourcedir $(PWD)/sources" --define "_specd
 # branch (via `make copr-development`, which calls srpm-snapshot-development
 # explicitly). For ad-hoc other-ref builds (e.g. qt6), create a dedicated
 # COPR project and fire srpm-snapshot-ref REF=<other> at it via copr-cli.
-REF                          ?= stabilization/26050
+REF                          ?= stabilization/26100
 COPR_OWNER                   ?= hellaenergy
 COPR_PROJECT_STABLE          ?= o3de
 COPR_PROJECT_TESTING         ?= o3de-testing
@@ -186,7 +186,7 @@ srpm-snapshot:
 # WITHOUT modifying o3de.spec's hardcoded snapshot_commit/date/sha256.
 # Generates a fresh tarball from REF, parses the printed commit/date/sha
 # values, and overrides the spec macros via --define at rpmbuild time.
-# Doesn't touch the spec on disk so the main stabilization/26050 flow
+# Doesn't touch the spec on disk so the main stabilization/26100 flow
 # isn't disturbed.
 #
 # Usage:
@@ -268,8 +268,21 @@ srpm-stabilization:
 # The Stage 2 swaps require additional_repos=copr://hellaenergy/o3de-dependencies
 # on each stabilization chroot (one-time copr-cli edit-chroot --repos call;
 # done 2026-05-14).
+# development_snapshot added 2026-08-11 when the channel repointed from
+# stabilization/26050 to stabilization/26100. 26100 was cut from development
+# tip, so the seven TIMEBOMB carry-patches (0001/0002/0004/0005/0007/0008/0012)
+# plus Patch0009 -- whose upstream equivalents are in development but were not
+# in 26050 -- are now present in the 26100 source; applying them would reject
+# at %prep. This gate drops them, exactly the documented "retires when the
+# channel rebases onto the 26.10 base" retirement. Channel marker stays
+# -stabilization (priority order: stabilization beats development_snapshot).
+# NOTE: the o3de-stabilization COPR chroots need a matching
+# `--rpmbuild-with development_snapshot` (see copr-init); --with here does not
+# propagate to the binary build. PENDING per-patch four-check verification
+# against 26100 before the first real build.
 SRPM_STABILIZATION_FLAGS = --with snapshot \
                            --with stabilization \
+                           --with development_snapshot \
                            --with system_assimp \
                            --with system_dxc \
                            --with system_expat \
@@ -467,7 +480,8 @@ SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
 
 # srpm-experimental: o3de-experimental was realigned 2026-07-24 onto
 # o3de/development + the monolithic permutation, off its old Stage-1
-# system-swap base (stabilization is retired: 26050 frozen, no 26100 yet).
+# system-swap base (26050 shipped as 26.05.0 and is frozen; the stabilization
+# channel repointed to stabilization/26100, cut from development tip 2026-08-11).
 # It now builds the SAME development-snapshot SRPM as copr-development; the
 # experimental chroots carry `development_snapshot qt6 monolithic` (set via
 # edit-chroot), so the only per-channel difference from o3de-development is
@@ -1025,7 +1039,7 @@ play-mps-stop:
 	fi
 
 # End-to-end driver: build a snapshot RPM from <REF> and test it.
-# Usage: make test-branch REF=stabilization/26050
+# Usage: make test-branch REF=stabilization/26100
 test-branch:
 	@[ -n "$(REF)" ] || { echo "usage: make test-branch REF=<git-ref>"; exit 2; }
 	tests/test-branch.sh $(REF)
