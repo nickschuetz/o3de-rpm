@@ -5,7 +5,7 @@ Sibling fix to Patch0010 (lua_newstate signature). Lua 5.5 dropped
 the `LUA_NUMTAGS` public macro; it had been retained in 5.4 as a
 deprecation-alias for `LUA_NUMTYPES` in `lua.h`. Engine code in
 `Code/Tools/LuaIDE/Source/LUA/WatchesPanel.cpp` references
-`LUA_NUMTAGS` at two sites (lines 834 + 838 -- the `c > LUA_NUMTAGS`
+`LUA_NUMTAGS` at two sites (lines 833 + 837 -- the `c > LUA_NUMTAGS`
 bounds check and the `static_assert` checking the typeStringLUT size
 matches the type-tag count). Both fail to compile on Lua 5.5+.
 
@@ -22,6 +22,13 @@ On Lua 5.4 the `#if` branch evaluates false and the engine's existing
 references to `LUA_NUMTAGS` (which lua.h provides as the upstream
 alias) compile unchanged.
 
+Regenerated 2026-08-12 against stabilization/26100 (9bc3b9d): the
+original hunk's trailing context was `#include <Source/LUA/
+moc_WatchesPanel.cpp>`, which upstream removed in the automoc
+migration, so the patch stopped applying. The shim body is unchanged;
+only the surrounding context moved. The two LUA_NUMTAGS use sites
+(now lines 833 + 837) are still present, so the shim is still needed.
+
 This is sibling to Patch0010 in the same way they're both Lua 5.5
 compat fixes, but they target different files and different API
 surfaces (call-site signature drift vs. removed compat macro). Worth
@@ -29,11 +36,10 @@ pitching upstream alongside Patch0010 once the patch shape settles
 across both -- benefits every distro on the rawhide Lua 5.5
 trajectory (Fedora 45+, Debian unstable, Alpine edge, Arch).
 
-Caveat: there may be MORE Lua 5.5 break sites in the engine that we
-haven't tripped on yet because they live in even-later-built source
-files. The right way to find them all is `grep -rn LUA_NUMTAGS Code/
-Gems/` against the engine source on a CS10/F45-class lua-devel-5.5
-sysroot. Phase 2 work; not blocking this fix.
+Caveat: `LUA_NUMTAGS` appears at exactly one file engine-wide on
+26100 (verified via git grep against 9bc3b9d over Code/ + Gems/), so
+this file is the whole surface -- no further Lua 5.5 numtags sites
+lurking in later-built TUs as of this snapshot.
 
 Memory note: project_lua_5_5_newstate_break.md (existing) updated
 to reference this patch as the second-of-N Lua 5.5 compat fixes.
@@ -42,7 +48,7 @@ Signed-off-by: Nick Schuetz <nschuetz@redhat.com>
 ---
 --- a/Code/Tools/LuaIDE/Source/LUA/WatchesPanel.cpp
 +++ b/Code/Tools/LuaIDE/Source/LUA/WatchesPanel.cpp
-@@ -12,6 +12,14 @@
+@@ -12,6 +12,13 @@
  #include "LUAEditorDebuggerMessages.h"
  #include <AzCore/Casting/numeric_cast.h>
  #include <AzCore/Script/lua/lua.h>
@@ -53,7 +59,6 @@ Signed-off-by: Nick Schuetz <nschuetz@redhat.com>
 +#if LUA_VERSION_NUM >= 505 && !defined(LUA_NUMTAGS)
 +#  define LUA_NUMTAGS LUA_NUMTYPES
 +#endif
-+
- #include <Source/LUA/moc_WatchesPanel.cpp>
 
  #include <QSortFilterProxyModel>
+ #include <QMenu>
