@@ -1,0 +1,36 @@
+From: Nick Schuetz <nschuetz@redhat.com>
+Subject: [PATCH] Editor/FileChangeMonitor: drop pessimizing std::move on a temporary
+
+`QDir::entryInfoList()` already returns a QFileInfoList by value (a prvalue
+temporary). Wrapping that temporary in `std::move` before passing it to
+`m_entries.insert()` defeats copy elision / RVO rather than helping, and
+clang flags it:
+
+  Code/Editor/Util/FileChangeMonitor.cpp:111:33: error: moving a temporary
+  object prevents copy elision [-Werror,-Wpessimizing-move]
+
+O3DE builds Editor code with -Werror, and Fedora's clang enables
+-Wpessimizing-move under -Wall (o3de's own Ubuntu CI clang does not flag
+it), so this is a hard build failure on Fedora. Not Qt-version specific --
+entryInfoList()'s by-value return is unchanged across Qt 6.10/6.11 -- so
+this blocks any 26100-sourced Fedora build (bundled or system Qt6), caught
+on the o3de-experimental system_qt6 build COPR 10856906 (fedora-44,
+2026-08-12) at step 2494/3263.
+
+Fix: pass the temporary directly; the move is removed, copy elision applies.
+Behavior-identical. This is a genuine code cleanup worth pitching upstream
+alongside the clang-strictness patch family (cf. Patch0001 / #19748).
+
+Signed-off-by: Nick Schuetz <nschuetz@redhat.com>
+---
+--- a/Code/Editor/Util/FileChangeMonitor.cpp
++++ b/Code/Editor/Util/FileChangeMonitor.cpp
+@@ -108,7 +108,7 @@
+     if (finfo.isDir())
+     {
+         QDir dir(sItem);
+-        m_entries.insert(sItem, std::move(dir.entryInfoList(QDir::Files|QDir::Dirs|QDir::NoDotAndDotDot)));
++        m_entries.insert(sItem, dir.entryInfoList(QDir::Files|QDir::Dirs|QDir::NoDotAndDotDot));
+     }
+ 
+     return m_watcher->addPath(sItem);

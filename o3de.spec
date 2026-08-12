@@ -729,6 +729,18 @@ Patch0016:      0016-tiff-disable-deprecated-typedefs.patch
 Patch0017:      0017-lmbrcentral-lrelease-skip-rpath-under-system-qt.patch
 %endif
 
+# Patch0018 -- drop a pessimizing std::move on QDir::entryInfoList()'s
+# temporary in Editor/FileChangeMonitor.cpp that Fedora's clang rejects under
+# -Werror,-Wpessimizing-move (o3de's Ubuntu CI clang does not flag it). NOT
+# Qt-version-specific -- it blocks ANY 26100/dev-tip-sourced Fedora build
+# (bundled or system Qt6), so it is gated on development_snapshot (the dev-tip
+# marker), which also unbreaks the 26100 stabilization channel and the next
+# o3de-development refresh. Upstream-worthy (clang-strictness family, cf.
+# Patch0001/#19748). Caught on system_qt6 build COPR 10856906.
+%if %{with development_snapshot}
+Patch0018:      0018-editor-filechangemonitor-drop-pessimizing-move.patch
+%endif
+
 # Stage 1 system-library find modules. Copied into cmake/3rdParty/
 # during %%prep when the matching `--with system_<lib>` is enabled.
 # Most Stage 1 swaps don't need a custom find module (cmake ships
