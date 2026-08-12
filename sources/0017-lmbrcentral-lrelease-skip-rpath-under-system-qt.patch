@@ -1,0 +1,56 @@
+From: Nick Schuetz <nschuetz@redhat.com>
+Subject: [PATCH] LmbrCentral: skip the lrelease rpath-patch under system Qt6
+
+The bundled Qt deploys its lrelease next to the editor and rewrites the
+binary's RPATH from `$ORIGIN/../lib` to `$ORIGIN` (via RPathChange.cmake's
+`file(RPATH_CHANGE ...)`) so the copied tool resolves the bundled Qt libs
+sitting one directory up.
+
+Under the Fedora system-Qt6 swap (`-DLY_USE_SYSTEM_QT=ON`) the deployed
+lrelease is the distribution binary from qt6-qttools. It carries NO
+RPATH/RUNPATH and resolves its Qt libraries through the default
+`/usr/lib64` loader search, so the rewrite is both unnecessary and fatal:
+`file(RPATH_CHANGE ... OLD_RPATH "$ORIGIN/../lib" ...)` requires the old
+RPATH to be present in the binary, which the system tool lacks, and the
+POST_BUILD step aborts the whole LmbrCentral.Editor link:
+
+  CMake Error at cmake/Platform/Linux/RPathChange.cmake:13 (file):
+    file RPATH_CHANGE could not write new RPATH: $ORIGIN to the file
+    .../build/bin/profile/lrelease
+
+Caught on the first o3de-experimental system_qt6 build (COPR 10856557,
+fedora-44, 2026-08-12), after the engine otherwise compiled and linked
+cleanly against system Qt 6.11.1 through 981/3263 steps.
+
+Fix: gate the rpath-patch on `if(NOT LY_USE_SYSTEM_QT)`. lrelease is still
+deployed via `lrelease_files` below (the TranslationBuilder looks for it
+next to the executable at runtime -- TranslationBuilderComponent.cpp), and
+with no RPATH it passes Fedora's check-rpaths QA as-is.
+
+Downstream-packaging only; a system-Qt build detail, not an engine bug.
+Kept local (gated on the system_qt6 bcond); a system-Qt6 build path does
+not exist upstream to pitch this against yet.
+
+Signed-off-by: Nick Schuetz <nschuetz@redhat.com>
+---
+--- a/Gems/LmbrCentral/Code/Platform/Linux/lrelease_linux.cmake
++++ b/Gems/LmbrCentral/Code/Platform/Linux/lrelease_linux.cmake
+@@ -6,6 +6,10 @@
+ #
+ #
+
++# Under the Fedora system-Qt6 swap the deployed lrelease is the distro binary
++# (no rpath; finds Qt via /usr/lib64), so the $ORIGIN/../lib rpath-patch is
++# unnecessary and fails. Skip it; lrelease is still deployed via lrelease_files.
++if(NOT LY_USE_SYSTEM_QT)
+ add_custom_command(TARGET LmbrCentral.Editor POST_BUILD
+     COMMAND "${CMAKE_COMMAND}" -P "${LY_ROOT_FOLDER}/cmake/Platform/Linux/RPathChange.cmake"
+             "$<TARGET_FILE_DIR:LmbrCentral.Editor>/lrelease"
+@@ -14,6 +18,7 @@
+     COMMENT "Patching lrelease..."
+     VERBATIM
+ )
++endif()
+
+ set(lrelease_files
+     ${QT_LRELEASE_EXECUTABLE}

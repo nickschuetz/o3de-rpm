@@ -719,6 +719,16 @@ Patch0014:      0014-3rdpartypackages-system-swap-download-hook.patch
 Patch0016:      0016-tiff-disable-deprecated-typedefs.patch
 %endif
 
+# Patch0017 -- under the system_qt6 swap, skip the LmbrCentral lrelease
+# rpath-patch (RPathChange $ORIGIN/../lib -> $ORIGIN). The deployed lrelease
+# is Fedora's qt6-qttools binary, which has no rpath and finds Qt via
+# /usr/lib64, so the rewrite is unnecessary and fatally fails file(RPATH_CHANGE)
+# (no OLD_RPATH to match). lrelease is still deployed via lrelease_files.
+# Caught on the first system_qt6 build (COPR 10856557). system_qt6-only.
+%if %{with system_qt6}
+Patch0017:      0017-lmbrcentral-lrelease-skip-rpath-under-system-qt.patch
+%endif
+
 # Stage 1 system-library find modules. Copied into cmake/3rdParty/
 # during %%prep when the matching `--with system_<lib>` is enabled.
 # Most Stage 1 swaps don't need a custom find module (cmake ships
