@@ -96,6 +96,14 @@
 %bcond_with system_vulkan_validation_layers
 %bcond_with system_xxhash
 %bcond_with system_zlib
+# System Qt6 swap (Stage 1): replace the bundled qt-6.10.2 CDN package with
+# Fedora's qt6-qtbase-devel et al. Build alongside --with qt6 (it is a Qt6
+# engine; the qt6 bcond carries the bundled-PySide6 %%install handling, which
+# stays -- PySide6 is not swapped in this first pass). The bundled-Qt download
+# is gated off by Patch0014's LY_USE_SYSTEM_QT hook; the shim
+# (FindQt6-system.cmake) is copied to cmake/3rdParty/FindQt.cmake at %%prep so
+# the engine's find_package(Qt ... MODULE) resolves the system Qt6.
+%bcond_with system_qt6
 
 # Snapshot-against-o3de/development builds must skip the carry-patches whose
 # upstream equivalents have already landed in development. Each such patch is
@@ -685,8 +693,10 @@ Patch0015:      0015-vulkan-validationlayers-system-runtime-hunks.patch
 # per-line gating; the trailing find_package at every call site then
 # resolves our Find<X>.cmake shims. See the patch header for the call
 # site sweep and the Imath multi-target note. Applied only with the
-# swap_hook bcond (o3de-experimental validation builds).
-%if %{with swap_hook}
+# swap_hook bcond (o3de-experimental validation builds). Also applied under
+# system_qt6: the Qt6 swap relies on this hook to skip the bundled-Qt download
+# (LY_USE_SYSTEM_QT) since Qt is not gated by the per-line Patch0006.
+%if %{with swap_hook} || %{with system_qt6}
 Patch0014:      0014-3rdpartypackages-system-swap-download-hook.patch
 %endif
 
@@ -743,6 +753,8 @@ Source46:       FindRapidXML-system.cmake
 Source47:       FindRapidJSON-system.cmake
 Source48:       Findxxhash-system.cmake
 Source49:       Findcityhash-system.cmake
+# System Qt6 swap shim (copied to cmake/3rdParty/FindQt.cmake at %%prep).
+Source70:       FindQt6-system.cmake
 
 # Pre-built O3DE 3rdParty bundles — declare a Source10x and a matching
 # bcond above, then add an extract line in %%prep. Templates:
@@ -810,6 +822,17 @@ BuildRequires:  libxkbcommon-x11-devel
 %if %{with qt6}
 BuildRequires:  dbus-devel
 BuildRequires:  patchelf
+%endif
+
+# System Qt6 swap build deps. qt6-qtbase-devel covers Core/Gui/Widgets/Network/
+# Concurrent/Xml/Test/OpenGL/OpenGLWidgets/DBus + the moc/uic/rcc host tools;
+# qt6-qtbase-private-devel the GuiPrivate module; qt6-qtsvg-devel Svg/SvgWidgets;
+# qt6-qttools-devel the LinguistTools config + lrelease/lupdate.
+%if %{with system_qt6}
+BuildRequires:  qt6-qtbase-devel
+BuildRequires:  qt6-qtbase-private-devel
+BuildRequires:  qt6-qtsvg-devel
+BuildRequires:  qt6-qttools-devel
 %endif
 
 # Wayland dev stack. Two independent consumers pull it in:
@@ -999,6 +1022,14 @@ BuildRequires:  zlib-devel
 Requires:       mesa-libGL
 Requires:       vulkan-loader
 Requires:       python3
+# System Qt6 runtime: qt6-qtbase-gui provides the xcb platform plugin the
+# Editor loads at runtime (XCB-forced on the target GPUs); qt6-qtsvg the svg
+# icon/imageformat plugins. The remaining Qt runtime libs arrive via the
+# auto-Requires on the linked libQt6*.so.6 sonames.
+%if %{with system_qt6}
+Requires:       qt6-qtbase-gui
+Requires:       qt6-qtsvg
+%endif
 # cmake is Recommends, not Requires: the launcher uses cmake -P to compute
 # the engine-path-id (which keys the per-user Python venv). The detection
 # chain in sources/o3de-launcher.sh tries (1) system cmake on PATH, (2)
@@ -1375,6 +1406,10 @@ mkdir -p %{_builddir}/%{o3de_source_dir}/3rdParty
 %if %{with system_mikkelsen}
 cp %{SOURCE30} cmake/3rdParty/Findmikkelsen.cmake
 %endif
+%if %{with system_qt6}
+# Named FindQt.cmake (not FindQt6): the engine calls find_package(Qt ... MODULE).
+cp %{SOURCE70} cmake/3rdParty/FindQt.cmake
+%endif
 %if %{with system_expat}
 cp %{SOURCE31} cmake/3rdParty/Findexpat.cmake
 %endif
@@ -1516,6 +1551,7 @@ cmake \
     %{?with_system_lz4:-DLY_USE_SYSTEM_LZ4=ON} \
     %{?with_system_mcpp:-DLY_USE_SYSTEM_MCPP=ON} \
     %{?with_system_mikkelsen:-DLY_USE_SYSTEM_MIKKELSEN=ON} \
+    %{?with_system_qt6:-DLY_USE_SYSTEM_QT=ON} \
     %{?with_system_openexr:-DLY_USE_SYSTEM_OPENEXR=ON -DLY_USE_SYSTEM_IMATH=ON} \
     %{?with_system_png:-DLY_USE_SYSTEM_PNG=ON} \
     %{?with_system_poly2tri:-DLY_USE_SYSTEM_POLY2TRI=ON} \
@@ -1607,6 +1643,7 @@ cmake \
     %{?with_system_lz4:-DLY_USE_SYSTEM_LZ4=ON} \
     %{?with_system_mcpp:-DLY_USE_SYSTEM_MCPP=ON} \
     %{?with_system_mikkelsen:-DLY_USE_SYSTEM_MIKKELSEN=ON} \
+    %{?with_system_qt6:-DLY_USE_SYSTEM_QT=ON} \
     %{?with_system_openexr:-DLY_USE_SYSTEM_OPENEXR=ON -DLY_USE_SYSTEM_IMATH=ON} \
     %{?with_system_png:-DLY_USE_SYSTEM_PNG=ON} \
     %{?with_system_poly2tri:-DLY_USE_SYSTEM_POLY2TRI=ON} \
