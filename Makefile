@@ -276,13 +276,19 @@ srpm-stabilization:
 # at %prep. This gate drops them, exactly the documented "retires when the
 # channel rebases onto the 26.10 base" retirement. Channel marker stays
 # -stabilization (priority order: stabilization beats development_snapshot).
-# NOTE: the o3de-stabilization COPR chroots need a matching
-# `--rpmbuild-with development_snapshot` (see copr-init); --with here does not
-# propagate to the binary build. PENDING per-patch four-check verification
-# against 26100 before the first real build.
+# qt6 + system_qt6 added 2026-08-13: 26.10 is a Qt6 engine and the Fedora-ready
+# RPM swaps the bundled Qt for the distro's qt6-qtbase (validated in isolation
+# on o3de-experimental build 10862130 -- profile+monolithic green, RPM
+# auto-Requires the system libQt6*.so.6, zero bundled Qt). This is the full
+# Fedora config: the Stage-1 17-swap set + system Qt6 together.
+# NOTE: the o3de-stabilization COPR chroots need a MATCHING --rpmbuild-with set
+# (all of these, incl. qt6 + system_qt6); --with here does not propagate to the
+# binary build. Chroots updated to 21 opts 2026-08-13.
 SRPM_STABILIZATION_FLAGS = --with snapshot \
                            --with stabilization \
                            --with development_snapshot \
+                           --with qt6 \
+                           --with system_qt6 \
                            --with system_assimp \
                            --with system_dxc \
                            --with system_expat \
