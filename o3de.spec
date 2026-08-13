@@ -741,6 +741,16 @@ Patch0017:      0017-lmbrcentral-lrelease-skip-rpath-under-system-qt.patch
 Patch0018:      0018-editor-filechangemonitor-drop-pessimizing-move.patch
 %endif
 
+# Patch0019 -- companion to Patch0017. Skips the SECOND lrelease rpath-change,
+# the %%install-time ly_copy in Install_linux.cmake (Patch0017 covered the
+# POST_BUILD one). Same reason: system lrelease has no rpath, so
+# file(RPATH_CHANGE $ORIGIN) fatally errors at %%install and $ORIGIN would
+# misdirect the loader off /usr/lib64. Caught on COPR 10858337 at %%install
+# after profile + monolithic both linked green against system Qt 6.11.1.
+%if %{with system_qt6}
+Patch0019:      0019-install-linux-lycopy-skip-lrelease-rpath-system-qt.patch
+%endif
+
 # Stage 1 system-library find modules. Copied into cmake/3rdParty/
 # during %%prep when the matching `--with system_<lib>` is enabled.
 # Most Stage 1 swaps don't need a custom find module (cmake ships

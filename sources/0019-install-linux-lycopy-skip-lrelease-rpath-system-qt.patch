@@ -1,0 +1,44 @@
+From: Nick Schuetz <nschuetz@redhat.com>
+Subject: [PATCH] Install/Linux: skip ly_copy lrelease rpath-change under system Qt6
+
+Companion to Patch0017. That patch handled the POST_BUILD lrelease
+rpath-patch in LmbrCentral's lrelease_linux.cmake; this one handles the
+SECOND place lrelease's rpath is rewritten -- the %install-time ly_copy in
+cmake/Platform/Linux/Install_linux.cmake, which copies runtime dependencies
+into the install tree and rewrites lrelease's RPATH from $ORIGIN/../lib to
+$ORIGIN.
+
+Under the Fedora system-Qt6 swap the deployed lrelease is Fedora's
+qt6-qttools binary with no RPATH/RUNPATH (it resolves Qt via the default
+/usr/lib64 loader search), so file(RPATH_CHANGE) aborts at install:
+
+  CMake Error at build/cmake_install.cmake:23083 (file):
+    file RPATH_CHANGE could not write new RPATH: $ORIGIN to the file
+    .../opt/O3DE/26.05.0/bin/Linux/profile/Default/./lrelease
+    No valid ELF RPATH or RUNPATH entry exists in the file;
+
+Setting $ORIGIN would be wrong anyway -- it would point the loader at the
+install bin dir instead of /usr/lib64 where the system Qt libs live. Skip
+the rewrite; the copied lrelease keeps no rpath, finds Qt via /usr/lib64,
+and passes check-rpaths cleanly.
+
+Caught on the first fully-compiling system_qt6 build (COPR 10858337,
+fedora-44, 2026-08-13) at %install, after profile [3263/3263] AND monolithic
+[871/871] both linked against system Qt 6.11.1. system_qt6-only.
+
+Signed-off-by: Nick Schuetz <nschuetz@redhat.com>
+---
+--- a/cmake/Platform/Linux/Install_linux.cmake
++++ b/cmake/Platform/Linux/Install_linux.cmake
+@@ -40,7 +40,10 @@
+                     execute_process(COMMAND @CMAKE_STRIP@ "${target_file}")
+                 endif()
+             elseif("${source_file}" MATCHES "lrelease")
+-                file(RPATH_CHANGE FILE "${target_file}" OLD_RPATH "\$ORIGIN/../lib" NEW_RPATH "\$ORIGIN")
++                # system Qt6 swap: the deployed lrelease is Fedora's qt6-qttools binary
++                # with no rpath (it finds Qt via /usr/lib64). Skip the $ORIGIN rpath-change:
++                # file(RPATH_CHANGE) fatally errors with no OLD_RPATH to match, and $ORIGIN
++                # would misdirect the loader away from the system Qt libraries.
+             endif()
+         endif()
+     endforeach()
