@@ -243,8 +243,20 @@ srpm-snapshot-ref:
 srpm-snapshot-qt6:
 	$(MAKE) srpm-snapshot-ref REF=qt6
 
+# o3de-development is Fedora-aligned like the other channels (2026-08-13, Nick:
+# it should NOT have been swap-free). Full config = the Stage-1 17-swap set +
+# system_qt6 + qt6 + monolithic, on top of development_snapshot. Builds
+# development TIP (newer than the 26100 cut) -- validated on the 26100 config
+# via o3de-stabilization 10863331; re-check Patch0018 applies to dev-tip.
+SNAPSHOT_DEVELOPMENT_FLAGS = --with development_snapshot --with qt6 --with system_qt6 --with monolithic \
+                            --with system_assimp --with system_dxc --with system_expat --with system_freetype \
+                            --with system_googlebenchmark --with system_libsamplerate --with system_lua \
+                            --with system_lz4 --with system_mcpp --with system_mikkelsen --with system_openexr \
+                            --with system_png --with system_poly2tri --with system_spirvcross --with system_sqlite \
+                            --with system_vulkan_validation_layers --with system_zlib
+
 srpm-snapshot-development:
-	$(MAKE) srpm-snapshot-ref REF=development SNAPSHOT_REF_EXTRA_BCOND="--with development_snapshot"
+	$(MAKE) srpm-snapshot-ref REF=development SNAPSHOT_REF_EXTRA_BCOND="$(SNAPSHOT_DEVELOPMENT_FLAGS)"
 
 # srpm-stabilization: snapshot + the stabilization channel marker. This
 # is what the community testers' channel ships. The marker is what
