@@ -735,7 +735,7 @@ def main(argv: list[str]) -> int:
     args = parser.parse_args(argv)
 
     cfg = load_yaml_lite(Path(args.dep_map))
-    engine_ref = args.engine_ref or cfg.get("engine_ref") or "stabilization/26050"
+    engine_ref = args.engine_ref or cfg.get("engine_ref") or "stabilization/26100"
     engine_repo = cfg.get("engine_repo") or "o3de/o3de"
     threep_repo = cfg.get("threep_repo") or "o3de/3p-package-source"
     copr_owner = cfg.get("copr_owner") or "hellaenergy"
