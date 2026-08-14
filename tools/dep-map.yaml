@@ -21,12 +21,12 @@
 # Active engine branch the script targets by default. The workflow can
 # override this via the ENGINE_REF env var.
 #
-# This is deliberately the 26.05-LINE base: 26.05.0 shipped 2026-05-27 and
-# the stable channel we currently serve is built from that line, so drift is
-# measured against stabilization/26050's BuiltInPackages. It is NOT stale.
-# Roll this to stabilization/26100 when that branch opens for the 26.10 cycle
-# (the next release; see the TIMEBOMB retirement model in o3de.spec).
-engine_ref: stabilization/26050
+# Rolled to the 26.10-LINE base 2026-08-14: stabilization/26100 was cut
+# 2026-08-11 and is the active line the stabilization + development channels
+# now build (o3de2610). Drift is measured against 26100's BuiltInPackages.
+# stabilization/26050 is gone (26.05.0 shipped + frozen), so this had to move.
+# Roll to the next stabilization/<release> when it opens.
+engine_ref: stabilization/26100
 
 # Branch the rev_watch tripwire reads (independent of engine_ref above).
 # qt6 / pyside6 live on development, not stabilization, so the watch

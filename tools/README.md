@@ -7,7 +7,7 @@ Utility scripts for o3de-rpm maintenance.
 Audits drift between three sources of truth for O3DE 3rdParty packages:
 
 1. **Engine pins** -- `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake`
-   on the active stabilization branch (default `stabilization/26050`).
+   on the active stabilization branch (default `stabilization/26100`).
 2. **Our COPR rebuilds** -- `hellaenergy/o3de-dependencies` latest-succeeded builds.
 3. **Upstream 3p package-source** -- `o3de/3p-package-source/package-system/<Name>/build_config.json`.
 
