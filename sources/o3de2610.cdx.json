@@ -1,0 +1,258 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "serialNumber": "urn:uuid:o3de2610-rpm-2610.0-108",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-08-14T00:00:00Z",
+    "tools": {
+      "components": [
+        {
+          "type": "application",
+          "name": "o3de-rpm",
+          "version": "2610.0-108",
+          "description": "O3DE RPM packaging spec (versioned package: o3de2610)"
+        }
+      ]
+    },
+    "component": {
+      "bom-ref": "pkg:rpm/fedora/o3de2610@2610.0-108",
+      "type": "application",
+      "name": "o3de2610",
+      "version": "2610.0-108",
+      "description": "Open 3D Engine 26.10 line: real-time, multi-platform 3D engine. First line built against system Qt6 + the Stage-1 system-library swap set (no bundled Qt).",
+      "licenses": [
+        {
+          "expression": "Apache-2.0 OR MIT"
+        }
+      ],
+      "purl": "pkg:rpm/fedora/o3de2610@2610.0-108?arch=x86_64",
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://o3de.org"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/o3de/o3de"
+        },
+        {
+          "type": "release-notes",
+          "url": "https://github.com/o3de/o3de/releases/tag/2610.0"
+        },
+        {
+          "type": "distribution",
+          "comment": "Upstream engine source tarball (CycloneDX distribution for the engine component).",
+          "url": "https://github.com/o3de/o3de/releases/download/2610.0/o3de_2610.0_lfs.tar.gz"
+        },
+        {
+          "type": "distribution",
+          "comment": "COPR stabilization channel (pre-release engine validation from upstream stabilization/26100).",
+          "url": "https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-stabilization/"
+        },
+        {
+          "type": "distribution",
+          "comment": "COPR stable channel (broadest audience; tracks tagged upstream releases).",
+          "url": "https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de/"
+        }
+      ]
+    }
+  },
+  "components": [
+    {
+      "bom-ref": "build-dep:cmake",
+      "type": "application",
+      "name": "cmake",
+      "scope": "required",
+      "purl": "pkg:rpm/fedora/cmake",
+      "description": "Build dependency: cmake >= 3.24"
+    },
+    {
+      "bom-ref": "build-dep:ninja-build",
+      "type": "application",
+      "name": "ninja-build",
+      "scope": "required",
+      "purl": "pkg:rpm/fedora/ninja-build"
+    },
+    {
+      "bom-ref": "build-dep:clang",
+      "type": "application",
+      "name": "clang",
+      "scope": "required",
+      "purl": "pkg:rpm/fedora/clang",
+      "description": "Build dependency: the engine compiles with clang (-Werror)."
+    },
+    {
+      "bom-ref": "build-dep:python3-devel",
+      "type": "library",
+      "name": "python3-devel",
+      "scope": "required",
+      "purl": "pkg:rpm/fedora/python3-devel"
+    },
+    {
+      "bom-ref": "build-dep:git-lfs",
+      "type": "application",
+      "name": "git-lfs",
+      "scope": "required",
+      "purl": "pkg:rpm/fedora/git-lfs"
+    },
+    {
+      "bom-ref": "build-dep:qt6-qtbase-devel",
+      "type": "library",
+      "name": "qt6-qtbase-devel",
+      "scope": "required",
+      "purl": "pkg:rpm/fedora/qt6-qtbase-devel",
+      "description": "System Qt6 build headers/tools (moc/uic/rcc) for the system_qt6 swap. Also qt6-qtbase-private-devel, qt6-qtsvg-devel, qt6-qttools-devel."
+    },
+    {
+      "bom-ref": "runtime-dep:qt6-qtbase-gui",
+      "type": "library",
+      "name": "qt6-qtbase-gui",
+      "scope": "required",
+      "purl": "pkg:rpm/fedora/qt6-qtbase-gui",
+      "description": "System Qt6 runtime (Core/Gui/Widgets/Network/Concurrent/Xml/DBus/OpenGL/Test + the xcb platform plugin), plus qt6-qtsvg. REPLACES the custom-patched bundled Qt 5.15 that the 26.05 line shipped -- the Qt Bundling Library Exception is now RESOLVED for the 26.10 line.",
+      "licenses": [
+        {
+          "expression": "LGPL-3.0-only OR GPL-3.0-only"
+        }
+      ]
+    },
+    {
+      "bom-ref": "runtime-dep:vulkan-loader",
+      "type": "library",
+      "name": "vulkan-loader",
+      "scope": "required",
+      "purl": "pkg:rpm/fedora/vulkan-loader"
+    },
+    {
+      "bom-ref": "runtime-dep:mesa-libGL",
+      "type": "library",
+      "name": "mesa-libGL",
+      "scope": "required",
+      "purl": "pkg:rpm/fedora/mesa-libGL"
+    },
+    {
+      "bom-ref": "system-swap-set",
+      "type": "library",
+      "name": "o3de-system-library-swaps",
+      "scope": "required",
+      "description": "Stage-1 system-library swaps active on the 26.10 line: bundled 3rdParty replaced by the Fedora system libs assimp, freetype, libpng, zlib, expat, lz4, openexr+imath, SQLite, lua, libsamplerate, google-benchmark, vulkan-validation-layers, mikkelsen. Each is a normal Fedora RPM dependency (auto-Requires the system soname); none are bundled.",
+      "licenses": [
+        {
+          "expression": "BSD-3-Clause OR Zlib OR MIT OR FTL"
+        }
+      ]
+    },
+    {
+      "bom-ref": "copr-dep:o3de-dependencies",
+      "type": "library",
+      "name": "o3de-dependencies",
+      "scope": "required",
+      "description": "Fedora-clean COPR rebuilds of 3rdParty packages not (yet) in Fedora, consumed via hellaenergy/o3de-dependencies: o3de2605-dxc-spirv (license-clean SPIR-V-only DXC), o3de2605-mcpp-az, o3de2605-spirv-cross, o3de2605-cityhash. Shared with the 26.05 line (identical 3rdParty versions).",
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-dependencies/"
+        }
+      ]
+    },
+    {
+      "bom-ref": "bundled:pyside6-6.10.2",
+      "type": "library",
+      "name": "pyside6",
+      "version": "6.10.2-py3.10-rev5",
+      "scope": "required",
+      "description": "PySide6 + shiboken6 kept bundled (fetched via packages.o3de.org) even under system Qt6: runtime-only Qt-for-Python bindings built against the engine's bundled CPython 3.10, which the Fedora python3-pyside6 (built for python3.13) cannot substitute until the bundled-Python migration lands (FEDORA_ROADMAP stage 3). Links the system libQt6*.so.6 at runtime.",
+      "licenses": [
+        {
+          "expression": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only"
+        }
+      ],
+      "purl": "pkg:generic/pyside6@6.10.2"
+    },
+    {
+      "bom-ref": "bundled:openssl-1.1.1t",
+      "type": "library",
+      "name": "openssl",
+      "version": "1.1.1t",
+      "scope": "required",
+      "description": "Bundled by upstream O3DE via packages.o3de.org. END-OF-LIFE since 2023-09-11. Migration to system OpenSSL 3.x is tracked in FEDORA_ROADMAP.md (stage 4); 3p #387 bumped the bundle to 3.6.3 upstream, engine-side pin bump pending.",
+      "licenses": [
+        {
+          "id": "OpenSSL"
+        }
+      ],
+      "purl": "pkg:generic/openssl@1.1.1t",
+      "properties": [
+        {
+          "name": "endoflife.date",
+          "value": "2023-09-11"
+        },
+        {
+          "name": "fedora.acceptable",
+          "value": "false"
+        }
+      ]
+    },
+    {
+      "bom-ref": "bundled:clang-toolchain",
+      "type": "application",
+      "name": "o3de-clang-toolchain",
+      "scope": "required",
+      "description": "Embedded clang/libclang/libtinfo bundled by O3DE (used by the DXC rebuild)",
+      "licenses": [
+        {
+          "id": "Apache-2.0"
+        }
+      ]
+    },
+    {
+      "bom-ref": "bundled:python-3.10",
+      "type": "application",
+      "name": "o3de-python",
+      "version": "3.10.13",
+      "scope": "required",
+      "description": "Bundled Python 3.10 venv installed by /opt/O3DE/<DISPLAY_VERSION>/python/get_python.sh into ~/.o3de/Python/venv/<engine-id>. System-Python migration (Fedora 3.13) tracked in FEDORA_ROADMAP stage 3; also gates a system PySide6 swap.",
+      "licenses": [
+        {
+          "id": "PSF-2.0"
+        }
+      ]
+    },
+    {
+      "bom-ref": "bundled:googletest",
+      "type": "library",
+      "name": "googletest",
+      "scope": "optional",
+      "description": "Fetched at cmake configure time via FetchContent (test scaffolding only; LY_DISABLE_TEST_MODULES=ON skips test builds)",
+      "licenses": [
+        {
+          "id": "BSD-3-Clause"
+        }
+      ],
+      "purl": "pkg:github/google/googletest"
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "pkg:rpm/fedora/o3de2610@2610.0-108",
+      "dependsOn": [
+        "build-dep:cmake",
+        "build-dep:ninja-build",
+        "build-dep:clang",
+        "build-dep:python3-devel",
+        "build-dep:git-lfs",
+        "build-dep:qt6-qtbase-devel",
+        "runtime-dep:qt6-qtbase-gui",
+        "runtime-dep:vulkan-loader",
+        "runtime-dep:mesa-libGL",
+        "system-swap-set",
+        "copr-dep:o3de-dependencies",
+        "bundled:pyside6-6.10.2",
+        "bundled:openssl-1.1.1t",
+        "bundled:clang-toolchain",
+        "bundled:python-3.10"
+      ]
+    }
+  ]
+}
