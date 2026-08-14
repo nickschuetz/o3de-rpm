@@ -173,7 +173,7 @@
 %bcond_with monolithic
 
 # ── Version pinning ──────────────────────────────────────────────────────────
-%global stable_tag      2605.0
+%global stable_tag      2610.0
 # Compute with: sha256sum o3de-<tag>-lfs.tar.gz  (2605.0+ naming convention;
 # earlier releases used o3de_<tag>_lfs.tar.gz with underscores)
 %global stable_sha256   f23c46eaf60fd7359279781f4abefa1b7f0d88091fd37ce9bff31431927c3f1e
@@ -936,10 +936,13 @@ BuildRequires:  assimp-devel
 # (Builders/DirectXShaderCompiler/{bin/dxc,bin/dxsc,lib/libdxcompiler.so}
 # under the install prefix) to the system locations, so the engine's
 # asset-build pipeline shells out to the system binary instead of the
-# bundled fetch. Versioned-major naming: o3de2605-dxc-spirv covers the
-# whole 26.05.x line (matches the engine package's o3de2605 convention);
-# a future o3de2610-dxc-spirv co-exists in the same COPR project for
-# the 26.10.x line. Memory: project_o3de_3p_versioning_research.md.
+# bundled fetch. Dep-package naming (2026-08-14, stable_tag -> 2610.0):
+# these o3de2605-<dep> packages carry the SAME 3rdParty versions the 26.10
+# engine pins (dxc 1.8.2505.1, mcpp 2.7.2, spirv-cross 1.3.275.0, cityhash
+# 1.1), so the o3de2610 engine deliberately SHARES them rather than
+# duplicating identical content under an o3de2610- prefix. Per-major dep
+# packages (o3de2610-<dep>) become worth building only if a line ever pins
+# a different dep version. Memory: project_o3de_3p_versioning_research.md.
 BuildRequires:  o3de2605-dxc-spirv
 %endif
 %if %{with system_expat}
