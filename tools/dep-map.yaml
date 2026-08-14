@@ -175,8 +175,12 @@ bundling_exception:
   # migration (Python C Module ABI must match editor's embedded Python).
   - openimageio-opencolorio
   # pyside2: tied to bundled Python; will substitute when editor moves
-  # to system Python.
+  # to system Python. (26.05 line.)
   - pyside2
+  # pyside6: 26.10 line -- kept bundled even under system_qt6 (runtime-only
+  # Qt-for-Python built against bundled CPython 3.10; Fedora python3-pyside6
+  # is for 3.13). Substitutes after the Stage-3 system-Python migration.
+  - pyside6
   # squish-ccr: restricted -- BC7 patent encumbrance (Fedora cannot ship).
   - squish-ccr
   # vulkan-validationlayers: newer in Fedora than engine pin; needs O3DE
