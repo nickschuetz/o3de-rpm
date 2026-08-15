@@ -2027,6 +2027,23 @@ find %{buildroot}%{o3de_install_prefix} -type f \
 done
 %endif
 
+%if %{with system_qt6}
+# Under the system_qt6 swap the engine's ly_copy runtime-dependency deployment
+# copies the (now system) Qt6 libraries next to the binaries. They are
+# byte-identical duplicates of Fedora's qt6-qtbase .so: the engine binaries
+# already auto-Require the libQt6*.so.6 sonames, and the loader resolves them
+# from /usr/lib64 at runtime (confirmed via ldd on the installed Editor).
+# Shipping the copies is redundant, adds ~32 MB, and -- worse -- makes the RPM
+# *Provide* libQt6*.so.6, which trips Fedora's duplicate-library review. Delete
+# them so the package keeps only the Requires on the system sonames. Qt6
+# plugins/translations are never copied (FindQt6-system.cmake drops that deploy
+# path and the Requires on qt6-qtbase-gui pulls the system plugins), so only the
+# libraries need removing. Root cause is the shim aliasing the config-mode Qt6::
+# targets (which carry an IMPORTED_LOCATION ly_copy follows); this %%install
+# sweep is the packaging-side cleanup.
+find %{buildroot}%{o3de_install_prefix} -type f -name 'libQt6*.so*' -print -delete
+%endif
+
 # ── CHECK ────────────────────────────────────────────────────────────────────
 %check
 desktop-file-validate %{buildroot}%{_datadir}/applications/%{o3de_pkgname}.desktop
