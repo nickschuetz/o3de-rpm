@@ -86,7 +86,6 @@ copr_packages:
   azslc: azslc
   mcpp: o3de2605-mcpp-az
   mikkelsen: mikkelsen
-  qt: o3de-qt5
 
 # Map: engine package name -> upstream o3de/3p-package-source directory.
 # Most names match the engine name 1:1. List explicit entries only when
@@ -177,10 +176,20 @@ bundling_exception:
   # pyside2: tied to bundled Python; will substitute when editor moves
   # to system Python. (26.05 line.)
   - pyside2
-  # pyside6: 26.10 line -- kept bundled even under system_qt6 (runtime-only
-  # Qt-for-Python built against bundled CPython 3.10; Fedora python3-pyside6
-  # is for 3.13). Substitutes after the Stage-3 system-Python migration.
+  # pyside6: 26.10 line -- bundled (runtime-only Qt-for-Python; powers the
+  # QtForPython gem + DccScriptingInterface). Two walls: built against bundled
+  # CPython 3.10 (Fedora python3-pyside6 is for 3.13), AND it links the bundle's
+  # major-scoped libQt6Core.so.6(Qt_6_PRIVATE_API) which Fedora's Qt6 does not
+  # export (minor-scopes to Qt_6.11_PRIVATE_API). The second wall is why qt6 is
+  # bundled too (see qt below). Substitutes after Option B / Stage-3 Python.
   - pyside6
+  # qt: 26.10 line -- Qt6 6.10.2 BUNDLED (reverted from the system_qt6 swap
+  # 2026-08-17). The swap is implemented + default-off but blocked for shipping
+  # by the bundled pyside6's Qt_6_PRIVATE_API pin above (a system-Qt6 RPM was
+  # uninstallable on clean Fedora). o3de-qt5 (Qt5) is the 26.05-line COPR
+  # package, not the 26.10 deliverable, so it is no longer in copr_packages.
+  # Restore path: Option B (rebuild pyside6 against system Qt6). o3de/o3de#19081.
+  - qt
   # squish-ccr: restricted -- BC7 patent encumbrance (Fedora cannot ship).
   - squish-ccr
   # vulkan-validationlayers: newer in Fedora than engine pin; needs O3DE
@@ -192,9 +201,9 @@ bundling_exception:
 # (informational) instead of `out-of-date` (which fails the run). Use
 # this for known-and-justified gaps, NOT to silence real drift.
 accepted_drift:
-  # qt: o3de-qt5 ships 5.15.1-rev7-equivalent because O3DE's 5.15.2-rev9
-  # source isn't published as a branch (only as a binary on
-  # packages.o3de.org). Documented in project_o3de_bundles_custom_qt.
-  # The 3p build_config showing 6.10.2-rev6 is the qt6 migration landing
-  # in 3p main, not a 26.05 concern. Revisit when qt6 ships in 26.10.
-  qt: "o3de-qt5 is the 5.15.1-rev7-equivalent build; 5.15.2-rev9 source unpublished"
+  # (empty) qt moved to bundling_exception 2026-08-17: the 26.10 engine uses
+  # Qt6 6.10.2 which we now BUNDLE (system_qt6 swap blocked by pyside6's
+  # Qt_6_PRIVATE_API pin), so it is no longer a COPR accepted-drift entry.
+  # o3de-qt5 (Qt5, 26.05 line) is out of scope for the 26.10 engine_ref.
+  # Add entries here only for a real COPR-shipped package whose version
+  # intentionally diverges from the engine pin.

@@ -6,6 +6,18 @@ This file is intentionally a living scratchpad. Entries get added or removed as 
 
 ---
 
+## system_qt6 REVERTED to bundled Qt6 (2026-08-17) + Option B tracked
+
+O3DE chair Roddie Kieley hit an uninstallable o3de2610 on a clean Fedora box: `nothing provides libQt6Core.so.6(Qt_6_PRIVATE_API)(64bit)`. Root cause: the bundled PySide6 (6.10.2, powers QtForPython + DccScriptingInterface) links the bundle's MAJOR-scoped `Qt_6_PRIVATE_API`, but Fedora's Qt6 exports only the MINOR-scoped `Qt_6.11_PRIVATE_API`. The system-Qt6 build only ever resolved where a sibling bundled-Qt6 o3de package supplied the old symbol (a false pass on dev boxes). Dropping PySide6 to fix it would kill QtForPython/DCCsi, so (Nick's call) 26.10 reverts to **bundled Qt 6.10.2**, which is self-consistent with the bundled PySide6 and keeps those features.
+
+DONE: Makefile (`SNAPSHOT_DEVELOPMENT_FLAGS` + `SRPM_STABILIZATION_FLAGS`: `system_qt6` -> `swap_hook`), o3de.spec system_qt6 bcond comment, sources/o3de2610.cdx.json (SBOM: bundled Qt6 back, system qt6 components out), BUNDLED_LIBRARIES.md, FEDORA_ROADMAP.md, FLATPAK_NOTES.md, tools/dep-map.yaml. Mechanics: `swap_hook` (not `system_qt6`) now activates Patch0014; under `development_snapshot` Patch0006 is off, so Patch0014 is the sole swap gate and the 17-library Stage-1 swap set rides it UNCHANGED. Only Qt6 reverted. The `system_qt6` machinery stays in-tree, default-off.
+
+COPR: all 6 chroots (o3de-stabilization + o3de-development x F44/rawhide/CS10) need `system_qt6` -> `swap_hook` via `edit-chroot --rpmbuild-with` (REPLACES, pass the full list), then a rebuild on both channels. [Parent session is handling the chroot flip + refire.]
+
+**Option B (restore system Qt6): rebuild PySide6 against system Qt6, gated behind Stage-3 system Python.** The tractable near-term form is a COPR `o3de2610-pyside6` built from PySide6 source against `qt6-qtbase-devel` + the engine's Python 3.10 (does NOT require the full system-Python migration; the 3.10-vs-3.13 headers in a Fedora build env is the fiddly bit). Upstream contribution angle: wire PySide6 into the engine's `LY_USE_SYSTEM_QT` switch (it is a prebuilt `ly_associate_package` binary today, entirely outside that switch). Scoping drafts to land in `upstream-drafts/`.
+
+Follow-up: revisit tools/dep-map.yaml qt classification (moved to bundling_exception for the 26.10 line as part of this revert; confirm drift stays green each cron).
+
 ## Reviewed Nick_L's stabilization PRs #19954 + #19947 (2026-08-03) -- POSTED
 
 Reviewed two of the PRs Nick_L flagged for the 26.10 stabilization cut. Skipped #19961 (Unlit shader / tiled UV, pure sig/graphics-audio, out of our lane). Paste-ready review comments drafted in upstream-drafts/ (gitignored): pr-19954-review-comment.md, pr-19947-review-comment.md. POSTED on Nick's go 2026-08-03: #19954 -> https://github.com/o3de/o3de/pull/19954#issuecomment-5172490837 , #19947 -> https://github.com/o3de/o3de/pull/19947#issuecomment-5172490945 .

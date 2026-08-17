@@ -245,10 +245,20 @@ srpm-snapshot-qt6:
 
 # o3de-development is Fedora-aligned like the other channels (2026-08-13, Nick:
 # it should NOT have been swap-free). Full config = the Stage-1 17-swap set +
-# system_qt6 + qt6 + monolithic, on top of development_snapshot. Builds
+# qt6 (BUNDLED) + monolithic, on top of development_snapshot. Builds
 # development TIP (newer than the 26100 cut) -- validated on the 26100 config
 # via o3de-stabilization 10863331; re-check Patch0018 applies to dev-tip.
-SNAPSHOT_DEVELOPMENT_FLAGS = --with development_snapshot --with qt6 --with system_qt6 --with monolithic \
+#
+# 2026-08-17: system_qt6 REVERTED to bundled Qt6 (swap_hook in its place). The
+# bundled PySide6 links upstream Qt's major-scoped libQt6Core.so.6(Qt_6_PRIVATE_API);
+# Fedora's Qt6 only provides the minor-scoped Qt_6.11_PRIVATE_API, so the
+# system-Qt6 RPM was uninstallable on a clean Fedora box (o3de chair Roddie
+# Kieley hit this) and would break QtForPython/DCCsi. Bundled Qt6 is
+# self-consistent with the bundled PySide6 and keeps those features. swap_hook
+# (not system_qt6) is what now activates Patch0014, so the 17 swaps stay --
+# under development_snapshot, Patch0006 is off and Patch0014 is the only swap
+# gate. System Qt6 returns once PySide6 is rebuilt against it (Option B).
+SNAPSHOT_DEVELOPMENT_FLAGS = --with development_snapshot --with qt6 --with swap_hook --with monolithic \
                             --with system_assimp --with system_dxc --with system_expat --with system_freetype \
                             --with system_googlebenchmark --with system_libsamplerate --with system_lua \
                             --with system_lz4 --with system_mcpp --with system_mikkelsen --with system_openexr \
@@ -288,19 +298,26 @@ srpm-stabilization:
 # at %prep. This gate drops them, exactly the documented "retires when the
 # channel rebases onto the 26.10 base" retirement. Channel marker stays
 # -stabilization (priority order: stabilization beats development_snapshot).
-# qt6 + system_qt6 added 2026-08-13: 26.10 is a Qt6 engine and the Fedora-ready
-# RPM swaps the bundled Qt for the distro's qt6-qtbase (validated in isolation
-# on o3de-experimental build 10862130 -- profile+monolithic green, RPM
-# auto-Requires the system libQt6*.so.6, zero bundled Qt). This is the full
-# Fedora config: the Stage-1 17-swap set + system Qt6 together.
+# qt6 added 2026-08-13: 26.10 is a Qt6 engine. system_qt6 was added the same day
+# and then REVERTED to bundled Qt6 on 2026-08-17 (swap_hook in its place).
+# Reason: the bundled PySide6 links upstream Qt's major-scoped
+# libQt6Core.so.6(Qt_6_PRIVATE_API), but Fedora's Qt6 only provides the
+# minor-scoped Qt_6.11_PRIVATE_API, so the system-Qt6 RPM was uninstallable on a
+# clean Fedora box (o3de chair Roddie Kieley hit exactly this on install) and
+# would have disabled QtForPython/DCCsi. Bundled Qt6 is self-consistent with the
+# bundled PySide6 and keeps those features. This stays the full Fedora config:
+# the Stage-1 17-swap set + (for now) bundled Qt6. System Qt6 returns once
+# PySide6 is rebuilt against it (Option B, tracked in upstream-drafts/).
+# swap_hook (not system_qt6) now carries Patch0014: under development_snapshot
+# Patch0006 is off, so Patch0014 is the sole swap gate and the 17 swaps ride it.
 # NOTE: the o3de-stabilization COPR chroots need a MATCHING --rpmbuild-with set
-# (all of these, incl. qt6 + system_qt6); --with here does not propagate to the
-# binary build. Chroots updated to 21 opts 2026-08-13.
+# (all of these, incl. qt6 + swap_hook); --with here does not propagate to the
+# binary build. Chroots updated system_qt6 -> swap_hook 2026-08-17.
 SRPM_STABILIZATION_FLAGS = --with snapshot \
                            --with stabilization \
                            --with development_snapshot \
                            --with qt6 \
-                           --with system_qt6 \
+                           --with swap_hook \
                            --with system_assimp \
                            --with system_dxc \
                            --with system_expat \

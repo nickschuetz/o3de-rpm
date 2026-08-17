@@ -20,7 +20,7 @@
       "type": "application",
       "name": "o3de2610",
       "version": "2610.0-108",
-      "description": "Open 3D Engine 26.10 line: real-time, multi-platform 3D engine. First line built against system Qt6 + the Stage-1 system-library swap set (no bundled Qt).",
+      "description": "Open 3D Engine 26.10 line: real-time, multi-platform 3D engine. Built against the Stage-1 system-library swap set plus bundled Qt6 6.10.2 (reverted from system Qt6 2026-08-17: the bundled PySide6 needs upstream Qt's Qt_6_PRIVATE_API symbol, which Fedora's Qt6 does not provide; system Qt6 returns once PySide6 is rebuilt against it).",
       "licenses": [
         {
           "expression": "Apache-2.0 OR MIT"
@@ -97,23 +97,22 @@
       "purl": "pkg:rpm/fedora/git-lfs"
     },
     {
-      "bom-ref": "build-dep:qt6-qtbase-devel",
+      "bom-ref": "bundled:qt6-6.10.2",
       "type": "library",
-      "name": "qt6-qtbase-devel",
+      "name": "qt6",
+      "version": "6.10.2",
       "scope": "required",
-      "purl": "pkg:rpm/fedora/qt6-qtbase-devel",
-      "description": "System Qt6 build headers/tools (moc/uic/rcc) for the system_qt6 swap. Also qt6-qtbase-private-devel, qt6-qtsvg-devel, qt6-qttools-devel."
-    },
-    {
-      "bom-ref": "runtime-dep:qt6-qtbase-gui",
-      "type": "library",
-      "name": "qt6-qtbase-gui",
-      "scope": "required",
-      "purl": "pkg:rpm/fedora/qt6-qtbase-gui",
-      "description": "System Qt6 runtime (Core/Gui/Widgets/Network/Concurrent/Xml/DBus/OpenGL/Test + the xcb platform plugin), plus qt6-qtsvg. REPLACES the custom-patched bundled Qt 5.15 that the 26.05 line shipped -- the Qt Bundling Library Exception is now RESOLVED for the 26.10 line.",
+      "purl": "pkg:generic/qt6@6.10.2",
+      "description": "Vanilla Qt 6.10.2 bundled by upstream O3DE (fetched via packages.o3de.org), no O3DE patches. Bundled Qt Bundling Library Exception is IN FORCE for the 26.10 line: the swap to Fedora's system qt6-qtbase (system_qt6 bcond, machinery retained default-off) is blocked by the bundled PySide6, which links this build's major-scoped libQt6Core.so.6(Qt_6_PRIVATE_API); Fedora's Qt6 exports only the minor-scoped Qt_6.11_PRIVATE_API. Exception resolves when PySide6 is rebuilt against system Qt6 (Option B).",
       "licenses": [
         {
           "expression": "LGPL-3.0-only OR GPL-3.0-only"
+        }
+      ],
+      "properties": [
+        {
+          "name": "fedora.acceptable",
+          "value": "false"
         }
       ]
     },
@@ -162,7 +161,7 @@
       "name": "pyside6",
       "version": "6.10.2-py3.10-rev5",
       "scope": "required",
-      "description": "PySide6 + shiboken6 kept bundled (fetched via packages.o3de.org) even under system Qt6: runtime-only Qt-for-Python bindings built against the engine's bundled CPython 3.10, which the Fedora python3-pyside6 (built for python3.13) cannot substitute until the bundled-Python migration lands (FEDORA_ROADMAP stage 3). Links the system libQt6*.so.6 at runtime.",
+      "description": "PySide6 + shiboken6 bundled (fetched via packages.o3de.org): runtime-only Qt-for-Python bindings built against the engine's bundled CPython 3.10 AND the bundled Qt 6.10.2. Two walls block substitution: (1) Fedora python3-pyside6 is built for python3.13 (Python-C-module-ABI wall, same as OIIO/OCIO); (2) it links the bundled Qt's major-scoped libQt6Core.so.6(Qt_6_PRIVATE_API), which Fedora's Qt6 does not provide (it minor-scopes to Qt_6.11_PRIVATE_API) -- this is why the build ships bundled Qt6 rather than system Qt6. Powers the QtForPython gem + DccScriptingInterface. Substitutes after PySide6 is rebuilt against system Qt6 + system Python (FEDORA_ROADMAP stage 3 / Option B).",
       "licenses": [
         {
           "expression": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only"
@@ -242,12 +241,11 @@
         "build-dep:clang",
         "build-dep:python3-devel",
         "build-dep:git-lfs",
-        "build-dep:qt6-qtbase-devel",
-        "runtime-dep:qt6-qtbase-gui",
         "runtime-dep:vulkan-loader",
         "runtime-dep:mesa-libGL",
         "system-swap-set",
         "copr-dep:o3de-dependencies",
+        "bundled:qt6-6.10.2",
         "bundled:pyside6-6.10.2",
         "bundled:openssl-1.1.1t",
         "bundled:clang-toolchain",

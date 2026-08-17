@@ -103,6 +103,16 @@
 # is gated off by Patch0014's LY_USE_SYSTEM_QT hook; the shim
 # (FindQt6-system.cmake) is copied to cmake/3rdParty/FindQt.cmake at %%prep so
 # the engine's find_package(Qt ... MODULE) resolves the system Qt6.
+#
+# NOT SHIPPED as of 2026-08-17: the shipped channels reverted to bundled Qt6
+# (swap_hook activates Patch0014 for the 17 swaps in its place). The bundled
+# PySide6 links upstream Qt's major-scoped libQt6Core.so.6(Qt_6_PRIVATE_API);
+# Fedora's Qt6 only provides the minor-scoped Qt_6.11_PRIVATE_API, so a
+# system-Qt6 build is uninstallable on clean Fedora (it resolves only where a
+# sibling bundled-Qt6 o3de package happens to supply the old symbol) and would
+# disable QtForPython/DCCsi. All of this machinery is kept intact + default-off
+# for Option B (rebuild PySide6 against system Qt6; see upstream-drafts/), which
+# is the path back to a genuinely bundled-Qt-free Fedora RPM.
 %bcond_with system_qt6
 
 # Snapshot-against-o3de/development builds must skip the carry-patches whose
