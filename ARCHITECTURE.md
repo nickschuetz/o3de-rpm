@@ -9,7 +9,7 @@ flowchart TB
     subgraph SRC["Source acquisition"]
         S1["github.com/o3de/o3de releases<br/>tag tarball + LFS bundle"]
         S2["github.com/o3de/o3de.git<br/>any ref + git lfs pull"]
-        SH["sources/make-snapshot-tarball.sh<br/>(git clone + git lfs pull + tar;<br/>LFS pull is load-bearing --<br/>GitHub archive endpoint strips it)"]
+        SH["sources/make-snapshot-tarball.sh<br/>(git clone + git lfs pull + tar;<br/>LFS pull is load-bearing;<br/>GitHub archive endpoint strips it)"]
         S2 --> SH --> SNAP["o3de-&lt;commit&gt;.tar.gz<br/>+ sha256"]
     end
 
@@ -63,7 +63,7 @@ flowchart TB
     subgraph DIST["Distribution channels"]
         DC1A["COPR<br/>hellaenergy/o3de<br/>(stable: tracks tagged<br/>upstream releases;<br/>see POST_RELEASE.md)"]
         DC1T["COPR<br/>hellaenergy/o3de-testing<br/>(pre-promotion soak for stable;<br/>Fedora updates-testing semantics;<br/>main HEAD -> ~48h soak -> stable)"]
-        DC1B["COPR<br/>hellaenergy/o3de-stabilization<br/>(community testers --<br/>pre-release validation;<br/>active during stab/&lt;X&gt; windows)"]
+        DC1B["COPR<br/>hellaenergy/o3de-stabilization<br/>(community testers,<br/>pre-release validation;<br/>active during stab/&lt;X&gt; windows)"]
         DC1S["COPR<br/>hellaenergy/o3de-development<br/>(engine o3de/o3de:development;<br/>Sunday cron via<br/>snapshot-development.yml)"]
         DC1C["COPR<br/>hellaenergy/o3de-experimental<br/>(in-flight Stage 1 migrations)"]
         DC2["o3debinaries.org<br/>(upstream to O3DE CI)"]
