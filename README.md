@@ -281,9 +281,11 @@ All three engine projects use `enable_net=true` so cmake can still fetch the rem
 
 ### 2. o3debinaries.org (eventual upstream)
 
-The official O3DE binary distribution. The eventual goal is to upstream this spec into the O3DE source tree (likely under `cmake/Platform/Linux/Packaging/`) so O3DE's own CI can build the RPM and host it at o3debinaries.org alongside the .deb / snap / Windows packages. This reaches a much larger audience than COPR.
+The official O3DE binary distribution, serving the .deb / snap / Windows packages for direct download. Upstreaming the spec into the O3DE source tree (likely under `cmake/Platform/Linux/Packaging/`) so O3DE's own CI builds the RPM is still the goal, but a recent constraint reshapes what "host it there" can mean. Unlike the .deb and snap, which are self-contained bundles, this RPM resolves dependencies from a repository at install time: it Requires the `o3de-dependencies` packages (the license-clean DXC, mcpp, SPIRV-Cross, and cityhash rebuilds), which are not in Fedora, alongside the Fedora system libraries it swaps to. o3debinaries.org is a static download host, not a dnf repository, so a loose `.rpm` published there would fail dependency resolution on `dnf install` (nothing provides the `o3de-dependencies` packages).
 
-What needs to happen: align the spec with O3DE's existing packaging conventions, drop `hellaenergy/`-specific assumptions (the spec itself stays distribution-agnostic; `Makefile` targets stay local), get the spec accepted by O3DE upstream's release engineering team. Most of the prep work for Fedora inclusion carries over directly: system-lib migration (Stage 1), license-clean DXC rebuild (shipped 2026-05-08 as `o3de2605-dxc-spirv`).
+Making o3debinaries.org a real distribution point therefore needs one of: O3DE standing up an actual dnf repo (with repodata) carrying both the engine RPM and the `o3de-dependencies` packages; those dependencies landing in Fedora proper so they resolve from the distro; or folding them into the RPM itself (which fights the Fedora-clean, no-bundling direction). Until one of those exists, the working end-user path stays the COPR channels, which auto-enable `hellaenergy/o3de-dependencies` via `runtime_dependencies`, and, longer term, Fedora proper.
+
+What carries over regardless of the host: align the spec with O3DE's packaging conventions, drop `hellaenergy/`-specific assumptions (the spec itself stays distribution-agnostic; `Makefile` targets stay local), and get it accepted by O3DE's release engineering. Most Fedora-inclusion prep applies directly (Stage 1 system-lib migration, the license-clean DXC rebuild).
 
 ### 3. Fedora repo proper (long-term)
 
