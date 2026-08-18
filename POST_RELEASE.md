@@ -34,7 +34,7 @@ sha256sum o3de-<TAG>-lfs.tar.gz
 
 Put it in this repo's `sources/` rather than `~/rpmbuild/SOURCES/`; the Makefile's `_sourcedir` override and the `release-stable` preflight both expect it there.
 
-Note the sha256 value -- you'll paste it into the spec next.
+Note the sha256 value. You'll paste it into the spec next.
 
 ### 3. Spec updates
 
@@ -71,7 +71,7 @@ make srpm          # builds the SRPM locally; verifies sha256 against Source0
 ls -la ~/rpmbuild/SRPMS/o3de*-<TAG>-*.src.rpm
 ```
 
-If `make srpm` fails on sha256 mismatch, the tarball you downloaded doesn't match the value you pasted in step 3 -- recompute and try again.
+If `make srpm` fails on sha256 mismatch, the tarball you downloaded doesn't match the value you pasted in step 3. Recompute and try again.
 
 ### 6. Commit + push
 
@@ -140,11 +140,11 @@ See `CONTRIBUTING.md` "COPR Projects" section for the channel layout and the rat
 ## Failure modes
 
 - **sha256 mismatch in make srpm**: redownload the tarball; GitHub's CDN may have served partial bytes. Retry the sha256 + paste sequence.
-- **COPR build fails at %prep on a carry-patch**: the release tarball may differ from stabilization tip's last state. Check whether any of our 13 carry-patches need to retire (they should, since they targeted stabilization/26050 and that branch's tip is now folded into main). Sequence: confirm the upstream PR merged, identify the snapshot source branch, verify the merge is reachable from main at the release tag, grep the target file on the release tarball -- only retire when all four checks pass.
+- **COPR build fails at %prep on a carry-patch**: the release tarball may differ from stabilization tip's last state. Check whether any of our 13 carry-patches need to retire (they should, since they targeted stabilization/26050 and that branch's tip is now folded into main). Sequence: confirm the upstream PR merged, identify the snapshot source branch, verify the merge is reachable from main at the release tag, grep the target file on the release tarball. Only retire when all four checks pass.
 - **CS10 fails but F44/F45/rawhide pass**: known historical gaps (libunwind-devel in EPEL-10 not base CS10, RPM 4.19 spec-parser quirks). Check the build log against known CS10-specific blockers before assuming a real regression.
 
 ## Related
 
-- `CONTRIBUTING.md` -- "COPR Projects" section explains channel topology
-- `tests/README.md` -- Tier matrix for post-install validation
-- `MEMORY.md` -- session-history references
+- `CONTRIBUTING.md`: "COPR Projects" section explains channel topology
+- `tests/README.md`: Tier matrix for post-install validation
+- `MEMORY.md`: session-history references

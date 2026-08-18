@@ -2,9 +2,9 @@
 
 **Release game export works here.** These builds ship the monolithic (release, static) engine permutation alongside the default profile engine, so exporting a project in the release configuration (Project Manager "Export Launcher" with Build Monolithic on, or `o3de export-project ... -cfg release`) links and runs directly against the installed RPM, no source build of the engine required.
 
-**For stable releases, use [hellaenergy/o3de](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de/)** -- that channel tracks upstream's `main` branch (where each release is merged + tagged).
+**For stable releases, use [hellaenergy/o3de](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de/)**: that channel tracks upstream's `main` branch (where each release is merged + tagged).
 
-**For pre-release validation of the next release line, use [hellaenergy/o3de-stabilization](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-stabilization/)** -- that channel ships builds from upstream's `stabilization/<release>` branch, closer to release quality, validated continuously.
+**For pre-release validation of the next release line, use [hellaenergy/o3de-stabilization](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-stabilization/)**: that channel ships builds from upstream's `stabilization/<release>` branch, closer to release quality, validated continuously.
 
 **For an in-progress migration branch:** a separate dedicated COPR project is created rather than overloading this one (as was done for the Qt6 migration, which has since merged into development). This project (`o3de-development`) is exclusively for the `development` branch so chroot config can stay simple and predictable.
 

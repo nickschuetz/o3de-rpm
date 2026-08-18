@@ -18,13 +18,13 @@ Each tier requires more state from the prior. You can run any subset.
 | **2** | Install integrity (entry points, desktop+metainfo+icons, AppStream registration, no world-writable, ldd, sdists, version pinning) | RPM installed | ~1 s |
 | **3** | First-run user setup (`get_python.sh`, `o3de.sh register`, manifest.py patch active) | regular user, network | ~3 min (first run) |
 | **4** | Engine binary smoke (launcher, vulkan loader) | nothing extra | <1 s |
-| **5** | Project end-to-end (`o3de create-project` + `cmake -B build/linux -S .`) | Tier 3 done, network for 3rdParty CDN | ~5–10 min |
+| **5** | Project end-to-end (`o3de create-project` + `cmake -B build/linux -S .`) | Tier 3 done, network for 3rdParty CDN | ~5-10 min |
 | **6** | UI smoke (Project Manager + Editor launch under Xvfb, don't crash) | Xvfb, scrot, software Vulkan (lavapipe) for CI | ~30 s (PM only) / ~90 s (with --editor) |
-| **7** | System-swap library-health check (per-swap SONAME + sample-symbol verification + engine-binary linkage smoke). Catches Fedora-version SONAME rolls + broken engine-side system-swap linkage. Does NOT cover behavior deltas (was originally an end-to-end FBX asset-bake test; rewritten 2026-05-11 after discovering SceneAPI's hard dependency on Atom RPI gem chain made the empty-scratch-project approach unworkable -- see memory `project_tier7_cold_cache_quirk.md` + upstream issue [o3de/o3de#19743](https://github.com/o3de/o3de/issues/19743) for the proper-fix design space). | RPM installed | <1 s |
-| **8** | AssetProcessor runtime smoke -- spawn AP, verify at least one AssetBuilder child reaches "alive" state and sustains it across a 5s persistence window. Catches process-lifecycle bugs that pass build-time + linkage checks but fail at runtime. Caught its motivating bug retroactively: Patch0012 v1 (m_tetherLifetime / prctl) built green and shipped, then every spawned AssetBuilder got SIGTERM'd within 21 ms of fork -- this dual-sample design would have shown PIDs in sample 1 but none surviving to sample 2, failing the persistence phase immediately. | Tier 3 done (manifest exists), regular user | ~10-15 s |
+| **7** | System-swap library-health check (per-swap SONAME + sample-symbol verification + engine-binary linkage smoke). Catches Fedora-version SONAME rolls + broken engine-side system-swap linkage. Does NOT cover behavior deltas (was originally an end-to-end FBX asset-bake test; rewritten 2026-05-11 after discovering SceneAPI's hard dependency on Atom RPI gem chain made the empty-scratch-project approach unworkable: see memory `project_tier7_cold_cache_quirk.md` + upstream issue [o3de/o3de#19743](https://github.com/o3de/o3de/issues/19743) for the proper-fix design space). | RPM installed | <1 s |
+| **8** | AssetProcessor runtime smoke: spawn AP, verify at least one AssetBuilder child reaches "alive" state and sustains it across a 5s persistence window. Catches process-lifecycle bugs that pass build-time + linkage checks but fail at runtime. Caught its motivating bug retroactively: Patch0012 v1 (m_tetherLifetime / prctl) built green and shipped, then every spawned AssetBuilder got SIGTERM'd within 21 ms of fork. This dual-sample design would have shown PIDs in sample 1 but none surviving to sample 2, failing the persistence phase immediately. | Tier 3 done (manifest exists), regular user | ~10-15 s |
 | **9** | MultiplayerSample build+bake+launcher-load smoke. Clone `o3de-multiplayersample` + companion `o3de-multiplayersample-assets` from upstream, auto-recover LFS objects if pointer files detected (fork-URL + batchSize=10 workaround for the AWS Lambda backend), register gems+project against the installed engine, cmake configure + ninja-build all four targets (`MultiplayerSample.GameLauncher` client, `ServerLauncher` graphical server, `HeadlessServerLauncher` dedicated server, and the bare `MultiplayerSample` gem that AssetProcessor needs for BehaviorContext at bake time), run AssetProcessorBatch over the full project on `--platforms=linux`, smoke the launcher requiring a positive "Game Level Load Time:" marker in `user/log/Game.log`. Catches regressions that the cube.fbx Tier 7 health-check can't: project-build pipeline (cmake configure against installed engine, gem resolution, AzslcCompile, ShaderAssetBuilder), multi-level asset tree, and a real community game with networking/replication/gameplay scripting. Launcher loads `startmenu` cleanly; full host+connect via `make play-mps-host` + `make play-mps-client` (see README). Branch alignment: multiplayersample tracks O3DE's `development`; no `stabilization/26050` branch exists in multiplayersample (last was `stabilization/25100`), so the 26.05.x engine + multiplayersample-dev pairing is a known directional mismatch. **NOT** part of `make test` (build/disk footprint); explicit-only via `make test-multiplayer-sample`. | RPM installed, ~10 GB disk, network, `git lfs`, clang/cmake/ninja | ~60-90 min cold / ~3-10 min warm |
-| **10** | NewspaperDeliveryGame (Paper_Kid) build+bake+playable-game smoke -- clones from `nickschuetz/NewspaperDeliveryGame` (fork) at a pinned SHA, auto-recovers LFS objects if pointer files detected (fork-URL + batchSize=10), registers the project against the installed engine, cmake configure, runs AssetProcessorBatch over the full project on `--platforms=linux` (2-pass absorber), launcher smoke under DISPLAY with `--regset LoadLevel=CharacterSample` + `bg_ConnectToAssetProcessor=0` overrides, requires a positive "Game Level Load Time:" success marker. Sister tier to Tier 9 but a different project shape: `script_only=true` (no native C++ gem code), single-player, heavy LyShine + LandscapeCanvas + WhiteBox + EMotionFX surface. Lower cost than Tier 9 (no native link phase). PASSES end-to-end on Fedora 44 / NVIDIA RTX 2080 Ti / Vulkan RHI as of 2026-05-21 -- the test infrastructure validates a real playable game (Newspaper Delivery Game's title screen, character control, gameplay HUD: score / lives / home-time timer / newspaper count). Uses Nick's fork rather than upstream directly so the `test` branch can carry Linux-specific fixes without diverging public-facing `main`. **NOT** part of `make test`; explicit-only via `make test-newspaper-delivery`. First clean pass 2026-05-21 after [o3de/NewspaperDeliveryGame#19](https://github.com/o3de/NewspaperDeliveryGame/issues/19) (LFS-server 403) was fixed Amazon-side. | RPM installed, ~2-3 GB disk, network, clang/cmake/ninja | ~30-60 min cold-cache / ~3-10 min warm-cache |
-| **11** | Post-load liveness smoke -- launches a previously-baked project (Tier 9 / Tier 10 must have run first; the cache must be populated), waits for `Game Level Load Time:` in Game.log (= LEVEL_LOAD_END reached), then continues running for a fixed window (default 60 s, env `LIVENESS_SECONDS`). Verifies (a) launcher was alive at end-of-window (timeout fired, didn't crash earlier), (b) zero crash markers in Game.log over the window, (c) the success marker was actually present, (d) Game.log accumulated at least `LIVENESS_MIN_NEW_LINES` (default 50) new lines during the window -- evidence the engine main loop continued doing work, not frozen. Catches "level loaded but engine froze immediately" -- a failure mode Tier 9 / Tier 10 cannot detect because they only check the level-load success marker is present at some point. Parameterized by `PROJECT=newspaper\|multiplayer`. **NOT** part of `make test`; explicit-only via `make test-tier11` / `make test-tier11-multiplayer`. | DISPLAY available, Tier 9 or 10 cache present | ~window + 5-10 s overhead |
+| **10** | NewspaperDeliveryGame (Paper_Kid) build+bake+playable-game smoke: clones from `nickschuetz/NewspaperDeliveryGame` (fork) at a pinned SHA, auto-recovers LFS objects if pointer files detected (fork-URL + batchSize=10), registers the project against the installed engine, cmake configure, runs AssetProcessorBatch over the full project on `--platforms=linux` (2-pass absorber), launcher smoke under DISPLAY with `--regset LoadLevel=CharacterSample` + `bg_ConnectToAssetProcessor=0` overrides, requires a positive "Game Level Load Time:" success marker. Sister tier to Tier 9 but a different project shape: `script_only=true` (no native C++ gem code), single-player, heavy LyShine + LandscapeCanvas + WhiteBox + EMotionFX surface. Lower cost than Tier 9 (no native link phase). PASSES end-to-end on Fedora 44 / NVIDIA RTX 2080 Ti / Vulkan RHI as of 2026-05-21: the test infrastructure validates a real playable game (Newspaper Delivery Game's title screen, character control, gameplay HUD: score / lives / home-time timer / newspaper count). Uses Nick's fork rather than upstream directly so the `test` branch can carry Linux-specific fixes without diverging public-facing `main`. **NOT** part of `make test`; explicit-only via `make test-newspaper-delivery`. First clean pass 2026-05-21 after [o3de/NewspaperDeliveryGame#19](https://github.com/o3de/NewspaperDeliveryGame/issues/19) (LFS-server 403) was fixed Amazon-side. | RPM installed, ~2-3 GB disk, network, clang/cmake/ninja | ~30-60 min cold-cache / ~3-10 min warm-cache |
+| **11** | Post-load liveness smoke: launches a previously-baked project (Tier 9 / Tier 10 must have run first; the cache must be populated), waits for `Game Level Load Time:` in Game.log (= LEVEL_LOAD_END reached), then continues running for a fixed window (default 60 s, env `LIVENESS_SECONDS`). Verifies (a) launcher was alive at end-of-window (timeout fired, didn't crash earlier), (b) zero crash markers in Game.log over the window, (c) the success marker was actually present, (d) Game.log accumulated at least `LIVENESS_MIN_NEW_LINES` (default 50) new lines during the window: evidence the engine main loop continued doing work, not frozen. Catches "level loaded but engine froze immediately", a failure mode Tier 9 / Tier 10 cannot detect because they only check the level-load success marker is present at some point. Parameterized by `PROJECT=newspaper\|multiplayer`. **NOT** part of `make test`; explicit-only via `make test-tier11` / `make test-tier11-multiplayer`. | DISPLAY available, Tier 9 or 10 cache present | ~window + 5-10 s overhead |
 | **12** *(future)* | Render correctness (compare rendered scene to reference) | GPU-equipped runner | varies |
 
 Tiers 1, 2, 4 are read-only and safe on a developer machine. Tier 3 modifies `~/.o3de/` (creates the per-user venv). Tier 5 creates a temporary project that's cleaned up on exit.
@@ -40,25 +40,25 @@ tests/integration-test.sh                          # tiers 1, 2, 4
 tests/integration-test.sh --setup                  # also tier 3
 tests/integration-test.sh --setup --with-project   # also tier 5
 
-# UI smoke (tier 6) — Project Manager + (optional) Editor
+# UI smoke (tier 6): Project Manager + (optional) Editor
 sudo dnf install -y xorg-x11-server-Xvfb scrot xdpyinfo
 tests/ui-smoke-test.sh                             # Project Manager smoke
 tests/ui-smoke-test.sh --editor                    # also Editor scripted run
 tests/ui-smoke-test.sh --editor --screenshot      # with screenshots
 
-# System-swap library-health check (tier 7) -- per-swap SONAME + symbol +
+# System-swap library-health check (tier 7): per-swap SONAME + symbol +
 # engine linkage smoke for all active Stage 1 swaps. Runs in seconds.
 tests/asset-bake-test.sh                           # default: auto-detect installed pkg
 O3DE_PKGNAME=o3de2605 tests/asset-bake-test.sh     # explicit pkg override
 
-# AssetProcessor runtime smoke (tier 8) -- spawn AP against a registered
+# AssetProcessor runtime smoke (tier 8): spawn AP against a registered
 # project + verify a builder reaches and sustains "alive" state across a
 # 5s persistence window. Catches process-lifecycle bugs that build-time
 # checks miss (e.g., Patch0012 v1's thread-death prctl misuse).
 tests/ap-spawn-smoke-test.sh                       # auto-pick first manifest project
 O3DE_TEST_PROJECT_PATH=/path tests/ap-spawn-smoke-test.sh   # explicit
 
-# MultiplayerSample build+bake smoke (tier 9) -- clone the
+# MultiplayerSample build+bake smoke (tier 9): clone the
 # o3de-multiplayersample project + its companion -assets gem repo,
 # register both against the installed engine, cmake configure + ninja
 # build the GameLauncher, run AssetProcessorBatch for the project,
@@ -94,12 +94,12 @@ This is the workflow we expect O3DE engine contributors to use to validate their
 
 ### CI (GitHub Actions)
 
-`.github/workflows/test-installed.yml` runs the test suite in clean Fedora containers (current matrix: `fedora-44`, `fedora-45`, `fedora-rawhide`) against an RPM URL — typically a COPR build artifact.
+`.github/workflows/test-installed.yml` runs the test suite in clean Fedora containers (current matrix: `fedora-44`, `fedora-45`, `fedora-rawhide`) against an RPM URL, typically a COPR build artifact.
 
 Trigger via GitHub UI ("Run workflow") with:
-- **`rpm_url`** — URL of the RPM to test (e.g. `https://download.copr.fedorainfracloud.org/results/.../o3de-...rpm`)
-- **`run_setup`** — also run Tier 3 (default: yes)
-- **`run_project`** — also run Tier 5 (default: no, takes longer)
+- **`rpm_url`**: URL of the RPM to test (e.g. `https://download.copr.fedorainfracloud.org/results/.../o3de-...rpm`)
+- **`run_setup`**: also run Tier 3 (default: yes)
+- **`run_project`**: also run Tier 5 (default: no, takes longer)
 
 For automated COPR → CI integration, configure a COPR webhook that triggers this workflow with the build artifact URL. That gives the O3DE community a "branch X is healthy on Fedora" badge per build.
 
@@ -116,8 +116,8 @@ For automated COPR → CI integration, configure a COPR webhook that triggers th
 - No world-writable files in the install prefix (`/opt/O3DE/<version>/`)
 - Pre-built sdists for `scripts/o3de`, `Tools/LyTestTools`, `Tools/RemoteConsole/ly_remote_console`
 - `ldd` clean on engine binaries
-- Stage 1 system-library swap consistency (when an `o3de` RPM declares e.g. `Requires: mikkelsen`, an engine .so under `bin/Linux/profile/Default/` must actually link to `libmikktspace.so.*` — catches regressions where the spec activates the swap but cmake silently falls back to bundling)
-- Project Manager window-title carries a version-shaped string (`\d+\.\d+\.\d+`) — Tier 6 regression guard for Patch0005's WindowDecorationWrapper title propagation
+- Stage 1 system-library swap consistency (when an `o3de` RPM declares e.g. `Requires: mikkelsen`, an engine .so under `bin/Linux/profile/Default/` must actually link to `libmikktspace.so.*`: catches regressions where the spec activates the swap but cmake silently falls back to bundling)
+- Project Manager window-title carries a version-shaped string (`\d+\.\d+\.\d+`), Tier 6 regression guard for Patch0005's WindowDecorationWrapper title propagation
 - get_python.sh + o3de.sh register success
 - manifest.py patch active in venv
 - Engine registered in user manifest
@@ -129,8 +129,8 @@ For automated COPR → CI integration, configure a COPR webhook that triggers th
 - Full upgrade path test (install old → install new → verify state migrated)
 - Cross-Fedora upgrade test (install on F44, upgrade to F45)
 - Per-field azmodel comparison vs a checked-in reference (Tier 7 today is structural-only: file-presence + size + POSITION-marker + error-log clean. Adding a vertex-count + per-channel comparison against a reference baked under bundled-assimp is the obvious next iteration)
-- Tier 12: render correctness (Vulkan render vs reference image) — needs GPU-equipped runners
-- Tier 13 (future): visual regression (screenshots → pixel-diff against baselines per Fedora version) — pattern documented, not yet implemented
+- Tier 12: render correctness (Vulkan render vs reference image), needs GPU-equipped runners
+- Tier 13 (future): visual regression (screenshots → pixel-diff against baselines per Fedora version), pattern documented, not yet implemented
 
 The "not covered" items are tracked here so contributors can pick them up. None are blockers for a useful first version.
 
@@ -146,10 +146,10 @@ skipped "<name>" "<reason>"          # explicitly not run (e.g. requires --setup
 ```
 
 Tests should be:
-- **Idempotent** — running twice produces the same result
-- **Independent** — a Tier 2 test doesn't assume Tier 3 has run
-- **Self-explanatory** — the test name is enough to understand what failed
-- **Fast** — sub-second where possible; minutes for Tier 5 only
+- **Idempotent**: running twice produces the same result
+- **Independent**: a Tier 2 test doesn't assume Tier 3 has run
+- **Self-explanatory**: the test name is enough to understand what failed
+- **Fast**: sub-second where possible; minutes for Tier 5 only
 
 ## License
 

@@ -15,9 +15,9 @@ Both samples build and run on Fedora 44 against the installed engine; the questi
 
 ## Evidence levels
 
-- **CONFIRMED** -- direct evidence in the repository: a license file, a `credits.md` statement, an explicit directory name, or a filename uniquely identifying the source.
-- **INFERRED** -- strong contextual evidence (naming patterns matching known catalogs, file structure consistent with known sources) without an explicit upstream statement.
-- **UNCLEAR** -- the repository alone is insufficient to determine; upstream clarification needed.
+- **CONFIRMED**: direct evidence in the repository: a license file, a `credits.md` statement, an explicit directory name, or a filename uniquely identifying the source.
+- **INFERRED**: strong contextual evidence (naming patterns matching known catalogs, file structure consistent with known sources) without an explicit upstream statement.
+- **UNCLEAR**: the repository alone is insufficient to determine; upstream clarification needed.
 
 ---
 
@@ -27,7 +27,7 @@ Two repositories in scope: `o3de/o3de-multiplayersample` (project code, sounds, 
 
 ### Asset-side license declaration
 
-**CONFIRMED** -- `o3de-multiplayersample-assets/LICENSE-CC-BY-NC-4.0.txt`, verbatim:
+**CONFIRMED**: `o3de-multiplayersample-assets/LICENSE-CC-BY-NC-4.0.txt`, verbatim:
 
 > Copyright 2022 Amazon.com, Inc. or its affiliates, all rights reserved.
 >
@@ -39,7 +39,7 @@ The asset repo also ships `LICENSE-CC-BY-4.0.txt`, `LICENSE_APACHE2.TXT`, and `L
 
 ### Third-party contributed assets
 
-**CONFIRMED** -- `o3de-multiplayersample/credits.md` (2305 release block, still current on `development`):
+**CONFIRMED**: `o3de-multiplayersample/credits.md` (2305 release block, still current on `development`):
 
 > ## Special Thanks
 >
@@ -64,7 +64,7 @@ These terms shape what kind of work derived from MPS can be distributed and unde
 
 ### Music tracks
 
-**CONFIRMED** -- `credits.md` Music section:
+**CONFIRMED**: `credits.md` Music section:
 
 > "Rocket", "Beauty Flow", "Future Gladiator" Kevin MacLeod (incompetech.com)
 > Licensed under Creative Commons: By Attribution 4.0 License
@@ -74,13 +74,13 @@ The three Kevin MacLeod tracks are present as `.wav` files in `o3de-multiplayers
 
 ### PopcornFX VFX
 
-**UNCLEAR** -- `o3de-multiplayersample/PopcornFX/` directory currently contains `.pkfx` particle effect files including `Straight_Shot_Effect.pkfx`, `SpaceSoldiers_Gun_Impact.pkfx`, `VFX_SpeedPowerUp.pkfx`, `FX_JumpPad.pkfx`, and more. The `credits.md` "Special Thanks" line cites PopcornFX as a VFX contributor.
+**UNCLEAR**: `o3de-multiplayersample/PopcornFX/` directory currently contains `.pkfx` particle effect files including `Straight_Shot_Effect.pkfx`, `SpaceSoldiers_Gun_Impact.pkfx`, `VFX_SpeedPowerUp.pkfx`, `FX_JumpPad.pkfx`, and more. The `credits.md` "Special Thanks" line cites PopcornFX as a VFX contributor.
 
 A downstream note (in the o3de-rpm scratchpad) recorded that PR #499 removed PopcornFX VFX. The `.pkfx` files being currently present suggests one of: the removal didn't merge, it removed a different scope, it was reverted, or the note was inaccurate. Upstream clarification would resolve this and the broader question of whether MPS still depends on the PopcornFX runtime at all.
 
 ### Engine + scripted content
 
-**CONFIRMED** -- `o3de-multiplayersample/LICENSE.txt`, `LICENSE_APACHE2.TXT`, `LICENSE_MIT.TXT` confirm the engine-code and project-script components are Apache-2.0 OR MIT.
+**CONFIRMED**: `o3de-multiplayersample/LICENSE.txt`, `LICENSE_APACHE2.TXT`, `LICENSE_MIT.TXT` confirm the engine-code and project-script components are Apache-2.0 OR MIT.
 
 ### MPS summary
 
@@ -94,13 +94,13 @@ Single repository at `o3de/NewspaperDeliveryGame`.
 
 ### Asset-side license declaration
 
-**CONFIRMED** -- no `credits.md` file exists at the repository root. The only license-touching files at the project root are `LICENSE.txt`, `LICENSE_APACHE2.TXT`, `LICENSE_MIT.TXT`. The `LICENSE.txt` is the standard upstream O3DE boilerplate covering engine code; it includes a "THIRD PARTY COMPONENTS" section that says "It is your responsibility to comply with the applicable licenses" but does NOT list specific third-party assets contributed to this project.
+**CONFIRMED**: no `credits.md` file exists at the repository root. The only license-touching files at the project root are `LICENSE.txt`, `LICENSE_APACHE2.TXT`, `LICENSE_MIT.TXT`. The `LICENSE.txt` is the standard upstream O3DE boilerplate covering engine code; it includes a "THIRD PARTY COMPONENTS" section that says "It is your responsibility to comply with the applicable licenses" but does NOT list specific third-party assets contributed to this project.
 
-**UNCLEAR** -- without a `credits.md` or comparable asset-license disclosure, the asset provenance of this project is not documented in the repository. The repository contains 41 `.fbx` mesh / motion files, 60 `.png` textures, 159 `.material` files, plus a smattering of `.jpg`, `.font`, `.uicanvas`. None carry per-file license disclosures.
+**UNCLEAR**: without a `credits.md` or comparable asset-license disclosure, the asset provenance of this project is not documented in the repository. The repository contains 41 `.fbx` mesh / motion files, 60 `.png` textures, 159 `.material` files, plus a smattering of `.jpg`, `.font`, `.uicanvas`. None carry per-file license disclosures.
 
 ### Mixamo-pattern character + motion evidence
 
-**INFERRED** -- the motion files in `Assets/Motions/` have names consistent with Adobe Mixamo's published motion catalog naming:
+**INFERRED**: the motion files in `Assets/Motions/` have names consistent with Adobe Mixamo's published motion catalog naming:
 
 ```
 Fast Run.fbx       Happy Idle.fbx     Jump.fbx
@@ -111,7 +111,7 @@ Throw.fbx          Walking.fbx
 
 These names match the display-name pattern Mixamo uses (Mixamo's web UI presents motions with display names that default-name the downloaded `.fbx`). They are also names that could occur in other motion libraries; the inference is suggestive, not definitive.
 
-**INFERRED** -- `Assets/Actors/Paper_Kid_jer_walk_Jerrey.material` contains the substring `Jerrey` and the `jer_walk` infix. This naming pattern is consistent with workflows where a Mixamo-derived rig is renamed or paired with a custom character label, but "Jerrey" does not match a known Mixamo preset character name list, so the strongest claim available is "consistent with Mixamo workflow," not a definitive identifier.
+**INFERRED**: `Assets/Actors/Paper_Kid_jer_walk_Jerrey.material` contains the substring `Jerrey` and the `jer_walk` infix. This naming pattern is consistent with workflows where a Mixamo-derived rig is renamed or paired with a custom character label, but "Jerrey" does not match a known Mixamo preset character name list, so the strongest claim available is "consistent with Mixamo workflow," not a definitive identifier.
 
 The two character `.fbx` files (`Paper_Kid.fbx`, `Newsman.fbx`) ship alongside `.motionset` + `.animgraph` companions whose structure is consistent with Mixamo-rigged characters, but they are not matched to a specific Mixamo catalog entry by name.
 
@@ -119,7 +119,7 @@ Adobe Mixamo's publicly-stated licensing terms generally allow use of Mixamo con
 
 ### Neighborhood / environment assets
 
-**UNCLEAR** -- `Assets/Neighborhood/` contains assets named `Hills.fbx`, `Fence.fbx`, `HouseOne.fbx` through `HouseFour.fbx` (plus `_Dark` variants), and `HouseThree.fbx`, with no clear source attribution in filenames. Without a credits.md, the audit can't determine whether these are original O3DE-team work (Apache-2.0/MIT-eligible) or sourced from a stock asset library.
+**UNCLEAR**: `Assets/Neighborhood/` contains assets named `Hills.fbx`, `Fence.fbx`, `HouseOne.fbx` through `HouseFour.fbx` (plus `_Dark` variants), and `HouseThree.fbx`, with no clear source attribution in filenames. Without a credits.md, the audit can't determine whether these are original O3DE-team work (Apache-2.0/MIT-eligible) or sourced from a stock asset library.
 
 ### NewspaperDeliveryGame summary
 

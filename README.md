@@ -31,7 +31,7 @@ o3de-rpm/
 │   └── snapshot-development.yml                       #   weekly dev-tip rebuild into o3de-development (Sunday 06UTC)
 ├── tests/                                             # post-install test suite
 │   ├── README.md                                      #   tier breakdown + community usage
-│   ├── integration-test.sh                            #   tiers 1–5 against installed RPM
+│   ├── integration-test.sh                            #   tiers 1-5 against installed RPM
 │   ├── ui-smoke-test.sh                               #   tier 6: Project Manager + Editor smoke under Xvfb
 │   └── test-branch.sh                                 #   build + install + test from git ref
 ├── copr-metadata/                                     # mirror of each COPR project's user-facing docs
@@ -47,17 +47,17 @@ o3de-rpm/
 └── sources/                                           # rpm SOURCES dir (sources + patches)
     ├── o3de-launcher.sh                               # /usr/bin/o3deNNNN wrapper (Project Manager / Editor GUI)
     ├── o3de-cli                                       # /usr/bin/o3deNNNN-cli wrapper (project / gem / engine management)
-    ├── o3de.desktop                                   # .desktop entry (Project Manager) — mutated to <pkgname>.desktop at install
-    ├── o3de-editor.desktop                            # .desktop entry (Editor) — NoDisplay=true; exists for dock-icon WM_CLASS pairing
-    ├── o3de-material-editor.desktop                   # .desktop entry (Material Editor) — NoDisplay=true; same pattern
-    ├── o3de-material-canvas.desktop                   # .desktop entry (Material Canvas) — NoDisplay=true; same pattern
-    ├── o3de.metainfo.xml                              # AppStream metainfo — id mutated to org.o3de.O3DE<NNNN> at install
+    ├── o3de.desktop                                   # .desktop entry (Project Manager), mutated to <pkgname>.desktop at install
+    ├── o3de-editor.desktop                            # .desktop entry (Editor), NoDisplay=true; exists for dock-icon WM_CLASS pairing
+    ├── o3de-material-editor.desktop                   # .desktop entry (Material Editor), NoDisplay=true; same pattern
+    ├── o3de-material-canvas.desktop                   # .desktop entry (Material Canvas), NoDisplay=true; same pattern
+    ├── o3de.metainfo.xml                              # AppStream metainfo, id mutated to org.o3de.O3DE<NNNN> at install
     ├── o3de{2605,2610}.cdx.json                       # CycloneDX SBOM, one file per major line (o3de2610 added for 26.10; the spec picks by stable_tag)
     ├── make-snapshot-tarball.sh                       # snapshot builder (git clone + git lfs pull + tar; LFS pull is load-bearing)
-    ├── o3de-{16,32,48,64,128,256}x*.png               # hicolor app icons (Project Manager — Windows ProjectManager-Icon.ico extract)
-    ├── o3de-editor-{16,32,48,64,128,256}x*.png        # hicolor app icons (Editor — Windows o3de_editor.ico extract)
-    ├── o3de-material-editor-*.png                     # hicolor app icons (Material Editor — Windows MaterialEditor.ico extract)
-    ├── o3de-material-canvas-*.png                     # hicolor app icons (Material Canvas — Windows MaterialCanvas.ico extract)
+    ├── o3de-{16,32,48,64,128,256}x*.png               # hicolor app icons (Project Manager, Windows ProjectManager-Icon.ico extract)
+    ├── o3de-editor-{16,32,48,64,128,256}x*.png        # hicolor app icons (Editor, Windows o3de_editor.ico extract)
+    ├── o3de-material-editor-*.png                     # hicolor app icons (Material Editor, Windows MaterialEditor.ico extract)
+    ├── o3de-material-canvas-*.png                     # hicolor app icons (Material Canvas, Windows MaterialCanvas.ico extract)
     ├── 0001-clang21-warning-suppressions.patch        # 19 patches (0001-0019); see "Patches" section for the table
     ├── 0002-manifest-py-engine-path-detection.patch   #   seven carry TIMEBOMB notes (upstream-merged; gated off by --with development_snapshot)
     ├── ... (0003 through 0019)                        #   incl. 0012-v2 (AssetBuilder watchdog); 0014 swap_hook (17-swap gate); 0016 system_tiff; 0017/0019 system_qt6 (inactive since bundled-Qt6 revert); 0018 pessimizing-move (dev-snapshot)
@@ -65,8 +65,8 @@ o3de-rpm/
     ├── Findexpat-system.cmake                         #   when the matching --with system_<lib> bcond is on):
     ├── FindZLIB-system.cmake                          #   Stage 1: mikkelsen, expat, ZLIB, Freetype, PNG, Lua, lz4, OpenEXR,
     ├── ... (FindFreetype, FindPNG, FindLua,           #     Imath, assimp, libsamplerate, poly2tri, SQLite, GoogleBenchmark,
-    ├──      Find{RapidJSON,xxhash,cityhash},          #     RapidJSON (F44/F45/rawhide only -- CS10 EPEL rapidjson too old), xxhash, cityhash
-    ├──      Findlz4, FindOpenEXR, FindImath,          #     (no vulkan_validation_layers shim — that swap is runtime-discovered
+    ├──      Find{RapidJSON,xxhash,cityhash},          #     RapidJSON (F44/F45/rawhide only: CS10 EPEL rapidjson too old), xxhash, cityhash
+    ├──      Findlz4, FindOpenEXR, FindImath,          #     (no vulkan_validation_layers shim, that swap is runtime-discovered
     ├──      Findassimp, Findlibsamplerate,            #      via VK_LAYER_PATH, no cmake-side find shim)
     ├──      Findpoly2tri, FindSQLite,                 #   Stage 2 library-link: Findmcpp-system.cmake
     ├──      FindGoogleBenchmark)                      #   incl. FindTIFF-system.cmake (system_tiff active on stabilization since -102
@@ -75,7 +75,7 @@ o3de-rpm/
     └── FindGoogleBenchmark-system.cmake               # ACTIVE in stabilization chroots since 2026-05-12
 ```
 
-`rpmbuild` reads sources from `_sourcedir`, so build invocations point both `_sourcedir` and `_specdir` at this checkout — no copying into `~/rpmbuild/SOURCES`.
+`rpmbuild` reads sources from `_sourcedir`, so build invocations point both `_sourcedir` and `_specdir` at this checkout, no copying into `~/rpmbuild/SOURCES`.
 
 ---
 
@@ -112,7 +112,7 @@ rpmbuild -bb \
 
 The spec's `--with snapshot` mode builds from any git ref of `o3de/o3de` instead of an upstream-tagged release tarball. **Which COPR project the resulting RPM lands in depends on the git ref**, not on the rpm mode:
 
-- **`stabilization/<release>`** (currently `stabilization/26100`, the 26.10 pre-release branch cut 2026-08-11 — the default `REF`) → `hellaenergy/o3de-stabilization`. Active during the upstream stabilization window (~4 weeks per release cycle); dormant between cycles. Invoke with `make srpm-stabilization` / `make copr-stabilization`. Because 26100 was cut from development tip, `srpm-stabilization` now also sets `--with development_snapshot` so the dev-aligned carry-patches retire (see Patches).
+- **`stabilization/<release>`** (currently `stabilization/26100`, the 26.10 pre-release branch cut 2026-08-11, the default `REF`) → `hellaenergy/o3de-stabilization`. Active during the upstream stabilization window (~4 weeks per release cycle); dormant between cycles. Invoke with `make srpm-stabilization` / `make copr-stabilization`. Because 26100 was cut from development tip, `srpm-stabilization` now also sets `--with development_snapshot` so the dev-aligned carry-patches retire (see Patches).
 - **`development`** → `hellaenergy/o3de-development` (auto-refreshed weekly Sunday 06:00 UTC via `.github/workflows/snapshot-development.yml`; the workflow dedups against the last successful build so quiet weeks skip). Manual fires: `make copr-development` locally, or workflow_dispatch from the Actions tab with the optional `force` input to bypass dedup.
 - **arbitrary other ref** (e.g. a one-off feature branch or a release candidate under test) → dedicated COPR project per branch. Build locally with `make srpm-snapshot-ref REF=<other>` and `copr-cli build` directly.
 
@@ -187,9 +187,9 @@ The o3de2605 RPM is split into a small number of subpackages so each install can
 
 - **Smaller default install.** The post-split main package is ~1.7 GB compressed (down from ~2.2 GB pre-split, roughly 22% smaller). On disk, runtime-only deployments save ~4 GB by skipping the engine static archives. (The default `dnf install o3de2605` still pulls `-devel` via `Recommends:` so project authors get a working build out of the box; runtime-only consumers opt out with `--setopt=install_weak_deps=False`.)
 - **Right tool for your use case.** Three orthogonal install dimensions: *runtime* (the main package's binaries; sufficient to launch Project Manager + the Editor), *static-archive link surface for building projects* (`-devel`; auto-recommended), *step-through debuggability of engine internals* (`-debug`). Project authors get the runtime + `-devel` pair by default; engine-internal debuggers add `-debug`; pure runtime-only deployments opt out of `-devel`.
-- **CI- and container-friendly.** Game distribution servers shipping pre-built games, CI test containers, and minimal Docker images can skip ~4 GB of compiler-side material. `dnf install --setopt=install_weak_deps=False o3de2605` opts out of even the project-build `*-devel` system Recommends list — the absolute floor for a runtime-only deployment.
-- **Aligned with Fedora packaging guidelines.** Fedora's [Packaging Guidelines](https://docs.fedoraproject.org/en-US/packaging-guidelines/) require a `-devel` subpackage for any C/C++ package shipping static libraries, and recommend split-by-purpose for large packages. Doing this split proactively (rather than during the Fedora package review) removes one entire class of review friction. Same with the project-build `*-devel` Recommends pattern (clang, mesa-libGL[U]-devel, libxcb-devel, the xcb-util-*-devel suite (xcb-util-devel, xcb-util-image-devel, xcb-util-keysyms-devel, xcb-util-renderutil-devel, xcb-util-wm-devel), libxkbcommon-devel, libxkbcommon-x11-devel, fontconfig-devel, libcurl-devel, pcre2-devel, openssl-devel, libunwind-devel, libzstd-devel, zlib-devel, vim-common, plus per-active Stage 1 swap like mikkelsen-devel) — testers get a working build experience by default; minimal users opt out.
-- **Forward-compatible with multi-major.** When `o3de2605-devel` and `o3de2610-devel` both exist someday, they're independent — install the devel surface only for the major you actually develop against, not all of them.
+- **CI- and container-friendly.** Game distribution servers shipping pre-built games, CI test containers, and minimal Docker images can skip ~4 GB of compiler-side material. `dnf install --setopt=install_weak_deps=False o3de2605` opts out of even the project-build `*-devel` system Recommends list, the absolute floor for a runtime-only deployment.
+- **Aligned with Fedora packaging guidelines.** Fedora's [Packaging Guidelines](https://docs.fedoraproject.org/en-US/packaging-guidelines/) require a `-devel` subpackage for any C/C++ package shipping static libraries, and recommend split-by-purpose for large packages. Doing this split proactively (rather than during the Fedora package review) removes one entire class of review friction. Same with the project-build `*-devel` Recommends pattern (clang, mesa-libGL[U]-devel, libxcb-devel, the xcb-util-*-devel suite (xcb-util-devel, xcb-util-image-devel, xcb-util-keysyms-devel, xcb-util-renderutil-devel, xcb-util-wm-devel), libxkbcommon-devel, libxkbcommon-x11-devel, fontconfig-devel, libcurl-devel, pcre2-devel, openssl-devel, libunwind-devel, libzstd-devel, zlib-devel, vim-common, plus per-active Stage 1 swap like mikkelsen-devel): testers get a working build experience by default; minimal users opt out.
+- **Forward-compatible with multi-major.** When `o3de2605-devel` and `o3de2610-devel` both exist someday, they're independent: install the devel surface only for the major you actually develop against, not all of them.
 
 ### What's in each package
 
@@ -207,7 +207,7 @@ The main RPM ships alongside up to two optional subpackages:
 
 ## Using the installed RPM
 
-Each major release ships as its own versioned package (`o3de2605`, `o3de2610`, …) so multiple O3DE versions can coexist. Two PATH-installed entry points per package — the examples below use 26.05.0 (`o3de2605`):
+Each major release ships as its own versioned package (`o3de2605`, `o3de2610`, …) so multiple O3DE versions can coexist. Two PATH-installed entry points per package; the examples below use 26.05.0 (`o3de2605`):
 
 | Command | Purpose |
 |---|---|
@@ -230,7 +230,7 @@ o3de2605-cli sha256 <file>                             # compute the hash O3DE e
 
 State written by either command lives under `~/.o3de/` (engine registration manifest, per-user Python venvs keyed by engine path, project user data). The engine root at `/opt/O3DE/26.05.0/` is read-only.
 
-The first launch of `o3de2605` (or first run of `o3de2605-cli`) bootstraps the per-user Python venv automatically — see `python/get_python.sh` in the engine root if you want to pre-bootstrap or inspect.
+The first launch of `o3de2605` (or first run of `o3de2605-cli`) bootstraps the per-user Python venv automatically. See `python/get_python.sh` in the engine root if you want to pre-bootstrap or inspect.
 
 ### Multiple O3DE versions on one machine
 
@@ -253,11 +253,11 @@ ls /opt/O3DE/                                 # 26.05.0  26.10.0
 
 This matches upstream's multi-install UX. Files for both majors stay co-installed; only the active registration is single-slot. Project Manager from either launcher (`o3de2605` or `o3de2610`) routes to whichever engine is currently registered.
 
-Project Manager auto-routes a project to the right engine via the project's `engine:` field in `project.json`. Subpackages follow the same versioning — `o3de2605-debug` and `o3de2610-debug` are independent and co-installable. Cross-major dnf upgrades are intentionally NOT automatic: different majors are different engine lines and you opt in explicitly with `dnf install o3de2610` when ready.
+Project Manager auto-routes a project to the right engine via the project's `engine:` field in `project.json`. Subpackages follow the same versioning: `o3de2605-debug` and `o3de2610-debug` are independent and co-installable. Cross-major dnf upgrades are intentionally NOT automatic: different majors are different engine lines and you opt in explicitly with `dnf install o3de2610` when ready.
 
 ### Gems with system runtime dependencies
 
-This RPM ships the engine plus the ~117 gems sourced from the `o3de/o3de` repository. Additional gems live in [`o3de/o3de-extras`](https://github.com/o3de/o3de-extras) and are discovered automatically by Project Manager via a default-registered remote gem repository — they appear in the gem catalog with a download-cloud icon and fetch on demand into `~/.o3de/gems/<gem-name>/` when you click "Download Gem". Some of those remote gems require external runtime libraries the engine RPM does NOT bundle (most notably the ROS 2 family, AudioEngineWwise, OpenXRVk). See [`docs/GEMS_WITH_SYSTEM_DEPS.md`](docs/GEMS_WITH_SYSTEM_DEPS.md) for which gems need what, install paths for each runtime on Fedora 44+ / CentOS Stream 10+, and the project-build workflow.
+This RPM ships the engine plus the ~117 gems sourced from the `o3de/o3de` repository. Additional gems live in [`o3de/o3de-extras`](https://github.com/o3de/o3de-extras) and are discovered automatically by Project Manager via a default-registered remote gem repository. They appear in the gem catalog with a download-cloud icon and fetch on demand into `~/.o3de/gems/<gem-name>/` when you click "Download Gem". Some of those remote gems require external runtime libraries the engine RPM does NOT bundle (most notably the ROS 2 family, AudioEngineWwise, OpenXRVk). See [`docs/GEMS_WITH_SYSTEM_DEPS.md`](docs/GEMS_WITH_SYSTEM_DEPS.md) for which gems need what, install paths for each runtime on Fedora 44+ / CentOS Stream 10+, and the project-build workflow.
 
 ---
 
@@ -265,7 +265,7 @@ This RPM ships the engine plus the ~117 gems sourced from the `o3de/o3de` reposi
 
 The o3de RPM has three distribution targets, in order of how soon each is reachable. The first (COPR) is itself a multi-channel layout (six projects) with a clear promotion flow described below.
 
-### 1. COPR — `hellaenergy/o3de*` (today, ongoing)
+### 1. COPR: `hellaenergy/o3de*` (today, ongoing)
 
 The interim distribution channel. Five engine COPR projects (plus two debug-config siblings and a dependencies project), each with a distinct purpose:
 
@@ -328,9 +328,9 @@ o3de2605                                               # launch Project Manager 
 o3de2605-cli --help                                    # CLI for project / gem / engine management
 ```
 
-The package name follows a `o3deNNNN` convention (postgresql-style): `NNNN` is the upstream major as `YYMM` (`2605` for 26.05.x, `2610` for the next major). The install path under `/opt/O3DE/<DISPLAY_VERSION>/` matches what the upstream `.deb` and Windows `.msi` installers ship — same path mental model across distros and OSes.
+The package name follows a `o3deNNNN` convention (postgresql-style): `NNNN` is the upstream major as `YYMM` (`2605` for 26.05.x, `2610` for the next major). The install path under `/opt/O3DE/<DISPLAY_VERSION>/` matches what the upstream `.deb` and Windows `.msi` installers ship: same path mental model across distros and OSes.
 
-`hellaenergy/o3de-dependencies` auto-enables alongside the engine project (via the engine project's `runtime_dependencies` setting) — no separate `dnf copr enable` needed. The per-user Python venv bootstraps on first launch automatically; pre-bootstrap manually with `/opt/O3DE/26.05.0/python/get_python.sh` if preferred.
+`hellaenergy/o3de-dependencies` auto-enables alongside the engine project (via the engine project's `runtime_dependencies` setting), no separate `dnf copr enable` needed. The per-user Python venv bootstraps on first launch automatically; pre-bootstrap manually with `/opt/O3DE/26.05.0/python/get_python.sh` if preferred.
 
 When O3DE upstream tags a stable release, swap `o3de-stabilization` for `o3de` (the package name stays `o3de2605`; only the COPR project changes). Skip `o3de-development` (dev-branch builds) and `o3de-experimental` (packaging work) unless you have a specific reason to test those.
 
@@ -351,7 +351,7 @@ make trigger-tests BUILD_ID=N            # fire CI tests against an existing COP
 
 A `make copr-init` target prints the one-time setup commands for all the COPR projects (chroot configs, runtime-repo-dependency, `--rpmbuild-with` flags for active Stage 1 migrations). Run `make help` for the full target list.
 
-CI (`.github/workflows/lint.yml`) runs spec-parse (stable + snapshot + stabilization + experimental modes) + rpmlint + desktop-file-validate + appstream-util validate + shell-syntax checks on every push, against a Fedora 44 container. CI (`.github/workflows/test-installed.yml`) runs the integration test suite (Tiers 1–6) against an existing COPR RPM URL in clean F44 + F45 + rawhide containers — triggered manually, by `make trigger-tests`, or by a 4-hourly cron polling `o3de-stabilization` for new builds. The full RPM build itself is too heavy for free runners (>2 hours, 14 GB output) — the COPR projects do that.
+CI (`.github/workflows/lint.yml`) runs spec-parse (stable + snapshot + stabilization + experimental modes) + rpmlint + desktop-file-validate + appstream-util validate + shell-syntax checks on every push, against a Fedora 44 container. CI (`.github/workflows/test-installed.yml`) runs the integration test suite (Tiers 1-6) against an existing COPR RPM URL in clean F44 + F45 + rawhide containers, triggered manually, by `make trigger-tests`, or by a 4-hourly cron polling `o3de-stabilization` for new builds. The full RPM build itself is too heavy for free runners (>2 hours, 14 GB output). The COPR projects do that.
 
 The longer-term goal is **inclusion in Fedora proper**. The roadmap lives in [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) and the per-bundle Fedora-readiness status in [`BUNDLED_LIBRARIES.md`](BUNDLED_LIBRARIES.md).
 
@@ -361,9 +361,9 @@ The longer-term goal is **inclusion in Fedora proper**. The roadmap lives in [`F
 
 A tiered post-install test suite lives in [`tests/`](tests/). It exists for three audiences:
 
-- **This repo's maintainer** — catch regressions between spec changes
-- **O3DE engine contributors** — validate that your branch builds and runs as a Fedora RPM before merging
-- **O3DE release engineering** — gate releases on "does this work as a packaged engine on Fedora?"
+- **This repo's maintainer**: catch regressions between spec changes
+- **O3DE engine contributors**: validate that your branch builds and runs as a Fedora RPM before merging
+- **O3DE release engineering**: gate releases on "does this work as a packaged engine on Fedora?"
 
 The same suite serves all three. Differences are only in *which* git ref produced the RPM under test.
 
@@ -381,7 +381,7 @@ make test-setup
 # Full end-to-end (also creates a project + cmake-configures it)
 make test-full
 
-# UI smoke — Project Manager launches under Xvfb without crashing
+# UI smoke: Project Manager launches under Xvfb without crashing
 sudo dnf install -y xorg-x11-server-Xvfb scrot xorg-x11-utils
 make test-ui
 
@@ -389,7 +389,7 @@ make test-ui
 make test-ui-full
 ```
 
-Tier 6 (UI) uses Xvfb (virtual display) and Mesa lavapipe (software Vulkan in CI containers; real GPU on user workstations). Tier 11 (post-load liveness — launcher survives N seconds after level load without crash/freeze, catches "level loaded but engine froze immediately" failures Tier 9/10 can't detect) was implemented 2026-05-22; invoke via `make test-tier11` (default project NewspaperDeliveryGame) or `make test-tier11-multiplayer`. Tier 12 (render correctness — Vulkan render vs reference image; needs GPU-equipped runners) and Tier 13 (visual regression — screenshots → pixel-diff against per-Fedora-version baselines) are documented as future work in `tests/README.md`.
+Tier 6 (UI) uses Xvfb (virtual display) and Mesa lavapipe (software Vulkan in CI containers; real GPU on user workstations). Tier 11 (post-load liveness: launcher survives N seconds after level load without crash/freeze, catches "level loaded but engine froze immediately" failures Tier 9/10 can't detect) was implemented 2026-05-22; invoke via `make test-tier11` (default project NewspaperDeliveryGame) or `make test-tier11-multiplayer`. Tier 12 (render correctness: Vulkan render vs reference image; needs GPU-equipped runners) and Tier 13 (visual regression: screenshots → pixel-diff against per-Fedora-version baselines) are documented as future work in `tests/README.md`.
 
 ### Run a real game end-to-end
 
@@ -438,8 +438,8 @@ Behind the scenes the targets use `MultiplayerSample.HeadlessServerLauncher` (no
 
 The project ships two console-command files at its root that drive the launch:
 
-- `launch_server.cfg` -- loads `Levels/NewStarbase/NewStarbase.spawnable` and enables multithreaded connection updates
-- `launch_client.cfg` -- issues `connect` with no IP, which defaults to loopback `127.0.0.1`
+- `launch_server.cfg`: loads `Levels/NewStarbase/NewStarbase.spawnable` and enables multithreaded connection updates
+- `launch_client.cfg`: issues `connect` with no IP, which defaults to loopback `127.0.0.1`
 
 The launchers can also be invoked directly with explicit flags if you want a different config (different level, remote server IP, etc.). See [`Makefile`](Makefile) `play-mps-*` targets for the canonical command shape.
 
@@ -457,7 +457,7 @@ This builds the snapshot tarball, patches the spec with the right pin values, ru
 
 ### CI for community use
 
-`.github/workflows/test-installed.yml` runs the test suite in clean Fedora containers (matrix: `fedora-44`, `fedora-45`, `fedora-rawhide`, extending as releases ship) against an RPM URL — typically a COPR build artifact. Trigger via GitHub UI with an `rpm_url` input. The CentOS Stream 10 chroot is exercised per-build on COPR (its own `centos-stream-10-x86_64` build of every SRPM) but not currently in the GH-Actions matrix; CS10 builds going green on COPR is the gate for that chroot.
+`.github/workflows/test-installed.yml` runs the test suite in clean Fedora containers (matrix: `fedora-44`, `fedora-45`, `fedora-rawhide`, extending as releases ship) against an RPM URL, typically a COPR build artifact. Trigger via GitHub UI with an `rpm_url` input. The CentOS Stream 10 chroot is exercised per-build on COPR (its own `centos-stream-10-x86_64` build of every SRPM) but not currently in the GH-Actions matrix; CS10 builds going green on COPR is the gate for that chroot.
 
 For automated COPR → CI integration, configure a COPR webhook to fire this workflow on every successful build, giving any branch a "healthy on Fedora" signal.
 
@@ -470,13 +470,13 @@ See [`tests/README.md`](tests/README.md) for the full tier breakdown and contrib
 | Concern | Mitigation |
 |---|---|
 | Tampered upstream tarball | `%prep` verifies `Source0` against `%global stable_sha256` (or `snapshot_sha256`) with `sha256sum -c` before extraction. |
-| Tampered snapshot | `make-snapshot-tarball.sh` is reproducible (sorted, fixed mtime, numeric owner) — re-running for the same commit produces a byte-identical tarball. The committed sha256 is the binding root of trust. |
+| Tampered snapshot | `make-snapshot-tarball.sh` is reproducible (sorted, fixed mtime, numeric owner); re-running for the same commit produces a byte-identical tarball. The committed sha256 is the binding root of trust. |
 | World-writable files under `/usr` | Removed. `/opt/O3DE/<version>/` is fully read-only after install; all writable state is per-user under `~/.o3de/`. |
-| Network during build | LFS objects are bundled into the source tarball before build; no `git lfs pull` runs in `%build`. O3DE's own `LY_PACKAGE_SERVER_URLS` 3rdParty fetcher still runs at cmake configure unless every needed package is pre-bundled — see "3rdParty packages" above. |
-| **⚠ Bundled OpenSSL 1.1.1t (EOL since 2023-09-11)** | Not our packaging defect — upstream O3DE pins it. Tracked as a hard blocker for Fedora inclusion in [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) (stage 4). Surfaced here so consumers see it clearly. |
+| Network during build | LFS objects are bundled into the source tarball before build; no `git lfs pull` runs in `%build`. O3DE's own `LY_PACKAGE_SERVER_URLS` 3rdParty fetcher still runs at cmake configure unless every needed package is pre-bundled; see "3rdParty packages" above. |
+| **⚠ Bundled OpenSSL 1.1.1t (EOL since 2023-09-11)** | Not our packaging defect; upstream O3DE pins it. Tracked as a hard blocker for Fedora inclusion in [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) (stage 4). Surfaced here so consumers see it clearly. |
 | Hardening flags (RELRO / BIND_NOW / stack-protector / `_FORTIFY_SOURCE`) | Restored explicitly via `CMAKE_*_LINKER_FLAGS_INIT` after unsetting Fedora's CFLAGS/CXXFLAGS/LDFLAGS bundle (the bundle's annobin specs file breaks clang feature tests). O3DE's `Configurations_clang.cmake` already supplies stack-protector and `_FORTIFY_SOURCE`. |
 | Runtime escalation paths | Launcher wrapper is `/usr/bin/o3deNNNN` and CLI wrapper is `/usr/bin/o3deNNNN-cli`, both mode 0755, no setuid. All `mkdir -p` targets are under `$HOME`. |
-| Patch reviewability | Real `.patch` files with `From:`/`Subject:` rationales — reviewable with `git log` or `interdiff`. |
+| Patch reviewability | Real `.patch` files with `From:`/`Subject:` rationales, reviewable with `git log` or `interdiff`. |
 | Source provenance auditability | CycloneDX 1.6 SBOM at `/usr/share/o3deNNNN/sbom/o3deNNNN.cdx.json` documents every bundled component, with purl, license expression, and EOL flags where applicable. |
 | First-run state migration | Launcher's `<project>/user/project.json` rewrite is JSON-aware (`python3 -c json.load/dump`), only mutates known legacy prefixes, and is gated by a per-prefix marker file. Failures are silenced so a malformed home dir can't block the editor. |
 
@@ -489,7 +489,7 @@ A static CycloneDX 1.6 JSON SBOM is committed at `sources/o3de2605.cdx.json` (on
 - The package itself (`pkg:rpm/fedora/o3deNNNN@<version>-<release>`) with its license expression and source URLs.
 - Build dependencies (cmake, ninja-build, gcc-c++, python3-devel, git-lfs).
 - Direct runtime dependencies (Qt5, Vulkan, mesa, libcurl, openssl, …).
-- Bundled components currently itemized in the SBOM JSON: custom Qt 5.15-rev9 (with the Fedora Bundling Library Exception flag), embedded clang toolchain, bundled Python 3.10, bundled OpenSSL 1.1.1t, and googletest (test-scaffolding fetch). Smaller bundled 3rdParty (pyside2/shiboken2, OpenEXR, OpenImageIO, OpenColorIO, PhysX, etc.) are NOT individually itemized today — adding them is tracked as SBOM completeness work in `FEDORA_ROADMAP.md`.
+- Bundled components currently itemized in the SBOM JSON: custom Qt 5.15-rev9 (with the Fedora Bundling Library Exception flag), embedded clang toolchain, bundled Python 3.10, bundled OpenSSL 1.1.1t, and googletest (test-scaffolding fetch). Smaller bundled 3rdParty (pyside2/shiboken2, OpenEXR, OpenImageIO, OpenColorIO, PhysX, etc.) are NOT individually itemized today; adding them is tracked as SBOM completeness work in `FEDORA_ROADMAP.md`.
 - **EOL flags** for bundled OpenSSL 1.1.1t.
 
 To consume:
@@ -508,7 +508,7 @@ Re-generate the static SBOM when bumping the version: edit `sources/o3deNNNN.cdx
 
 ## Patches
 
-Nineteen patches declared (the applied set varies by bcond: 0014 is swap_hook, the central hook that carries the 17-library Stage-1 swap set on the shipped 26.10 builds; 0015 is swap_hook-only; 0016 is system_tiff-only; 0017/0019 are system_qt6-only, so **currently inactive** since the 2026-08-17 revert to bundled Qt6; 0018 is `development_snapshot`-gated and active). **Seven carry TIMEBOMB notes** -- upstream-equivalents merged to `development` but NOT to `stabilization/26050`; they retire for a given channel once that channel's engine ref rebases onto the 26.10 base (stabilization/26100 when it opens, then the 26.10 release tarball -- both branch from development and already carry the fix). NOTE (post-26.05.0): stabilization/26050 shipped AS 26.05.0 and is frozen; it will not backport these dev-only merges, so "NOT to stabilization/26050" is provenance, not a wait-on-26050 trigger. The seven: Patch0001 (clang21, [#19748](https://github.com/o3de/o3de/pull/19748) merged 2026-05-14), Patch0002 (manifest.py env var, [#19751](https://github.com/o3de/o3de/pull/19751) merged 2026-05-14), Patch0004 (LYPython sdist install, [#19752](https://github.com/o3de/o3de/pull/19752) merged 2026-06-09), Patch0005 (AzQtComponents title, [#19750](https://github.com/o3de/o3de/pull/19750) merged 2026-05-14), Patch0007 (libtiff C99, [#19734](https://github.com/o3de/o3de/pull/19734) merged 2026-05-08), Patch0008 (AzCore lobject include, [#19733](https://github.com/o3de/o3de/pull/19733) merged 2026-05-08), Patch0012 v2 (AssetBuilder watchdog, [#19747](https://github.com/o3de/o3de/pull/19747) merged 2026-05-15). The `--with development_snapshot` bcond (2026-05-18) gates all seven off so dev-branch-tip builds (`make copr-development`, and `make copr-experimental` since experimental was realigned onto development + monolithic on 2026-07-24) succeed without patch-apply rejects; default OFF so the stabilization channel (which builds against `stabilization/26050`, where these have not merged) applies them as before. Patch0013 v4 gates the vulkan-validationlayers Stage 1 swap (three-hunk: cmake gate + PAL_linux variable + Instance.cpp env-var fix), validated end-to-end on build 10457745 (2026-05-13/14). See [`CONTRIBUTING.md`](CONTRIBUTING.md#patches) for the full table including each patch's upstream-worthy assessment. Quick summary:
+Nineteen patches declared (the applied set varies by bcond: 0014 is swap_hook, the central hook that carries the 17-library Stage-1 swap set on the shipped 26.10 builds; 0015 is swap_hook-only; 0016 is system_tiff-only; 0017/0019 are system_qt6-only, so **currently inactive** since the 2026-08-17 revert to bundled Qt6; 0018 is `development_snapshot`-gated and active). **Seven carry TIMEBOMB notes**: upstream-equivalents merged to `development` but NOT to `stabilization/26050`; they retire for a given channel once that channel's engine ref rebases onto the 26.10 base (stabilization/26100 when it opens, then the 26.10 release tarball, both branch from development and already carry the fix). NOTE (post-26.05.0): stabilization/26050 shipped AS 26.05.0 and is frozen; it will not backport these dev-only merges, so "NOT to stabilization/26050" is provenance, not a wait-on-26050 trigger. The seven: Patch0001 (clang21, [#19748](https://github.com/o3de/o3de/pull/19748) merged 2026-05-14), Patch0002 (manifest.py env var, [#19751](https://github.com/o3de/o3de/pull/19751) merged 2026-05-14), Patch0004 (LYPython sdist install, [#19752](https://github.com/o3de/o3de/pull/19752) merged 2026-06-09), Patch0005 (AzQtComponents title, [#19750](https://github.com/o3de/o3de/pull/19750) merged 2026-05-14), Patch0007 (libtiff C99, [#19734](https://github.com/o3de/o3de/pull/19734) merged 2026-05-08), Patch0008 (AzCore lobject include, [#19733](https://github.com/o3de/o3de/pull/19733) merged 2026-05-08), Patch0012 v2 (AssetBuilder watchdog, [#19747](https://github.com/o3de/o3de/pull/19747) merged 2026-05-15). The `--with development_snapshot` bcond (2026-05-18) gates all seven off so dev-branch-tip builds (`make copr-development`, and `make copr-experimental` since experimental was realigned onto development + monolithic on 2026-07-24) succeed without patch-apply rejects; default OFF so the stabilization channel (which builds against `stabilization/26050`, where these have not merged) applies them as before. Patch0013 v4 gates the vulkan-validationlayers Stage 1 swap (three-hunk: cmake gate + PAL_linux variable + Instance.cpp env-var fix), validated end-to-end on build 10457745 (2026-05-13/14). See [`CONTRIBUTING.md`](CONTRIBUTING.md#patches) for the full table including each patch's upstream-worthy assessment. Quick summary:
 
 | # | Target | Purpose |
 |---|---|---|
@@ -523,7 +523,7 @@ Nineteen patches declared (the applied set varies by bcond: 0014 is swap_hook, t
 | 0009 | `Gems/PhysX/.../physx-pal-platform.cmake` | Gate the upstream `poly2tri` association on the `system_poly2tri` swap |
 | 0010 | `Code/Framework/AzCore/Script/ScriptContext.cpp` | Add a Lua 5.5 `lua_newstate` signature shim (warnflag arg added in 5.5) |
 | 0011 | `Code/Tools/LuaIDE/.../WatchesPanel.cpp` | Restore `LUA_NUMTAGS` macro for the LuaIDE compile path under Lua 5.5 |
-| 0012 | `Code/Tools/AssetProcessor/AssetBuilder/main.cpp` | Child-side parent-death watchdog. AssetBuilder polls `getppid()` every 2s; when reparented (AP died), `_exit(0)`. Replaces a withdrawn v1 attempt that used `m_tetherLifetime`/`prctl(PR_SET_PDEATHSIG)` -- that approach broke because the kernel binds PDEATHSIG to the forking thread, not the parent process, and AP forks from short-lived TaskWorker threads. v1 patch file retained in `sources/0012-assetprocessor-tether-resident-builders.patch` as reference; v2 is what ships. **TIMEBOMB:** [#19747](https://github.com/o3de/o3de/pull/19747) merged to `development` 2026-05-15. |
+| 0012 | `Code/Tools/AssetProcessor/AssetBuilder/main.cpp` | Child-side parent-death watchdog. AssetBuilder polls `getppid()` every 2s; when reparented (AP died), `_exit(0)`. Replaces a withdrawn v1 attempt that used `m_tetherLifetime`/`prctl(PR_SET_PDEATHSIG)`. That approach broke because the kernel binds PDEATHSIG to the forking thread, not the parent process, and AP forks from short-lived TaskWorker threads. v1 patch file retained in `sources/0012-assetprocessor-tether-resident-builders.patch` as reference; v2 is what ships. **TIMEBOMB:** [#19747](https://github.com/o3de/o3de/pull/19747) merged to `development` 2026-05-15. |
 | 0013 | `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` + `Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/PAL_linux.cmake` + `Gems/Atom/RHI/Vulkan/Code/Source/RHI/Instance.cpp` | Three-hunk gate for the `system_vulkan_validation_layers` Stage 1 swap. Skips the bundled `ly_associate_package`, leaves `VULKAN_VALIDATION_LAYER` unset (so `${VULKAN_VALIDATION_LAYER}` in the gem's BUILD_DEPENDENCIES expands to nothing), and flips the `VK_LAYER_PATH` SetEnv overwrite flag from 1 to 0 so distro/Flatpak launchers pre-setting `VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d` win over the engine's exeDirectory default. v1-v3 were partial; v4 added the PAL_linux variable gate after cmake configure failed at `find_package(vulkan-validationlayers)`. |
 | 0014 | `cmake/3rdPartyPackages.cmake` | swap_hook prototype: central `LY_USE_SYSTEM_<NAME>` guard in `ly_download_associated_package()`, replaces Patch0006's per-line gating when enabled. Proposed upstream as [#19815](https://github.com/o3de/o3de/issues/19815). |
 | 0015 | vulkan PAL_linux + Instance.cpp | swap_hook companion: Patch0013's runtime hunks minus the BuiltInPackages gate (unnecessary under the lazy model). |
@@ -532,17 +532,17 @@ Nineteen patches declared (the applied set varies by bcond: 0014 is swap_hook, t
 | 0018 | `Code/Editor/FileChangeMonitor.cpp` | Drop a pessimizing `std::move` on `QDir::entryInfoList()`'s temporary that Fedora clang rejects under `-Werror,-Wpessimizing-move`. NOT Qt-specific; gated on `--with development_snapshot` (the dev-tip marker) so it unbreaks the 26.10 stabilization + development builds. Active. Upstream-worthy (clang-strictness family, cf. 0001). |
 | 0019 | `cmake/.../Install_linux.cmake` | Companion to 0017: skip the second lrelease rpath-change, the `%install`-time `ly_copy` `RPATH_CHANGE`. Same reason (system lrelease has no rpath). `system_qt6`-only, so **currently inactive** since the 2026-08-17 revert to bundled Qt6. |
 
-Each patch carries a `From:`/`Subject:` header with the rationale. Stage 1 system-library swaps additionally ship companion `Find<X>-system.cmake` shims in `sources/` (`Findmikkelsen-system.cmake`, `Findexpat-system.cmake`, `FindZLIB-system.cmake`, etc.) — installed into `cmake/3rdParty/Find<X>.cmake` during `%prep` when the matching `--with system_<lib>` is enabled.
+Each patch carries a `From:`/`Subject:` header with the rationale. Stage 1 system-library swaps additionally ship companion `Find<X>-system.cmake` shims in `sources/` (`Findmikkelsen-system.cmake`, `Findexpat-system.cmake`, `FindZLIB-system.cmake`, etc.), installed into `cmake/3rdParty/Find<X>.cmake` during `%prep` when the matching `--with system_<lib>` is enabled.
 
 ---
 
 ## Known limitations
 
-- O3DE's 3rdParty package fetcher still runs at cmake configure unless every package is pre-bundled. Fully hermetic offline builds (mock without `--enable-net`) require staging every package the engine pulls — see [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md).
+- O3DE's 3rdParty package fetcher still runs at cmake configure unless every package is pre-bundled. Fully hermetic offline builds (mock without `--enable-net`) require staging every package the engine pulls; see [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md).
 - Two upstream-bundled packages (`NvCloth`, `squish-ccr`) cannot be hosted in Fedora or COPR for licensing reasons (NVIDIA license; BC7 patent encumbrance). The Fedora-shippable variant routes around them via feature-gated builds; see [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) § "Restricted bundles". `DirectXShaderCompilerDxc` was a third entry until 2026-05-08, when the license-clean `o3de2605-dxc-spirv` rebuild shipped in `hellaenergy/o3de-dependencies` and replaced the bundle via the `system_dxc` swap. `poly2tri` was a fourth entry until the 2026-05-07 audit reframed it as a Stage 1 swap; it now resolves via Fedora's `poly2tri-devel`.
 - Bundled OpenSSL 1.1.1t is end-of-life. Tracked for migration to system OpenSSL 3.x in [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) (stage 4); likely upstream-blocked.
 - `debuginfo` / `debugsource` subpackages are suppressed (`%global debug_package %{nil}`). Debug symbols are present in the binaries but not extracted into a separate package. Unblocking this is on the Fedora roadmap (stage 5).
-- The Editor stalls at viewport creation under VirtualBox + software 3D + lavapipe Vulkan. Engine inits its RHI against `llvmpipe`, then hangs when creating the Editor's render viewport. `QT_QPA_PLATFORM=xcb` does not help — the engine forces XCB anyway. No known workaround; affects anyone running O3DE in a VM without GPU passthrough. Bare-metal Linux + native GPU + `vulkan-loader` is unaffected.
+- The Editor stalls at viewport creation under VirtualBox + software 3D + lavapipe Vulkan. Engine inits its RHI against `llvmpipe`, then hangs when creating the Editor's render viewport. `QT_QPA_PLATFORM=xcb` does not help; the engine forces XCB anyway. No known workaround; affects anyone running O3DE in a VM without GPU passthrough. Bare-metal Linux + native GPU + `vulkan-loader` is unaffected.
 - **Bundled Qt 5.15-rev9 has no Wayland platform plugin.** `QT_QPA_PLATFORM=wayland` fails with `Could not find the Qt platform plugin 'wayland'`; only `xcb`, `offscreen`, and `minimal` are present in the bundle's `plugins/platforms/`. System `qt5-qtwayland` does not help because the bundled Qt is isolated from system Qt plugins (the engine bundles its own Qt 5.15 with custom O3DE patches; system Qt 5 is not a substitute for this engine version). GNOME / KDE Wayland users get XCB via XWayland, which works for the Editor and Project Manager. Will be resolved by the Qt 6 migration targeted for 26.10.0 (vanilla Qt 6 + Fedora's `qt6-qtwayland` substitution). Community report from a tester on Fedora 44 / GNOME Wayland / Ryzen 5500 + RX 5700XT, 2026-05-28.
 - **Qt 5.15-rev9 auto-DPI mis-detection on Wayland XWayland.** Without `QT_FONT_DPI=100`, fonts in Project Manager render at the wrong scale on some HiDPI / 4K Wayland setups. The launcher now sets this automatically on Wayland sessions (when `XDG_SESSION_TYPE=wayland` and the user hasn't already set `QT_FONT_DPI`). The upstream Debian .deb package needs the same workaround. Manual override is still possible via `export QT_FONT_DPI=<value>` before launch. Qt5-only: on qt6-era builds (detected at runtime via `libQt6Core.so.6` in the engine's bin dir) the launcher skips this, because a fixed `QT_FONT_DPI` would suppress Qt 6's correct per-monitor scaling and the underlying Qt 5.15 bug does not exist there.
 - **ROS2 environment autodetect.** Projects using the ROS2 gem need the ROS environment (`AMENT_PREFIX_PATH`, `librcl`/`librmw` on the library path) at Editor and AssetProcessor runtime. Terminal users source `/opt/ros/<distro>/setup.bash` themselves; menu launches used to arrive with a clean environment and fail with unsatisfied `librcl` deps. The launcher now detects `/opt/ros/<distro>/` (Open Robotics packages and the `hellaenergy/ros2*` COPR RPMs share this layout) and imports the ROS environment via whitelist. Newest distro wins by default (ROS 2 codenames are alphabetical by release); `O3DE_ROS_DISTRO=<name>` pins one; `O3DE_DISABLE_ROS2=1` opts out entirely. `PYTHONPATH` is deliberately not imported: the distro setup points it at system-Python site-packages, which segfault when imported into the engine's bundled Python 3.10 venv. The gem's C++ side needs only the library path, so ROS-via-C++ works without ROS Python.

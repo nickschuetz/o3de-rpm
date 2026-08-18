@@ -1,6 +1,6 @@
 # Contributing to o3de-rpm
 
-This document is for **packaging contributors** — anyone who wants to change the spec, the test suite, the build flow, or the documentation. End users and engine contributors who want to test their O3DE branch as a Fedora RPM should start with [`README.md`](README.md) and [`tests/README.md`](tests/README.md) instead.
+This document is for **packaging contributors**: anyone who wants to change the spec, the test suite, the build flow, or the documentation. End users and engine contributors who want to test their O3DE branch as a Fedora RPM should start with [`README.md`](README.md) and [`tests/README.md`](tests/README.md) instead.
 
 ---
 
@@ -25,11 +25,11 @@ The longer-term goal is inclusion in Fedora proper. The roadmap to that lives in
 | `README.md` | end-user / community-tester facing |
 | `ARCHITECTURE.md` | source-to-RPM flowchart + load-bearing design separations |
 | `CONTRIBUTING.md` | this file |
-| `Makefile` | `make help` lists the targets — lint, srpm, rpm, copr, test |
+| `Makefile` | `make help` lists the targets: lint, srpm, rpm, copr, test |
 | `FEDORA_ROADMAP.md` | staged plan for Fedora inclusion |
 | `BUNDLED_LIBRARIES.md` | per-bundle license / version / migration status |
 | `sources/` | rpm SOURCES dir (sources + patches; rpm flattens these) |
-| `tests/` | post-install integration test suite (Tiers 1–10) |
+| `tests/` | post-install integration test suite (Tiers 1-10) |
 | `.github/workflows/` | CI: spec lint, RPM-install tests |
 
 Two files **deliberately excluded from git** as working notes (see `.git/info/exclude`):
@@ -37,7 +37,7 @@ Two files **deliberately excluded from git** as working notes (see `.git/info/ex
 | Path | Purpose |
 |---|---|
 | `BUILD_NOTES.md` | scratchpad of build-test findings; rolled forward across sessions, deleted when each finding becomes a permanent doc or a fix |
-| `FLATPAK_NOTES.md` | carry-over notes for a future Flatpak repo — what transfers, what differs, gotchas |
+| `FLATPAK_NOTES.md` | carry-over notes for a future Flatpak repo: what transfers, what differs, gotchas |
 
 ---
 
@@ -45,26 +45,26 @@ Two files **deliberately excluded from git** as working notes (see `.git/info/ex
 
 Read `o3de.spec` top-to-bottom. The shape is:
 
-1. **Build-mode toggles** (`%bcond_with`) — `snapshot`, `stabilization`, `debug`, `thirdparty_*`, plus `development_snapshot` (added 2026-05-18; gates the 6 carry-patches whose upstream equivalents have merged into `o3de/development` so they don't fail-to-apply when building against dev-branch tip; default OFF so stabilization channel builds are unchanged; requires a matching `--rpmbuild-with development_snapshot` on the COPR project's chroots because `--with` flags don't propagate through SRPM rebuild — see [[feedback_copr_with_propagation]])
-2. **Version pinning** — `stable_tag`, `engine_cmake_version` (derived 3-component for cmake), snapshot pins
-3. **Versioned-naming macros** (derived from `stable_tag`) — `o3de_major_tag` (e.g. `2605`), `o3de_pkgname` (e.g. `o3de2605`), `o3de_install_prefix` (e.g. `/opt/O3DE/26.05.0`). Bump `stable_tag` to `2610.0` and the spec automatically produces an `o3de2610` package at `/opt/O3DE/26.10.0/` — no other edits needed. Subpackages (`%{name}-debug`, `%{name}-devel`) inherit the versioning automatically. **NOT versioned: `engine.json`'s `engine_name` field.** The cmake `-DO3DE_INSTALL_ENGINE_NAME=o3de` literal sets engine.json's identity to upstream's default — that's what gem manifests' `compatible_engines` lists check against (e.g. `["o3de-sdk>=2.3.0", "o3de>=2.3.0"]`). Setting engine_name to a versioned form would reject every existing third-party gem. See the comment block above the `cmake \\` invocation in the spec for the trade-off detail.
+1. **Build-mode toggles** (`%bcond_with`): `snapshot`, `stabilization`, `debug`, `thirdparty_*`, plus `development_snapshot` (added 2026-05-18; gates the 6 carry-patches whose upstream equivalents have merged into `o3de/development` so they don't fail-to-apply when building against dev-branch tip; default OFF so stabilization channel builds are unchanged; requires a matching `--rpmbuild-with development_snapshot` on the COPR project's chroots because `--with` flags don't propagate through SRPM rebuild, see [[feedback_copr_with_propagation]])
+2. **Version pinning**: `stable_tag`, `engine_cmake_version` (derived 3-component for cmake), snapshot pins
+3. **Versioned-naming macros** (derived from `stable_tag`): `o3de_major_tag` (e.g. `2605`), `o3de_pkgname` (e.g. `o3de2605`), `o3de_install_prefix` (e.g. `/opt/O3DE/26.05.0`). Bump `stable_tag` to `2610.0` and the spec automatically produces an `o3de2610` package at `/opt/O3DE/26.10.0/`, no other edits needed. Subpackages (`%{name}-debug`, `%{name}-devel`) inherit the versioning automatically. **NOT versioned: `engine.json`'s `engine_name` field.** The cmake `-DO3DE_INSTALL_ENGINE_NAME=o3de` literal sets engine.json's identity to upstream's default; that's what gem manifests' `compatible_engines` lists check against (e.g. `["o3de-sdk>=2.3.0", "o3de>=2.3.0"]`). Setting engine_name to a versioned form would reject every existing third-party gem. See the comment block above the `cmake \\` invocation in the spec for the trade-off detail.
 4. **rpm build behavior**: `debug_package`, payload compression, `__requires_exclude` (DXC clause for bundled libclang-12 / libtinfo.so.6, verified 2026-05-28 as a no-op today and tracked as Stage 5 housekeeping for removal; plus, under the qt6 bcond only, a live exclusion for `libQt6Qml.so.6`: the deployed lupdate links it but the qt 3p package ships no Qml libraries, so the auto-Require is unsatisfiable until upstream fixes the deploy list)
 5. **Name / Version / Release** with conditional logic for snapshot mode (`Name: %{o3de_pkgname}`)
-6. **Source0** (the upstream tarball — release URL or local snapshot)
-7. **Source10–25** (auxiliary files: launcher, desktops, metainfo, icons, SBOM, snapshot helper)
+6. **Source0** (the upstream tarball: release URL or local snapshot)
+7. **Source10-25** (auxiliary files: launcher, desktops, metainfo, icons, SBOM, snapshot helper)
 8. **Patch0001-0019**, each applied via `%autosetup -p1` under its own bcond gate (the shipped 26.10 build applies the ungated patches plus swap_hook + development_snapshot ones, and skips the seven merged-upstream TIMEBOMBs as well as the system_qt6-only 0017/0019 since Qt6 is bundled). Seven carry-patches have TIMEBOMB notes (upstream-equivalent merged into `development` but not into `stabilization/26050`; they retire per-channel when that channel rebases onto the 26.10 base, see the retirement model in the Patches section): Patch0001 + Patch0002 + Patch0005 (merged 2026-05-14), Patch0004 (merged 2026-06-09), Patch0007 + Patch0008 (merged 2026-05-08), Patch0012 v2 (merged 2026-05-15). Patch0012 is the v2 child-side watchdog after the v1 prctl approach was withdrawn 2026-05-12; v1 patch file retained in `sources/` as reference. Patch0013 v4 gates the vulkan-validationlayers Stage 1 swap in three places (BuiltInPackages, PAL_linux, Instance.cpp). Lua 5.5 compat hits Patch0008/0010/0011 conditionally on the rawhide chroot.
-9. **BuildRequires / Requires** — minimal, validated against auto-Requires
-10. **`%prep`, `%build`, `%install`, `%check`, `%files`** — standard rpm sections
+9. **BuildRequires / Requires**: minimal, validated against auto-Requires
+10. **`%prep`, `%build`, `%install`, `%check`, `%files`**: standard rpm sections
 11. **Scriptlets** (`%post`, `%postun`)
 12. **Changelog**
 
-If you change *anything* in the spec or sources/, **update the README's layout block, the `ARCHITECTURE.md` Mermaid diagram and prose, and any other doc section that references the changed file** — in the same commit. This is a hard rule; doc drift is treated as a regression.
+If you change *anything* in the spec or sources/, **update the README's layout block, the `ARCHITECTURE.md` Mermaid diagram and prose, and any other doc section that references the changed file**, in the same commit. This is a hard rule; doc drift is treated as a regression.
 
 ---
 
 ## Patches
 
-Nineteen patches in `sources/` (0001-0019). **Seven TIMEBOMBs** -- upstream-equivalents merged to `development` but not to `stabilization/26050`; they retire when a channel's engine ref absorbs the change. **Retirement model (post-26.05.0 release):** retirement is per-channel and fires when a channel rebases onto the 26.10 base -- stabilization/26100 when it opens, then the 26.10 release tarball -- both of which branch from development and already carry the fix. stabilization/26050 shipped AS 26.05.0 and is frozen; it will NOT backport these dev-only merges, so it is not the trigger. Table references to "NOT into stabilization/26050" are factual provenance, not a wait-on-26050 signal. The `--with development_snapshot` bcond (2026-05-18) gates all seven off so `make copr-development` can build against dev-branch tip without `%prep` failing to apply them (local SRPM-build only; for COPR you also need `--rpmbuild-with development_snapshot` on the chroot):
+Nineteen patches in `sources/` (0001-0019). **Seven TIMEBOMBs**: upstream-equivalents merged to `development` but not to `stabilization/26050`; they retire when a channel's engine ref absorbs the change. **Retirement model (post-26.05.0 release):** retirement is per-channel and fires when a channel rebases onto the 26.10 base (stabilization/26100 when it opens, then the 26.10 release tarball), both of which branch from development and already carry the fix. stabilization/26050 shipped AS 26.05.0 and is frozen; it will NOT backport these dev-only merges, so it is not the trigger. Table references to "NOT into stabilization/26050" are factual provenance, not a wait-on-26050 signal. The `--with development_snapshot` bcond (2026-05-18) gates all seven off so `make copr-development` can build against dev-branch tip without `%prep` failing to apply them (local SRPM-build only; for COPR you also need `--rpmbuild-with development_snapshot` on the chroot):
 
 - Patch0001 (clang21 `-Wno-error=`) <- [#19748](https://github.com/o3de/o3de/pull/19748) merged 2026-05-14
 - Patch0002 (manifest.py `O3DE_ENGINE_PATH`) <- [#19751](https://github.com/o3de/o3de/pull/19751) merged 2026-05-14
@@ -80,22 +80,22 @@ Patch0012 is the v2 child-side watchdog after the v1 prctl approach was withdraw
 |---|---|---|---|
 | 0001 | `cmake/Platform/Common/Clang/Configurations_clang.cmake` | suppress clang 21+ warnings-as-errors that O3DE's `-Werror` would otherwise fail on. **TIMEBOMB:** upstream merged equivalent as [o3de/o3de#19748](https://github.com/o3de/o3de/pull/19748) (commit c2486d165441) into `development` on 2026-05-14 but NOT into `stabilization/26050` (our snapshot source branch); retires per the retirement model above (when the channel rebases onto the 26.10 base). nick-l-o3de informally flagged this for 26.05.0 cherry-pick consideration ("we may need this one for this release"). | **landed in development** (carried for the 26.05 line, possible release cherry-pick) |
 | 0002 | `scripts/o3de/o3de/manifest.py` | honor `O3DE_ENGINE_PATH` env var for engine-root detection in venv-installed setups. **TIMEBOMB:** upstream merged equivalent as [o3de/o3de#19751](https://github.com/o3de/o3de/pull/19751) (commit 0281a9bbc492) into `development` on 2026-05-14 but NOT into `stabilization/26050`; retires per the retirement model above (when the channel rebases onto the 26.10 base). | **landed in development** (carried for the 26.05 line) |
-| 0003 | `python/get_python.sh` | per-engine venv linkage + engine-id reconciliation + manifest.py refresh | **probably** -- helps multi-engine and read-only-engine installs; more involved than 0001/0002, more rebase-fragile |
-| 0004 | `cmake/LYPython.cmake` | install Python packages from sdists (not editable) when `INSTALLED_ENGINE`. **TIMEBOMB:** superseded upstream by [o3de/o3de#19752](https://github.com/o3de/o3de/pull/19752) (LYPython sdist install when engine is installed) merged into `development` on 2026-06-09; gated off under `--with development_snapshot` (applying it against dev tip now reports "previously applied"). | **landed in development** (#19752 -- the right fix, now upstream; carried for the 26.05 line) |
+| 0003 | `python/get_python.sh` | per-engine venv linkage + engine-id reconciliation + manifest.py refresh | **probably**: helps multi-engine and read-only-engine installs; more involved than 0001/0002, more rebase-fragile |
+| 0004 | `cmake/LYPython.cmake` | install Python packages from sdists (not editable) when `INSTALLED_ENGINE`. **TIMEBOMB:** superseded upstream by [o3de/o3de#19752](https://github.com/o3de/o3de/pull/19752) (LYPython sdist install when engine is installed) merged into `development` on 2026-06-09; gated off under `--with development_snapshot` (applying it against dev tip now reports "previously applied"). | **landed in development** (#19752: the right fix, now upstream; carried for the 26.05 line) |
 | 0005 | `Code/Framework/AzQtComponents/.../WindowDecorationWrapper.cpp` | propagate guest's initial title to wrapper in `OptionDisabled` mode (Linux/Mac) so Project Manager's WM-drawn titlebar shows the engine version. **TIMEBOMB:** upstream merged equivalent as [o3de/o3de#19750](https://github.com/o3de/o3de/pull/19750) (commit d8d1c9aeb1c6) into `development` on 2026-05-14 but NOT into `stabilization/26050`; retires per the retirement model above (when the channel rebases onto the 26.10 base). | **landed in development** (carried for the 26.05 line) |
-| 0006 | `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` | gate the upstream `ly_associate_package(... mikkelsen-1.0.0.4-linux ...)` line on a new `LY_USE_SYSTEM_MIKKELSEN` cmake variable, so distro packagers can opt out of the upstream fetcher in favor of a system mikktspace. First Stage 1 system-library swap. | **as part of an umbrella PR** -- see backlog note below |
+| 0006 | `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` | gate the upstream `ly_associate_package(... mikkelsen-1.0.0.4-linux ...)` line on a new `LY_USE_SYSTEM_MIKKELSEN` cmake variable, so distro packagers can opt out of the upstream fetcher in favor of a system mikktspace. First Stage 1 system-library swap. | **as part of an umbrella PR**, see backlog note below |
 | 0007 | `Gems/Atom/Asset/ImageProcessingAtom/.../TIFFLoader.cpp` + `Code/Editor/Util/ImageTIF.cpp` | replace every remaining legacy libtiff `uint8` / `uint16` / `uint32` typedef use with the standard C99 `*_t` form across both `<tiffio.h>` consumers. libtiff 4.5+ marks the legacy typedef `__attribute__((deprecated))`; with O3DE's `-Werror` every stale use is a hard build failure. Mechanical type rename; same underlying types. **TIMEBOMB:** upstream merged equivalent as [o3de/o3de#19734](https://github.com/o3de/o3de/pull/19734) (commit dda736e0) into `development` on 2026-05-08 but NOT into `stabilization/26050` (our snapshot source branch); retires per the retirement model above (when the channel rebases onto the 26.10 base). | **landed in development** (carried for the 26.05 line) |
 | 0008 | `Code/Framework/AzCore/Script/ScriptContext.cpp` | drop a redundant `<lua/lobject.h>` include whose member-access layout breaks under Lua 5.5 (the header was already pulled in transitively via lua.h; the explicit include was vestigial). Single blocker for system_lua activation on Fedora (lua-devel ships only public-API headers). **TIMEBOMB:** upstream merged equivalent as [o3de/o3de#19733](https://github.com/o3de/o3de/pull/19733) (commit 3e715c61) into `development` on 2026-05-08 but NOT into `stabilization/26050` (our snapshot source branch); retires per the retirement model above (when the channel rebases onto the 26.10 base). | **landed in development** (carried for the 26.05 line) |
 | 0009 | `Gems/PhysX/.../physx_pal_platform.cmake` | gate the upstream `ly_associate_package(... poly2tri ...)` line on `system_poly2tri` so the PhysX gem can resolve via Fedora's `poly2tri-devel` when the swap is active | **as part of the umbrella PR alongside Patch0006** |
-| 0010 | `Code/Framework/AzCore/Script/ScriptContext.cpp` | Lua 5.5 introduced an extra `warnflag` argument to `lua_newstate`; provide a `#if LUA_VERSION_NUM >= 505` shim that adapts the call sites. Behavior-preserving on 5.4. | **yes** -- mechanical compat; upstream will want this when they bump the bundled Lua |
-| 0011 | `Code/Tools/LuaIDE/.../WatchesPanel.cpp` | Lua 5.5 removed the `LUA_NUMTAGS` public macro; restore it under the same guard pattern as Patch0010 for the LuaIDE compile path | **yes** -- partner patch to 0010; ditto upstream-worthy |
-| 0012 | `Code/Tools/AssetProcessor/AssetBuilder/main.cpp` | **v2 (active).** Adds `StartParentDeathWatchdog()` to AssetBuilder's `main()` -- detached thread polls `getppid()` every 2 seconds, calls `_exit(0)` when the parent PID changes (reparented to PID 1 / systemd-user because AP died). Independent of caller threading. POSIX (Linux + Mac) only; Windows port deferred. v1 (`m_tetherLifetime = true` enabling `prctl(PR_SET_PDEATHSIG)`) was withdrawn 2026-05-12 after runtime test showed every builder SIGTERM'd within ~21 ms of fork because BuilderManager forks from short-lived TaskWorker threads. v1 patch file kept in `sources/` as reference. Memory: `project_prctl_pdeathsig_thread_gotcha.md`. **TIMEBOMB:** upstream merged equivalent as [o3de/o3de#19747](https://github.com/o3de/o3de/pull/19747) (commit 6fd830546c72) into `development` on 2026-05-15 but NOT into `stabilization/26050`; retires per the retirement model above (when the channel rebases onto the 26.10 base). | **landed in development** (carried for the 26.05 line) |
-| 0013 | `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` + `Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/PAL_linux.cmake` + `Gems/Atom/RHI/Vulkan/Code/Source/RHI/Instance.cpp` | three-hunk Stage 1 gate for the vulkan-validationlayers swap (`LY_USE_SYSTEM_VULKAN_VALIDATION_LAYERS`): skip the `ly_associate_package` line, leave `VULKAN_VALIDATION_LAYER` unset (so `${VULKAN_VALIDATION_LAYER}` in the gem's BUILD_DEPENDENCIES expands to nothing), and flip the `VK_LAYER_PATH` SetEnv overwrite flag from 1 to 0 so distro/Flatpak launchers pre-setting that env var win over the engine's exeDirectory default. Validated end-to-end on build 10457745 (2026-05-13/14, all three chroots green). | **as part of the umbrella PR alongside Patch0006/0009** -- same pattern, runtime-only dep so the system_X gate is a single-flag distro-packager convenience |
+| 0010 | `Code/Framework/AzCore/Script/ScriptContext.cpp` | Lua 5.5 introduced an extra `warnflag` argument to `lua_newstate`; provide a `#if LUA_VERSION_NUM >= 505` shim that adapts the call sites. Behavior-preserving on 5.4. | **yes**: mechanical compat; upstream will want this when they bump the bundled Lua |
+| 0011 | `Code/Tools/LuaIDE/.../WatchesPanel.cpp` | Lua 5.5 removed the `LUA_NUMTAGS` public macro; restore it under the same guard pattern as Patch0010 for the LuaIDE compile path | **yes**: partner patch to 0010; ditto upstream-worthy |
+| 0012 | `Code/Tools/AssetProcessor/AssetBuilder/main.cpp` | **v2 (active).** Adds `StartParentDeathWatchdog()` to AssetBuilder's `main()`: detached thread polls `getppid()` every 2 seconds, calls `_exit(0)` when the parent PID changes (reparented to PID 1 / systemd-user because AP died). Independent of caller threading. POSIX (Linux + Mac) only; Windows port deferred. v1 (`m_tetherLifetime = true` enabling `prctl(PR_SET_PDEATHSIG)`) was withdrawn 2026-05-12 after runtime test showed every builder SIGTERM'd within ~21 ms of fork because BuilderManager forks from short-lived TaskWorker threads. v1 patch file kept in `sources/` as reference. Memory: `project_prctl_pdeathsig_thread_gotcha.md`. **TIMEBOMB:** upstream merged equivalent as [o3de/o3de#19747](https://github.com/o3de/o3de/pull/19747) (commit 6fd830546c72) into `development` on 2026-05-15 but NOT into `stabilization/26050`; retires per the retirement model above (when the channel rebases onto the 26.10 base). | **landed in development** (carried for the 26.05 line) |
+| 0013 | `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` + `Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/PAL_linux.cmake` + `Gems/Atom/RHI/Vulkan/Code/Source/RHI/Instance.cpp` | three-hunk Stage 1 gate for the vulkan-validationlayers swap (`LY_USE_SYSTEM_VULKAN_VALIDATION_LAYERS`): skip the `ly_associate_package` line, leave `VULKAN_VALIDATION_LAYER` unset (so `${VULKAN_VALIDATION_LAYER}` in the gem's BUILD_DEPENDENCIES expands to nothing), and flip the `VK_LAYER_PATH` SetEnv overwrite flag from 1 to 0 so distro/Flatpak launchers pre-setting that env var win over the engine's exeDirectory default. Validated end-to-end on build 10457745 (2026-05-13/14, all three chroots green). | **as part of the umbrella PR alongside Patch0006/0009**: same pattern, runtime-only dep so the system_X gate is a single-flag distro-packager convenience |
 | 0014 | `cmake/3rdPartyPackages.cmake` | swap_hook prototype (default OFF): one `LY_USE_SYSTEM_<NAME>` guard (TOUPPER-normalized) inside `ly_download_associated_package()` replaces Patch0006's per-line gating; the trailing `find_package` at each call site resolves our Find shims. Validated end-to-end on build 10557054 + CI run 26921801808 with BuiltInPackages pristine. Proposed upstream as [o3de/o3de#19815](https://github.com/o3de/o3de/issues/19815) Option A. | **filed as #19815**; if Option A merges, 0006/0014/0015 all retire |
 | 0015 | `Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/PAL_linux.cmake` + `Gems/Atom/RHI/Vulkan/Code/Source/RHI/Instance.cpp` | swap_hook companion (default OFF): Patch0013's two runtime hunks without the BuiltInPackages associate-gate hunk (unnecessary under the lazy model; the hunk's context also assumed post-0006 state, a hidden order dependency caught at %prep). | rides with 0014 |
-| 0016 | `Code/Editor/Util/ImageTIF.cpp` + `.../ImageLoader/TIFFLoader.cpp` + `.../FrameCaptureSystemComponent.cpp` | `#define TIFF_DISABLE_DEPRECATED` before `<tiffio.h>` (gated on system_tiff): removes libtiff 4.5+'s legacy non-prefixed typedefs whose int64/uint64 collide with CryCommon/BaseTypes.h, the conflict that parked system_tiff at -17. Safe: all consumers already on C99 names (Patch0007/#19734; third consumer born clean). Validated on builds 10568964 + 10570032 (3 chroots) + CI 27017382939 (Tier 2 swap-health: system libtiff.so.6 linked). | **upstream-worthy: small, zero-risk, unblocks distro tiff** -- issue + PR pitch pending |
+| 0016 | `Code/Editor/Util/ImageTIF.cpp` + `.../ImageLoader/TIFFLoader.cpp` + `.../FrameCaptureSystemComponent.cpp` | `#define TIFF_DISABLE_DEPRECATED` before `<tiffio.h>` (gated on system_tiff): removes libtiff 4.5+'s legacy non-prefixed typedefs whose int64/uint64 collide with CryCommon/BaseTypes.h, the conflict that parked system_tiff at -17. Safe: all consumers already on C99 names (Patch0007/#19734; third consumer born clean). Validated on builds 10568964 + 10570032 (3 chroots) + CI 27017382939 (Tier 2 swap-health: system libtiff.so.6 linked). | **upstream-worthy: small, zero-risk, unblocks distro tiff**. Issue + PR pitch pending |
 | 0017 | `Gems/LmbrCentral/Code/lrelease_linux.cmake` | **system_qt6-only (currently INACTIVE, the 26.10 line ships bundled Qt6).** Skips the LmbrCentral lrelease POST_BUILD rpath-patch (`RPATH_CHANGE $ORIGIN/../lib -> $ORIGIN`) under `LY_USE_SYSTEM_QT`: the deployed lrelease is Fedora's qt6-qttools binary, which has no rpath, so the rewrite fatally fails `file(RPATH_CHANGE)`. Written for the system-Qt6 swap; dormant while that swap is reverted (blocked on Option B). | yes (lrelease-under-system-Qt path; held with 0018/0019 for Nick's go) |
-| 0018 | `Code/Editor/FileChangeMonitor.cpp` | drop a pessimizing `std::move()` on `QDir::entryInfoList()`'s temporary that Fedora's clang rejects under `-Werror,-Wpessimizing-move` (o3de's Ubuntu CI clang does not flag it). NOT Qt-version-specific: blocks ANY 26100/dev-tip-sourced Fedora build (bundled OR system Qt6), so gated on `development_snapshot` (the dev-tip marker) and **active in the shipped 26.10 builds**. | **yes** -- clang-strictness family, cf. Patch0001/#19748 |
+| 0018 | `Code/Editor/FileChangeMonitor.cpp` | drop a pessimizing `std::move()` on `QDir::entryInfoList()`'s temporary that Fedora's clang rejects under `-Werror,-Wpessimizing-move` (o3de's Ubuntu CI clang does not flag it). NOT Qt-version-specific: blocks ANY 26100/dev-tip-sourced Fedora build (bundled OR system Qt6), so gated on `development_snapshot` (the dev-tip marker) and **active in the shipped 26.10 builds**. | **yes**: clang-strictness family, cf. Patch0001/#19748 |
 | 0019 | `cmake/Platform/Linux/Install_linux.cmake` | **system_qt6-only (currently INACTIVE).** Companion to 0017: skips the SECOND lrelease rpath-change, the `%install`-time `ly_copy` in Install_linux.cmake. Same root cause (system lrelease has no rpath). Dormant while system_qt6 is reverted. | yes (rides with 0017) |
 
 ### Adding a new system-library swap
@@ -113,33 +113,33 @@ The end-to-end checklist for migrating one bundled 3rdParty package to its Fedor
 9. **Tests**: add a version-wildcarded row to the Tier 2 swap-health loop (`tests/integration-test.sh`) and the Tier 7 SONAME + symbol check (`tests/asset-bake-test.sh`). Never pin an exact F44 SONAME; rawhide drifts ABIs.
 10. **Validate on `o3de-experimental` first**, then promote (experimental -> testing/stabilization -> stable), adding the `--rpmbuild-with` flag to each project's chroots as it ships.
 
-### Upstream PR backlog -- status
+### Upstream PR backlog: status
 
 This section was originally pre-flight planning. As of 2026-05-14/15 several PRs have actually been filed and merged. Current state:
 
 **Merged to `o3de/o3de:development`** (carry-patches retire post-release when our snapshot pin moves):
-- Patch0001 (clang21 `-Wno-error=`) -- [o3de/o3de#19748](https://github.com/o3de/o3de/pull/19748)
-- Patch0002 (manifest.py `O3DE_ENGINE_PATH`) -- [o3de/o3de#19751](https://github.com/o3de/o3de/pull/19751)
-- Patch0005 (AzQtComponents title propagation) -- [o3de/o3de#19750](https://github.com/o3de/o3de/pull/19750)
-- Patch0007 (libtiff C99 typedefs) -- [o3de/o3de#19734](https://github.com/o3de/o3de/pull/19734)
-- Patch0008 (drop AzCore `<Lua/lobject.h>` include) -- [o3de/o3de#19733](https://github.com/o3de/o3de/pull/19733)
-- Patch0012 v2 (AssetBuilder parent-death watchdog) -- [o3de/o3de#19747](https://github.com/o3de/o3de/pull/19747) merged 2026-05-15
-- Also: Microphone PAL libsamplerate gate -- [o3de/o3de#19737](https://github.com/o3de/o3de/pull/19737)
-- Plus an AR-unblocker we filed during integration testing: ParticleBuilder cold-cache JobDependency fix -- [o3de/o3de#19756](https://github.com/o3de/o3de/pull/19756) merged 2026-05-15 (not a carry-patch; a new engine-side fix discovered via Tier 9)
+- Patch0001 (clang21 `-Wno-error=`): [o3de/o3de#19748](https://github.com/o3de/o3de/pull/19748)
+- Patch0002 (manifest.py `O3DE_ENGINE_PATH`): [o3de/o3de#19751](https://github.com/o3de/o3de/pull/19751)
+- Patch0005 (AzQtComponents title propagation): [o3de/o3de#19750](https://github.com/o3de/o3de/pull/19750)
+- Patch0007 (libtiff C99 typedefs): [o3de/o3de#19734](https://github.com/o3de/o3de/pull/19734)
+- Patch0008 (drop AzCore `<Lua/lobject.h>` include): [o3de/o3de#19733](https://github.com/o3de/o3de/pull/19733)
+- Patch0012 v2 (AssetBuilder parent-death watchdog): [o3de/o3de#19747](https://github.com/o3de/o3de/pull/19747) merged 2026-05-15
+- Also: Microphone PAL libsamplerate gate, [o3de/o3de#19737](https://github.com/o3de/o3de/pull/19737)
+- Plus an AR-unblocker we filed during integration testing: ParticleBuilder cold-cache JobDependency fix, [o3de/o3de#19756](https://github.com/o3de/o3de/pull/19756) merged 2026-05-15 (not a carry-patch; a new engine-side fix discovered via Tier 9)
 
 **Still open / in review**:
-- Patch0004 / [o3de/o3de#19752](https://github.com/o3de/o3de/pull/19752) (LYPython sdist for INSTALLED_ENGINE) -- nick-l-o3de investigating "larger problem"; let him lead.
-- [o3de/o3de#19746](https://github.com/o3de/o3de/pull/19746) (ProcessWatcher prctl doc comment) -- doc-only; CI flaky pending #19756's effect across AR.
+- Patch0004 / [o3de/o3de#19752](https://github.com/o3de/o3de/pull/19752) (LYPython sdist for INSTALLED_ENGINE): nick-l-o3de investigating "larger problem"; let him lead.
+- [o3de/o3de#19746](https://github.com/o3de/o3de/pull/19746) (ProcessWatcher prctl doc comment): doc-only; CI flaky pending #19756's effect across AR.
 - Issue [o3de/o3de#19745](https://github.com/o3de/o3de/issues/19745) (BuilderManager design discussion).
 
 **Held until post-release** (per `MEMORY.md` upstream-baking rule + `project_2605_stabilization_branch_locked.md`):
-- Patch0003 (per-engine venv linkage / engine-id reconciliation in `get_python.sh`) -- sensitive bundled-Python territory; pitch as an issue first when bandwidth allows.
-- Patch0006 + Patch0009 + Patch0013 (LY_USE_SYSTEM_<X> cmake gates -- mikkelsen, poly2tri, vulkan-validation-layers) -- propose as a single umbrella "distro packager opt-out convention" PR with all activated swaps documented.
-- Patch0010 + Patch0011 (Lua 5.5 forward-compat) -- pitch as one Lua 5.5 compat bundle when upstream's bundled-Lua bump arrives.
+- Patch0003 (per-engine venv linkage / engine-id reconciliation in `get_python.sh`): sensitive bundled-Python territory; pitch as an issue first when bandwidth allows.
+- Patch0006 + Patch0009 + Patch0013 (LY_USE_SYSTEM_<X> cmake gates: mikkelsen, poly2tri, vulkan-validation-layers). Propose as a single umbrella "distro packager opt-out convention" PR with all activated swaps documented.
+- Patch0010 + Patch0011 (Lua 5.5 forward-compat): pitch as one Lua 5.5 compat bundle when upstream's bundled-Lua bump arrives.
 
 **Regeneration** when an upstream change makes a patch fail to apply (we hit this once on patch 0001):
 
-1. Find a stable anchor in the source — e.g. `-Werror` rather than a specific `-Wno-*` flag whose surrounding context might rearrange.
+1. Find a stable anchor in the source, e.g. `-Werror` rather than a specific `-Wno-*` flag whose surrounding context might rearrange.
 2. Extract the upstream file from the snapshot tarball: `tar -xzOf sources/o3de-<commit>.tar.gz <commit>/path/to/file > /tmp/orig`
 3. Apply the intended change to a copy: `cp /tmp/orig /tmp/patched && $EDITOR /tmp/patched`
 4. Diff: `diff -u /tmp/orig /tmp/patched > sources/000N-<name>.patch`
@@ -156,9 +156,9 @@ make rpm-snapshot                # full -bb (profile only, ~30 min on a 32GB wor
 make rpm-snapshot-debug          # full -bb + o3deNNNN-debug subpackage (~2x build time)
 ```
 
-**Always use `make snapshot` (or equivalently `sources/make-snapshot-tarball.sh`) for snapshot bumps, never `curl https://github.com/o3de/o3de/archive/<sha>.tar.gz` directly.** The GitHub archive endpoint silently serves git-LFS POINTER files for any LFS-tracked content (fonts, large textures), producing a tarball that's about 50x smaller than expected (~39MB vs ~1.9GB) and ships 1300+ LFS placeholders into the install. The engine binaries link cleanly; assets bake to broken/empty products; the breakage surfaces a layer downstream (sample-project bakes, font rendering, etc.). The script does `git clone --depth 1 --branch <ref> + git lfs pull + tar` -- the LFS pull is the load-bearing step. Caught the hard way 2026-05-25 in stab build 10507773 -- see commit `3eea141` for the full incident write-up.
+**Always use `make snapshot` (or equivalently `sources/make-snapshot-tarball.sh`) for snapshot bumps, never `curl https://github.com/o3de/o3de/archive/<sha>.tar.gz` directly.** The GitHub archive endpoint silently serves git-LFS POINTER files for any LFS-tracked content (fonts, large textures), producing a tarball that's about 50x smaller than expected (~39MB vs ~1.9GB) and ships 1300+ LFS placeholders into the install. The engine binaries link cleanly; assets bake to broken/empty products; the breakage surfaces a layer downstream (sample-project bakes, font rendering, etc.). The script does `git clone --depth 1 --branch <ref> + git lfs pull + tar`: the LFS pull is the load-bearing step. Caught the hard way 2026-05-25 in stab build 10507773: see commit `3eea141` for the full incident write-up.
 
-**A note on local-vs-COPR build times.** The "~30 min" above reflects the current Stage 1 + Stage 2 swap stack (14 Stage 1 system swaps + 3 Stage 2 -- mcpp/dxc/spirvcross -- as of 2026-05-14). Each swap removes a bundled-3p compile from the build, so build times have shortened substantially as the swap stack grew (was "~3-4 hours" in early-stage docs, "~70 min" by mid-2026). COPR builds still take 4-6 hours: shared hardware, no persistent ccache between builds, fresh mock chroot per submission. Use local rebuilds for the development iteration loop (test a spec change, rebuild, dnf reinstall, re-test in ~35 min total); use COPR for promotion of validated artifacts to testers.
+**A note on local-vs-COPR build times.** The "~30 min" above reflects the current Stage 1 + Stage 2 swap stack (14 Stage 1 system swaps + 3 Stage 2, mcpp/dxc/spirvcross, as of 2026-05-14). Each swap removes a bundled-3p compile from the build, so build times have shortened substantially as the swap stack grew (was "~3-4 hours" in early-stage docs, "~70 min" by mid-2026). COPR builds still take 4-6 hours: shared hardware, no persistent ccache between builds, fresh mock chroot per submission. Use local rebuilds for the development iteration loop (test a spec change, rebuild, dnf reinstall, re-test in ~35 min total); use COPR for promotion of validated artifacts to testers.
 
 Or run the test harness end-to-end:
 
@@ -210,22 +210,22 @@ make copr-experimental-and-test      # same, against the experimental project
 
 See [`tests/README.md`](tests/README.md) for the tier breakdown. The short version:
 
-- `make test` — read-only checks (Tiers 1, 2, 4) — no state changes
-- `make test-setup` — adds Tier 3 (per-user venv + engine register)
-- `make test-full` — adds Tier 5 (project end-to-end)
-- `make test-ui` — Tier 6 (Project Manager smoke under Xvfb)
-- `make test-ui-full` — Tier 6 plus Editor automation
-- `make test-asset-bake` — Tier 7 (system-swap library-health check)
-- `make test-ap-spawn` — Tier 8 (AssetProcessor runtime smoke)
-- `make test-multiplayer-sample` — Tier 9 (real community sample build + bake + launcher smoke; ~60-90 min cold). Builds the full multiplayer harness (client + headless server + spectator server + bare gem for AP). Launcher loads `startmenu` cleanly on Linux; `make play-mps-host` + `make play-mps-client` runs an end-to-end host+connect session.
-- `make test-newspaper-delivery` — Tier 10 (sister community sample; ~30-60 min cold). Plays end-to-end: title screen, character control, gameplay HUD active.
-- `make test-tier11` / `make test-tier11-multiplayer` — Tier 11 (post-load liveness smoke; ~60-90 s). Verifies the launcher survives running for a window after `LEVEL_LOAD_END`. Requires Tier 9 or 10 cache to be present.
-- `make play-mps-host` / `make play-mps-client` / `make play-mps-stop` — manual MultiplayerSample play, not a test. Launches headless server + windowed client (the configuration that's stable for sustained play; see `FOLLOW_UPS.md` for why graphical server + settings menu crashes). Requires Tier 9 to have built the binaries first.
-- `make test-branch REF=<git-ref>` — build snapshot from a ref + install + full test suite (Tiers 1-6; doesn't auto-fire Tiers 7-11 due to wall-time cost)
+- `make test`: read-only checks (Tiers 1, 2, 4), no state changes
+- `make test-setup`: adds Tier 3 (per-user venv + engine register)
+- `make test-full`: adds Tier 5 (project end-to-end)
+- `make test-ui`: Tier 6 (Project Manager smoke under Xvfb)
+- `make test-ui-full`: Tier 6 plus Editor automation
+- `make test-asset-bake`: Tier 7 (system-swap library-health check)
+- `make test-ap-spawn`: Tier 8 (AssetProcessor runtime smoke)
+- `make test-multiplayer-sample`: Tier 9 (real community sample build + bake + launcher smoke; ~60-90 min cold). Builds the full multiplayer harness (client + headless server + spectator server + bare gem for AP). Launcher loads `startmenu` cleanly on Linux; `make play-mps-host` + `make play-mps-client` runs an end-to-end host+connect session.
+- `make test-newspaper-delivery`: Tier 10 (sister community sample; ~30-60 min cold). Plays end-to-end: title screen, character control, gameplay HUD active.
+- `make test-tier11` / `make test-tier11-multiplayer`: Tier 11 (post-load liveness smoke; ~60-90 s). Verifies the launcher survives running for a window after `LEVEL_LOAD_END`. Requires Tier 9 or 10 cache to be present.
+- `make play-mps-host` / `make play-mps-client` / `make play-mps-stop`: manual MultiplayerSample play, not a test. Launches headless server + windowed client (the configuration that's stable for sustained play; see `FOLLOW_UPS.md` for why graphical server + settings menu crashes). Requires Tier 9 to have built the binaries first.
+- `make test-branch REF=<git-ref>`: build snapshot from a ref + install + full test suite (Tiers 1-6; doesn't auto-fire Tiers 7-11 due to wall-time cost)
 
-When you add new behavior, **add a corresponding test in the right tier**. Tier 1–2 for installed-state invariants, Tier 3–5 for runtime behavior, Tier 6+ for UI, Tier 7+ for explicit-only heavyweight validation (system-swap drift, AP lifecycle bugs, real community sample integration).
+When you add new behavior, **add a corresponding test in the right tier**. Tier 1-2 for installed-state invariants, Tier 3-5 for runtime behavior, Tier 6+ for UI, Tier 7+ for explicit-only heavyweight validation (system-swap drift, AP lifecycle bugs, real community sample integration).
 
-Tier 9 and Tier 10 are the community-sample validation tracks; both pass on Fedora 44 against `o3de2605` as of 2026-05-21 and the test scripts auto-recover from common upstream-side issues (LFS server transients, working-tree pointer files, AWS Lambda batch-size limits, level startup config quirks). The recovery logic lives in the test scripts themselves — read `tests/multiplayersample-build-test.sh` + `tests/newspaper-delivery-build-test.sh` for the inline rationale.
+Tier 9 and Tier 10 are the community-sample validation tracks; both pass on Fedora 44 against `o3de2605` as of 2026-05-21 and the test scripts auto-recover from common upstream-side issues (LFS server transients, working-tree pointer files, AWS Lambda batch-size limits, level startup config quirks). The recovery logic lives in the test scripts themselves. Read `tests/multiplayersample-build-test.sh` + `tests/newspaper-delivery-build-test.sh` for the inline rationale.
 
 ---
 
@@ -240,11 +240,11 @@ Tier 9 and Tier 10 are the community-sample validation tracks; both pass on Fedo
 - `bash -n` on every shell source
 - best-effort `patch --dry-run` against the pinned snapshot commit
 
-`.github/workflows/test-installed.yml` runs the integration test suite in clean Fedora containers (matrix: `fedora-44`, `fedora-45`, `fedora-rawhide`, extending as Fedora releases ship) against an RPM URL — typically a COPR build artifact. Three triggers:
+`.github/workflows/test-installed.yml` runs the integration test suite in clean Fedora containers (matrix: `fedora-44`, `fedora-45`, `fedora-rawhide`, extending as Fedora releases ship) against an RPM URL, typically a COPR build artifact. Three triggers:
 
-- **Manual** (`workflow_dispatch`) — paste an RPM URL into the GitHub UI's "Run workflow" form.
-- **Programmatic** (`repository_dispatch`, `event_type: copr-build-succeeded`) — fired by `make trigger-tests BUILD_ID=<copr-build-id>` after a COPR build succeeds, or end-to-end via `make copr-stabilization-and-test` (which submits, watches, then fires). Requires `gh` authenticated.
-- **Cron** (every 4 hours, offset to `:17`) — polls COPR for the latest succeeded build in `hellaenergy/o3de-stabilization`. Dedup via `actions/cache` keyed on the COPR build ID, so the same build is never tested twice.
+- **Manual** (`workflow_dispatch`): paste an RPM URL into the GitHub UI's "Run workflow" form.
+- **Programmatic** (`repository_dispatch`, `event_type: copr-build-succeeded`): fired by `make trigger-tests BUILD_ID=<copr-build-id>` after a COPR build succeeds, or end-to-end via `make copr-stabilization-and-test` (which submits, watches, then fires). Requires `gh` authenticated.
+- **Cron** (every 4 hours, offset to `:17`): polls COPR for the latest succeeded build in `hellaenergy/o3de-stabilization`. Dedup via `actions/cache` keyed on the COPR build ID, so the same build is never tested twice.
 
 The full RPM build itself is too heavy for free GitHub runners (~25 GB output, multi-hour compile). COPR does that.
 
@@ -264,7 +264,7 @@ The full RPM build itself is too heavy for free GitHub runners (~25 GB output, m
 ## When something breaks during your work
 
 1. **Document it in `BUILD_NOTES.md` first.** What was the symptom, what was the root cause, what was the fix. This file is excluded from git but is the source of truth for working notes that will eventually become permanent docs or PR rationale.
-2. **Mirror to `FLATPAK_NOTES.md`** if the finding has Flatpak relevance (compiler quirks, library bundling, sandboxing, file paths). Both files are working notes — drop neither into git, but maintain both.
+2. **Mirror to `FLATPAK_NOTES.md`** if the finding has Flatpak relevance (compiler quirks, library bundling, sandboxing, file paths). Both files are working notes: drop neither into git, but maintain both.
 3. **Make the fix in a commit that also documents the why** in the message body.
 4. **Update permanent docs (README, FEDORA_ROADMAP.md, BUNDLED_LIBRARIES.md)** if the finding shifts the roadmap or the bundled-library status.
 
@@ -276,11 +276,11 @@ The full RPM build itself is too heavy for free GitHub runners (~25 GB output, m
 - Anything affecting `o3de.spec` and how it builds
 - Spec patches against upstream O3DE source (`sources/000N-*.patch`)
 - The launcher wrapper, desktop entries, metainfo, icons, SBOM
-- Tests (Tiers 1–10) and CI workflows
+- Tests (Tiers 1-10) and CI workflows
 - Documentation that supports any of the above
 
 **Not in scope (different repo or upstream effort):**
-- Bug fixes in the engine itself — file upstream at [github.com/o3de/o3de/issues](https://github.com/o3de/o3de/issues)
+- Bug fixes in the engine itself: file upstream at [github.com/o3de/o3de/issues](https://github.com/o3de/o3de/issues)
 - The Flatpak (will live in a sibling repo when it's started)
 - The `o3de-dependencies` SRPM specs (separate workstream; lives in COPR + a future git repo)
 

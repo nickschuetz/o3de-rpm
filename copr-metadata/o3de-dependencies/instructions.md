@@ -8,18 +8,18 @@
 
 **Currently shipped (~12 packages):**
 
-- **o3de-qt5** (5.15.2-rev9) -- O3DE's custom-patched Qt 5.15. LGPL-3.0 / GPL-3.0 (Qt) + Apache-2.0 (rev9 patches). Required because the bundled rev9 patches are load-bearing (system Qt5 cannot substitute).
-- **PhysX** (5.x) -- BSD-3-Clause. Open-source since NVIDIA's 2022 release; not in Fedora.
-- **o3de-AWSNativeSDK**, **aws-iot-device-sdk-cpp-v2**, **aws-gamelift-server-sdk** -- Apache-2.0. Specific versions O3DE pins; not in Fedora.
-- **azslc** (1.8.x) -- Apache-2.0. O3DE's shader language compiler.
-- **ISPCTexComp** -- MIT. Intel ISPC texture compressor.
-- **astc-encoder** (3.2-rev2) -- Apache-2.0. ARM ASTC reference encoder.
-- **mikkelsen** (1.0.0.4) -- Public domain. Tangent-space generator (Morten Mikkelsen).
-- **o3de2605-spirv-cross** (1.3.275.0) -- Apache-2.0 / MIT. KhronosGroup SPIR-V to GLSL/HLSL/MSL cross-compiler. Engine shells out to `/usr/bin/spirv-cross` at asset-build time. ✓ Green as of 2026-05-07.
-- **o3de2605-dxc-spirv** (1.8.2505.1-o3de) -- NCSA + Apache-2.0 (LLVM exception). Microsoft DirectXShaderCompiler (HLSL to SPIR-V), o3de fork at tag `release-1.8.2505.1-o3de`. Linux/SPIR-V-only build (no Windows DXIL signing tooling). Engine shells out to `/usr/bin/dxc`. ✓ Green as of 2026-05-08.
-- **o3de2605-mcpp-az** (2.7.2_az.2-rev1) -- BSD-2-Clause (upstream Kiyoshi Matsui) + Apache-2.0 OR MIT (Amazon `_az.2` patch series). License-clean rebuild of upstream mcpp 2.7.2 (abandonware-class C/C++ preprocessor, last upstream release 2008) + o3de/3p-package-source's 566-line `_az.2` patch series. **Library-link variant** of the DXC-class pattern: the engine `#include`s `<mcpp_lib.h>` and links `libmcpp.so` into its binaries at build time (vs. spirvcross/dxc which are shelled out to as binaries). Ships `/usr/bin/mcpp` (CLI tool + man page), `/usr/lib64/libmcpp.so.0.3.0` (main package), `/usr/include/mcpp_lib.h` + `mcpp_out.h` + `libmcpp.a` (devel subpackage). ✓ Green as of 2026-05-08.
+- **o3de-qt5** (5.15.2-rev9): O3DE's custom-patched Qt 5.15. LGPL-3.0 / GPL-3.0 (Qt) + Apache-2.0 (rev9 patches). Required because the bundled rev9 patches are load-bearing (system Qt5 cannot substitute).
+- **PhysX** (5.x): BSD-3-Clause. Open-source since NVIDIA's 2022 release; not in Fedora.
+- **o3de-AWSNativeSDK**, **aws-iot-device-sdk-cpp-v2**, **aws-gamelift-server-sdk**: Apache-2.0. Specific versions O3DE pins; not in Fedora.
+- **azslc** (1.8.x): Apache-2.0. O3DE's shader language compiler.
+- **ISPCTexComp**: MIT. Intel ISPC texture compressor.
+- **astc-encoder** (3.2-rev2): Apache-2.0. ARM ASTC reference encoder.
+- **mikkelsen** (1.0.0.4): Public domain. Tangent-space generator (Morten Mikkelsen).
+- **o3de2605-spirv-cross** (1.3.275.0): Apache-2.0 / MIT. KhronosGroup SPIR-V to GLSL/HLSL/MSL cross-compiler. Engine shells out to `/usr/bin/spirv-cross` at asset-build time. ✓ Green as of 2026-05-07.
+- **o3de2605-dxc-spirv** (1.8.2505.1-o3de): NCSA + Apache-2.0 (LLVM exception). Microsoft DirectXShaderCompiler (HLSL to SPIR-V), o3de fork at tag `release-1.8.2505.1-o3de`. Linux/SPIR-V-only build (no Windows DXIL signing tooling). Engine shells out to `/usr/bin/dxc`. ✓ Green as of 2026-05-08.
+- **o3de2605-mcpp-az** (2.7.2_az.2-rev1): BSD-2-Clause (upstream Kiyoshi Matsui) + Apache-2.0 OR MIT (Amazon `_az.2` patch series). License-clean rebuild of upstream mcpp 2.7.2 (abandonware-class C/C++ preprocessor, last upstream release 2008) + o3de/3p-package-source's 566-line `_az.2` patch series. **Library-link variant** of the DXC-class pattern: the engine `#include`s `<mcpp_lib.h>` and links `libmcpp.so` into its binaries at build time (vs. spirvcross/dxc which are shelled out to as binaries). Ships `/usr/bin/mcpp` (CLI tool + man page), `/usr/lib64/libmcpp.so.0.3.0` (main package), `/usr/include/mcpp_lib.h` + `mcpp_out.h` + `libmcpp.a` (devel subpackage). ✓ Green as of 2026-05-08.
 
-**Naming convention**: all three Stage 2 packages use the `o3deNNNN-<dep>` form (where NNNN is the engine-major in YYMM, matching the engine RPM's `o3deNNNN` naming). This lets a future `o3de2610-mcpp-az` co-exist in the same project for the 26.10.x engine line, mirroring upstream's CDN model where multiple engine-major lines pin different package versions side-by-side. The 26.05.x point releases (.0/.1/.2/...) all share the same `o3de2605-<dep>` packages -- engine-team's empirical 3p-pin update cadence is a few times per year, not per release.
+**Naming convention**: all three Stage 2 packages use the `o3deNNNN-<dep>` form (where NNNN is the engine-major in YYMM, matching the engine RPM's `o3deNNNN` naming). This lets a future `o3de2610-mcpp-az` co-exist in the same project for the 26.10.x engine line, mirroring upstream's CDN model where multiple engine-major lines pin different package versions side-by-side. The 26.05.x point releases (.0/.1/.2/...) all share the same `o3de2605-<dep>` packages; engine-team's empirical 3p-pin update cadence is a few times per year, not per release.
 
 **Rebuild strategy:** each package is built with `enable_net=false` (so the SRPM has no upstream dependency at COPR build time). License-clean inputs only. Where O3DE upstream carries patches over the canonical source (e.g. DXC's `-o3de` tag, mikkelsen's git-snapshot rev), we apply those same patches in our SRPM.
 
