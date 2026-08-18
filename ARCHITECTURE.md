@@ -15,14 +15,14 @@ flowchart TB
 
     subgraph DEPS["Build-time dependencies"]
         DPK1["Fedora repos<br/>(Stage 1 system swaps:<br/>zlib, freetype, libpng, expat, lz4,<br/>mikkelsen, openexr, poly2tri, lua,<br/>assimp, sqlite, libsamplerate,<br/>googlebenchmark, vulkan-validation-layers,<br/>xxhash, rapidjson (F44/F45/rawhide only))"]
-        DPK2["COPR<br/>hellaenergy/o3de-dependencies<br/>(Qt5-rev9, PhysX, AWS SDK, azslc,<br/>ISPCTexComp, astc-encoder, mikkelsen,<br/>o3de2605-spirv-cross + o3de2605-dxc-spirv + o3de2605-mcpp-az<br/>(Stage 2 3-pack) + o3de2605-cityhash (Stage 1 swap, lib not in Fedora);<br/>o3deNNNN-<dep> naming))"]
-        DPK3["packages.o3de.org CDN<br/>(remaining bundled 3rdParty:<br/>restricted (NvCloth, squish-ccr) +<br/>libtiff (exception draft) +<br/>blocked-stage-3 (OIIO/OCIO, pyside2) +<br/>blocked-stage-4 (OpenSSL) +<br/>remaining multiplatform deps<br/>(RapidXML (walked back, AZ fork),<br/>pybind11, glad))"]
+        DPK2["COPR<br/>hellaenergy/o3de-dependencies<br/>(o3de-qt5-rev9 (26.05 line only), PhysX, AWS SDK, azslc,<br/>ISPCTexComp, astc-encoder, mikkelsen,<br/>o3de2605-spirv-cross + o3de2605-dxc-spirv + o3de2605-mcpp-az<br/>(Stage 2 3-pack) + o3de2605-cityhash (Stage 1 swap, lib not in Fedora);<br/>o3deNNNN-<dep> naming, shared across majors))"]
+        DPK3["packages.o3de.org CDN<br/>(remaining bundled 3rdParty:<br/>Qt6 6.10.2 + PySide6/shiboken6<br/>(26.10 line: system_qt6 swap REVERTED 2026-08-17;<br/>bundled PySide6 pins Qt_6_PRIVATE_API,<br/>Fedora Qt6 has only Qt_6.11_PRIVATE_API;<br/>exception in force, Option B pending) +<br/>PySide2 (26.05 line) +<br/>restricted (NvCloth, squish-ccr) +<br/>blocked-stage-3 (OIIO/OCIO) +<br/>blocked-stage-4 (OpenSSL) +<br/>bundled Python 3.10 +<br/>multiplatform (RapidXML AZ-fork, pybind11, glad))"]
     end
 
     subgraph SPEC["o3de.spec"]
         BC{"--with snapshot ?"}
         SHA["sha256sum -c verify"]
-        AUTO["%autosetup -p1 (carry-patches Patch0001..0016)<br/>7 merged-upstream are gated off by<br/>--with development_snapshot:<br/>0001/0002/0004/0005/0007/0008/0012<br/>(0004 superseded by o3de#19752, 2026-06-09)"]
+        AUTO["%autosetup -p1 (carry-patches Patch0001..0019)<br/>7 merged-upstream gated off by<br/>--with development_snapshot:<br/>0001/0002/0004/0005/0007/0008/0012;<br/>0018 (pessimizing-move) dev-snapshot-gated (active);<br/>0017+0019 (lrelease) system_qt6-only<br/>(inactive since the 2026-08-17 bundled-Qt6 revert)"]
         TP["%bcond_with thirdparty_*<br/>extract bundles to LY_3RDPARTY_PATH"]
         BUILD["cmake Ninja Multi-Config<br/>profile + (debug if --with debug)"]
         INST["cmake --install<br/>+ shebang normalization<br/>+ Stage 2 binary-overlay symlinks<br/>(system_spirvcross, system_dxc)<br/>+ Stage 2 library-link (system_mcpp)"]
@@ -39,7 +39,7 @@ flowchart TB
     end
 
     subgraph INSTALL["Installed layout (RPMs produced)"]
-        MAIN["o3deNNNN package (e.g. o3de2605)<br/>/opt/O3DE/&lt;DISPLAY_VERSION&gt;/ (CORE + DEFAULT + profile binaries)<br/>/usr/bin/o3deNNNN + per-major .desktop + metainfo + icons + SBOM<br/>Recommends: project-build *-devel + system_X-devel<br/>Recommends: cmake (not Requires)"]
+        MAIN["o3deNNNN package (e.g. o3de2605, o3de2610)<br/>/opt/O3DE/&lt;DISPLAY_VERSION&gt;/ (CORE + DEFAULT + profile binaries)<br/>/usr/bin/o3deNNNN + per-major .desktop + metainfo + icons + SBOM<br/>Recommends: project-build *-devel + system_X-devel<br/>Recommends: cmake (not Requires)"]
         DEVELPKG["o3deNNNN-devel subpackage<br/>(always produced)<br/>/opt/O3DE/&lt;DISPLAY_VERSION&gt;/lib/Linux/profile/Default/*.a (~178 .a)<br/>/opt/O3DE/&lt;DISPLAY_VERSION&gt;/lib64/ (Recast/Detour)<br/>Requires: o3deNNNN = same NVR"]
         DBGPKG["o3deNNNN-debug subpackage<br/>(only when --with debug)<br/>/opt/O3DE/&lt;DISPLAY_VERSION&gt;/bin/Linux/debug/"]
         DBG -->|no| MAIN
@@ -143,8 +143,10 @@ endif()
 
 With the flag on, the prebuilt is never registered; `find_package(X)` runs eagerly at the BuiltInPackages site and creates the `3rdParty::X` target from the system library. Because the target then exists, the lazy path above is later skipped.
 
+**Per-line vs central gating (which mechanism is live depends on the line).** Patch0006's per-line gating is the 26.05-line mechanism. On the dev-aligned lines (`--with development_snapshot`, i.e. the 26.10 `o3de-stabilization` + `o3de-development` channels) Patch0006 does not apply (its context drifted against upstream `development`), and a single central hook, **Patch0014**, does the same job generically for every swap: one guard inside `ly_download_associated_package()`. Patch0014 is activated by the `swap_hook` bcond, which is what carries the 17-library Stage-1 swap set on the shipped 26.10 builds. (Qt6 is a special case: the `system_qt6` swap that would have used this hook was reverted to bundled Qt6 on 2026-08-17 because the bundled PySide6 pins `Qt_6_PRIVATE_API`, which Fedora's Qt6 does not provide; see [`BUNDLED_LIBRARIES.md`](BUNDLED_LIBRARIES.md).)
+
 **The shim satisfies `find_package(X)`.** We ship the find module as `sources/Find<X>-system.cmake` and copy it at `%prep` to `cmake/3rdParty/Find<X>.cmake` (the canonical name; the `-system` suffix is only our source-tree label). `cmake/3rdParty` is on `CMAKE_MODULE_PATH`, so `find_package(X)` resolves our module ahead of cmake's stock one. For libraries cmake already ships a module for (ZLIB, TIFF, Freetype, PNG, Lua), ours mostly delegates to the stock module and adds the `3rdParty::X` alias; a few (mikkelsen, expat, lua) bridge include paths or header-case on top.
 
 **Two consumption patterns.** The above is the **prebuilt-package** path (`ly_associate_package`), which requires the gate patch because the associate line is what we have to intercept. The other pattern is **FetchContent** gems, which do `list(APPEND CMAKE_MODULE_PATH .../3rdParty)` then call `find_package(openmesh)` themselves, lazily, and only when the gem is enabled. Those can be swapped with NO patch: prepend a directory containing our `Find<X>.cmake` to `CMAKE_MODULE_PATH` and the gem's own `find_package` picks it up. As upstream migrates 3rdParty from prebuilt to FetchPackage (assimp already did, o3de/o3de#19365), those swaps become patch-free.
 
-**Direction.** A single central guard on the lazy resolver, `if (NOT LY_USE_SYSTEM_${pkg}) ly_download_associated_package(...) endif()` in `cmake/3rdParty.cmake`, would make the prebuilt path patch-free and lazy too: distros would set `-DLY_USE_SYSTEM_<X>=ON` and drop a `Find<X>.cmake` on the module path, with no per-line BuiltInPackages patches and no over-eager resolution of gem-only libraries. This is an active upstream conversation (sig-build).
+**Direction.** The central guard on the lazy resolver, `if (NOT LY_USE_SYSTEM_${pkg}) ly_download_associated_package(...) endif()` in `cmake/3rdParty.cmake`, makes the prebuilt path patch-free and lazy too: distros set `-DLY_USE_SYSTEM_<X>=ON` and drop a `Find<X>.cmake` on the module path, with no per-line BuiltInPackages patches and no over-eager resolution of gem-only libraries. This is exactly what Patch0014 (above) implements downstream, and it is proposed upstream as [o3de/o3de#19815](https://github.com/o3de/o3de/issues/19815) (sig-build). Landing it upstream would retire Patch0014 entirely.

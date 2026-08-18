@@ -26,6 +26,8 @@ Per-package classification:
 - **ahead-of-engine** -- COPR ships newer than the engine pin (informational).
 - **gap** -- engine references it, we do not ship in COPR, no `system_<X>` bcond in the spec.
 - **covered-by-spec** -- engine references it; covered by `%bcond_with system_<X>` in `o3de.spec`.
+- **bundled-exception** -- engine references it; deliberately bundled with a `BUNDLED_LIBRARIES.md` justification rather than swapped (e.g. `qt` (Qt6 6.10.2, bundled for 26.10 pending Option B), `pyside6`, `OpenSSL`). Informational, not a gap.
+- **accepted-drift** -- COPR version intentionally diverges from the engine pin, with a documented reason. Informational, does not fail the run.
 - **cruft** -- COPR ships it but the engine no longer references it.
 
 It also runs two informational/tripwire sections that do not use the COPR
@@ -48,7 +50,12 @@ discriminating signal -- the Linux x86_64 3rdParty Qt association in
 `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` -- for the
 flip from `qt-5.15.x` + `pyside2` to `qt-6.x` + `pyside6` (x86_64 is the file
 that flips; the qt6 branch keeps aarch64 on Qt5), and reports the merge PR
-(o3de/o3de#19567) status alongside.
+(o3de/o3de#19567) status alongside. qt6 MERGED into `development` on 2026-06-15,
+so `development` now reports MERGED and this is in its steady state; the probe +
+`qt6-merge-gate` stay wired as a guard so no dev-tip build fires against Qt6
+chroots that lack the `qt6` bcond. (Note: 26.10 ships BUNDLED Qt6; the system
+Qt6 swap was reverted 2026-08-17. This probe only tracks the engine's Qt5->Qt6
+migration, which is independent of the bundled-vs-system-Qt6 packaging choice.)
 
 Run locally:
 
@@ -101,6 +108,14 @@ or when the engine adds a new `ly_associate_package` entry, edit
   for "no spec swap available".
 - `ignore_engine_packages:` -- multiplatform header-only or build-tooling
   deps the script should silently skip.
+- `bundling_exception:` -- engine packages intentionally bundled with a
+  `BUNDLED_LIBRARIES.md` justification (not in COPR, not behind a spec
+  bcond); classified `bundled-exception` instead of `gap`. `qt` lives here
+  (Qt6 6.10.2 bundled for the 26.10 line, pending Option B), alongside
+  `pyside6`, `OpenSSL`, and the restricted bundles.
+- `accepted_drift:` -- engine packages whose COPR version intentionally
+  diverges from the engine pin, with a documented reason; classified
+  `accepted-drift` (informational) instead of `out-of-date`.
 - `rev_watch:` -- pins on `rev_watch_ref` (default `development`) to fire on
   when they move off a verified baseline. Each value is a single
   pipe-delimited string `"baseline|target|note"`. After a watch fires and you

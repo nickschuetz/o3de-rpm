@@ -8,11 +8,11 @@ This document is the staged plan, dependency map, and decision log. It lives in 
 
 ---
 
-## Current state (2026-07-27 snapshot)
+## Current state (2026-08-17 snapshot)
 
 Quick TL;DR of where each stage stands as of this snapshot. Per-stage detail in sections below; this header gets refreshed as state advances.
 
-**Moved since the prior (2026-05-13) snapshot:** 26.05.0 shipped 2026-05-27, on schedule. Qt6 merged into `development` 2026-06-15 ([#19567](https://github.com/o3de/o3de/pull/19567)); `o3de-development` + `o3de-experimental` are now Qt6, and the o3de-qt5 custom bundle is retiring in favor of a system qt6 swap. **Stage 4 (OpenSSL, the roadmap's wild card) finally moved** (see its row). A monolithic (release/static) engine permutation was added on `o3de-experimental` 2026-07-24 so a release game export works from the installed SDK -- that is functionality/usability, NOT a Fedora-submission blocker. `o3de-experimental` was realigned off the Stage-1 swap base onto development + monolithic (stabilization retired: 26050 frozen, no 26100 yet).
+**Moved since the prior (2026-05-13) snapshot:** 26.05.0 shipped 2026-05-27, on schedule. Qt6 merged into `development` 2026-06-15 ([#19567](https://github.com/o3de/o3de/pull/19567)); `o3de-development` + `o3de-experimental` are now Qt6, and the o3de-qt5 custom bundle retires for the 26.10 line. NOTE: the intended system qt6-qtbase swap was REVERTED to bundled Qt 6.10.2 on 2026-08-17 (bundled PySide6 pins the major-scoped `Qt_6_PRIVATE_API` symbol Fedora's Qt6 does not export; see the 2026-08-17 entry below and Stage 5). **Stage 4 (OpenSSL, the roadmap's wild card) finally moved** (see its row). A monolithic (release/static) engine permutation was added on `o3de-experimental` 2026-07-24 so a release game export works from the installed SDK -- that is functionality/usability, NOT a Fedora-submission blocker. `o3de-experimental` was realigned off the Stage-1 swap base onto development + monolithic. `stabilization/26100` (the 26.10 line) has since been cut 2026-08-11; `o3de-stabilization` + `o3de-development` now build o3de2610 with the 17-library Stage-1 swap set plus bundled Qt6.
 
 | Stage | Status |
 |---|---|
@@ -159,6 +159,8 @@ O3DE bundles `openimageio-opencolorio-2.3.17-rev2-linux` (combined). The blocker
 
 **Status:** unblocked, moderate effort.
 
+**26.10 relevance (2026-08-17):** the 26.10 line replaced PySide2 with **PySide6** (still bundled). PySide6 has two walls that both trace back here: the Python-C-module-ABI wall (bundled 3.10 vs Fedora 3.13, same as OpenImageIO/OpenColorIO) and, newly, a Qt-private-ABI wall (the bundled PySide6 links the bundle Qt's major-scoped `Qt_6_PRIVATE_API`, which Fedora's Qt6 does not export, which is why 26.10 ships bundled Qt6 rather than system Qt6, see Stage 5). Stage 3 (system Python) is therefore the enabler for "Option B" (rebuild PySide6 against system Qt6 + system Python), the path that unblocks BOTH the system-Qt6 swap and the OIIO/OCIO swap. So the PySide2-specific mechanics below now read as PySide6; the migration goal is unchanged.
+
 Today: O3DE bundles Python 3.10.13 from `packages.o3de.org` and creates a per-user venv at `~/.o3de/Python/venv/<engine-id>/lib/python3.10/`. The launcher's `O3DE_PYTHON_VERSION` env var (default `3.10`) is already parameterized for this migration.
 
 Target: use system Python (currently 3.13 in F44, 3.12 in CentOS Stream 10).
@@ -175,7 +177,7 @@ Target: use system Python (currently 3.13 in F44, 3.12 in CentOS Stream 10).
 
 ### How upstream contributors can help (Stage 3)
 
-- **PySide2 → PySide6 migration timeline.** PySide2 is unmaintained upstream since 2024-12. Fedora ships pyside6 (PySide6 is actively maintained against PyQt 6 / Qt 6). Question: is there an upstream timeline or active work for the PySide2 → PySide6 migration? Linux-side, this is the gating dependency for system-Python; if upstream has a target window we can sequence Stage 3 work against it instead of doing carry-patches that conflict with the upstream migration.
+- **PySide6 against a distro Qt6 + Python (the Option B ask).** The PySide2 -> PySide6 migration itself LANDED with the 26.10 Qt6 work, so the old "when will PySide6 arrive" question is answered; the live question is now whether QtForPython can consume a PySide6 built against the SAME Qt the engine built against (i.e. wire PySide6 into `LY_USE_SYSTEM_QT` rather than the CDN-pinned bundle). That is the blocker for a bundled-Qt-free 26.10 Fedora RPM (a system-Qt6 build is uninstallable while the bundled PySide6 pins the upstream-major `Qt_6_PRIVATE_API` symbol Fedora's Qt6 does not export). Scoping in `upstream-drafts/`; the cheapest first probe is whether Fedora's `python3-pyside6` `.abi3.so` imports into the engine's bundled Python 3.10.
 
 ---
 
@@ -215,7 +217,7 @@ Target: system OpenSSL 3.x.
 | **License-clean DXC rebuild** | **DONE 2026-05-14** -- shipped as `o3de2605-dxc-spirv` in `hellaenergy/o3de-dependencies`, active in stabilization. Recap section below. | done |
 | Real `-debuginfo` subpackage | Distinct from the existing `o3deNNNN-debug` subpackage (which ships debug-config binaries alongside the profile build). Fedora's `-debuginfo` is the rpmbuild-extracted symbol files for stripped binaries — currently disabled via `%global debug_package %{nil}` because O3DE's binary layout trips rpmbuild's symbol extraction (likely a `BUILD_ID` ambiguity from the Ninja Multi-Config split). May need patches to O3DE's link rules. | yes |
 | `-debugsource` subpackage | Source code corresponding to each debuginfo line. Should fall out automatically once `debuginfo` works. | yes |
-| Bundled Library Exception filing | Required for the custom Qt 5.15-rev9 (load-bearing). Justification doc in `BUNDLED_LIBRARIES.md`. | yes |
+| Bundled Library Exception filing | TWO in force: the custom Qt 5.15-rev9 (26.05 line, load-bearing patches) and bundled Qt 6.10.2 (26.10 line, blocked from the system qt6-qtbase swap by the bundled PySide6's `Qt_6_PRIVATE_API` pin until Option B; see BUNDLED_LIBRARIES.md and the 2026-08-17 revert). Justification doc in `BUNDLED_LIBRARIES.md`. | yes |
 | Mock-clean SRPM build | `mock --rebuild o3de.src.rpm` must succeed with `--isolation=simple --no-network` enabled. | needs Stage 1 / 2 / 3 |
 | Reproducible build | byte-identical RPM from the same SRPM on different hosts | needs all earlier stages |
 | AppStream `<screenshots>` | Required by Flathub; nice-to-have for Fedora. Need actual editor screenshots from a working install. | yes |
