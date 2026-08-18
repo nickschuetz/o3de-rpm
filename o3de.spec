@@ -938,7 +938,7 @@ BuildRequires:  vulkan-loader-devel
 BuildRequires:  assimp-devel
 %endif
 %if %{with system_dxc}
-# Stage 2 binary-only dependency: o3de2605-dxc-spirv from
+# Stage 2 binary-only dependency: o3de-dxc-spirv from
 # hellaenergy/o3de-dependencies COPR (sibling project, auto-enabled
 # alongside this one). Ships /usr/bin/dxc, /usr/bin/dxsc,
 # /usr/lib64/libdxcompiler.so. The %%install step below symlinks the
@@ -953,7 +953,7 @@ BuildRequires:  assimp-devel
 # duplicating identical content under an o3de2610- prefix. Per-major dep
 # packages (o3de2610-<dep>) become worth building only if a line ever pins
 # a different dep version. Memory: project_o3de_3p_versioning_research.md.
-BuildRequires:  o3de2605-dxc-spirv
+BuildRequires:  o3de-dxc-spirv
 %endif
 %if %{with system_expat}
 BuildRequires:  expat-devel
@@ -978,7 +978,7 @@ BuildRequires:  google-benchmark-devel
 BuildRequires:  libsamplerate-devel
 %endif
 %if %{with system_mcpp}
-# Stage 2 library-link dependency: o3de2605-mcpp-az from
+# Stage 2 library-link dependency: o3de-mcpp-az from
 # hellaenergy/o3de-dependencies COPR (sibling project, auto-enabled
 # alongside this one). Library-link variant of the DXC-class binary-only
 # pattern. Ships /usr/lib64/libmcpp.so + /usr/include/mcpp_lib.h via the
@@ -986,7 +986,7 @@ BuildRequires:  libsamplerate-devel
 # the binary at build time. License-clean rebuild of upstream mcpp 2.7.2
 # (BSD-2-Clause, abandonware-class) + o3de/3p-package-source's _az.2
 # patch series. Versioned-major naming -- see system_dxc block above.
-BuildRequires:  o3de2605-mcpp-az-devel
+BuildRequires:  o3de-mcpp-az-devel
 %endif
 %if %{with system_lua}
 BuildRequires:  lua-devel
@@ -1018,16 +1018,16 @@ BuildRequires:  xxhash-devel
 %endif
 %if %{with system_cityhash}
 # Stage 1 swap: replace the bundled cityhash-1.1-multiplatform fetch with
-# our license-clean COPR rebuild o3de2605-cityhash-devel from
+# our license-clean COPR rebuild o3de-cityhash-devel from
 # hellaenergy/o3de-dependencies. cityhash is not in Fedora; the rebuild
 # tracks upstream google/cityhash at commit f5dc541 (2022-07-19).
-BuildRequires:  o3de2605-cityhash-devel
+BuildRequires:  o3de-cityhash-devel
 %endif
 %if %{with system_sqlite}
 BuildRequires:  sqlite-devel
 %endif
 %if %{with system_spirvcross}
-# Stage 2 binary-only dependency: o3de2605-spirv-cross from
+# Stage 2 binary-only dependency: o3de-spirv-cross from
 # hellaenergy/o3de-dependencies COPR (sibling project, auto-enabled
 # alongside this one). Ships /usr/bin/spirv-cross. The %%install step
 # below symlinks the engine's expected runtime path
@@ -1035,7 +1035,7 @@ BuildRequires:  sqlite-devel
 # /usr/bin/spirv-cross, so the engine's asset-build pipeline shells
 # out to the system binary instead of the bundled fetch. Versioned-major
 # naming -- see system_dxc block above.
-BuildRequires:  o3de2605-spirv-cross
+BuildRequires:  o3de-spirv-cross
 %endif
 %if %{with system_tiff}
 BuildRequires:  libtiff-devel
@@ -1126,7 +1126,7 @@ Recommends:     %{name}-devel = %{version}-%{release}
 Requires:       assimp
 %endif
 %if %{with system_dxc}
-Requires:       o3de2605-dxc-spirv
+Requires:       o3de-dxc-spirv
 %endif
 %if %{with system_expat}
 Requires:       expat
@@ -1141,7 +1141,7 @@ Requires:       google-benchmark
 Requires:       libsamplerate
 %endif
 %if %{with system_mcpp}
-Requires:       o3de2605-mcpp-az
+Requires:       o3de-mcpp-az
 %endif
 %if %{with system_lua}
 Requires:       lua-libs
@@ -1159,10 +1159,10 @@ Requires:       poly2tri
 Requires:       sqlite-libs
 %endif
 %if %{with system_spirvcross}
-Requires:       o3de2605-spirv-cross
+Requires:       o3de-spirv-cross
 %endif
 %if %{with system_cityhash}
-Requires:       o3de2605-cityhash
+Requires:       o3de-cityhash
 %endif
 %if %{with system_lz4}
 Requires:       lz4-libs
@@ -1326,7 +1326,7 @@ Recommends:     rapidxml-devel
 Recommends:     xxhash-devel
 %endif
 %if %{with system_cityhash}
-Recommends:     o3de2605-cityhash-devel
+Recommends:     o3de-cityhash-devel
 %endif
 %if %{with system_sqlite}
 Recommends:     sqlite-devel
@@ -1347,7 +1347,7 @@ Recommends:     google-benchmark-devel
 # headers for project-build use. (dxc + spirvcross are binary shellouts
 # -- no header surface for downstream consumers -- so they don't need
 # parallel -devel Recommends entries.)
-Recommends:     o3de2605-mcpp-az-devel
+Recommends:     o3de-mcpp-az-devel
 %endif
 
 %description
@@ -1805,7 +1805,7 @@ find %{buildroot}%{o3de_install_prefix} -type f -name '*.py' \
 # (which the engine fetched from packages.o3de.org during cmake
 # configure and `cmake --install` just copied to its expected runtime
 # path) with a symlink to /usr/bin/spirv-cross from the
-# o3de2605-spirv-cross COPR package. The engine's runtime path resolution
+# o3de-spirv-cross COPR package. The engine's runtime path resolution
 # (RHI::ExecuteShaderCompiler in
 # Gems/Atom/RHI/Code/Source/RHI.Edit/Utils.cpp) follows the symlink
 # transparently.
@@ -1835,7 +1835,7 @@ ln -sf /usr/bin/spirv-cross \
 # Stage 2 binary-only swap: same shape as system_spirvcross above, but
 # DXC has three install paths to overlay (dxc, dxsc, libdxcompiler.so).
 # COPR-built /usr/bin/dxc + /usr/bin/dxsc + /usr/lib64/libdxcompiler.so
-# from the o3de2605-dxc-spirv package (license-clean Linux/SPIR-V-only
+# from the o3de-dxc-spirv package (license-clean Linux/SPIR-V-only
 # rebuild from o3de/DirectXShaderCompiler at tag release-1.8.2505.1-o3de;
 # ✓ green PoC build 10435628 since 2026-05-08; functional verification
 # confirmed `dxc -spirv -T ps_6_0 -E main shader.hlsl` produces valid

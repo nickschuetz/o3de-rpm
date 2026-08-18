@@ -147,7 +147,7 @@
       "type": "library",
       "name": "o3de-dependencies",
       "scope": "required",
-      "description": "Fedora-clean COPR rebuilds of 3rdParty packages not (yet) in Fedora, consumed via hellaenergy/o3de-dependencies: o3de2605-dxc-spirv (license-clean SPIR-V-only DXC), o3de2605-mcpp-az, o3de2605-spirv-cross, o3de2605-cityhash. Shared with the 26.05 line (identical 3rdParty versions).",
+      "description": "Fedora-clean COPR rebuilds of 3rdParty packages not (yet) in Fedora, consumed via hellaenergy/o3de-dependencies: o3de-dxc-spirv (license-clean SPIR-V-only DXC), o3de-mcpp-az, o3de-spirv-cross, o3de-cityhash. Shared with the 26.05 line (identical 3rdParty versions).",
       "externalReferences": [
         {
           "type": "distribution",
