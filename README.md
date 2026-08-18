@@ -1,6 +1,6 @@
 # o3de-rpm
 
-RPM packaging for the [Open 3D Engine](https://o3de.org), targeting **Fedora 44+** (including rawhide) and **CentOS Stream 10+**. Builds run on rpm 4.19 (CS10) and rpm 4.20+ (F44 / rawhide); spec authoring conventions handle the parser divergence between them (see `project_cs10_debuginfo_quirk.md` memory note for the two CS10 RPM 4.19 quirks worked around so far).
+RPM packaging for the [Open 3D Engine](https://o3de.org), targeting **Fedora 44+** (including rawhide) and **CentOS Stream 10+**. Builds run on rpm 4.19 (CS10) and rpm 4.20+ (F44 / F45 / rawhide); spec authoring conventions handle the parser divergence between them (see `project_cs10_debuginfo_quirk.md` memory note for the two CS10 RPM 4.19 quirks worked around so far).
 
 The same spec produces:
 
@@ -65,7 +65,7 @@ o3de-rpm/
     ├── Findexpat-system.cmake                         #   when the matching --with system_<lib> bcond is on):
     ├── FindZLIB-system.cmake                          #   Stage 1: mikkelsen, expat, ZLIB, Freetype, PNG, Lua, lz4, OpenEXR,
     ├── ... (FindFreetype, FindPNG, FindLua,           #     Imath, assimp, libsamplerate, poly2tri, SQLite, GoogleBenchmark,
-    ├──      Find{RapidJSON,xxhash,cityhash},          #     RapidJSON (F44/rawhide only -- CS10 EPEL rapidjson too old), xxhash, cityhash
+    ├──      Find{RapidJSON,xxhash,cityhash},          #     RapidJSON (F44/F45/rawhide only -- CS10 EPEL rapidjson too old), xxhash, cityhash
     ├──      Findlz4, FindOpenEXR, FindImath,          #     (no vulkan_validation_layers shim — that swap is runtime-discovered
     ├──      Findassimp, Findlibsamplerate,            #      via VK_LAYER_PATH, no cmake-side find shim)
     ├──      Findpoly2tri, FindSQLite,                 #   Stage 2 library-link: Findmcpp-system.cmake
@@ -288,7 +288,7 @@ See [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) for the staged plan. Six stages fro
 
 ### Other Fedora-derivative downstreams (option-value)
 
-The spec is RPM / DNF / mock-conformant with no Fedora-edition-specific assumptions, so it should build on any Fedora-derivative that consumes Fedora sources via the standard packaging pipeline. We don't currently target any beyond the three covered above (F44, rawhide, CS10), and we won't pre-emptively add chroots, but if a downstream community (e.g. the [Fedora Hummingbird SIG](https://fedoraproject.org/wiki/Hummingbird) targeting cloud-native builders, or any other RPM-based derivative) signals a felt need for an O3DE-on-X variant, the spec is ready to be a starting point. Likely-narrow shapes for those follow-ons: headless server-launcher containers, or asset-bake CI images that ship `o3de2605` without the Editor/UI subset. The wider Editor + GUI workload is a poor fit for distroless / minimal-image targets.
+The spec is RPM / DNF / mock-conformant with no Fedora-edition-specific assumptions, so it should build on any Fedora-derivative that consumes Fedora sources via the standard packaging pipeline. We don't currently target any beyond the four covered above (F44, F45, rawhide, CS10), and we won't pre-emptively add chroots, but if a downstream community (e.g. the [Fedora Hummingbird SIG](https://fedoraproject.org/wiki/Hummingbird) targeting cloud-native builders, or any other RPM-based derivative) signals a felt need for an O3DE-on-X variant, the spec is ready to be a starting point. Likely-narrow shapes for those follow-ons: headless server-launcher containers, or asset-bake CI images that ship `o3de2605` without the Editor/UI subset. The wider Editor + GUI workload is a poor fit for distroless / minimal-image targets.
 
 To consume (end users):
 
@@ -348,7 +348,7 @@ make trigger-tests BUILD_ID=N            # fire CI tests against an existing COP
 
 A `make copr-init` target prints the one-time setup commands for all the COPR projects (chroot configs, runtime-repo-dependency, `--rpmbuild-with` flags for active Stage 1 migrations). Run `make help` for the full target list.
 
-CI (`.github/workflows/lint.yml`) runs spec-parse (stable + snapshot + stabilization + experimental modes) + rpmlint + desktop-file-validate + appstream-util validate + shell-syntax checks on every push, against a Fedora 44 container. CI (`.github/workflows/test-installed.yml`) runs the integration test suite (Tiers 1–6) against an existing COPR RPM URL in clean F44 + rawhide containers — triggered manually, by `make trigger-tests`, or by a 4-hourly cron polling `o3de-stabilization` for new builds. The full RPM build itself is too heavy for free runners (>2 hours, 14 GB output) — the COPR projects do that.
+CI (`.github/workflows/lint.yml`) runs spec-parse (stable + snapshot + stabilization + experimental modes) + rpmlint + desktop-file-validate + appstream-util validate + shell-syntax checks on every push, against a Fedora 44 container. CI (`.github/workflows/test-installed.yml`) runs the integration test suite (Tiers 1–6) against an existing COPR RPM URL in clean F44 + F45 + rawhide containers — triggered manually, by `make trigger-tests`, or by a 4-hourly cron polling `o3de-stabilization` for new builds. The full RPM build itself is too heavy for free runners (>2 hours, 14 GB output) — the COPR projects do that.
 
 The longer-term goal is **inclusion in Fedora proper**. The roadmap lives in [`FEDORA_ROADMAP.md`](FEDORA_ROADMAP.md) and the per-bundle Fedora-readiness status in [`BUNDLED_LIBRARIES.md`](BUNDLED_LIBRARIES.md).
 
@@ -454,7 +454,7 @@ This builds the snapshot tarball, patches the spec with the right pin values, ru
 
 ### CI for community use
 
-`.github/workflows/test-installed.yml` runs the test suite in clean Fedora containers (matrix: `fedora-44`, `fedora-rawhide`, extending to `fedora-45+` as releases ship) against an RPM URL — typically a COPR build artifact. Trigger via GitHub UI with an `rpm_url` input. The CentOS Stream 10 chroot is exercised per-build on COPR (its own `centos-stream-10-x86_64` build of every SRPM) but not currently in the GH-Actions matrix; CS10 builds going green on COPR is the gate for that chroot.
+`.github/workflows/test-installed.yml` runs the test suite in clean Fedora containers (matrix: `fedora-44`, `fedora-45`, `fedora-rawhide`, extending as releases ship) against an RPM URL — typically a COPR build artifact. Trigger via GitHub UI with an `rpm_url` input. The CentOS Stream 10 chroot is exercised per-build on COPR (its own `centos-stream-10-x86_64` build of every SRPM) but not currently in the GH-Actions matrix; CS10 builds going green on COPR is the gate for that chroot.
 
 For automated COPR → CI integration, configure a COPR webhook to fire this workflow on every successful build, giving any branch a "healthy on Fedora" signal.
 

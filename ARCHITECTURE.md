@@ -14,7 +14,7 @@ flowchart TB
     end
 
     subgraph DEPS["Build-time dependencies"]
-        DPK1["Fedora repos<br/>(Stage 1 system swaps:<br/>zlib, freetype, libpng, expat, lz4,<br/>mikkelsen, openexr, poly2tri, lua,<br/>assimp, sqlite, libsamplerate,<br/>googlebenchmark, vulkan-validation-layers,<br/>xxhash, rapidjson (F44/rawhide only))"]
+        DPK1["Fedora repos<br/>(Stage 1 system swaps:<br/>zlib, freetype, libpng, expat, lz4,<br/>mikkelsen, openexr, poly2tri, lua,<br/>assimp, sqlite, libsamplerate,<br/>googlebenchmark, vulkan-validation-layers,<br/>xxhash, rapidjson (F44/F45/rawhide only))"]
         DPK2["COPR<br/>hellaenergy/o3de-dependencies<br/>(Qt5-rev9, PhysX, AWS SDK, azslc,<br/>ISPCTexComp, astc-encoder, mikkelsen,<br/>o3de2605-spirv-cross + o3de2605-dxc-spirv + o3de2605-mcpp-az<br/>(Stage 2 3-pack) + o3de2605-cityhash (Stage 1 swap, lib not in Fedora);<br/>o3deNNNN-<dep> naming))"]
         DPK3["packages.o3de.org CDN<br/>(remaining bundled 3rdParty:<br/>restricted (NvCloth, squish-ccr) +<br/>libtiff (exception draft) +<br/>blocked-stage-3 (OIIO/OCIO, pyside2) +<br/>blocked-stage-4 (OpenSSL) +<br/>remaining multiplatform deps<br/>(RapidXML (walked back, AZ fork),<br/>pybind11, glad))"]
     end
@@ -88,7 +88,7 @@ flowchart TB
         T6["tests/multiplayersample-build-test.sh<br/>Tier 9: full MultiplayerSample build<br/>+ AP batch + launcher-load smoke<br/>(all 4 targets: GameLauncher,<br/>ServerLauncher, HeadlessServer,<br/>bare gem; opt-in; ~60-90 min cold,<br/>~3-10 min warm)"]
         T7["tests/newspaper-delivery-build-test.sh<br/>Tier 10: NewspaperDeliveryGame<br/>build + bake + playable-game smoke<br/>(opt-in; ~30-60 min cold,<br/>~3-10 min warm)"]
         T8["tests/post-load-liveness-test.sh<br/>Tier 11: post-load liveness smoke<br/>(launcher survives N seconds<br/>after LEVEL_LOAD_END without<br/>crash/freeze; opt-in; ~60-90 s)"]
-        T3[".github/workflows/test-installed.yml<br/>matrix: F44, rawhide, CS10, F45+, ...<br/>+ check-deps-drift.yml weekly cron"]
+        T3[".github/workflows/test-installed.yml<br/>matrix: F44, F45, rawhide, CS10, ...<br/>+ check-deps-drift.yml weekly cron"]
         DC1B -.-> T1
         DC1B -.-> T2
         DC1B -.-> T4
@@ -107,7 +107,7 @@ flowchart TB
 
 ## Eight separations to notice
 
-> **Distro coverage.** Builds run on three chroots: **F44** (the primary production target), **fedora-rawhide** (the next Fedora), and **CentOS Stream 10** (upstream of RHEL 10). Each brings a different toolchain, which is what most of the chroot-specific handling exists for: rawhide ships Lua 5.5, so the `LUA_VERSION_NUM >= 505` patches fire only there, and CS10's older RPM 4.19 parser drives spec conventions like escaping `%%install` in comments. The running CS10 toolchain-compat list is in the `project_cs10_engine_build_blockers` memory note.
+> **Distro coverage.** Builds run on four chroots: **F44** (the primary production target), **F45** (the newly branched release), **fedora-rawhide** (the next Fedora, now F46), and **CentOS Stream 10** (upstream of RHEL 10). Each brings a different toolchain, which is what most of the chroot-specific handling exists for: rawhide ships Lua 5.5, so the `LUA_VERSION_NUM >= 505` patches fire only there, and CS10's older RPM 4.19 parser drives spec conventions like escaping `%%install` in comments. The running CS10 toolchain-compat list is in the `project_cs10_engine_build_blockers` memory note.
 
 1. **Source-mode toggle** decides between a stable tarball and a reproducible snapshot tarball, but the rest of the spec is identical for both.
 2. **3rdParty bundle toggles** are independent of source mode; each `--with thirdparty_<pkg>` extracts its `Source10x` tarball into `LY_3RDPARTY_PATH` before configure.

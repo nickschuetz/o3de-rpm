@@ -95,7 +95,7 @@ git push origin main
 make copr-stable
 ```
 
-This fires the build into `hellaenergy/o3de`. Wall time ~4-6 hours across F44 + rawhide + CS10 chroots.
+This fires the build into `hellaenergy/o3de`. Wall time ~4-6 hours across F44 + F45 + rawhide + CS10 chroots.
 
 While waiting: optionally trigger the post-build CI test via `make trigger-tests RPM_URL=<url-from-copr-build>`.
 
@@ -116,7 +116,7 @@ In `README.md`, update any version strings that point at the prior release. Bump
 ### 10. Announce
 
 If you want to surface the build to community testers, post in the O3DE sig-release Discord:
-- "26.05.0 RPM is live at hellaenergy/o3de; F44 / rawhide / CS10. `sudo dnf copr enable hellaenergy/o3de && sudo dnf install o3de2605`"
+- "26.05.0 RPM is live at hellaenergy/o3de; F44 / F45 / rawhide / CS10. `sudo dnf copr enable hellaenergy/o3de && sudo dnf install o3de2605`"
 
 The announcement is a manual step; no auto-post from the test infrastructure.
 
@@ -141,7 +141,7 @@ See `CONTRIBUTING.md` "COPR Projects" section for the channel layout and the rat
 
 - **sha256 mismatch in make srpm**: redownload the tarball; GitHub's CDN may have served partial bytes. Retry the sha256 + paste sequence.
 - **COPR build fails at %prep on a carry-patch**: the release tarball may differ from stabilization tip's last state. Check whether any of our 13 carry-patches need to retire (they should, since they targeted stabilization/26050 and that branch's tip is now folded into main). Sequence: confirm the upstream PR merged, identify the snapshot source branch, verify the merge is reachable from main at the release tag, grep the target file on the release tarball -- only retire when all four checks pass.
-- **CS10 fails but F44/rawhide pass**: known historical gaps (libunwind-devel in EPEL-10 not base CS10, RPM 4.19 spec-parser quirks). Check the build log against known CS10-specific blockers before assuming a real regression.
+- **CS10 fails but F44/F45/rawhide pass**: known historical gaps (libunwind-devel in EPEL-10 not base CS10, RPM 4.19 spec-parser quirks). Check the build log against known CS10-specific blockers before assuming a real regression.
 
 ## Related
 

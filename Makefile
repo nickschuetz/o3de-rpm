@@ -586,7 +586,7 @@ copr-init:
 	@echo
 	@echo "# 1. Stable (tagged-release) project:"
 	@echo "  copr-cli create $(COPR_OWNER)/$(COPR_PROJECT_STABLE) \\"
-	@echo "      --chroot fedora-44-x86_64 --chroot fedora-rawhide-x86_64 \\"
+	@echo "      --chroot fedora-44-x86_64 --chroot fedora-45-x86_64 --chroot fedora-rawhide-x86_64 \\"
 	@echo "      --chroot centos-stream-10-x86_64 \\"
 	@echo "      --enable-net on --appstream on \\"
 	@echo "      --description 'Open 3D Engine -- tagged stable releases'"
@@ -594,7 +594,7 @@ copr-init:
 	@echo "# 2. Stabilization (community-tester) project — pre-release validation"
 	@echo "#    builds from upstream's stabilization/<release> branch:"
 	@echo "  copr-cli create $(COPR_OWNER)/$(COPR_PROJECT_STABILIZATION) \\"
-	@echo "      --chroot fedora-44-x86_64 --chroot fedora-rawhide-x86_64 \\"
+	@echo "      --chroot fedora-44-x86_64 --chroot fedora-45-x86_64 --chroot fedora-rawhide-x86_64 \\"
 	@echo "      --enable-net on --appstream on \\"
 	@echo "      --description 'O3DE pre-release validation builds from stabilization/<release>'"
 	@echo
@@ -603,19 +603,19 @@ copr-init:
 	@echo "#    work), create a separate dedicated COPR project rather than"
 	@echo "#    overloading this one:"
 	@echo "  copr-cli create $(COPR_OWNER)/$(COPR_PROJECT_DEVELOPMENT) \\"
-	@echo "      --chroot fedora-44-x86_64 --chroot fedora-rawhide-x86_64 \\"
+	@echo "      --chroot fedora-44-x86_64 --chroot fedora-45-x86_64 --chroot fedora-rawhide-x86_64 \\"
 	@echo "      --enable-net on \\"
 	@echo "      --description 'O3DE development-branch builds (upstream o3de/development tip)'"
 	@echo
 	@echo "# 4. Experimental (in-flight migration) project:"
 	@echo "  copr-cli create $(COPR_OWNER)/$(COPR_PROJECT_EXPERIMENTAL) \\"
-	@echo "      --chroot fedora-44-x86_64 --chroot fedora-rawhide-x86_64 \\"
+	@echo "      --chroot fedora-44-x86_64 --chroot fedora-45-x86_64 --chroot fedora-rawhide-x86_64 \\"
 	@echo "      --enable-net on \\"
 	@echo "      --description 'O3DE experimental builds — Stage 1 migration work'"
 	@echo
 	@echo "# Wire o3de-dependencies into each chroot for all four engine projects:"
 	@echo "  for proj in $(COPR_PROJECT_STABLE) $(COPR_PROJECT_STABILIZATION) $(COPR_PROJECT_DEVELOPMENT) $(COPR_PROJECT_EXPERIMENTAL); do \\"
-	@echo "      for chroot in fedora-44-x86_64 fedora-rawhide-x86_64; do \\"
+	@echo "      for chroot in fedora-44-x86_64 fedora-45-x86_64 fedora-rawhide-x86_64; do \\"
 	@echo "          copr-cli edit-chroot $(COPR_OWNER)/\$$proj/\$$chroot \\"
 	@echo "              --repos 'copr://$(COPR_OWNER)/o3de-dependencies'; \\"
 	@echo "      done; \\"
@@ -637,7 +637,7 @@ copr-init:
 	@echo
 	@echo "#    a. Stabilization-channel marker on o3de-stabilization chroots"
 	@echo "#       (drives the GUI '-stabilization.<commit>' channel suffix):"
-	@echo "  for chroot in fedora-44-x86_64 fedora-rawhide-x86_64; do \\"
+	@echo "  for chroot in fedora-44-x86_64 fedora-45-x86_64 fedora-rawhide-x86_64; do \\"
 	@echo "      copr-cli edit-chroot $(COPR_OWNER)/$(COPR_PROJECT_STABILIZATION)/\$$chroot \\"
 	@echo "          --rpmbuild-with stabilization \\"
 	@echo "          --rpmbuild-with system_expat \\"
@@ -653,7 +653,7 @@ copr-init:
 	@echo "#       monolithic; off the old Stage-1 system-swap base). Same as the"
 	@echo "#       o3de-development chroots plus the monolithic bcond, which ships"
 	@echo "#       the release/Monolithic static libs for release game export."
-	@echo "  for chroot in fedora-44-x86_64 fedora-rawhide-x86_64 centos-stream-10-x86_64; do \\"
+	@echo "  for chroot in fedora-44-x86_64 fedora-45-x86_64 fedora-rawhide-x86_64 centos-stream-10-x86_64; do \\"
 	@echo "      copr-cli edit-chroot $(COPR_OWNER)/$(COPR_PROJECT_EXPERIMENTAL)/\$$chroot \\"
 	@echo "          --rpmbuild-with development_snapshot \\"
 	@echo "          --rpmbuild-with qt6 \\"
@@ -665,7 +665,7 @@ copr-init:
 	@echo "#       already landed in development; also drives the -development"
 	@echo "#       channel marker in the GUI). No system_* swaps on this channel"
 	@echo "#       so dev-branch builds aren't masked by packaging variations."
-	@echo "  for chroot in fedora-44-x86_64 fedora-rawhide-x86_64; do \\"
+	@echo "  for chroot in fedora-44-x86_64 fedora-45-x86_64 fedora-rawhide-x86_64; do \\"
 	@echo "      copr-cli edit-chroot $(COPR_OWNER)/$(COPR_PROJECT_DEVELOPMENT)/\$$chroot \\"
 	@echo "          --rpmbuild-with development_snapshot; \\"
 	@echo "  done"
@@ -683,8 +683,13 @@ copr-init:
 	@echo "#   - When a new migration activates (new system_<lib> bcond),"
 	@echo "#     run the chroot edit on every shipping project, not just"
 	@echo "#     experimental."
-	@echo "#   - When a new chroot joins the matrix (e.g., fedora-45 ships),"
-	@echo "#     copy the --rpmbuild-with flag set onto the new chroot."
+	@echo "#   - When a new chroot joins the matrix, copy the --rpmbuild-with"
+	@echo "#     flag set onto the new chroot. COPR AUTO-ADDS a fedora-<N> chroot"
+	@echo "#     when Fedora branches (fedora-45 landed 2026-08-17; rawhide moved"
+	@echo "#     to fc46), COPYING rawhide's config AT BRANCH TIME -- so a later"
+	@echo "#     edit-chroot on fedora-rawhide does NOT propagate to it. After ANY"
+	@echo "#     branch, re-inventory fedora-<N> on ALL projects (get-chroot) and"
+	@echo "#     reconcile; a stale one fails alone at buildsrpm in ~23s."
 	@echo "#   - The 'stabilization' bcond stays on o3de-stabilization +"
 	@echo "#     o3de-experimental chroots only; o3de (stable) and"
 	@echo "#     o3de-development do NOT get it."
@@ -714,7 +719,7 @@ copr-init:
 	@echo "# large). Wire each chroot with the SAME --repos + --rpmbuild-with"
 	@echo "# list as its namesake (section 5) and append --rpmbuild-with debug:"
 	@echo "  copr-cli create $(COPR_OWNER)/$(COPR_PROJECT_TESTING_DEBUG) \\"
-	@echo "      --chroot fedora-44-x86_64 --chroot fedora-rawhide-x86_64 \\"
+	@echo "      --chroot fedora-44-x86_64 --chroot fedora-45-x86_64 --chroot fedora-rawhide-x86_64 \\"
 	@echo "      --chroot centos-stream-10-x86_64 \\"
 	@echo "      --enable-net on --appstream off --auto-prune on \\"
 	@echo "      --description 'O3DE debug-config binaries mirroring hellaenergy/o3de-testing'"
@@ -1119,7 +1124,7 @@ qt6-merge-gate:
 	elif [ $$rc -eq 10 ]; then \
 	  echo "qt6-merge-gate: development is MERGED to Qt6 -- checking $(GATE_PROJECT) chroots for the qt6 bcond..."; \
 	  missing=""; \
-	  for ch in fedora-44-x86_64 fedora-rawhide-x86_64 centos-stream-10-x86_64; do \
+	  for ch in fedora-44-x86_64 fedora-45-x86_64 fedora-rawhide-x86_64 centos-stream-10-x86_64; do \
 	    opts=$$(copr-cli get-chroot $(COPR_OWNER)/$(GATE_PROJECT)/$$ch 2>/dev/null | python3 -c 'import sys,json; print(",".join(json.load(sys.stdin).get("with_opts",[])))' 2>/dev/null); \
 	    case ",$$opts," in *,qt6,*) : ;; *) missing="$$missing $$ch";; esac; \
 	  done; \

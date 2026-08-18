@@ -306,6 +306,8 @@ jobs:
         include:
           - chroot: fedora-44
             image: registry.fedoraproject.org/fedora:44
+          - chroot: fedora-45
+            image: registry.fedoraproject.org/fedora:45
           - chroot: fedora-rawhide
             image: registry.fedoraproject.org/fedora:rawhide
 

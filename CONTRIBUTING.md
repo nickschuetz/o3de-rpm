@@ -237,7 +237,7 @@ Tier 9 and Tier 10 are the community-sample validation tracks; both pass on Fedo
 - `bash -n` on every shell source
 - best-effort `patch --dry-run` against the pinned snapshot commit
 
-`.github/workflows/test-installed.yml` runs the integration test suite in clean Fedora containers (matrix: `fedora-44`, `fedora-rawhide`, extending as Fedora releases ship) against an RPM URL — typically a COPR build artifact. Three triggers:
+`.github/workflows/test-installed.yml` runs the integration test suite in clean Fedora containers (matrix: `fedora-44`, `fedora-45`, `fedora-rawhide`, extending as Fedora releases ship) against an RPM URL — typically a COPR build artifact. Three triggers:
 
 - **Manual** (`workflow_dispatch`) — paste an RPM URL into the GitHub UI's "Run workflow" form.
 - **Programmatic** (`repository_dispatch`, `event_type: copr-build-succeeded`) — fired by `make trigger-tests BUILD_ID=<copr-build-id>` after a COPR build succeeds, or end-to-end via `make copr-stabilization-and-test` (which submits, watches, then fires). Requires `gh` authenticated.

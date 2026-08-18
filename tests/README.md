@@ -94,7 +94,7 @@ This is the workflow we expect O3DE engine contributors to use to validate their
 
 ### CI (GitHub Actions)
 
-`.github/workflows/test-installed.yml` runs the test suite in clean Fedora containers (current matrix: `fedora-44`, `fedora-rawhide`) against an RPM URL — typically a COPR build artifact.
+`.github/workflows/test-installed.yml` runs the test suite in clean Fedora containers (current matrix: `fedora-44`, `fedora-45`, `fedora-rawhide`) against an RPM URL — typically a COPR build artifact.
 
 Trigger via GitHub UI ("Run workflow") with:
 - **`rpm_url`** — URL of the RPM to test (e.g. `https://download.copr.fedorainfracloud.org/results/.../o3de-...rpm`)
