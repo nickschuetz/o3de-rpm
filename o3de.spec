@@ -219,9 +219,9 @@
 # pin via --define snapshot_commit=... without editing the spec.
 # Pinned to stabilization/26100 tip (9bc3b9d, 2026-08-11), regenerated via
 # `cd sources && ./make-snapshot-tarball.sh stabilization/26100`.
-%{?!snapshot_commit:%global snapshot_commit 9bc3b9d6eb4c2e222c112e1d98f39acdc0309264}
-%{?!snapshot_date:%global snapshot_date 20260811}
-%{?!snapshot_sha256:%global snapshot_sha256 819f7b363187cd28107fcd44e5ad9abb0e2a8382417a2c42c579c0257fbde1c0}
+%{?!snapshot_commit:%global snapshot_commit 5e60efb5ee6a0512d586fd86902ffba4f2892a7b}
+%{?!snapshot_date:%global snapshot_date 20260813}
+%{?!snapshot_sha256:%global snapshot_sha256 2253ce847b2562b4d24b8c7fa04d1ffa9bda692758f0f89aacf99c4b6e07f83c}
 %global shortcommit %(c=%{snapshot_commit}; echo ${c:0:7})
 
 # Channel-identifying suffix for the version strings the GUI displays.
