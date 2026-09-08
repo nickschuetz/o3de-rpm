@@ -69,6 +69,7 @@ o3de-rpm/
     ├──      Findlz4, FindOpenEXR, FindImath,          #     (no vulkan_validation_layers shim, that swap is runtime-discovered
     ├──      Findassimp, Findlibsamplerate,            #      via VK_LAYER_PATH, no cmake-side find shim)
     ├──      Findpoly2tri, FindSQLite,                 #   Stage 2 library-link: Findmcpp-system.cmake
+    ├── sqlite-fetchcontent-system.cmake              #   system_sqlite shim for the FetchContent sqlite (o3de#20072, development)
     ├──      FindGoogleBenchmark)                      #   incl. FindTIFF-system.cmake (system_tiff active on stabilization since -102
     ├── FindTIFF-system.cmake                          #     per the 2026-05-05 CryCommon int64 audit; shim kept for future activation)
     ├── Findmcpp-system.cmake                          # Stage 2 library-link find shim

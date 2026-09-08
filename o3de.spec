@@ -390,7 +390,7 @@ Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        108%{?dist}
+Release:        109%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -797,6 +797,7 @@ Source48:       Findxxhash-system.cmake
 Source49:       Findcityhash-system.cmake
 # System Qt6 swap shim (copied to cmake/3rdParty/FindQt.cmake at %%prep).
 Source70:       FindQt6-system.cmake
+Source71:       sqlite-fetchcontent-system.cmake
 
 # Pre-built O3DE 3rdParty bundles — declare a Source10x and a matching
 # bcond above, then add an extract line in %%prep. Templates:
@@ -1485,6 +1486,16 @@ cp %{SOURCE40} cmake/3rdParty/Findpoly2tri.cmake
 %endif
 %if %{with system_sqlite}
 cp %{SOURCE41} cmake/3rdParty/FindSQLite.cmake
+# o3de/o3de#20072 (development, 2026-09-05) builds sqlite from the sqlite.org
+# amalgamation via o3de_fetch_content (URL only, no git fallback) and links
+# 3rdParty::sqlite. Under -DO3DE_FETCHCONTENT_FORCE_GIT=ON (our CS10/CMake 3.31
+# workaround, see %%build) that fetch has no path and configure dies; with the
+# system swap we must not fetch at all. Replace the subdirectory's CMakeLists
+# with a shim that defines 3rdParty::sqlite (+ the SQLite alias) from Fedora's
+# sqlite-devel. Conditional on the file: stabilization/26100 predates #20072.
+if [ -f Code/3rdParty/sqlite/CMakeLists.txt ]; then
+    cp %{SOURCE71} Code/3rdParty/sqlite/CMakeLists.txt
+fi
 %endif
 %if %{with system_libsamplerate}
 cp %{SOURCE42} cmake/3rdParty/Findlibsamplerate.cmake

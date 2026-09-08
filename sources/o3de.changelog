@@ -1,4 +1,18 @@
 %changelog
+* Tue Sep 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-109
+- system_sqlite: cover the FetchContent sqlite that o3de/o3de#20072
+  (development, 2026-09-05) introduced. Upstream now builds sqlite 3.53.4 from
+  the sqlite.org amalgamation via o3de_fetch_content with a URL only and no git
+  fallback, and links 3rdParty::sqlite. Under -DO3DE_FETCHCONTENT_FORCE_GIT=ON
+  (the CS10 / CMake 3.31 workaround) that fetch has no path and configure fails
+  with "All URL downloads failed and no GIT was provided as fallback"; this took
+  out the o3de-development refresh (COPR build 10958772, all four chroots). With
+  the system swap we must not fetch at all, so %prep now replaces
+  Code/3rdParty/sqlite/CMakeLists.txt, when it exists, with
+  sources/sqlite-fetchcontent-system.cmake, which defines 3rdParty::sqlite and
+  the 3rdParty::SQLite alias from Fedora's sqlite-devel. stabilization/26100
+  predates #20072 and is untouched.
+
 * Fri Jul 24 2026 Nick Schuetz <nschuetz@redhat.com> - 2605.0-108
 - monolithic: work around an upstream gap where the engine never installs
   libmeshoptimizer.a into the SDK and ships an empty IMPORTED INTERFACE
