@@ -86,7 +86,7 @@ jobs:
           echo "dev-tip: $DEV_TIP"
 
           # Pull the last successful build's SRPM URL and extract its
-          # snapshot_commit (filename pattern: o3de2605-<ver>git<sha>-...).
+          # snapshot_commit (filename pattern: o3deNNNN-<ver>git<sha>-...).
           # NOTE: use the api_3 build/list endpoint, NOT `copr-cli list-builds
           # --output-format json` -- the latter returns only id/name/state
           # (no source_package.url), so the old parse always produced an empty
@@ -145,6 +145,7 @@ jobs:
           make qt6-merge-gate
 
       - name: Build SRPM + submit to COPR
+        id: submit
         if: steps.dedup.outputs.skip == 'false'
         run: |
           # make-snapshot-tarball.sh needs disk-backed TMPDIR; tmpfs /tmp on
@@ -154,21 +155,38 @@ jobs:
 
           make srpm-snapshot-development
 
+          # The package name is major-versioned (o3de2605, o3de2610, ...) and
+          # follows stable_tag in the spec, so derive it from the Makefile
+          # instead of hard-coding it. A hard-coded o3de2605-* glob silently
+          # broke every weekly tick after the 2026-08-14 rename to o3de2610
+          # ("File ... o3de2605-*.src.rpm not found", exit 3).
+          PKG="$(make -s print-pkgname)"
+          set -- ~/rpmbuild/SRPMS/"${PKG}"-*.src.rpm
+          if [ "$#" -ne 1 ] || [ ! -f "$1" ]; then
+            echo "::error::expected exactly one ${PKG}-*.src.rpm in ~/rpmbuild/SRPMS, found: $*"
+            ls -la ~/rpmbuild/SRPMS/ || true
+            exit 1
+          fi
+          echo "submitting $1"
+
           # --nowait so the runner exits as soon as the build is submitted.
           # The actual 4-6h chroot build runs on COPR infra.
           copr-cli build --nowait --timeout 28800 \
             hellaenergy/o3de-development \
-            ~/rpmbuild/SRPMS/o3de2605-*.src.rpm
+            "$1"
 
       - name: Summary
         if: always()
         run: |
           SKIP="${{ steps.dedup.outputs.skip }}"
           DEV_TIP="${{ steps.dedup.outputs.dev_tip }}"
+          SUBMIT="${{ steps.submit.outcome }}"
           if [ "$SKIP" = "true" ]; then
             echo "::notice::No dev-tip movement; build skipped."
-          elif [ -n "$DEV_TIP" ]; then
+          elif [ "$SUBMIT" = "success" ]; then
             echo "::notice::Fired build for dev-tip ${DEV_TIP:0:8}."
+          elif [ "$SUBMIT" = "failure" ]; then
+            echo "::error::SRPM build or COPR submit FAILED for dev-tip ${DEV_TIP:0:8}; no build was fired."
           else
             echo "::warning::Workflow exited without firing (likely early-step failure)."
           fi
