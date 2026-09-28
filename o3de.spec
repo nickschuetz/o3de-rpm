@@ -217,11 +217,11 @@
 # defaults only apply if no --define was passed. Lets parameterized
 # targets like `make srpm-snapshot-ref REF=qt6` override the snapshot
 # pin via --define snapshot_commit=... without editing the spec.
-# Pinned to stabilization/26100 tip (9bc3b9d, 2026-08-11), regenerated via
+# Pinned to stabilization/26100 tip (1f216e2c, 2026-09-23), regenerated via
 # `cd sources && ./make-snapshot-tarball.sh stabilization/26100`.
-%{?!snapshot_commit:%global snapshot_commit 62803aabc402e2e2d80946ae0dde2c4d2dcaa5f1}
-%{?!snapshot_date:%global snapshot_date 20260904}
-%{?!snapshot_sha256:%global snapshot_sha256 f68ad0bd710daebcf80c0b20e34c6bbf9975fe84d1e75b1583ab0517016989af}
+%{?!snapshot_commit:%global snapshot_commit 1f216e2c5a3595a88fc33024a8a27dc8e828f9d7}
+%{?!snapshot_date:%global snapshot_date 20260923}
+%{?!snapshot_sha256:%global snapshot_sha256 8ad4f8493090c81224211a9dd1de4815854f36e9e6e00a16c0558c18fb1c437c}
 %global shortcommit %(c=%{snapshot_commit}; echo ${c:0:7})
 
 # Channel-identifying suffix for the version strings the GUI displays.
@@ -390,7 +390,7 @@ Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        109%{?dist}
+Release:        111%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -759,6 +759,19 @@ Patch0018:      0018-editor-filechangemonitor-drop-pessimizing-move.patch
 # after profile + monolithic both linked green against system Qt 6.11.1.
 %if %{with system_qt6}
 Patch0019:      0019-install-linux-lycopy-skip-lrelease-rpath-system-qt.patch
+%endif
+
+# Patch0020 -- rawhide's clang (a major version ahead of Fedora 44/45 + CS10)
+# promotes several warnings to errors that o3de's -Werror makes fatal, while the
+# stable Fedora / CS10 clang do not emit them. Two seen so far: -Wunused-template
+# (unused has_max_size_test / has_get_max_size_test in AzCore allocator_traits.h)
+# and -Wunused-but-set-global (g_splashScreenState in CryEdit.cpp). Extends the
+# same -Wno-error= block upstream merged as #19748 (Patch0001 family). Gated on
+# development_snapshot: it anchors on the in-tree #19748 block, which only exists
+# on dev-tip-aligned refs. Iterated over rawhide builds COPR 10979851 / 10984620
+# (2026-09-12). Upstream-worthy (extension of #19748).
+%if %{with development_snapshot}
+Patch0020:      0020-clang-demote-newer-werror-promotions.patch
 %endif
 
 # Stage 1 system-library find modules. Copied into cmake/3rdParty/

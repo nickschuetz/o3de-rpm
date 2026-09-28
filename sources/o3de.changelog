@@ -1,4 +1,16 @@
 %changelog
+* Mon Sep 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-111
+- Re-pin stabilization to the current stabilization/26100 tip 1f216e2c (was
+  62803aab at -109); absorbs #20112 (non-unity build), #20117, #20123, #20135,
+  and #20140 / #20053.
+- Patch0020: demote the newer-clang -Werror promotions -Wunused-template and
+  -Wunused-but-set-global back to warnings. Rawhide's clang (ahead of the clang
+  on Fedora 44/45 + CS10) makes them fatal under o3de's -Werror -- the unused
+  has_max_size_test / has_get_max_size_test templates in AzCore allocator_traits.h,
+  and g_splashScreenState in CryEdit.cpp; the stable Fedora / CS10 clang emit
+  neither. Extends the -Wno-error= block upstream merged as o3de/o3de#19748;
+  gated on development_snapshot.
+
 * Tue Sep 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-109
 - system_sqlite: cover the FetchContent sqlite that o3de/o3de#20072
   (development, 2026-09-05) introduced. Upstream now builds sqlite 3.53.4 from

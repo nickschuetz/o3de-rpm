@@ -1,0 +1,34 @@
+From: Nick Schuetz <nschuetz@redhat.com>
+Subject: [PATCH] clang/Configurations: demote newer-clang -Werror promotions
+
+Rawhide's clang (a major version ahead of the clang shipping on Fedora 44/45
+and CentOS Stream 10) promotes additional warnings to errors that o3de's
+-Werror then makes fatal, while the stable Fedora / CS10 clang do not emit
+them (those three chroots build clean either way). Two have surfaced so far:
+
+  Code/Framework/AzCore/AzCore/std/allocator_traits.h:177: error: unused
+  function template 'has_max_size_test' [-Werror,-Wunused-template]
+  Code/Editor/CryEdit.cpp:745: error: variable 'g_splashScreenState' set but
+  not used [-Werror,-Wunused-but-set-global]
+
+This extends the same Fedora-oriented -Wno-error= block upstream merged as
+#19748 (deprecated-volatile, character-conversion), demoting these back to
+warnings without touching the code. Caught on the o3de-stabilization rawhide
+builds COPR 10979851 and 10984620 (2026-09-12). Carried until an upstream
+extension of #19748 lands.
+---
+ cmake/Platform/Common/Clang/Configurations_clang.cmake | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/cmake/Platform/Common/Clang/Configurations_clang.cmake b/cmake/Platform/Common/Clang/Configurations_clang.cmake
+--- a/cmake/Platform/Common/Clang/Configurations_clang.cmake
++++ b/cmake/Platform/Common/Clang/Configurations_clang.cmake
+@@ -69,6 +69,8 @@
+         # back to warnings so upstream -Werror doesn't fail the build.
+         -Wno-error=deprecated-volatile
+         -Wno-error=character-conversion
++        -Wno-error=unused-template
++        -Wno-error=unused-but-set-global
+ 
+         ###################
+         # Disabled warnings (please do not disable any others without first consulting sig-build)
