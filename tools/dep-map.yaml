@@ -207,3 +207,10 @@ accepted_drift:
   # o3de-qt5 (Qt5, 26.05 line) is out of scope for the 26.10 engine_ref.
   # Add entries here only for a real COPR-shipped package whose version
   # intentionally diverges from the engine pin.
+  # ISPCTexComp: the engine (stabilization/26100) pins ISPCTexComp-36b80aa-rev2
+  # for linux-aarch64 but keeps -rev1 for x86_64/mac/windows; 3p-package-source
+  # build_config advanced to rev2. Investigated 2026-10-01: rev2 is an upstream
+  # repackage of the SAME commit 36b80aa that added the aarch64 target, so it is
+  # identical source and a label-only difference, not a real version gap. Sticky
+  # drift issue 9.
+  ISPCTexComp: "same upstream commit 36b80aa; rev2 is an upstream repackage adding linux-aarch64, engine keeps rev1 for x86_64/mac/windows. Label-only drift, accepted 2026-10-01."
