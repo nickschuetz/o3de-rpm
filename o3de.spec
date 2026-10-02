@@ -766,13 +766,18 @@ Patch0019:      0019-install-linux-lycopy-skip-lrelease-rpath-system-qt.patch
 # stable Fedora / CS10 clang do not emit them. Two seen so far: -Wunused-template
 # (unused has_max_size_test / has_get_max_size_test in AzCore allocator_traits.h)
 # and -Wunused-but-set-global (g_splashScreenState in CryEdit.cpp). Extends the
-# same -Wno-error= block upstream merged as #19748 (Patch0001 family). Applied on
-# ALL channels (ungated 2026-10-01 after the rawhide fix landed): it anchors on
-# the deprecated-volatile / character-conversion lines, which are byte-identical
-# whether supplied by the in-tree #19748 block (dev-tip refs) or by Patch0001
-# (non-dev-snapshot channels, where %%autosetup applies Patch0001 first by numeric
-# order). Iterated over rawhide builds COPR 10979851 / 10984620 (2026-09-12);
-# confirmed green on all four chroots in 11045355. Upstream-worthy (extension of #19748).
+# same -Wno-error= block upstream merged as #19748 (Patch0001 family). Ungated
+# 2026-10-01 (dropped the development_snapshot guard) so it also covers the
+# non-dev-snapshot channels that build a pre-#19748 source: it anchors on the
+# deprecated-volatile / character-conversion lines, byte-identical whether
+# supplied by the in-tree #19748 block (dev-tip refs) or by Patch0001 (applied
+# first by numeric order on non-dev-snapshot builds; verified fuzz=0 on the
+# 26050 source). CAVEAT: a future 26.10.0 RELEASE build is non-dev-snapshot but
+# its source already HAS #19748, so Patch0001 and the rest of the TIMEBOMB set
+# would collide ("previously applied") and must be retired when that release
+# ships; this ungate does not change that pre-existing requirement. Iterated over
+# rawhide builds COPR 10979851 / 10984620 (2026-09-12); green on all four chroots
+# in 11045355. Upstream-worthy (extension of #19748).
 Patch0020:      0020-clang-demote-newer-werror-promotions.patch
 
 # Stage 1 system-library find modules. Copied into cmake/3rdParty/
