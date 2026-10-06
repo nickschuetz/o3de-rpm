@@ -747,7 +747,12 @@ Patch0017:      0017-lmbrcentral-lrelease-skip-rpath-under-system-qt.patch
 # marker), which also unbreaks the 26100 stabilization channel and the next
 # o3de-development refresh. Upstream-worthy (clang-strictness family, cf.
 # Patch0001/#19748). Caught on system_qt6 build COPR 10856906.
-%if %{with development_snapshot}
+# Restricted to the stabilization channel 2026-10-06: o3de/o3de#20085 (the
+# Qt 6.11.2 bump) removed the same std::move on development, so the hunk no
+# longer applies there and failed %%prep on four weekly o3de-development builds
+# (COPR 10981338 through 11073408). stabilization/26100 still has the std::move.
+# Retire entirely if #20085 is ever cherry-picked to stabilization.
+%if %{with development_snapshot} && %{with stabilization}
 Patch0018:      0018-editor-filechangemonitor-drop-pessimizing-move.patch
 %endif
 
