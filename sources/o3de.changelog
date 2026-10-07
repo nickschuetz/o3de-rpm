@@ -1,4 +1,13 @@
 %changelog
+* Wed Oct 07 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-112
+- Re-pin stabilization to the stabilization/26100 tip 44eb4b19 (was 1f216e2c),
+  absorbing cherry-pick bundle o3de/o3de#20180: #20119 (Metal RHI use-after-free),
+  #20126, #20127, #20130 (motion blur green screen), #20131, #20138 (class
+  wizard templates), #20146, #20147, #20148 (DTLS fixes), and #20158 (MiniAudio
+  in unified launcher builds). No carry-patch changes.
+- Patch0018 is now applied on the stabilization channel only; development
+  already carries the fix via o3de/o3de#20085.
+
 * Mon Sep 28 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-111
 - Re-pin stabilization to the current stabilization/26100 tip 1f216e2c (was
   62803aab at -109); absorbs #20112 (non-unity build), #20117, #20123, #20135,
