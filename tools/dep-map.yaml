@@ -54,8 +54,8 @@ rev_watch_ref: development
 # rpath on the first dev-tip build after either pin moves. 3p#385 is the
 # PR that bumps qt rev7->rev8 + pyside6 rev4->rev5 upstream.
 rev_watch:
-  qt: "6.10.2-rev8|6.10.2-rev8|rev8 verified green 2026-07-09 (build 10703057). rev8 made WaylandClient a required Qt component (needs wayland-devel BR, fix 4407305). Re-verify lrelease + shiboken6 RUNPATH on the next rev bump."
-  pyside6: "6.10.2-py3.10-rev5|6.10.2-py3.10-rev5|rev5 verified green 2026-07-09 (build 10703057): bin/shiboken6 ships clean $ORIGIN, engine-side shiboken generation works, so carry-fix 6e76c4f is now a no-op/retireable. Re-verify shiboken6 RUNPATH on the next rev bump."
+  qt: "6.11.2-rev1|6.11.2-rev1|rev1 verified green 2026-10-06 (dev build 11085600, all four chroots; prior baseline 6.10.2-rev8). lrelease is copied from the package and its runtime path set to $ORIGIN at build and install; wayland-devel BR still satisfies WaylandClient. Build-time verification only (Editor not launched on 6.11.2). Re-verify lrelease + shiboken6 RUNPATH on the next rev bump; Qt 6.12.0 is in review as 3p-package-source PR 406 and adds qttools/lrelease to the package build."
+  pyside6: "6.11.2-py3.10-rev1|6.11.2-py3.10-rev1|rev1 verified green 2026-10-06 (dev build 11085600; prior baseline 6.10.2-py3.10-rev5). The install-time rpath cleanup found shiboken6 / libshiboken6 / libpyside6 already at $ORIGIN:$ORIGIN/../shiboken6 and changed nothing; check-rpaths passed. Build-time verification only. Re-verify shiboken6 RUNPATH on the next rev bump."
 
 # Engine repo + 3p package-source repo (rarely change).
 engine_repo: o3de/o3de
