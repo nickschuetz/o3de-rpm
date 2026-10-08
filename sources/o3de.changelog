@@ -1,4 +1,13 @@
 %changelog
+* Thu Oct 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-114
+- Re-pin stabilization to the stabilization/26100 tip b706d4f5 (was 44eb4b19),
+  absorbing o3de/o3de#20199, the cherry-pick of #20179 (Atom RPI streaming
+  image: notification call no longer goes through an intrusive pointer to
+  `this`). One upstream commit, two files; no carry-patch changes.
+- First build to ship the per-build file timestamps from 2610.0-113 (which was
+  never built for this channel). Tester note: the first Editor or Asset
+  Processor launch after this update reprocesses all engine assets once.
+
 * Thu Oct 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-113
 - Give every packaged file a per-build timestamp at the end of %%install. The
   snapshot tarball carries mtime 0 (1970), which Qt reports as an invalid
