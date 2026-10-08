@@ -1,4 +1,18 @@
 %changelog
+* Thu Oct 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-113
+- Give every packaged file a per-build timestamp at the end of %%install. The
+  snapshot tarball carries mtime 0 (1970), which Qt reports as an invalid
+  time; the Asset Processor then fingerprinted engine files by name only and
+  never noticed engine asset changes after an RPM upgrade, leaving project
+  caches stale (stale shaders, e.g. a decal buffer stride mismatch). The
+  stamp is SOURCE_DATE_EPOCH minus an offset hashed from the version-release,
+  so it survives rpm's mtime clamp and differs for every build.
+- Tester note: the first Editor or Asset Processor launch after this update
+  reprocesses all engine assets once (a few minutes); later launches scan
+  faster than before because files are no longer treated as new each time.
+- tests: Tier 2 fails if a package carrying this fix ships a file with mtime 0.
+- No engine source or carry-patch changes; pin stays at 44eb4b19.
+
 * Wed Oct 07 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-112
 - Re-pin stabilization to the stabilization/26100 tip 44eb4b19 (was 1f216e2c),
   absorbing cherry-pick bundle o3de/o3de#20180: #20119 (Metal RHI use-after-free),

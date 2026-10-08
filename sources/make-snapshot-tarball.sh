@@ -58,9 +58,14 @@ TARBALL="$OUT_DIR/o3de-$COMMIT.tar.gz"
 
 echo ">> creating $TARBALL"
 # Sorted, fixed mtime, fixed owner/group → reproducible tarball.
+# The mtime is deliberately 0. (The previous expression here ran git against
+# /dev/null, always failed, and fell back to 0, so this is the same output and
+# existing snapshot checksums stay valid.) Installed files do not keep it: the
+# spec re-stamps every packaged file per build at the end of %install, because
+# the Asset Processor ignores the content of files dated 1970.
 tar --sort=name \
     --owner=0 --group=0 --numeric-owner \
-    --mtime="@$(git -C /dev/null log -1 --format=%ct 2>/dev/null || echo 0)" \
+    --mtime="@0" \
     -C "$WORK" \
     -czf "$TARBALL" "o3de-$COMMIT"
 

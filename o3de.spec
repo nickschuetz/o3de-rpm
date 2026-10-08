@@ -390,7 +390,7 @@ Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        112%{?dist}
+Release:        113%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -2088,6 +2088,33 @@ done
 # sweep is the packaging-side cleanup.
 find %{buildroot}%{o3de_install_prefix} -type f -name 'libQt6*.so*' -print -delete
 %endif
+
+# ── Per-build file timestamps ────────────────────────────────────────────────
+# Keep this the LAST step of %%install. Every packaged file gets one timestamp
+# that is nonzero, different for every version-release, and not newer than
+# SOURCE_DATE_EPOCH. All three properties matter to the Asset Processor (AP):
+#   * Nonzero: the snapshot tarball carries mtime 0 (1970). Qt reports mtime 0
+#     as an invalid QDateTime, and the AP then fingerprints the file by name
+#     only, so engine asset changes were never detected after an RPM upgrade
+#     and project caches went stale (found 2026-10-08: 222 of 242 shaders in a
+#     project were still the August builds).
+#   * Different per build: with its default fast scan the AP treats a file
+#     whose timestamp AND size are both unchanged as unchanged, so a constant
+#     stamp would still hide same-size edits between two builds.
+#   * Not newer than SOURCE_DATE_EPOCH: rpm clamps newer mtimes down to it
+#     (clamp_mtime_to_source_date_epoch), and it is the changelog date at
+#     00:00 UTC. Weekly development builds share one changelog date, so a
+#     commit-time stamp would collapse to the same value across them.
+# The stamp is SOURCE_DATE_EPOCH minus an offset of 1..2^24 seconds (up to
+# about 194 days) hashed from the version-release, so file dates look
+# arbitrary on purpose. The snapshot tarball itself is left at mtime 0 so its
+# checksum does not change. Verified with a toy package on rpm 6.0 (Fedora 44)
+# and rpm 4.19 (CentOS Stream 10). tests/integration-test.sh Tier 2 guards it.
+o3de_sde="${SOURCE_DATE_EPOCH:-$(date +%%s)}"
+o3de_off=$(( 0x$(printf '%%s' '%{version}-%{release}' | sha256sum | cut -c1-6) + 1 ))
+o3de_stamp=$(( o3de_sde - o3de_off ))
+echo "per-build file timestamp: ${o3de_stamp} ($(date -u -d "@${o3de_stamp}" '+%%Y-%%m-%%d %%H:%%M:%%S UTC'))"
+find %{buildroot} -xdev \( -type f -o -type l \) -exec touch -h -d "@${o3de_stamp}" {} +
 
 # ── CHECK ────────────────────────────────────────────────────────────────────
 %check
