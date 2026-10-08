@@ -1,0 +1,30 @@
+From: Nick Schuetz <nschuetz@redhat.com>
+Subject: [PATCH] Atom/RHI/Vulkan: use VK_RESULT_ASSERT in the Wayland surface path
+
+o3de/o3de#17169 (merged 2026-07-13) removed the Vulkan AssertSuccess() helper
+in favour of the VK_RESULT_ASSERT macro and converted the XCB branch of
+WSISurface::BuildNativeSurface(), but missed the one call inside the
+PAL_TRAIT_LINUX_WINDOW_MANAGER_WAYLAND block. That block is only compiled when
+the Wayland window manager is enabled, which upstream's default builds leave
+off, so any build with -DPAL_TRAIT_LINUX_WINDOW_MANAGER_WAYLAND=ON fails:
+
+  Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/RHI/WSISurface_Linux.cpp:46:17:
+  error: use of undeclared identifier 'AssertSuccess'
+
+Caught on COPR 11095016 (o3de-experimental, fedora-44, --with wayland,
+2026-10-08) at stabilization/26100 44eb4b19. Still present on the
+stabilization/26100 and development tips of 2026-10-08. Use the same macro as
+the XCB branch. Applied only under --with wayland; upstream-worthy.
+
+diff --git a/Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/RHI/WSISurface_Linux.cpp b/Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/RHI/WSISurface_Linux.cpp
+--- a/Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/RHI/WSISurface_Linux.cpp
++++ b/Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/RHI/WSISurface_Linux.cpp
+@@ -43,7 +43,7 @@
+                 createInfo.display = display;
+                 createInfo.surface = (wl_surface*)m_descriptor.m_windowHandle.GetIndex();
+                 const VkResult result = instance.GetContext().CreateWaylandSurfaceKHR(instance.GetNativeInstance(), &createInfo, VkSystemAllocator::Get(), &m_nativeSurface);
+-                AssertSuccess(result);
++                VK_RESULT_ASSERT(result);
+ 
+                 return ConvertResult(result);
+             }

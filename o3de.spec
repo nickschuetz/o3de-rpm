@@ -785,6 +785,20 @@ Patch0019:      0019-install-linux-lycopy-skip-lrelease-rpath-system-qt.patch
 # in 11045355. Upstream-worthy (extension of #19748).
 Patch0020:      0020-clang-demote-newer-werror-promotions.patch
 
+# 0021: the engine's Wayland Vulkan surface path does not compile since
+# o3de/o3de#17169 (2026-07-13) removed the AssertSuccess() helper: the XCB
+# branch of WSISurface_Linux.cpp was converted to VK_RESULT_ASSERT, the call
+# inside the PAL_TRAIT_LINUX_WINDOW_MANAGER_WAYLAND block was missed, and
+# upstream's default builds never compile that block. One-line fix, same macro
+# as the XCB branch. Only relevant to (and only applied under) --with wayland;
+# every shipping channel builds XCB-only and is unaffected. Caught on COPR
+# 11095016 (o3de-experimental, 2026-10-08). Still broken on the
+# stabilization/26100 and development tips of 2026-10-08; retire when the
+# upstream fix reaches the ref we build.
+%if %{with wayland}
+Patch0021:      0021-vulkan-wayland-surface-use-vk-result-assert.patch
+%endif
+
 # Stage 1 system-library find modules. Copied into cmake/3rdParty/
 # during %%prep when the matching `--with system_<lib>` is enabled.
 # Most Stage 1 swaps don't need a custom find module (cmake ships

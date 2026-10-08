@@ -11,7 +11,11 @@
   reprocesses all engine assets once (a few minutes); later launches scan
   faster than before because files are no longer treated as new each time.
 - tests: Tier 2 fails if a package carrying this fix ships a file with mtime 0.
-- No engine source or carry-patch changes; pin stays at 44eb4b19.
+- Patch0021 (applied only under --with wayland, so no shipping channel is
+  affected): the engine's Wayland Vulkan surface path has not compiled since
+  o3de/o3de#17169 removed AssertSuccess(); use VK_RESULT_ASSERT like the XCB
+  branch. Needed for the o3de-experimental native-Wayland validation build.
+- No other engine source or carry-patch changes; pin stays at 44eb4b19.
 
 * Wed Oct 07 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-112
 - Re-pin stabilization to the stabilization/26100 tip 44eb4b19 (was 1f216e2c),
