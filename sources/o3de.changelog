@@ -1,4 +1,18 @@
 %changelog
+* Fri Oct 09 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-115
+- New opt-in bcond wayland_ui with Patch0022: Editor UI fixes for native
+  Wayland and XWayland, sixteen not-yet-upstream commits squashed into one
+  diff against o3de/o3de development 0af429a2ea. Window move and tile
+  snapping, floating panel move and dock, viewport and camera fixes, and the
+  Vulkan surface fixes that let the Particle Editor and the standalone Atom
+  tools run on Wayland. Experimental channel only; default OFF.
+- Patch0021 is skipped under wayland_ui: its fix is in that base
+  (o3de/o3de#20204).
+- --with wayland no longer ships the build host's libwayland-client,
+  libwayland-cursor and libxkbcommon. They were copied next to the engine
+  binaries and made the package provide those sonames system-wide; they are
+  removed in %%install and the engine uses the system libraries.
+
 * Thu Oct 08 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-114
 - Re-pin stabilization to the stabilization/26100 tip b706d4f5 (was 44eb4b19),
   absorbing o3de/o3de#20199, the cherry-pick of #20179 (Atom RPI streaming

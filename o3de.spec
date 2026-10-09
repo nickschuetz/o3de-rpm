@@ -155,6 +155,19 @@
 # OFF; validation gate for #19835, only meaningful alongside %bcond_with qt6.
 %bcond_with wayland
 
+# Editor UI fixes for native Wayland and XWayland (EXPERIMENTAL, local carry).
+# Applies Patch0022, sixteen not-yet-upstream commits squashed into one diff:
+# window move and tile snapping, floating panel move and dock, viewport and
+# camera fixes, and the Vulkan surface fixes that let the Particle Editor and
+# the standalone Atom tools run on Wayland. The diff is cut against
+# o3de/o3de development 0af429a2ea (the merge of #20204), so this is only
+# valid on a development snapshot at or after that commit, and it replaces
+# Patch0021 there (that fix is already in the base). Most of it also matters
+# to an XCB-only build running through XWayland, so it does not require
+# --with wayland, but it is meant to be used with it. Default OFF; exercised
+# on the o3de-experimental chroots only.
+%bcond_with wayland_ui
+
 # Prototype gate for the central system-swap download hook (Patch0014).
 # When set, Patch0014 wraps ly_download_associated_package() in a
 # per-package LY_USE_SYSTEM_<NAME> opt-out, and Patch0006 (the per-line
@@ -390,7 +403,7 @@ Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        114%{?dist}
+Release:        115%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -795,8 +808,17 @@ Patch0020:      0020-clang-demote-newer-werror-promotions.patch
 # 11095016 (o3de-experimental, 2026-10-08). Still broken on the
 # stabilization/26100 and development tips of 2026-10-08; retire when the
 # upstream fix reaches the ref we build.
-%if %{with wayland}
+%if %{with wayland} && %{without wayland_ui}
 Patch0021:      0021-vulkan-wayland-surface-use-vk-result-assert.patch
+%endif
+
+# Editor UI fixes for native Wayland and XWayland, see the wayland_ui bcond.
+# One squashed diff of the local `wayland-clean` branch (16 commits on top of
+# o3de/o3de development 0af429a2ea). The base already contains the Patch0021
+# fix (o3de/o3de#20204), which is why 0021 is skipped when this is on. Retire
+# piece by piece as the changes are proposed and merged upstream.
+%if %{with wayland_ui}
+Patch0022:      0022-wayland-xwayland-editor-ui-fixes.patch
 %endif
 
 # Stage 1 system-library find modules. Copied into cmake/3rdParty/
@@ -2124,6 +2146,16 @@ find %{buildroot}%{o3de_install_prefix} -type f -name 'libQt6*.so*' -print -dele
 # arbitrary on purpose. The snapshot tarball itself is left at mtime 0 so its
 # checksum does not change. Verified with a toy package on rpm 6.0 (Fedora 44)
 # and rpm 4.19 (CentOS Stream 10). tests/integration-test.sh Tier 2 guards it.
+%if %{with wayland}
+# A Wayland-enabled build copies the build host's libwayland-client,
+# libwayland-cursor and libxkbcommon next to the engine binaries as runtime
+# dependencies. Shipping them made the package provide those sonames to the
+# whole system and pinned the engine to the build host's copies. Drop them so
+# the engine uses the system libraries, which rpm then records as ordinary
+# requirements.
+find %{buildroot} \( -name 'libwayland-client.so*' -o -name 'libwayland-cursor.so*' -o -name 'libxkbcommon.so*' \) -print -delete
+%endif
+
 o3de_sde="${SOURCE_DATE_EPOCH:-$(date +%%s)}"
 o3de_off=$(( 0x$(printf '%%s' '%{version}-%{release}' | sha256sum | cut -c1-6) + 1 ))
 o3de_stamp=$(( o3de_sde - o3de_off ))

@@ -1,0 +1,1185 @@
+From: Nick Schuetz <nschuetz@redhat.com>
+Subject: [PATCH] Editor UI fixes for native Wayland and XWayland (experimental carry)
+
+Local work in progress, carried only under --with wayland_ui and only on a
+development snapshot at or after o3de/o3de 0af429a2ea (the merge of #20204).
+Sixteen commits squashed into one diff; none has been proposed upstream yet.
+
+- AzQtComponents: the window manager moves the Editor window (tile snapping),
+  no second title bar on Wayland, window moves requested with the true pointer
+  position on X11, floating windows can be minimized and maximized on X11.
+- Editor viewport: native surface handling so the layout, level load and game
+  mode work on Wayland.
+- Camera look in the Editor viewport on Wayland.
+- Vulkan RHI: follow a window whose wl_surface was replaced (Particle Editor
+  crash), create the surface on the connection the wl_surface belongs to
+  (Material Editor and the other standalone tools).
+- Docking: floating panels can be moved and docked on Wayland and under
+  XWayland; drop zone overlay and drag ghost fixes.
+- ViewportUi: viewport controls stay over the viewport on Wayland.
+
+Known gaps: docking a floating panel into another floating panel; on GNOME
+the dragged window does not follow the pointer during a docking drag, so the
+panel's tab docks and the rest of its title bar moves.
+
+---
+diff --git a/Code/Editor/CryEdit.cpp b/Code/Editor/CryEdit.cpp
+index 88a56da8ab..fdb6a632b2 100644
+--- a/Code/Editor/CryEdit.cpp
++++ b/Code/Editor/CryEdit.cpp
+@@ -1552,6 +1552,17 @@ bool CCryEditApp::InitInstance()
+ #endif
+     mainWindowWrapper->setGuest(mainWindow);
+ 
++#if defined(Q_OS_LINUX)
++    // On Wayland the viewport keeps its ancestors non-native (see RenderViewportWidget). If the
++    // main window were turned native later, for example by a script asking for its window id, Qt
++    // would re-parent the viewport and destroy the surface the renderer is presenting to. Make
++    // it native now, before any viewport exists, so that later requests change nothing.
++    if (QGuiApplication::platformName() == QLatin1String("wayland"))
++    {
++        mainWindow->winId();
++    }
++#endif
++
+     // Note: we should use getNativeHandle to get the HWND from the widget, but
+     // it returns an invalid handle unless the widget has been shown and polished and even then
+     // it sometimes returns an invalid handle.
+diff --git a/Code/Editor/Viewport.cpp b/Code/Editor/Viewport.cpp
+index 7dc49dfe57..3deeeed12b 100644
+--- a/Code/Editor/Viewport.cpp
++++ b/Code/Editor/Viewport.cpp
+@@ -12,6 +12,8 @@
+ #include "Viewport.h"
+ 
+ // Qt
++#include <QGuiApplication>
++#include <QWindow>
+ #include <QPainter>
+ 
+ // AzQtComponents
+@@ -195,6 +197,13 @@ QtViewport::QtViewport(QWidget* parent)
+     m_renderOverlay.setUpdatesEnabled(false);
+     m_renderOverlay.setMouseTracking(true);
+     m_renderOverlay.setObjectName("renderOverlay");
++#if defined(Q_OS_LINUX)
++    // See RenderViewportWidget: keep the ancestors non-native on Wayland.
++    if (QGuiApplication::platformName() == QLatin1String("wayland"))
++    {
++        m_renderOverlay.setAttribute(Qt::WA_DontCreateNativeAncestors);
++    }
++#endif
+     m_renderOverlay.winId(); // Force the render overlay to create a backing native window
+ 
+     m_viewportUi.InitializeViewportUi(this, &m_renderOverlay);
+@@ -620,6 +629,18 @@ void QtViewport::ResetCursor()
+ //////////////////////////////////////////////////////////////////////////
+ void* QtViewport::renderOverlayHWND() const
+ {
++#if defined(Q_OS_LINUX)
++    // On Wayland the native handle is the wl_surface, and Qt can destroy and re-create that
++    // surface (for example when the widget is re-parented or hidden) without changing the id
++    // cached by QWidget::winId(). Ask the QWindow, which reports the surface that exists now.
++    if (QGuiApplication::platformName() == QLatin1String("wayland"))
++    {
++        if (QWindow* overlayWindow = m_renderOverlay.windowHandle())
++        {
++            return reinterpret_cast<void*>(overlayWindow->winId());
++        }
++    }
++#endif
+     return reinterpret_cast<void*>(m_renderOverlay.winId());
+ }
+ 
+diff --git a/Code/Framework/AzFramework/AzFramework/Windowing/NativeWindowSurfaceBus.h b/Code/Framework/AzFramework/AzFramework/Windowing/NativeWindowSurfaceBus.h
+new file mode 100644
+index 0000000000..f4fccbb76c
+--- /dev/null
++++ b/Code/Framework/AzFramework/AzFramework/Windowing/NativeWindowSurfaceBus.h
+@@ -0,0 +1,37 @@
++/*
++ * Copyright (c) Contributors to the Open 3D Engine Project.
++ * For complete copyright and license terms please see the LICENSE at the root of this distribution.
++ *
++ * SPDX-License-Identifier: Apache-2.0 OR MIT
++ *
++ */
++#pragma once
++
++#include <AzCore/EBus/EBus.h>
++#include <AzFramework/Windowing/WindowBus.h>
++
++namespace AzFramework
++{
++    //! Lets the owner of a window report the platform surface the window presents to right now.
++    //! A window is addressed by the NativeWindowHandle it was registered with. On most platforms
++    //! that handle is the surface for the whole life of the window, and nobody needs to implement
++    //! this bus. On Wayland the windowing toolkit can destroy a window's wl_surface and create a
++    //! new one while the window lives on (Qt does this when a window changes between being a
++    //! top-level and being a child), so a renderer that holds on to the original surface has to be
++    //! able to ask for the current one.
++    class NativeWindowSurfaceRequests
++        : public AZ::EBusTraits
++    {
++    public:
++        virtual ~NativeWindowSurfaceRequests() = default;
++
++        // EBusTraits overrides ...
++        static const AZ::EBusHandlerPolicy HandlerPolicy = AZ::EBusHandlerPolicy::Single;
++        static const AZ::EBusAddressPolicy AddressPolicy = AZ::EBusAddressPolicy::ById;
++        using BusIdType = NativeWindowHandle;
++
++        //! Returns the surface the window currently presents to, or nullptr if it has none.
++        virtual void* GetCurrentNativeSurface() const = 0;
++    };
++    using NativeWindowSurfaceRequestBus = AZ::EBus<NativeWindowSurfaceRequests>;
++} // namespace AzFramework
+diff --git a/Code/Framework/AzFramework/AzFramework/azframework_files.cmake b/Code/Framework/AzFramework/AzFramework/azframework_files.cmake
+index c8555045ee..f311f016d4 100644
+--- a/Code/Framework/AzFramework/AzFramework/azframework_files.cmake
++++ b/Code/Framework/AzFramework/AzFramework/azframework_files.cmake
+@@ -424,6 +424,7 @@ set(FILES
+     Translation/TranslationDef.h
+     Platform/PlatformDefaults.h
+     Windowing/WindowBus.cpp
++    Windowing/NativeWindowSurfaceBus.h
+     Windowing/WindowBus.h
+     Windowing/NativeWindow.cpp
+     Windowing/NativeWindow.h
+diff --git a/Code/Framework/AzQtComponents/AzQtComponents/Components/FancyDocking.cpp b/Code/Framework/AzQtComponents/AzQtComponents/Components/FancyDocking.cpp
+index 69afd8f779..3a9e553c31 100644
+--- a/Code/Framework/AzQtComponents/AzQtComponents/Components/FancyDocking.cpp
++++ b/Code/Framework/AzQtComponents/AzQtComponents/Components/FancyDocking.cpp
+@@ -10,6 +10,7 @@
+ 
+ #include <AzCore/Casting/numeric_cast.h>
+ #include <AzCore/Debug/Trace.h>
++#include <AzCore/std/function/function_template.h>
+ 
+ #include <AzQtComponents/Components/DockTabBar.h>
+ #include <AzQtComponents/Components/FancyDocking.h>
+@@ -28,6 +29,12 @@
+ #include <QDebug>
+ #include <QDockWidget>
+ #include <QEvent>
++#include <QDataStream>
++#include <QDrag>
++#include <QDropEvent>
++#include <QMimeData>
++#include <QPointer>
++#include <QGuiApplication>
+ #include <QTimer>
+ #include <QLabel>
+ #include <QMouseEvent>
+@@ -49,6 +56,33 @@ static void OptimizedSetParent(QWidget* widget, QWidget* parent)
+ 
+ namespace AzQtComponents
+ {
++    // True when the pointer grab does not survive hiding the window that was pressed, so a
++    // floating panel cannot be dragged with the ghost image approach. That is the case on native
++    // Wayland, and also for an X11 client running through XWayland, since the X server is then a
++    // Wayland client itself and loses the grab the same way.
++    static bool IsFloatingDragCompositorDriven()
++    {
++        const QString platform = QGuiApplication::platformName();
++        if (platform.startsWith(QLatin1String("wayland")))
++        {
++            return true;
++        }
++        return platform == QLatin1String("xcb") && qEnvironmentVariable("XDG_SESSION_TYPE") == QLatin1String("wayland");
++    }
++
++    // Application wide event filter that is active while a floating panel is dragged with a drag
++    // and drop operation
++    class FloatingDockDragFilter : public QObject
++    {
++    public:
++        AZStd::function<bool(QObject*, QEvent*)> m_handler;
++
++        bool eventFilter(QObject* watched, QEvent* event) override
++        {
++            return m_handler ? m_handler(watched, event) : false;
++        }
++    };
++
+ 
+     // Constant for the threshold in pixels for snapping to edges while dragging for docking
+     static const int g_snapThresholdInPixels = 15;
+@@ -1475,6 +1509,188 @@ namespace AzQtComponents
+                 return false;
+             }
+ 
++            // On Wayland a client cannot position a top-level, and hiding the floating window for
++            // the ghost drag destroys the surface that owns the pointer grab, so no further motion
++            // and no release is delivered. A floating panel is therefore not dragged with the ghost
++            // image there: its tab starts a drag and drop operation that carries the window
++            // (xdg_toplevel_drag_v1 through Qt), so the windows underneath still receive positions
++            // in their own coordinates and can show the drop zones, and the rest of its title bar
++            // hands the move to the compositor. Ctrl + drag keeps the previous path.
++            if (IsFloatingDragCompositorDriven() && !FancyDockingDropZoneWidget::CheckModifierKey() &&
++                !(m_state.tabWidget && m_state.tabWidget->count() > 1 && m_state.floatingDockContainer != dock))
++            {
++                QWidget* dragTopLevel = dock->window();
++                QWindow* floatingWindow = (dragTopLevel && dragTopLevel != m_mainWindow->window()) ? dragTopLevel->windowHandle() : nullptr;
++                // The panel's tab is the docking handle, the rest of the title bar moves the window.
++                // Mutter (50.5) only starts moving an attached toplevel when the attach request
++                // arrives while the drag is already active, and Qt sends it before start_drag, so
++                // the window does not follow the pointer there and a separate move is needed.
++                bool pressedOnTab = false;
++                if (QWidget* titleBar = dock->titleBarWidget())
++                {
++                    if (DockTabBar* tabBar = titleBar->findChild<DockTabBar*>())
++                    {
++                        pressedOnTab = tabBar->isVisible() && tabBar->tabAt(tabBar->mapFrom(dock, m_state.pressPos)) >= 0;
++                    }
++                }
++                if (floatingWindow && !pressedOnTab)
++                {
++                    clearDraggingState();
++                    AzQtComponents::StartSystemMove(dragTopLevel);
++                    return true;
++                }
++                if (floatingWindow)
++                {
++                    static const QString windowMimeType = QStringLiteral("application/x-qt-mainwindowdrag-window");
++                    static const QString positionMimeType = QStringLiteral("application/x-qt-mainwindowdrag-position");
++
++                    if (QApplication::overrideCursor())
++                    {
++                        QApplication::restoreOverrideCursor();
++                    }
++                    m_ghostWidget->hide();
++
++                    QByteArray windowData;
++                    {
++                        QDataStream stream(&windowData, QIODevice::WriteOnly);
++                        stream << static_cast<qintptr>(reinterpret_cast<qintptr>(floatingWindow));
++                    }
++                    QByteArray positionData;
++                    {
++                        QDataStream stream(&positionData, QIODevice::WriteOnly);
++                        stream << dragTopLevel->mapFromGlobal(globalPos);
++                    }
++                    QMimeData* mimeData = new QMimeData;
++                    mimeData->setData(windowMimeType, windowData);
++                    mimeData->setData(positionMimeType, positionData);
++
++                    QWidget* mainTopLevel = m_mainWindow->window();
++                    Qt::DockWidgetArea droppedArea = Qt::NoDockWidgetArea;
++                    QPointer<QWidget> droppedOnto;
++
++                    auto updateDropZones = [this, dock](const QPoint& dragGlobalPos)
++                    {
++                        QWidget* underMouse = nullptr;
++                        if (dock->allowedAreas() != Qt::NoDockWidgetArea)
++                        {
++                            for (QDockWidget* dockWidget : m_mainWindow->findChildren<QDockWidget*>(QString(), Qt::FindDirectChildrenOnly))
++                            {
++                                if (dockWidget->isFloating())
++                                {
++                                    continue;
++                                }
++                                underMouse = dropTargetForWidget(dockWidget, dragGlobalPos, dock);
++                                if (underMouse)
++                                {
++                                    break;
++                                }
++                            }
++                            if (!underMouse && m_mainWindow->rect().contains(m_mainWindow->mapFromGlobal(dragGlobalPos)))
++                            {
++                                underMouse = m_mainWindow;
++                            }
++                        }
++                        setupDropZones(underMouse, dragGlobalPos);
++                        const bool previousOnAbsoluteDropZone = m_dropZoneState.onAbsoluteDropZone();
++                        const Qt::DockWidgetArea area = dockAreaForPos(dragGlobalPos);
++                        if (area != Qt::NoDockWidgetArea &&
++                            (area != m_dropZoneState.dropArea() || previousOnAbsoluteDropZone != m_dropZoneState.onAbsoluteDropZone()))
++                        {
++                            m_dropZoneState.setDropZoneHoverOpacity(0);
++                            m_dropZoneHoverFadeInTimer->start();
++                        }
++                        m_dropZoneState.setDropArea(area);
++                        RepaintFloatingIndicators();
++                    };
++
++                    FloatingDockDragFilter dragFilter;
++                    dragFilter.m_handler = [&](QObject* watched, QEvent* dragEvent) -> bool
++                    {
++                        const QEvent::Type type = dragEvent->type();
++                        if (type != QEvent::DragEnter && type != QEvent::DragMove && type != QEvent::Drop && type != QEvent::DragLeave)
++                        {
++                            return false;
++                        }
++                        QWidget* target = qobject_cast<QWidget*>(watched);
++                        if (!target)
++                        {
++                            return false;
++                        }
++                        if (type == QEvent::DragLeave)
++                        {
++                            // Keep the drop zones as they are. On X11 the drop zone overlay is a window
++                            // of its own that becomes the drag target as soon as it is shown, so the
++                            // main window is left the moment the zones appear; clearing them here would
++                            // hide the overlay again and the two would chase each other.
++                            return false;
++                        }
++                        QDropEvent* dropEvent = static_cast<QDropEvent*>(dragEvent);
++                        if (!dropEvent->mimeData() || !dropEvent->mimeData()->hasFormat(windowMimeType))
++                        {
++                            return false;
++                        }
++                        const bool onDropZoneOverlay = qobject_cast<FancyDockingDropZoneWidget*>(target) != nullptr;
++                        if (target->window() != mainTopLevel && !onDropZoneOverlay)
++                        {
++                            dropEvent->ignore();
++                            return true;
++                        }
++                        const QPoint dragGlobalPos = target->mapToGlobal(dropEvent->position().toPoint());
++                        updateDropZones(dragGlobalPos);
++                        if (type == QEvent::Drop)
++                        {
++                            droppedArea = m_dropZoneState.dropArea();
++                            if (m_dropZoneState.dropZoneHoverOpacity() != FancyDockingDropZoneConstants::dropZoneOpacity)
++                            {
++                                droppedArea = Qt::NoDockWidgetArea;
++                            }
++                            droppedOnto = m_dropZoneState.dropOnto();
++                        }
++                        dropEvent->setDropAction(Qt::MoveAction);
++                        dropEvent->accept();
++                        return true;
++                    };
++
++                    const bool mainAcceptedDrops = mainTopLevel->acceptDrops();
++                    mainTopLevel->setAcceptDrops(true);
++                    qApp->installEventFilter(&dragFilter);
++                    m_dropZoneState.setDragging(true);
++
++                    QDrag* drag = new QDrag(m_mainWindow);
++                    drag->setMimeData(mimeData);
++                    // The window itself may not follow the pointer (see above), so carry a reduced,
++                    // translucent image of the panel as the drag image.
++                    if (!m_state.dockWidgetScreenGrab.screenGrab.isNull())
++                    {
++                        const QPixmap scaled = m_state.dockWidgetScreenGrab.screenGrab.scaled(
++                            QSize(260, 260), Qt::KeepAspectRatio, Qt::SmoothTransformation);
++                        QPixmap dragImage(scaled.size());
++                        dragImage.fill(Qt::transparent);
++                        {
++                            QPainter imagePainter(&dragImage);
++                            imagePainter.setOpacity(FancyDockingDropZoneConstants::draggingDockWidgetOpacity);
++                            imagePainter.drawPixmap(0, 0, scaled);
++                        }
++                        drag->setPixmap(dragImage);
++                        drag->setHotSpot(QPoint(dragImage.width() / 2, 8));
++                    }
++                    drag->exec(Qt::MoveAction);
++
++                    qApp->removeEventFilter(&dragFilter);
++                    mainTopLevel->setAcceptDrops(mainAcceptedDrops);
++
++                    if (droppedArea != Qt::NoDockWidgetArea && droppedOnto && m_state.dock)
++                    {
++                        dropDockWidget(m_state.dock, droppedOnto, droppedArea);
++                    }
++                    else
++                    {
++                        clearDraggingState();
++                    }
++                    return true;
++                }
++            }
++
+             m_ghostWidget->show();
+ 
+             // We need to explicitly grab the mouse/keyboard on our main window when
+@@ -2251,13 +2467,28 @@ namespace AzQtComponents
+      * Make a dock widget floating by creating a new floating main window containt
+      * for it and adding it as the only dock widget
+      */
+-    void FancyDocking::makeDockWidgetFloating(QDockWidget* dock, const QRect& geometry)
++    void FancyDocking::makeDockWidgetFloating(QDockWidget* dock, const QRect& requestedGeometry)
+     {
+         if (!dock)
+         {
+             return;
+         }
+ 
++        // A panel torn off a full height dock area would be as tall as the screen, and a
++        // Wayland compositor then leaves it no room to be moved vertically. Cap the height.
++        QRect geometry = requestedGeometry;
++        if (QGuiApplication::platformName().startsWith(QLatin1String("wayland")))
++        {
++            if (const QScreen* screen = m_mainWindow->screen())
++            {
++                const int maxHeight = (screen->availableGeometry().height() * 2) / 3;
++                if (geometry.height() > maxHeight)
++                {
++                    geometry.setHeight(maxHeight);
++                }
++            }
++        }
++
+         auto styledDockWidget = qobject_cast<StyledDockWidget*>(dock);
+         if (styledDockWidget && styledDockWidget->isSingleFloatingChild())
+         {
+@@ -3027,6 +3258,13 @@ namespace AzQtComponents
+             }
+         }
+ 
++        // On Wayland the drop zone overlay cannot be placed per screen (a client has no
++        // screen coordinates there), so a single overlay attached to the main window is used.
++        if (QGuiApplication::platformName().startsWith(QLatin1String("wayland")) && !m_desktopScreens.isEmpty())
++        {
++            dropZoneScreens = { m_desktopScreens.first() };
++        }
++
+         // Raise any current active drop zone widgets that should still be active
+         // and stop any that should no longer be active
+         int numActiveDropZoneWidgets = static_cast<int>(m_activeDropZoneWidgets.size());
+diff --git a/Code/Framework/AzQtComponents/AzQtComponents/Components/FancyDockingDropZoneWidget.cpp b/Code/Framework/AzQtComponents/AzQtComponents/Components/FancyDockingDropZoneWidget.cpp
+index 5bf5aeedf7..05b10062e8 100644
+--- a/Code/Framework/AzQtComponents/AzQtComponents/Components/FancyDockingDropZoneWidget.cpp
++++ b/Code/Framework/AzQtComponents/AzQtComponents/Components/FancyDockingDropZoneWidget.cpp
+@@ -23,7 +23,7 @@ namespace AzQtComponents
+     FancyDockingDropZoneWidget::FancyDockingDropZoneWidget(QMainWindow* mainWindow, QWidget* coordinatesRelativeTo, QScreen* screen, FancyDockingDropZoneState* dropZoneState)
+         // NOTE: this will not work with multiple monitors if this widget has a parent. The floating drop zone
+         // won't render on anything other than the parent's screen for some reason, if the parent is set.
+-        : QWidget(nullptr, Qt::WindowFlags(Qt::ToolTip | Qt::BypassWindowManagerHint | Qt::FramelessWindowHint))
++        : QWidget(nullptr, Qt::WindowFlags(Qt::ToolTip | Qt::BypassWindowManagerHint | Qt::FramelessWindowHint | Qt::WindowTransparentForInput))
+         , m_mainWindow(mainWindow)
+         , m_relativeTo(coordinatesRelativeTo)
+         , m_screen(screen)
+@@ -34,6 +34,9 @@ namespace AzQtComponents
+         setAttribute(Qt::WA_TransparentForMouseEvents);
+         setAttribute(Qt::WA_NoSystemBackground);
+         setAutoFillBackground(false);
++        // When a floating panel is docked with a drag and drop operation, this overlay is
++        // the window under the pointer on X11 and has to be able to take the drag.
++        setAcceptDrops(true);
+         setGeometry(screen->availableGeometry());
+ 
+         Stop();
+@@ -59,6 +62,18 @@ namespace AzQtComponents
+             window = windowHandle();
+         }
+ 
++        // Attach the overlay to the main window and cover it. On Wayland a tooltip type
++        // window is a popup placed relative to its parent, and global coordinates are relative to
++        // that window as well, so the drop zones line up with what is under the pointer.
++        if (QGuiApplication::platformName().startsWith(QLatin1String("wayland")))
++        {
++            QWidget* topLevel = m_mainWindow->window();
++            window->setTransientParent(topLevel->windowHandle());
++            setGeometry(QRect(topLevel->mapToGlobal(QPoint(0, 0)), topLevel->size()));
++            show();
++            return;
++        }
++
+         if (window->screen() != m_screen)
+         {
+             // Qt usually handles screens with different scale factors correctly, however
+diff --git a/Code/Framework/AzQtComponents/AzQtComponents/Components/FancyDockingGhostWidget.cpp b/Code/Framework/AzQtComponents/AzQtComponents/Components/FancyDockingGhostWidget.cpp
+index fd20f4d125..6aaf0dfea0 100644
+--- a/Code/Framework/AzQtComponents/AzQtComponents/Components/FancyDockingGhostWidget.cpp
++++ b/Code/Framework/AzQtComponents/AzQtComponents/Components/FancyDockingGhostWidget.cpp
+@@ -21,7 +21,7 @@
+ namespace AzQtComponents
+ {
+     FancyDockingGhostWidget::FancyDockingGhostWidget(QMainWindow* mainWindow, QWidget* parent) :
+-        QWidget(parent, Qt::WindowFlags(Qt::ToolTip | Qt::BypassWindowManagerHint | Qt::FramelessWindowHint)),
++        QWidget(parent, Qt::WindowFlags(Qt::ToolTip | Qt::BypassWindowManagerHint | Qt::FramelessWindowHint | Qt::WindowTransparentForInput)),
+         m_mainWindow(mainWindow)
+     {
+         setAttribute(Qt::WA_TranslucentBackground);
+diff --git a/Code/Framework/AzQtComponents/AzQtComponents/Components/Titlebar.cpp b/Code/Framework/AzQtComponents/AzQtComponents/Components/Titlebar.cpp
+index eb8d0bc260..93517529d6 100644
+--- a/Code/Framework/AzQtComponents/AzQtComponents/Components/Titlebar.cpp
++++ b/Code/Framework/AzQtComponents/AzQtComponents/Components/Titlebar.cpp
+@@ -7,6 +7,7 @@
+  */
+ 
+ #include <AzQtComponents/Components/Titlebar.h>
++#include <AzQtComponents/Utilities/QtWindowUtilities.h>
+ #include <AzQtComponents/Components/ButtonDivider.h>
+ #include <AzQtComponents/Components/ConfigHelpers.h>
+ #include <AzQtComponents/Components/StyledDockWidget.h>
+@@ -960,6 +961,21 @@ namespace AzQtComponents
+             return;
+         }
+ 
++#if defined(Q_OS_LINUX)
++        // Hand the move to the window manager / compositor instead of repositioning the window
++        // ourselves. On X11 this is what lets edge-drag gestures (tile-snap, drag-to-top maximize)
++        // work, and on Wayland it is the only way to move a top-level at all, since a client may
++        // not position its own window there. The system takes over the pointer grab (and restores
++        // a maximized window itself), so drop our own drag state. If the platform refuses, fall
++        // through to the manual move below.
++        if (AzQtComponents::StartSystemMove(topLevel))
++        {
++            m_dragPos = QPoint();
++            m_pendingRepositioning = false;
++            return;
++        }
++#endif
++
+         if (isMaximized())
+         {
+             m_pendingRepositioning = true;
+diff --git a/Code/Framework/AzQtComponents/AzQtComponents/Components/WindowDecorationWrapper.cpp b/Code/Framework/AzQtComponents/AzQtComponents/Components/WindowDecorationWrapper.cpp
+index 9929dbe4cb..71b19992bc 100644
+--- a/Code/Framework/AzQtComponents/AzQtComponents/Components/WindowDecorationWrapper.cpp
++++ b/Code/Framework/AzQtComponents/AzQtComponents/Components/WindowDecorationWrapper.cpp
+@@ -18,6 +18,7 @@
+ #include <QTimer>
+ #include <QPainter>
+ #include <QDebug>
++#include <QGuiApplication>
+ #include <QApplication>
+ #include <QSettings>
+ #include <QWindow>
+@@ -899,6 +900,17 @@ namespace AzQtComponents
+         // For Win 10 we use frameless, as a titlebar margin would be added otherwise (see QTBUG-47543)
+         // With frameless we have to support more custom code for resizing and default styling
+ 
++#if defined(Q_OS_LINUX)
++        // Wayland compositors that leave decorations to the client (GNOME, for one) make Qt draw
++        // its own title bar for any window that is not frameless, and Qt::CustomizeWindowHint does
++        // not prevent that. We already draw our own title bar, so the window ends up with two.
++        // Ask for a frameless window there, as on Windows 10.
++        if (QGuiApplication::platformName() == QLatin1String("wayland"))
++        {
++            return Qt::FramelessWindowHint | Qt::WindowMaximizeButtonHint;
++        }
++#endif
++
+         return isWin10() ? (Qt::FramelessWindowHint | Qt::WindowMaximizeButtonHint) : Qt::CustomizeWindowHint;
+     }
+ 
+diff --git a/Code/Framework/AzQtComponents/AzQtComponents/Utilities/QtWindowUtilities.cpp b/Code/Framework/AzQtComponents/AzQtComponents/Utilities/QtWindowUtilities.cpp
+index 55d33067e5..07878c6217 100644
+--- a/Code/Framework/AzQtComponents/AzQtComponents/Utilities/QtWindowUtilities.cpp
++++ b/Code/Framework/AzQtComponents/AzQtComponents/Utilities/QtWindowUtilities.cpp
+@@ -19,6 +19,13 @@
+ #include <QTimer>
+ #include <QWindow>
+ 
++#if defined(PAL_TRAIT_LINUX_WINDOW_MANAGER_XCB)
++#include <QGuiApplication>
++#include <xcb/xcb.h>
++#include <cstdlib>
++#include <cstring>
++#endif
++
+ namespace AzQtComponents
+ {
+     QRect GetTotalScreenGeometry()
+@@ -125,6 +132,71 @@ namespace AzQtComponents
+         SetCursorPos(QPoint(x, y));
+     }
+ 
++    bool StartSystemMove(QWidget* widget)
++    {
++        QWidget* topLevel = widget ? widget->window() : nullptr;
++        QWindow* window = topLevel ? topLevel->windowHandle() : nullptr;
++        if (!window)
++        {
++            return false;
++        }
++
++#if defined(PAL_TRAIT_LINUX_WINDOW_MANAGER_XCB)
++        // Qt's X11 backend tells the window manager where the pointer is by taking the last pointer
++        // position that the top-level X window received. When the widget that is dragged lives in a
++        // native child window (any ancestor of a render viewport is one), the top-level window does
++        // not receive the pointer events, that position is out of date, and the window manager
++        // ignores the request or starts the move from the wrong point. Send the request with the
++        // position the X server reports instead.
++        if (QGuiApplication::platformName() == QLatin1String("xcb"))
++        {
++            auto* x11Application = qGuiApp->nativeInterface<QNativeInterface::QX11Application>();
++            xcb_connection_t* connection = x11Application ? x11Application->connection() : nullptr;
++            if (connection)
++            {
++                const xcb_window_t xcbWindow = static_cast<xcb_window_t>(window->winId());
++                static const char moveResizeName[] = "_NET_WM_MOVERESIZE";
++                xcb_intern_atom_reply_t* atomReply = xcb_intern_atom_reply(
++                    connection, xcb_intern_atom(connection, 1, static_cast<uint16_t>(strlen(moveResizeName)), moveResizeName), nullptr);
++                xcb_query_pointer_reply_t* pointerReply =
++                    xcb_query_pointer_reply(connection, xcb_query_pointer(connection, xcbWindow), nullptr);
++
++                const bool canRequest = atomReply && atomReply->atom != XCB_ATOM_NONE && pointerReply;
++                if (canRequest)
++                {
++                    xcb_client_message_event_t message = {};
++                    message.response_type = XCB_CLIENT_MESSAGE;
++                    message.format = 32;
++                    message.window = xcbWindow;
++                    message.type = atomReply->atom;
++                    message.data.data32[0] = static_cast<uint32_t>(pointerReply->root_x);
++                    message.data.data32[1] = static_cast<uint32_t>(pointerReply->root_y);
++                    message.data.data32[2] = 8; // _NET_WM_MOVERESIZE_MOVE
++                    message.data.data32[3] = XCB_BUTTON_INDEX_1;
++                    message.data.data32[4] = 1; // the request comes from a normal application
++
++                    // The window manager has to be able to grab the pointer for the move
++                    xcb_ungrab_pointer(connection, XCB_CURRENT_TIME);
++                    xcb_send_event(
++                        connection, false, pointerReply->root,
++                        XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY,
++                        reinterpret_cast<const char*>(&message));
++                    xcb_flush(connection);
++                }
++
++                free(atomReply);
++                free(pointerReply);
++                if (canRequest)
++                {
++                    return true;
++                }
++            }
++        }
++#endif
++
++        return window->startSystemMove();
++    }
++
+     void bringWindowToTop(QWidget* widget)
+     {
+         auto window = widget->window();
+diff --git a/Code/Framework/AzQtComponents/AzQtComponents/Utilities/QtWindowUtilities.h b/Code/Framework/AzQtComponents/AzQtComponents/Utilities/QtWindowUtilities.h
+index 80ed84014f..8fd88c4f38 100644
+--- a/Code/Framework/AzQtComponents/AzQtComponents/Utilities/QtWindowUtilities.h
++++ b/Code/Framework/AzQtComponents/AzQtComponents/Utilities/QtWindowUtilities.h
+@@ -28,6 +28,11 @@ namespace AzQtComponents
+     AZ_QT_COMPONENTS_API void SetCursorPos(const QPoint& point);
+     AZ_QT_COMPONENTS_API void SetCursorPos(int x, int y);
+ 
++    //! Hands an interactive move of the top-level window of \p widget to the window manager or
++    //! compositor, as QWindow::startSystemMove() does. Call it from a mouse move handler while the
++    //! button that started the drag is down. Returns false if the move could not be requested.
++    AZ_QT_COMPONENTS_API bool StartSystemMove(QWidget* widget);
++
+     // Rationale: There are platform-specific differences in how mouse coordinates are handled, this
+     // lets us sample every pixel of a HiDPI screen running at > "100%" scaling.
+ 
+diff --git a/Code/Framework/AzQtComponents/Platform/Linux/AzQtComponents/Components/StyledDockWidget_Linux.cpp b/Code/Framework/AzQtComponents/Platform/Linux/AzQtComponents/Components/StyledDockWidget_Linux.cpp
+index a27b674a49..20baea0a50 100644
+--- a/Code/Framework/AzQtComponents/Platform/Linux/AzQtComponents/Components/StyledDockWidget_Linux.cpp
++++ b/Code/Framework/AzQtComponents/Platform/Linux/AzQtComponents/Components/StyledDockWidget_Linux.cpp
+@@ -6,20 +6,75 @@
+  *
+  */
+ 
++#include <QGuiApplication>
++#include <QPointer>
++#include <QTimer>
+ #include <QWidget>
+ 
++#if defined(PAL_TRAIT_LINUX_WINDOW_MANAGER_XCB)
++#include <xcb/xcb.h>
++#include <cstdlib>
++#include <cstring>
++#endif
++
+ namespace AzQtComponents
+ {
+     namespace Platform
+     {
++#if defined(PAL_TRAIT_LINUX_WINDOW_MANAGER_XCB)
++        static xcb_atom_t InternAtom(xcb_connection_t* connection, const char* name)
++        {
++            xcb_intern_atom_reply_t* reply =
++                xcb_intern_atom_reply(connection, xcb_intern_atom(connection, 0, static_cast<uint16_t>(strlen(name)), name), nullptr);
++            const xcb_atom_t atom = reply ? reply->atom : XCB_ATOM_NONE;
++            free(reply);
++            return atom;
++        }
++#endif
++
+         void HandleFloatingWindow(QWidget* floatingWindow)
+         {
++#if defined(PAL_TRAIT_LINUX_WINDOW_MANAGER_XCB)
++            // Qt gives a floating dock widget the tool window type, which becomes
++            // _NET_WM_WINDOW_TYPE_UTILITY on X11. Window managers do not let a utility window be
++            // minimized or maximized (Mutter leaves both out of _NET_WM_ALLOWED_ACTIONS), so the
++            // buttons in the floating title bar did nothing. Declare the window a normal one, which
++            // is the X11 counterpart of what the Windows implementation does with WS_EX_APPWINDOW.
++            // Qt writes the type when it applies the window flags, so do this after it has.
++            if (QGuiApplication::platformName() != QLatin1String("xcb") || !floatingWindow)
++            {
++                return;
++            }
++
++            QTimer::singleShot(0, floatingWindow, [window = QPointer<QWidget>(floatingWindow)]
++            {
++                auto* x11Application = qGuiApp->nativeInterface<QNativeInterface::QX11Application>();
++                xcb_connection_t* connection = x11Application ? x11Application->connection() : nullptr;
++                if (!window || !window->isWindow() || !window->testAttribute(Qt::WA_WState_Created) || !connection)
++                {
++                    return;
++                }
++
++                const xcb_atom_t windowType = InternAtom(connection, "_NET_WM_WINDOW_TYPE");
++                const xcb_atom_t windowTypeNormal = InternAtom(connection, "_NET_WM_WINDOW_TYPE_NORMAL");
++                if (windowType == XCB_ATOM_NONE || windowTypeNormal == XCB_ATOM_NONE)
++                {
++                    return;
++                }
++
++                xcb_change_property(
++                    connection, XCB_PROP_MODE_REPLACE, static_cast<xcb_window_t>(window->winId()), windowType, XCB_ATOM_ATOM, 32, 1,
++                    &windowTypeNormal);
++                xcb_flush(connection);
++            });
++#else
+             (void)floatingWindow;
++#endif
+         }
+ 
+         bool FloatingWindowsSupportMinimize()
+         {
+-            return false;
++            return true;
+         }
+     }
+ }
+diff --git a/Code/Framework/AzQtComponents/Platform/Linux/platform_linux.cmake b/Code/Framework/AzQtComponents/Platform/Linux/platform_linux.cmake
+index 7a325ca97e..b4825403ac 100644
+--- a/Code/Framework/AzQtComponents/Platform/Linux/platform_linux.cmake
++++ b/Code/Framework/AzQtComponents/Platform/Linux/platform_linux.cmake
+@@ -5,3 +5,15 @@
+ # SPDX-License-Identifier: Apache-2.0 OR MIT
+ #
+ #
++
++if(PAL_TRAIT_LINUX_WINDOW_MANAGER_XCB)
++    # QtWindowUtilities.cpp asks the window manager to move a window with the true pointer position
++    list(APPEND LY_BUILD_DEPENDENCIES
++        PRIVATE
++            3rdParty::X11::xcb
++    )
++    list(APPEND LY_COMPILE_DEFINITIONS
++        PRIVATE
++            PAL_TRAIT_LINUX_WINDOW_MANAGER_XCB
++    )
++endif()
+diff --git a/Code/Framework/AzToolsFramework/AzToolsFramework/Input/QtEventToAzInputMapper.cpp b/Code/Framework/AzToolsFramework/AzToolsFramework/Input/QtEventToAzInputMapper.cpp
+index adcd44bd20..48431ed74d 100644
+--- a/Code/Framework/AzToolsFramework/AzToolsFramework/Input/QtEventToAzInputMapper.cpp
++++ b/Code/Framework/AzToolsFramework/AzToolsFramework/Input/QtEventToAzInputMapper.cpp
+@@ -15,6 +15,7 @@
+ #include <AzFramework/Input/Buses/Requests/InputChannelRequestBus.h>
+ #include <AzQtComponents/Utilities/QtWindowUtilities.h>
+ 
++#include <QGuiApplication>
+ #include <QApplication>
+ #include <QCursor>
+ #include <QEvent>
+@@ -264,6 +265,7 @@ namespace AzToolsFramework
+             switch (m_cursorMode)
+             {
+             case CursorInputMode::CursorModeCaptured:
++                m_capturedCursorAnchor = m_previousGlobalCursorPosition;
+                 qApp->setOverrideCursor(Qt::BlankCursor);
+                 m_mouseDevice->SetSystemCursorState(AzFramework::SystemCursorState::ConstrainedAndHidden);
+                 break;
+@@ -516,13 +518,35 @@ namespace AzToolsFramework
+         QScreen* screen = m_sourceWidget->screen();
+         const QRect widgetRect(m_sourceWidget->mapToGlobal(QPoint(0, 0)), m_sourceWidget->size());
+ 
++        // A captured cursor is put back where it was captured after every event, and consumers of the
++        // cursor position rely on that: they take the distance from that point as the movement of
++        // one event. A Wayland client cannot move the cursor, so report the position the cursor
++        // would have had if it had been put back, which is that point plus the latest movement.
++        QPoint reportedCursorPosition = globalCursorPosition;
++#if defined(Q_OS_LINUX)
++        if (m_cursorMode == CursorInputMode::CursorModeCaptured && QGuiApplication::platformName().startsWith(QLatin1String("wayland")))
++        {
++            reportedCursorPosition = m_capturedCursorAnchor + cursorDelta;
++        }
++#endif
++
+         m_mouseDevice->m_cursorPositionData2D->m_normalizedPosition =
+-            WidgetPositionToNormalizedPosition(m_sourceWidget->mapFromGlobal(globalCursorPosition));
++            WidgetPositionToNormalizedPosition(m_sourceWidget->mapFromGlobal(reportedCursorPosition));
+         m_mouseDevice->m_cursorPositionData2D->m_normalizedPositionDelta = WidgetPositionToNormalizedPosition(cursorDelta);
+ 
+         switch (m_cursorMode)
+         {
+         case CursorInputMode::CursorModeCaptured:
++#if defined(Q_OS_LINUX)
++            // A Wayland client cannot move the pointer, so it cannot be put back where the capture
++            // started. Track the last position instead so each event still reports only the movement
++            // since the previous one, otherwise the delta grows with the distance from the start.
++            if (QGuiApplication::platformName().startsWith(QLatin1String("wayland")))
++            {
++                m_previousGlobalCursorPosition = globalCursorPosition;
++                break;
++            }
++#endif
+             AzQtComponents::SetCursorPos(m_previousGlobalCursorPosition);
+             break;
+         case CursorInputMode::CursorModeWrappedX:
+diff --git a/Code/Framework/AzToolsFramework/AzToolsFramework/Input/QtEventToAzInputMapper.h b/Code/Framework/AzToolsFramework/AzToolsFramework/Input/QtEventToAzInputMapper.h
+index 3d15686fee..5f62ef1317 100644
+--- a/Code/Framework/AzToolsFramework/AzToolsFramework/Input/QtEventToAzInputMapper.h
++++ b/Code/Framework/AzToolsFramework/AzToolsFramework/Input/QtEventToAzInputMapper.h
+@@ -193,6 +193,8 @@ namespace AzToolsFramework
+         AZ::Crc32 m_lastConsumedInputChannelIdCrc32;
+         // Where the mouse cursor was at the last cursor event.
+         QPoint m_previousGlobalCursorPosition;
++        // Where the cursor was when it was captured. Used where the cursor cannot be moved back there.
++        QPoint m_capturedCursorAnchor;
+         // The source widget to map events from, used to calculate the relative mouse position within the widget bounds.
+         QWidget* m_sourceWidget;
+         // Controls the cursor behavior.
+diff --git a/Code/Framework/AzToolsFramework/AzToolsFramework/ViewportUi/ViewportUiDisplay.cpp b/Code/Framework/AzToolsFramework/AzToolsFramework/ViewportUi/ViewportUiDisplay.cpp
+index e7e9611fe0..975bf25537 100644
+--- a/Code/Framework/AzToolsFramework/AzToolsFramework/ViewportUi/ViewportUiDisplay.cpp
++++ b/Code/Framework/AzToolsFramework/AzToolsFramework/ViewportUi/ViewportUiDisplay.cpp
+@@ -15,6 +15,7 @@
+ #include <AzToolsFramework/ViewportUi/ViewportUiDisplayLayout.h>
+ #include <AzToolsFramework/ViewportUi/ViewportUiSwitcher.h>
+ #include <AzToolsFramework/ViewportUi/ViewportUiTextField.h>
++#include <QGuiApplication>
+ #include <QWidget>
+ 
+ namespace AzToolsFramework::ViewportUi::Internal
+@@ -405,11 +406,35 @@ namespace AzToolsFramework::ViewportUi::Internal
+         }
+     }
+ 
++    // True when the overlay has to be positioned relative to its parent window by the window system.
++    static bool IsViewportUiOverlayParentRelative()
++    {
++#if defined(Q_OS_LINUX)
++        return QGuiApplication::platformName() == QLatin1String("wayland");
++#else
++        return false;
++#endif
++    }
++
+     // disables system background for widget and gives a transparent background
+     static void ConfigureWindowForViewportUi(QPointer<QMainWindow> mainWindow)
+     {
+         // no background for the widget else each set of buttons/text-fields/etc would have a black box around them
+         SetTransparentBackground(mainWindow);
++
++#if defined(Q_OS_LINUX)
++        // A Wayland client cannot place a top-level window on the screen and is never told where
++        // its windows are, so a separate tool window cannot be kept over the viewport: it lands
++        // wherever the compositor puts it and stays behind when the main window moves. A tooltip
++        // type window with a transient parent is mapped as a non-grabbing popup there, which is
++        // positioned relative to its parent and moved along with it by the compositor.
++        if (IsViewportUiOverlayParentRelative())
++        {
++            mainWindow->setWindowFlags(Qt::ToolTip | Qt::FramelessWindowHint | Qt::WindowDoesNotAcceptFocus);
++            return;
++        }
++#endif
++
+         mainWindow->setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::WindowDoesNotAcceptFocus);
+     }
+ 
+@@ -522,9 +547,17 @@ namespace AzToolsFramework::ViewportUi::Internal
+ 
+     void ViewportUiDisplay::PositionUiOverlayOverRenderViewport()
+     {
+-        QPoint offset = m_renderOverlay->mapToGlobal(QPoint());
+-        m_uiMainWindow.setGeometry(offset.x(), offset.y(), m_renderOverlay->width(), m_renderOverlay->height());
+-        m_uiOverlay.setGeometry(m_uiMainWindow.rect());
++        const QRect overlayGeometry(m_renderOverlay->mapToGlobal(QPoint()), m_renderOverlay->size());
++        // This runs every frame. Only ask for a new geometry when the request changes: where the
++        // overlay is positioned by the window system (see ConfigureWindowForViewportUi), the
++        // geometry it reports back need not be the one that was asked for, and asking again each
++        // frame sends a reposition request to the compositor each frame.
++        if (!IsViewportUiOverlayParentRelative() || overlayGeometry != m_requestedOverlayGeometry)
++        {
++            m_requestedOverlayGeometry = overlayGeometry;
++            m_uiMainWindow.setGeometry(overlayGeometry);
++            m_uiOverlay.setGeometry(m_uiMainWindow.rect());
++        }
+         UpdateUiOverlayGeometry();
+     }
+ 
+diff --git a/Code/Framework/AzToolsFramework/AzToolsFramework/ViewportUi/ViewportUiDisplay.h b/Code/Framework/AzToolsFramework/AzToolsFramework/ViewportUi/ViewportUiDisplay.h
+index 64c8ad0763..551cf13389 100644
+--- a/Code/Framework/AzToolsFramework/AzToolsFramework/ViewportUi/ViewportUiDisplay.h
++++ b/Code/Framework/AzToolsFramework/AzToolsFramework/ViewportUi/ViewportUiDisplay.h
+@@ -19,6 +19,7 @@
+ #include <AzCore/std/smart_ptr/shared_ptr.h>
+ #include <AzFramework/Viewport/ViewportBus.h>
+ 
++#include <QRect>
+ #include <QLabel>
+ #include <QMainWindow>
+ #include <QPointer>
+@@ -130,6 +131,8 @@ namespace AzToolsFramework::ViewportUi::Internal
+         ViewportUiElementInfo GetViewportUiElementInfo(const ViewportUiElementId elementId);
+ 
+         QMainWindow m_uiMainWindow; //!< The window which contains the UI Overlay.
++
++        QRect m_requestedOverlayGeometry; //!< The geometry last asked for the overlay window.
+         QWidget m_uiOverlay; //!< The UI Overlay which displays Viewport UI Elements.
+         QGridLayout m_fullScreenLayout; //!< The layout which extends across the full screen.
+         ViewportUiDisplayLayout m_uiOverlayLayout; //!< The layout used for optionally anchoring Viewport UI Elements.
+diff --git a/Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/RHI/WSISurface_Linux.cpp b/Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/RHI/WSISurface_Linux.cpp
+index 8e45f7aea5..3cdc7b67d4 100644
+--- a/Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/RHI/WSISurface_Linux.cpp
++++ b/Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/RHI/WSISurface_Linux.cpp
+@@ -40,8 +40,11 @@ namespace AZ
+                 createInfo.sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR;
+                 createInfo.pNext = nullptr;
+                 createInfo.flags = 0;
+-                createInfo.display = display;
+-                createInfo.surface = (wl_surface*)m_descriptor.m_windowHandle.GetIndex();
++                createInfo.surface = (wl_surface*)m_windowSurface.GetIndex();
++                // A wl_surface only exists on the connection it was created on. The window may belong
++                // to a toolkit that uses its own connection (a Qt tool that does not hand its display
++                // to the display provider), so take the connection from the surface itself.
++                createInfo.display = createInfo.surface ? wl_proxy_get_display(reinterpret_cast<wl_proxy*>(createInfo.surface)) : display;
+                 const VkResult result = instance.GetContext().CreateWaylandSurfaceKHR(instance.GetNativeInstance(), &createInfo, VkSystemAllocator::Get(), &m_nativeSurface);
+                 VK_RESULT_ASSERT(result);
+ 
+diff --git a/Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/platform_private_static_linux.cmake b/Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/platform_private_static_linux.cmake
+index 5cd1fb5a22..90dcd9ac4b 100644
+--- a/Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/platform_private_static_linux.cmake
++++ b/Gems/Atom/RHI/Vulkan/Code/Source/Platform/Linux/platform_private_static_linux.cmake
+@@ -6,3 +6,11 @@
+ #
+ #
+ 
++
++if(PAL_TRAIT_LINUX_WINDOW_MANAGER_WAYLAND)
++    # WSISurface_Linux.cpp asks a wl_surface for the connection it belongs to
++    list(APPEND LY_BUILD_DEPENDENCIES
++        PRIVATE
++            wayland-client
++    )
++endif()
+diff --git a/Gems/Atom/RHI/Vulkan/Code/Source/RHI/SwapChain.cpp b/Gems/Atom/RHI/Vulkan/Code/Source/RHI/SwapChain.cpp
+index db309d766c..e8f942afdd 100644
+--- a/Gems/Atom/RHI/Vulkan/Code/Source/RHI/SwapChain.cpp
++++ b/Gems/Atom/RHI/Vulkan/Code/Source/RHI/SwapChain.cpp
+@@ -73,8 +73,38 @@ namespace AZ
+             m_swapChainBarrier.m_isValid = true;
+         }
+ 
++        bool SwapChain::RebuildSurfaceIfReplaced()
++        {
++            if (GetDescriptor().m_isXrSwapChain || !m_surface)
++            {
++                return false;
++            }
++
++            if (!m_surface->IsWindowSurfaceReplaced())
++            {
++                return false;
++            }
++
++            // The platform surface this swap chain was created for is gone. The native swap chain
++            // belongs to that surface, so it cannot be handed over as the old swap chain of a new one.
++            InvalidateNativeSwapChain(m_nativeSwapChain);
++            m_nativeSwapChain = VK_NULL_HANDLE;
++            InvalidateSurface();
++            [[maybe_unused]] const RHI::ResultCode result = BuildSurface(GetDescriptor());
++            AZ_Assert(result == RHI::ResultCode::Success, "Failed to rebuild the surface of a swap chain whose window surface was replaced.");
++
++            auto& device = static_cast<Device&>(GetDevice());
++            m_presentationQueue = &device.GetCommandQueueContext().GetOrCreatePresentationCommandQueue(*this);
++            return true;
++        }
++
+         bool SwapChain::ProcessRecreation()
+         {
++            if (RebuildSurfaceIfReplaced())
++            {
++                m_pendingRecreation = true;
++            }
++
+             if (m_pendingRecreation)
+             {
+                 VkSwapchainKHR oldSwapchain = m_nativeSwapChain;
+@@ -206,6 +236,8 @@ namespace AZ
+ 
+         RHI::ResultCode SwapChain::ResizeInternal(const RHI::SwapChainDimensions& dimensions, RHI::SwapChainDimensions* nativeDimensions)
+         {
++            RebuildSurfaceIfReplaced();
++
+             VkSwapchainKHR oldSwapchain = m_nativeSwapChain;
+             auto& device = static_cast<Device&>(GetDevice());
+             m_dimensions = dimensions;
+diff --git a/Gems/Atom/RHI/Vulkan/Code/Source/RHI/SwapChain.h b/Gems/Atom/RHI/Vulkan/Code/Source/RHI/SwapChain.h
+index 65605b5124..3aae4e7316 100644
+--- a/Gems/Atom/RHI/Vulkan/Code/Source/RHI/SwapChain.h
++++ b/Gems/Atom/RHI/Vulkan/Code/Source/RHI/SwapChain.h
+@@ -99,6 +99,8 @@ namespace AZ
+ 
+             //! Destroy the surface.
+             void InvalidateSurface();
++            //! Rebuilds the surface if the window's platform surface was replaced. Returns true if it was.
++            bool RebuildSurfaceIfReplaced();
+             //! Destroy the swapchain.
+             void InvalidateNativeSwapChain(VkSwapchainKHR swapchain);
+ 
+diff --git a/Gems/Atom/RHI/Vulkan/Code/Source/RHI/WSISurface.cpp b/Gems/Atom/RHI/Vulkan/Code/Source/RHI/WSISurface.cpp
+index 1c3ba64cb4..9eb11adb5f 100644
+--- a/Gems/Atom/RHI/Vulkan/Code/Source/RHI/WSISurface.cpp
++++ b/Gems/Atom/RHI/Vulkan/Code/Source/RHI/WSISurface.cpp
+@@ -7,6 +7,7 @@
+  */
+ #include <RHI/WSISurface.h>
+ #include <RHI/Instance.h>
++#include <AzFramework/Windowing/NativeWindowSurfaceBus.h>
+ #include <Atom/RHI.Reflect/VkAllocator.h>
+ 
+ namespace AZ
+@@ -21,6 +22,7 @@ namespace AZ
+         RHI::ResultCode WSISurface::Init(const Descriptor& descriptor)
+         {
+             m_descriptor = descriptor;
++            m_windowSurface = ResolveCurrentWindowSurface(descriptor.m_windowHandle);
+             RHI::ResultCode result = BuildNativeSurface();
+             if (result == RHI::ResultCode::Success)
+             {
+@@ -42,7 +44,24 @@ namespace AZ
+ 
+         VkSurfaceKHR WSISurface::GetNativeSurface() const
+         {
+-            return m_nativeSurface;
++            // A surface whose window surface was replaced must not be handed out any more. Callers
++            // that look a surface up by window then create a new one, and the swap chain rebuilds its own.
++            return IsWindowSurfaceReplaced() ? VK_NULL_HANDLE : m_nativeSurface;
++        }
++
++        RHI::WindowHandle WSISurface::ResolveCurrentWindowSurface(RHI::WindowHandle window)
++        {
++            void* currentSurface = nullptr;
++            AzFramework::NativeWindowSurfaceRequestBus::EventResult(
++                currentSurface,
++                reinterpret_cast<AzFramework::NativeWindowHandle>(window.GetIndex()),
++                &AzFramework::NativeWindowSurfaceRequests::GetCurrentNativeSurface);
++            return currentSurface ? RHI::WindowHandle(reinterpret_cast<uintptr_t>(currentSurface)) : window;
++        }
++
++        bool WSISurface::IsWindowSurfaceReplaced() const
++        {
++            return ResolveCurrentWindowSurface(m_descriptor.m_windowHandle) != m_windowSurface;
+         }
+     }
+ }
+diff --git a/Gems/Atom/RHI/Vulkan/Code/Source/RHI/WSISurface.h b/Gems/Atom/RHI/Vulkan/Code/Source/RHI/WSISurface.h
+index 1b1abb7f11..d4ef2d359d 100644
+--- a/Gems/Atom/RHI/Vulkan/Code/Source/RHI/WSISurface.h
++++ b/Gems/Atom/RHI/Vulkan/Code/Source/RHI/WSISurface.h
+@@ -40,6 +40,15 @@ namespace AZ
+             // WindowSurfaceRequestsBus::Handler overrides...
+             VkSurfaceKHR GetNativeSurface() const override;
+ 
++            //! Returns the platform surface the given window presents to right now. This is the window
++            //! handle itself unless the owner of the window reports a different one, which happens on
++            //! Wayland when the windowing toolkit replaces the wl_surface of a living window.
++            static RHI::WindowHandle ResolveCurrentWindowSurface(RHI::WindowHandle window);
++
++            //! Returns true if the platform surface of the window was replaced after this surface was built.
++            //! The native surface then refers to a surface that no longer exists and must not be used.
++            bool IsWindowSurfaceReplaced() const;
++
+         protected:
+             WSISurface() = default;
+ 
+@@ -47,6 +56,8 @@ namespace AZ
+ 
+             Descriptor m_descriptor;
+             VkSurfaceKHR m_nativeSurface = VK_NULL_HANDLE;
++            //! The platform surface the native surface was built for.
++            RHI::WindowHandle m_windowSurface;
+         };
+     }
+ }
+diff --git a/Gems/Atom/Tools/AtomToolsFramework/Code/Source/Viewport/RenderViewportWidget.cpp b/Gems/Atom/Tools/AtomToolsFramework/Code/Source/Viewport/RenderViewportWidget.cpp
+index b1429c9111..f62123f86b 100644
+--- a/Gems/Atom/Tools/AtomToolsFramework/Code/Source/Viewport/RenderViewportWidget.cpp
++++ b/Gems/Atom/Tools/AtomToolsFramework/Code/Source/Viewport/RenderViewportWidget.cpp
+@@ -6,6 +6,7 @@
+  *
+  */
+ 
++#include <AzFramework/Windowing/NativeWindowSurfaceBus.h>
+ #include <AtomToolsFramework/Viewport/RenderViewportWidget.h>
+ #include <Atom/RPI.Public/ViewportContext.h>
+ #include <Atom/RPI.Public/ViewportContextBus.h>
+@@ -27,12 +28,59 @@
+ 
+ namespace AtomToolsFramework
+ {
++    namespace
++    {
++        // Reports the surface the viewport's window presents to right now. Qt on Wayland replaces a
++        // window's wl_surface when the window changes between being a top-level and being a child,
++        // which happens to a viewport that is created before its pane is placed in the main window.
++        // QWidget::winId() keeps returning the first surface, QWindow::winId() the current one.
++        class ViewportSurfaceProvider
++            : public QObject
++            , public AzFramework::NativeWindowSurfaceRequestBus::Handler
++        {
++        public:
++            ViewportSurfaceProvider(QWidget* viewport, AzFramework::NativeWindowHandle windowHandle)
++                : QObject(viewport)
++                , m_viewport(viewport)
++            {
++                AzFramework::NativeWindowSurfaceRequestBus::Handler::BusConnect(windowHandle);
++            }
++
++            ~ViewportSurfaceProvider() override
++            {
++                AzFramework::NativeWindowSurfaceRequestBus::Handler::BusDisconnect();
++            }
++
++            void* GetCurrentNativeSurface() const override
++            {
++                const QWindow* window = m_viewport->windowHandle();
++                return window ? reinterpret_cast<void*>(window->winId()) : nullptr;
++            }
++
++        private:
++            QWidget* m_viewport = nullptr;
++        };
++    } // namespace
++
+     RenderViewportWidget::RenderViewportWidget(QWidget* parent, bool shouldInitializeViewportContext)
+         : QWidget(parent)
+         , AzFramework::InputChannelEventListener(AzFramework::InputChannelEventListener::GetPriorityDefault())
+     {
+         setMinimumSize(1, 1);
+ 
++#if defined(Q_OS_LINUX)
++        // Asking for this widget's native handle would otherwise make every ancestor native too.
++        // On Wayland each native widget is its own subsurface, drawn and committed separately,
++        // and the nested stack does not stay in step with the top-level when the compositor
++        // resizes it several times in quick succession (un-maximize, tile): parts of the window
++        // keep the size of an earlier round and the viewport is left hanging outside the frame.
++        // Only the viewport itself needs to be a native surface.
++        if (QGuiApplication::platformName() == QLatin1String("wayland"))
++        {
++            setAttribute(Qt::WA_DontCreateNativeAncestors);
++        }
++#endif
++
+         if (shouldInitializeViewportContext)
+         {
+             InitializeViewportContext();
+@@ -64,6 +112,12 @@ namespace AtomToolsFramework
+         params.device = AZ::RHI::RHISystemInterface::Get()->GetDevice();
+         params.windowHandle = reinterpret_cast<AzFramework::NativeWindowHandle>(winId());
+         params.id = id;
++#if defined(Q_OS_LINUX)
++        if (QGuiApplication::platformName() == QLatin1String("wayland"))
++        {
++            new ViewportSurfaceProvider(this, params.windowHandle);
++        }
++#endif
+         AzFramework::WindowRequestBus::Handler::BusConnect(params.windowHandle);
+         m_viewportContext = viewportContextManager->CreateViewportContext(AZ::Name(), params);
+ 
