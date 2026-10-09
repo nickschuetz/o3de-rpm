@@ -126,21 +126,26 @@ do
     else nope "exists: $path" "missing"; fi
 done
 
-# No packaged file may carry mtime 0 (1970). Qt reports that as an invalid time
+# No engine file may carry mtime 0 (1970). Qt reports that as an invalid time
 # and the Asset Processor then ignores the file's content, so engine asset
 # changes are missed after an upgrade (fixed in the spec's per-build timestamp
 # step, release 2610.0-113). Packages built before that fix legitimately still
 # have such files, so only enforce for packages built on or after 2026-10-08
 # (1791417600). The build time is used rather than a changelog marker because
 # rpm trims changelog entries older than two years from built packages.
-zero_mtime=$(rpm -q --qf '[%{FILEMTIMES}\n]' "$O3DE_PKGNAME" 2>/dev/null | grep -cx 0)
+# Only files under the engine install prefix are counted: those are what the
+# Asset Processor reads. (The %doc and %license files under /usr/share are
+# copied in by rpm after the spec's timestamp step and kept mtime 0 in
+# 2610.0-113 and -114; they are not Asset Processor inputs.)
+zero_mtime=$(rpm -q --qf '[%{FILEMTIMES} %{FILENAMES}\n]' "$O3DE_PKGNAME" 2>/dev/null \
+    | awk -v p="$ENGINE_PATH/" '$1 == 0 && index($2, p) == 1' | wc -l)
 pkg_buildtime=$(rpm -q --qf '%{BUILDTIME}' "$O3DE_PKGNAME" 2>/dev/null)
 if [ "$zero_mtime" -eq 0 ]; then
-    ok "no packaged file has mtime 0"
+    ok "no engine file has mtime 0"
 elif [ "${pkg_buildtime:-0}" -ge 1791417600 ]; then
-    nope "no packaged file has mtime 0" "$zero_mtime files dated 1970; the Asset Processor will ignore their content"
+    nope "no engine file has mtime 0" "$zero_mtime files dated 1970; the Asset Processor will ignore their content"
 else
-    skipped "no packaged file has mtime 0" "$zero_mtime files dated 1970; package predates the per-build timestamp fix"
+    skipped "no engine file has mtime 0" "$zero_mtime files dated 1970; package predates the per-build timestamp fix"
 fi
 
 # Launcher is executable, valid shell, has correct shebang

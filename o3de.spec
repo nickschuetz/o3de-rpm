@@ -2129,6 +2129,11 @@ o3de_off=$(( 0x$(printf '%%s' '%{version}-%{release}' | sha256sum | cut -c1-6) +
 o3de_stamp=$(( o3de_sde - o3de_off ))
 echo "per-build file timestamp: ${o3de_stamp} ($(date -u -d "@${o3de_stamp}" '+%%Y-%%m-%%d %%H:%%M:%%S UTC'))"
 find %{buildroot} -xdev \( -type f -o -type l \) -exec touch -h -d "@${o3de_stamp}" {} +
+# The %%doc and %%license files are copied from the source tree by rpm after
+# this scriptlet, so stamp their sources too (they kept mtime 0 in -113/-114).
+( cd "%{_builddir}/%{o3de_source_dir}" && \
+  touch -d "@${o3de_stamp}" LICENSE.txt LICENSE_APACHE2.TXT LICENSE_MIT.TXT \
+      README.md CODE_OF_CONDUCT.md CONTRIBUTING.md )
 
 # ── CHECK ────────────────────────────────────────────────────────────────────
 %check
