@@ -1169,6 +1169,17 @@ Recommends:     ninja-build
 Recommends:     cmake-gui
 Recommends:     xdg-utils
 
+# ROS 2 Gems (o3de-extras ROS2, ROS2Sensors, ROS2Controllers,
+# SimulationInterfaces) build against the packages pulled in by this
+# metapackage from the hellaenergy/ros2 COPR (Lyrical). Suggests only: dnf
+# does not install it by default, and the ROS 2 COPR is not enabled by the
+# O3DE COPRs. The Gems support Lyrical from the 26.10 line on; 26.05 stays on
+# Jazzy (hellaenergy/ros2-jazzy), which has no such metapackage. See
+# docs/GEMS_WITH_SYSTEM_DEPS.md.
+%if %{o3de_major_tag} >= 2610
+Suggests:       ros-lyrical-o3de-gem-deps
+%endif
+
 # The -devel subpackage ships the static archives (*.a) every project
 # build links: libAzGameFramework.a, libAzCore (Object/Static variants),
 # libAtomCore.a, libAssetBuilderSDK.a, and the rest of the AzFramework /
