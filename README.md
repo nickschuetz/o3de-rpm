@@ -231,6 +231,8 @@ o3de2605-cli export-project   --project-path ~/MyGame   # bundle a runtime build
 o3de2605-cli sha256 <file>                             # compute the hash O3DE expects in package manifests
 ```
 
+On a Wayland desktop the launcher starts Project Manager through XWayland (`QT_QPA_PLATFORM=xcb`) unless `QT_QPA_PLATFORM` is already set, so its window class matches the desktop entry and the dock shows the O3DE icon; the engine is built for X11 only and the Editor makes the same choice itself.
+
 State written by either command lives under `~/.o3de/` (engine registration manifest, per-user Python venvs keyed by engine path, project user data). The engine root at `/opt/O3DE/26.05.0/` is read-only.
 
 The first launch of `o3de2605` (or first run of `o3de2605-cli`) bootstraps the per-user Python venv automatically. See `python/get_python.sh` in the engine root if you want to pre-bootstrap or inspect.
