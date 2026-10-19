@@ -3,6 +3,12 @@ Enable + install:
     sudo dnf copr enable hellaenergy/o3de-testing
     sudo dnf install o3de2605
 
+**CentOS Stream 10:** enable CRB and EPEL 10 before installing. They provide libraries the engine needs (assimp, google-benchmark, libunwind, poly2tri); without them `dnf` stops with "nothing provides" errors for those. COPR's own EPEL setting only applies while building the packages, not on your machine.
+
+    sudo dnf install dnf-plugins-core
+    sudo dnf config-manager --set-enabled crb
+    sudo dnf install epel-release
+
 This channel is the pre-promotion soak buffer between the `main` HEAD of the [o3de-rpm](https://github.com/nickschuetz/o3de-rpm) repository and the stable channel `hellaenergy/o3de`. Mirrors Fedora's `updates-testing` semantics.
 
 **Promotion flow:**

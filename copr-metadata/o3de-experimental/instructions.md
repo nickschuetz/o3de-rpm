@@ -5,6 +5,12 @@
     sudo dnf copr enable hellaenergy/o3de-experimental
     sudo dnf install o3de2610
 
+**CentOS Stream 10:** enable CRB and EPEL 10 before installing. They provide libraries the engine needs (assimp, google-benchmark, libunwind, poly2tri); without them `dnf` stops with "nothing provides" errors for those. COPR's own EPEL setting only applies while building the packages, not on your machine.
+
+    sudo dnf install dnf-plugins-core
+    sudo dnf config-manager --set-enabled crb
+    sudo dnf install epel-release
+
 The `o3de-dependencies` repo auto-enables alongside this one (no separate `dnf copr enable` needed). Add the optional `-devel` subpackage if you need engine static archives for native C++ gem development:
 
     sudo dnf install o3de2610-devel

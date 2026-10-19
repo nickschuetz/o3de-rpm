@@ -3,6 +3,12 @@
     sudo dnf copr enable hellaenergy/o3de-stabilization
     sudo dnf install o3de2610
 
+**CentOS Stream 10:** enable CRB and EPEL 10 before installing. They provide libraries the engine needs (assimp, google-benchmark, libunwind, poly2tri); without them `dnf` stops with "nothing provides" errors for those. COPR's own EPEL setting only applies while building the packages, not on your machine.
+
+    sudo dnf install dnf-plugins-core
+    sudo dnf config-manager --set-enabled crb
+    sudo dnf install epel-release
+
 This channel now builds the **26.10 pre-release line** (`o3de2610`, from upstream `stabilization/26100`, cut 2026-08-11; targeting release around Oct 28 2026). The `o3de-dependencies` repo auto-enables alongside this one. Launch with `o3de2610` (Project Manager) or via the desktop entry; the upstream Python CLI is on PATH as `o3de2610-cli`.
 
 **Upgrading from the pre-rename `o3de` package?** The package was renamed from `o3de` to `o3de2605` (versioned-major convention; install path moved from `/opt/o3de/` to `/opt/O3DE/26.05.0/`). `dnf` won't auto-replace the old package, so a clean transition needs:

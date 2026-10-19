@@ -333,7 +333,17 @@ o3de2605-cli --help                                    # CLI for project / gem /
 
 The package name follows a `o3deNNNN` convention (postgresql-style): `NNNN` is the upstream major as `YYMM` (`2605` for 26.05.x, `2610` for the next major). The install path under `/opt/O3DE/<DISPLAY_VERSION>/` matches what the upstream `.deb` and Windows `.msi` installers ship: same path mental model across distros and OSes.
 
-`hellaenergy/o3de-dependencies` auto-enables alongside the engine project (via the engine project's `runtime_dependencies` setting), no separate `dnf copr enable` needed. The per-user Python venv bootstraps on first launch automatically; pre-bootstrap manually with `/opt/O3DE/26.05.0/python/get_python.sh` if preferred.
+`hellaenergy/o3de-dependencies` auto-enables alongside the engine project (via the engine project's `runtime_dependencies` setting), no separate `dnf copr enable` needed.
+
+On **CentOS Stream 10**, enable CRB and EPEL 10 before installing: they provide assimp, google-benchmark, libunwind and poly2tri, and without them `dnf` stops with "nothing provides" errors. The EPEL repo in the CS10 chroot config only applies at COPR build time, not on the user's machine (verified by a dnf dry run in a clean `centos:stream10` container, 2026-10-19).
+
+```bash
+sudo dnf install dnf-plugins-core
+sudo dnf config-manager --set-enabled crb
+sudo dnf install epel-release
+```
+
+The per-user Python venv bootstraps on first launch automatically; pre-bootstrap manually with `/opt/O3DE/26.05.0/python/get_python.sh` if preferred.
 
 When O3DE upstream tags a stable release, swap `o3de-stabilization` for `o3de` (the package name stays `o3de2605`; only the COPR project changes). Skip `o3de-development` (dev-branch builds) and `o3de-experimental` (packaging work) unless you have a specific reason to test those.
 

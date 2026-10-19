@@ -3,6 +3,12 @@ Enable + install:
     sudo dnf copr enable hellaenergy/o3de
     sudo dnf install o3de2605
 
+**CentOS Stream 10:** enable CRB and EPEL 10 before installing. They provide libraries the engine needs (assimp, google-benchmark, libunwind, poly2tri); without them `dnf` stops with "nothing provides" errors for those. COPR's own EPEL setting only applies while building the packages, not on your machine.
+
+    sudo dnf install dnf-plugins-core
+    sudo dnf config-manager --set-enabled crb
+    sudo dnf install epel-release
+
 This channel tracks upstream's `main` branch. Each O3DE release lands on `main` and gets tagged there (the May 2026 release is `2605.0`; the October 2025 release line topped out at `2510.2`). Twice-yearly major release cadence (May + October) plus occasional point releases. This is the channel for stable Fedora installs.
 
 For pre-release validation of the next release line (currently `stabilization/26100`, the 26.10 line), use **hellaenergy/o3de-stabilization**. For dev-tip / bleeding-edge builds from `o3de/development`, use **hellaenergy/o3de-development**.
