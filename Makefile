@@ -174,11 +174,28 @@ snapshot:
 # such accidents from older SRPMs lying around.)
 SRPM_CLEAN := rm -f ~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
 
-srpm:
+# Qt 6.10.2 jpeg/tiff plugin sources for the bundled-Qt6 plugin rebuild
+# (o3de.spec Source72/73). Downloaded once into sources/ (gitignored) and
+# checked against these SHA-256 values (taken 2026-10-19 from download.qt.io,
+# matching Qt's published md5sums.txt). Every SRPM/RPM target depends on it.
+QT_SRC_VERSION := 6.10.2
+QT_SRC_URL     := https://download.qt.io/official_releases/qt/6.10/$(QT_SRC_VERSION)/submodules
+QT_SRC_SHA256  := aeb78d29291a2b5fd53cb55950f8f5065b4978c25fb1d77f627d695ab9adf21e  qtbase-everywhere-src-$(QT_SRC_VERSION).tar.xz \
+                  8b8f9c718638081e7b3c000e7f31910140b1202a98e98df5d1b496fe6f639d67  qtimageformats-everywhere-src-$(QT_SRC_VERSION).tar.xz
+
+.PHONY: qt-plugin-sources
+qt-plugin-sources:
+	@cd sources && for m in qtbase qtimageformats; do \
+	    f=$$m-everywhere-src-$(QT_SRC_VERSION).tar.xz; \
+	    [ -f $$f ] || { echo ">> downloading $$f"; curl -sSfLO $(QT_SRC_URL)/$$f; }; \
+	done; \
+	printf '%s  %s\n' $(QT_SRC_SHA256) | sha256sum --quiet -c - && echo ">> Qt plugin sources verified"
+
+srpm: qt-plugin-sources
 	$(SRPM_CLEAN)
 	rpmbuild -bs --without snapshot $(RPMBUILD_DEFINES) o3de.spec
 
-srpm-snapshot:
+srpm-snapshot: qt-plugin-sources
 	$(SRPM_CLEAN)
 	rpmbuild -bs --with snapshot $(RPMBUILD_DEFINES) o3de.spec
 
@@ -211,7 +228,7 @@ srpm-snapshot-ref: REF ?= development
 # o3de/development get gated off (otherwise %prep fails-to-apply).
 # See o3de.spec's `%bcond_with development_snapshot` comment block.
 SNAPSHOT_REF_EXTRA_BCOND ?=
-srpm-snapshot-ref:
+srpm-snapshot-ref: qt-plugin-sources
 	$(SRPM_CLEAN)
 	@echo ">> Generating snapshot tarball from o3de/o3de:$(REF)"
 	@( cd sources && ./make-snapshot-tarball.sh "$(REF)" ) > /tmp/snapshot-vars.$$$$.txt 2>&1; \
@@ -240,7 +257,7 @@ srpm-snapshot-ref:
 	rm -f /tmp/o3de-snapshot-ref.$$$$.spec
 
 # Convenience aliases for the two common upstream-migration tracking targets.
-srpm-snapshot-qt6:
+srpm-snapshot-qt6: qt-plugin-sources
 	$(MAKE) srpm-snapshot-ref REF=qt6
 
 # o3de-development is Fedora-aligned like the other channels (2026-08-13, Nick:
@@ -265,7 +282,7 @@ SNAPSHOT_DEVELOPMENT_FLAGS = --with development_snapshot --with qt6 --with swap_
                             --with system_png --with system_poly2tri --with system_spirvcross --with system_sqlite \
                             --with system_vulkan_validation_layers --with system_zlib
 
-srpm-snapshot-development:
+srpm-snapshot-development: qt-plugin-sources
 	$(MAKE) srpm-snapshot-ref REF=development SNAPSHOT_REF_EXTRA_BCOND="$(SNAPSHOT_DEVELOPMENT_FLAGS)"
 
 # srpm-stabilization: snapshot + the stabilization channel marker. This
@@ -273,7 +290,7 @@ srpm-snapshot-development:
 # differentiates "stabilization-branch build" (uploaded to o3de-stabilization)
 # from a "development-branch build" (uploaded to o3de-development via
 # `make copr-development`).
-srpm-stabilization:
+srpm-stabilization: qt-plugin-sources
 	$(SRPM_CLEAN)
 	rpmbuild -bs $(SRPM_STABILIZATION_FLAGS) $(RPMBUILD_DEFINES) o3de.spec
 
@@ -529,16 +546,16 @@ srpm-experimental: srpm-snapshot-development
 # `*-debug` variants additionally build the debug-config binaries and emit
 # the o3de-debug subpackage — roughly doubles build time and disk.
 
-rpm:
+rpm: qt-plugin-sources
 	rpmbuild -bb $(RPMBUILD_DEFINES) o3de.spec
 
-rpm-snapshot:
+rpm-snapshot: qt-plugin-sources
 	rpmbuild -bb --with snapshot $(RPMBUILD_DEFINES) o3de.spec
 
-rpm-debug:
+rpm-debug: qt-plugin-sources
 	rpmbuild -bb --with debug $(RPMBUILD_DEFINES) o3de.spec
 
-rpm-snapshot-debug:
+rpm-snapshot-debug: qt-plugin-sources
 	rpmbuild -bb --with snapshot --with debug $(RPMBUILD_DEFINES) o3de.spec
 
 # Local mirror of the experimental COPR build: development snapshot + Qt6 +
@@ -547,7 +564,7 @@ rpm-snapshot-debug:
 # spec changes faster than the COPR round-trip. Doesn't exercise the
 # F44 + rawhide + CS10 chroot matrix that COPR provides — that part still
 # needs the COPR build.
-rpm-experimental:
+rpm-experimental: qt-plugin-sources
 	$(MAKE) srpm-snapshot-ref REF=development SNAPSHOT_REF_EXTRA_BCOND="--with development_snapshot"
 	rpmbuild --rebuild --with snapshot --with development_snapshot --with qt6 --with monolithic \
 	    ~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
@@ -562,7 +579,7 @@ rpm-experimental:
 # still Qt5 and --with qt6 against a Qt5 tree is wrong (same reason we cannot
 # pre-flip the chroots). Install hint printed at the end (the -devel subpackage
 # pins the exact NVR, so install main + devel together with --allow-downgrade).
-rpm-local-development:
+rpm-local-development: qt-plugin-sources
 	$(MAKE) srpm-snapshot-ref REF=development
 	sudo dnf builddep -y o3de.spec \
 	    --define "_sourcedir $(PWD)/sources" \

@@ -49,6 +49,8 @@ o3de-rpm/
 └── sources/                                           # rpm SOURCES dir (sources + patches)
     ├── o3de-launcher.sh                               # /usr/bin/o3deNNNN wrapper (Project Manager / Editor GUI)
     ├── o3de-cli                                       # /usr/bin/o3deNNNN-cli wrapper (project / gem / engine management)
+    ├── rebuild-qt-imageformats.sh                     # rebuilds bundled Qt6's jpeg/tiff plugins against Fedora libjpeg-turbo/libtiff (o3de#20213)
+    ├── qt{base,imageformats}-everywhere-src-6.10.2.tar.xz  # plugin sources, fetched by `make qt-plugin-sources` (gitignored)
     ├── o3de.desktop                                   # .desktop entry (Project Manager), mutated to <pkgname>.desktop at install
     ├── o3de-editor.desktop                            # .desktop entry (Editor), NoDisplay=true; exists for dock-icon WM_CLASS pairing
     ├── o3de-material-editor.desktop                   # .desktop entry (Material Editor), NoDisplay=true; same pattern

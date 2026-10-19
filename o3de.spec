@@ -355,12 +355,15 @@
 # - libQt6Qml.so.6: lupdate (LinguistTools) links it but the qt deploy
 #   ships no Qml libraries; lupdate is the only Qml linker in the
 #   payload (full NEEDED scan 2026-06-04).
-# - libjpeg.so.8 + libtiff.so.5: the qt package's imageformat plugins
-#   (libqjpeg/libqtiff) link the build host's sonames; Fedora ships
-#   libjpeg-turbo/libtiff.so.6. Qt skips unloadable plugins gracefully
-#   (verified live in the container rounds), so jpeg/tiff QImage
-#   formats are unavailable until upstream rebuilds the plugins against
-#   Qt's internal codecs or bundles the libs.
+# - libjpeg.so.8 + libtiff.so.5: NO LONGER excluded (2026-10-19). The qt
+#   package's imageformat plugins (libqjpeg/libqtiff) link the build host's
+#   sonames, which Fedora never shipped. They used to be filtered out here on
+#   the reasoning that Qt skips unloadable plugins gracefully, but losing
+#   JPEG/TIFF is not harmless: every .jpg texture fails in the Asset
+#   Processor and the Project Manager background is missing
+#   (o3de/o3de#20213). The plugins are now rebuilt against Fedora's
+#   libjpeg-turbo/libtiff (Source72-74), and %%check fails if either old
+#   soname is still linked, so the filter is no longer needed.
 # - libclang-1X (dev-era DXC moved 12 -> 15): the newer DXC rev links
 #   host libclang-15 and, unlike the 26.05 package, does NOT bundle it
 #   under Builders/DirectXShaderCompiler/lib/ (only libdxcompiler.so
@@ -368,7 +371,7 @@
 #   excluding the Require unblocks install, and enabling the
 #   system_dxc overlay on the channel is the actual fix for shader
 #   bakes. Pattern is 1[0-9] to survive the next DXC clang bump.
-%global __requires_exclude ^libclang-1[0-9]\\.so.*|^libtinfo\\.so\\.6.*|^libQt6Qml\\.so\\.6.*|^libjpeg\\.so\\.8.*|^libtiff\\.so\\.5.*
+%global __requires_exclude ^libclang-1[0-9]\\.so.*|^libtinfo\\.so\\.6.*|^libQt6Qml\\.so\\.6.*
 %else
 # libclang-1[0-9]: the dev-era DXC moved its internal clang from 12 to
 # 15; the version-tolerant pattern keeps the next Sunday dev-channel
@@ -858,6 +861,18 @@ Source49:       Findcityhash-system.cmake
 # System Qt6 swap shim (copied to cmake/3rdParty/FindQt.cmake at %%prep).
 Source70:       FindQt6-system.cmake
 Source71:       sqlite-fetchcontent-system.cmake
+# Qt's own jpeg/tiff image-format plugin sources, at the bundled Qt's version.
+# The bundled qt package's libqjpeg.so/libqtiff.so link the Ubuntu build
+# host's libjpeg.so.8/libtiff.so.5, so on Fedora Qt cannot read JPEG or TIFF
+# (.jpg textures fail in the Asset Processor; o3de/o3de#20213). Source74
+# rebuilds the two plugins against Fedora's libjpeg-turbo and libtiff. Only
+# used by bundled-Qt6 builds; retire with system Qt6 or an upstream Qt package
+# built with FEATURE_system_jpeg/FEATURE_system_tiff OFF.
+%if %{with qt6} && %{without system_qt6}
+Source72:       https://download.qt.io/official_releases/qt/6.10/6.10.2/submodules/qtbase-everywhere-src-6.10.2.tar.xz
+Source73:       https://download.qt.io/official_releases/qt/6.10/6.10.2/submodules/qtimageformats-everywhere-src-6.10.2.tar.xz
+Source74:       rebuild-qt-imageformats.sh
+%endif
 
 # Pre-built O3DE 3rdParty bundles — declare a Source10x and a matching
 # bcond above, then add an extract line in %%prep. Templates:
@@ -1100,6 +1115,13 @@ BuildRequires:  o3de-spirv-cross
 %endif
 %if %{with system_tiff}
 BuildRequires:  libtiff-devel
+%endif
+# Rebuilt Qt jpeg/tiff image-format plugins (Source72-74), bundled-Qt6 builds.
+%if %{with qt6} && %{without system_qt6}
+BuildRequires:  libjpeg-turbo-devel
+%if %{without system_tiff}
+BuildRequires:  libtiff-devel
+%endif
 %endif
 %if %{with system_vulkan_validation_layers}
 # No BuildRequires -- validation layers are runtime-only (no headers,
@@ -1825,6 +1847,14 @@ for pkg in scripts/o3de Tools/LyTestTools Tools/RemoteConsole/ly_remote_console;
     ( cd "$pkg" && %{__python3} setup.py sdist )
 done
 
+%if %{with qt6} && %{without system_qt6}
+# Rebuild Qt's jpeg/tiff image-format plugins against Fedora's libjpeg-turbo
+# and libtiff (see Source72-74). The bundled Qt package was unpacked into
+# LY_3RDPARTY_PATH by the configure step above.
+o3de_bundled_qt=$(ls -d %{_builddir}/%{o3de_source_dir}/3rdParty/packages/qt-*-linux/qt | head -1)
+bash %{SOURCE74} "$o3de_bundled_qt" %{SOURCE72} %{SOURCE73} %{_builddir}/qt-imageformats
+%endif
+
 # ── INSTALL ──────────────────────────────────────────────────────────────────
 %install
 # O3DE's install components split by config:
@@ -2149,6 +2179,19 @@ done
 find %{buildroot}%{o3de_install_prefix} -type f -name 'libQt6*.so*' -print -delete
 %endif
 
+%if %{with qt6} && %{without system_qt6}
+# Replace the bundled jpeg/tiff image-format plugins with the ones rebuilt
+# against Fedora's libraries in %%build (every config's copy).
+for o3de_plugin in libqjpeg.so libqtiff.so; do
+    found=0
+    while IFS= read -r -d '' target; do
+        install -m 0755 %{_builddir}/qt-imageformats/$o3de_plugin "$target"
+        found=1
+    done < <(find %{buildroot}%{o3de_install_prefix} -path "*/imageformats/$o3de_plugin" -print0)
+    [ "$found" = 1 ] || { echo "no installed $o3de_plugin to replace" >&2; exit 1; }
+done
+%endif
+
 # ── Per-build file timestamps ────────────────────────────────────────────────
 # Keep this the LAST step of %%install. Every packaged file gets one timestamp
 # that is nonzero, different for every version-release, and not newer than
@@ -2193,6 +2236,15 @@ find %{buildroot} -xdev \( -type f -o -type l \) -exec touch -h -d "@${o3de_stam
 
 # ── CHECK ────────────────────────────────────────────────────────────────────
 %check
+%if %{with qt6} && %{without system_qt6}
+# No packaged file may link the Ubuntu-only sonames the bundled Qt plugins
+# used to need; they are no longer filtered from the auto-Requires either.
+if find %{buildroot}%{o3de_install_prefix} -type f -name '*.so*' -print0 \
+        | xargs -0 -r readelf -d 2>/dev/null | grep -qE 'NEEDED.*\[(libjpeg\.so\.8|libtiff\.so\.5)\]'; then
+    echo "a packaged library still links libjpeg.so.8 or libtiff.so.5" >&2
+    exit 1
+fi
+%endif
 desktop-file-validate %{buildroot}%{_datadir}/applications/%{o3de_pkgname}.desktop
 desktop-file-validate %{buildroot}%{_datadir}/applications/%{o3de_pkgname}-editor.desktop
 desktop-file-validate %{buildroot}%{_datadir}/applications/%{o3de_pkgname}-material-editor.desktop

@@ -17,3 +17,4 @@ imgui.ini
 # intentionally-published doc is un-ignored below.
 upstream-drafts/
 !upstream-drafts/bundling-exception-libtiff.md
+sources/q*-everywhere-src-*.tar.xz
