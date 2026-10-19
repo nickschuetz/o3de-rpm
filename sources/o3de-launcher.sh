@@ -67,6 +67,21 @@ if [ -z "${VK_LAYER_PATH:-}" ] && [ -d /usr/share/vulkan/explicit_layer.d ]; the
     export VK_LAYER_PATH=/usr/share/vulkan/explicit_layer.d
 fi
 
+# Window system for Project Manager. The engine is built XCB-only, and the
+# Editor already forces xcb itself when QT_QPA_PLATFORM is unset (CryEdit.cpp),
+# but Project Manager does not, so on a Wayland session it came up as a native
+# Wayland client with app_id "org.o3de.o3de". No desktop file matches that, so
+# the dock showed a generic icon (field report 2026-10-19, Fedora 44, GNOME).
+# On xcb the -name arg below gives WM_CLASS "O3DE-<major>", which matches this
+# package's StartupWMClass, one icon per installed major. A user-set
+# QT_QPA_PLATFORM wins. The spec sets O3DE_PREFER_XCB=0 for --with wayland
+# builds, where native Wayland is what is being tested.
+O3DE_PREFER_XCB=1
+if [ "$O3DE_PREFER_XCB" = 1 ] && [ -z "${QT_QPA_PLATFORM:-}" ] && [ -n "${DISPLAY:-}" ]; then
+    export QT_QPA_PLATFORM=xcb
+fi
+unset O3DE_PREFER_XCB
+
 # manifest.py uses O3DE_ENGINE_PATH to bypass the venv-relative __file__ logic.
 # Engine-id calculation must match how get_python.sh computes it (via $DIR/..).
 #

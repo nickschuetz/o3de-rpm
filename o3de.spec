@@ -1996,6 +1996,7 @@ install -D -m 0755 %{SOURCE16} %{buildroot}%{_bindir}/%{o3de_pkgname}-cli
 sed -i \
     -e 's|@O3DE_INSTALL_PREFIX@|%{o3de_install_prefix}|g' \
     -e 's|-name "O3DE"|-name "O3DE-%{o3de_major_tag}"|g' \
+    %{?with_wayland:-e 's|^O3DE_PREFER_XCB=1$|O3DE_PREFER_XCB=0|'} \
     %{buildroot}%{_bindir}/%{o3de_pkgname} \
     %{buildroot}%{_bindir}/%{o3de_pkgname}-cli
 
