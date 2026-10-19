@@ -1323,6 +1323,18 @@ Recommends:     pcre2-devel
 Recommends:     openssl-devel
 Recommends:     zlib-devel
 Recommends:     vim-common
+# wayland-devel: the bundled qt-6.10.2-rev8 makes WaylandClient a REQUIRED
+# Qt component (see the BuildRequires note above), so a project configure
+# against this engine fails with 'Failed to find required Qt component
+# "WaylandClient"' unless the Wayland client/server/cursor/egl dev files are
+# installed. The engine build had it as a BuildRequires but nothing pulled it
+# in for consumer projects; field-confirmed 2026-10-19 (Default Project
+# configure on a clean Fedora 44 laptop with o3de2610 from stabilization).
+# The other system packages the bundled Qt's cmake config asks for (OpenGL,
+# xkbcommon) are already in the list above.
+%if %{with qt6}
+Recommends:     wayland-devel
+%endif
 
 # Two of the Project Manager's helper dialogs (Open Export Settings,
 # Open Android Project Generator) drive the editor's bundled Python via
