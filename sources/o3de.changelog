@@ -1,4 +1,20 @@
 %changelog
+* Mon Oct 19 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-116
+- Rebuild the bundled Qt's jpeg and tiff image-format plugins against Fedora's
+  libjpeg-turbo and libtiff (from Qt 6.10.2 source, Source72-74). The bundled
+  plugins linked libjpeg.so.8 and libtiff.so.5, which Fedora does not ship, so
+  Qt could not read JPEG or TIFF: every .jpg texture failed in the Asset
+  Processor and the Project Manager background was missing
+  (o3de/o3de#20213). %%check now fails if any packaged library still links
+  either soname, and they are no longer filtered from the auto-Requires.
+- Recommends wayland-devel on Qt6 lines: the bundled Qt requires its
+  WaylandClient component, so configuring a project failed with 'Failed to
+  find required Qt component "WaylandClient"' on a clean install.
+- The launcher runs Project Manager through XWayland when QT_QPA_PLATFORM is
+  unset, so its window class matches the desktop entry and the dock shows the
+  O3DE icon (natively on Wayland its app id matched no desktop file).
+- Suggests ros-lyrical-o3de-gem-deps on 26.10 and newer (ROS 2 Gems).
+
 * Fri Oct 09 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-115
 - New opt-in bcond wayland_ui with Patch0022: Editor UI fixes for native
   Wayland and XWayland, sixteen not-yet-upstream commits squashed into one
