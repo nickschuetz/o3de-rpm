@@ -2,7 +2,8 @@ From: Nick Schuetz <nschuetz@redhat.com>
 Subject: [PATCH] Editor UI fixes for native Wayland and XWayland (experimental carry)
 
 Local work in progress, carried only under --with wayland_ui and only on a
-development snapshot at or after o3de/o3de 0af429a2ea (the merge of #20204).
+development snapshot at or after o3de/o3de 74006f539d (rebased 2026-10-19 from
+0af429a2ea, the merge of #20204; one include conflict with #20175).
 Sixteen commits squashed into one diff; none has been proposed upstream yet.
 
 - AzQtComponents: the window manager moves the Editor window (tile snapping),
@@ -24,10 +25,10 @@ panel's tab docks and the rest of its title bar moves.
 
 ---
 diff --git a/Code/Editor/CryEdit.cpp b/Code/Editor/CryEdit.cpp
-index 88a56da8ab..fdb6a632b2 100644
+index 1da3f13ffd..b3f0be8c14 100644
 --- a/Code/Editor/CryEdit.cpp
 +++ b/Code/Editor/CryEdit.cpp
-@@ -1552,6 +1552,17 @@ bool CCryEditApp::InitInstance()
+@@ -1543,6 +1543,17 @@ bool CCryEditApp::InitInstance()
  #endif
      mainWindowWrapper->setGuest(mainWindow);
  
@@ -835,7 +836,7 @@ index 3d15686fee..5f62ef1317 100644
          QWidget* m_sourceWidget;
          // Controls the cursor behavior.
 diff --git a/Code/Framework/AzToolsFramework/AzToolsFramework/ViewportUi/ViewportUiDisplay.cpp b/Code/Framework/AzToolsFramework/AzToolsFramework/ViewportUi/ViewportUiDisplay.cpp
-index e7e9611fe0..975bf25537 100644
+index 97dbedda4e..ebb0b8bd5b 100644
 --- a/Code/Framework/AzToolsFramework/AzToolsFramework/ViewportUi/ViewportUiDisplay.cpp
 +++ b/Code/Framework/AzToolsFramework/AzToolsFramework/ViewportUi/ViewportUiDisplay.cpp
 @@ -15,6 +15,7 @@
@@ -843,10 +844,10 @@ index e7e9611fe0..975bf25537 100644
  #include <AzToolsFramework/ViewportUi/ViewportUiSwitcher.h>
  #include <AzToolsFramework/ViewportUi/ViewportUiTextField.h>
 +#include <QGuiApplication>
+ #include <QToolBar>
  #include <QWidget>
  
- namespace AzToolsFramework::ViewportUi::Internal
-@@ -405,11 +406,35 @@ namespace AzToolsFramework::ViewportUi::Internal
+@@ -406,11 +407,35 @@ namespace AzToolsFramework::ViewportUi::Internal
          }
      }
  
@@ -882,7 +883,7 @@ index e7e9611fe0..975bf25537 100644
          mainWindow->setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::WindowDoesNotAcceptFocus);
      }
  
-@@ -522,9 +547,17 @@ namespace AzToolsFramework::ViewportUi::Internal
+@@ -524,9 +549,17 @@ namespace AzToolsFramework::ViewportUi::Internal
  
      void ViewportUiDisplay::PositionUiOverlayOverRenderViewport()
      {

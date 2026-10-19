@@ -160,8 +160,9 @@
 # window move and tile snapping, floating panel move and dock, viewport and
 # camera fixes, and the Vulkan surface fixes that let the Particle Editor and
 # the standalone Atom tools run on Wayland. The diff is cut against
-# o3de/o3de development 0af429a2ea (the merge of #20204), so this is only
-# valid on a development snapshot at or after that commit, and it replaces
+# o3de/o3de development 74006f539d (rebased 2026-10-19 from 0af429a2ea, the
+# merge of #20204), so this is only valid on a development snapshot at or
+# after that commit, and it replaces
 # Patch0021 there (that fix is already in the base). Most of it also matters
 # to an XCB-only build running through XWayland, so it does not require
 # --with wayland, but it is meant to be used with it. Default OFF; exercised
@@ -816,8 +817,10 @@ Patch0021:      0021-vulkan-wayland-surface-use-vk-result-assert.patch
 %endif
 
 # Editor UI fixes for native Wayland and XWayland, see the wayland_ui bcond.
-# One squashed diff of the local `wayland-clean` branch (16 commits on top of
-# o3de/o3de development 0af429a2ea). The base already contains the Patch0021
+# One squashed diff of the local `wayland-clean` branch (16 commits), rebased
+# 2026-10-19 onto o3de/o3de development 74006f539d as branch
+# wayland-clean-on-74006f5 (one include conflict with #20175). The base
+# already contains the Patch0021
 # fix (o3de/o3de#20204), which is why 0021 is skipped when this is on. Retire
 # piece by piece as the changes are proposed and merged upstream.
 %if %{with wayland_ui}
