@@ -10,6 +10,8 @@ The same spec produces:
   - **`development`**, the bleeding-edge integration branch where new features land daily. Ships to **`hellaenergy/o3de-development`**. Its chroots carry `development_snapshot qt6 monolithic`, so the build includes the monolithic (release, static) engine permutation and a release game export works from the installed RPM (the `monolithic` bcond graduated here from `o3de-experimental` on 2026-08-03 after two green builds across a dev-tip movement + an end-to-end export validation). Less stable than a stabilization branch; useful for engine contributors testing in-progress work, less appropriate for community testers expecting near-release quality.
   - Or any other ref, e.g. feature branches, specific commits, tags. Dedicated COPR project per ref rather than overloading the channels above.
 
+**Just want to install O3DE?** See [`docs/INSTALL.md`](docs/INSTALL.md) for the end-user install steps on Fedora and CentOS Stream. The rest of this README is for building and maintaining the packages.
+
 It also provides an extension point for bundling pre-built **O3DE 3rdParty packages** into the RPM, gated by per-package `--with` flags so you only pay for what you use.
 
 ---
