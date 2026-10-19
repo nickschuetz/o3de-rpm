@@ -9,6 +9,10 @@ Enable + install:
     sudo dnf config-manager --set-enabled crb
     sudo dnf install epel-release
 
+Then enable this project with the CentOS Stream repository named explicitly (a plain `dnf copr enable` looks for an `epel-10-x86_64` repository, which this project does not have, and fails):
+
+    sudo dnf copr enable hellaenergy/o3de centos-stream-10-x86_64
+
 This channel tracks upstream's `main` branch. Each O3DE release lands on `main` and gets tagged there (the May 2026 release is `2605.0`; the October 2025 release line topped out at `2510.2`). Twice-yearly major release cadence (May + October) plus occasional point releases. This is the channel for stable Fedora installs.
 
 For pre-release validation of the next release line (currently `stabilization/26100`, the 26.10 line), use **hellaenergy/o3de-stabilization**. For dev-tip / bleeding-edge builds from `o3de/development`, use **hellaenergy/o3de-development**.

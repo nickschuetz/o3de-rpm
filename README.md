@@ -343,6 +343,7 @@ On **CentOS Stream 10**, enable CRB and EPEL 10 before installing: they provide 
 sudo dnf install dnf-plugins-core
 sudo dnf config-manager --set-enabled crb
 sudo dnf install epel-release
+sudo dnf copr enable hellaenergy/o3de centos-stream-10-x86_64   # name the chroot: a plain enable looks for epel-10-x86_64 and fails
 ```
 
 The per-user Python venv bootstraps on first launch automatically; pre-bootstrap manually with `/opt/O3DE/26.05.0/python/get_python.sh` if preferred.

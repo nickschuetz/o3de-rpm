@@ -9,6 +9,10 @@ Enable + install:
     sudo dnf config-manager --set-enabled crb
     sudo dnf install epel-release
 
+Then enable this project with the CentOS Stream repository named explicitly (a plain `dnf copr enable` looks for an `epel-10-x86_64` repository, which this project does not have, and fails):
+
+    sudo dnf copr enable hellaenergy/o3de-testing centos-stream-10-x86_64
+
 This channel is the pre-promotion soak buffer between the `main` HEAD of the [o3de-rpm](https://github.com/nickschuetz/o3de-rpm) repository and the stable channel `hellaenergy/o3de`. Mirrors Fedora's `updates-testing` semantics.
 
 **Promotion flow:**

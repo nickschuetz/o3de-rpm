@@ -26,9 +26,11 @@ CentOS Stream 10 also needs CRB and EPEL 10, which provide some of the libraries
 sudo dnf install dnf-plugins-core
 sudo dnf config-manager --set-enabled crb
 sudo dnf install epel-release
-sudo dnf copr enable hellaenergy/o3de
+sudo dnf copr enable hellaenergy/o3de centos-stream-10-x86_64
 sudo dnf install o3de2610 o3de2610-devel
 ```
+
+On CentOS Stream the repository name `centos-stream-10-x86_64` has to be given: without it, `dnf copr enable` looks for an `epel-10-x86_64` repository, which this project does not have, and fails.
 
 ## What gets installed
 

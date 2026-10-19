@@ -11,6 +11,10 @@
     sudo dnf config-manager --set-enabled crb
     sudo dnf install epel-release
 
+Then enable this project with the CentOS Stream repository named explicitly (a plain `dnf copr enable` looks for an `epel-10-x86_64` repository, which this project does not have, and fails):
+
+    sudo dnf copr enable hellaenergy/o3de-experimental centos-stream-10-x86_64
+
 The `o3de-dependencies` repo auto-enables alongside this one (no separate `dnf copr enable` needed). Add the optional `-devel` subpackage if you need engine static archives for native C++ gem development:
 
     sudo dnf install o3de2610-devel
