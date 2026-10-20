@@ -180,7 +180,7 @@ The default build ships only the profile-config binaries (sufficient for end-use
 rpmbuild -bb --with debug ...
 ```
 
-This roughly doubles build time (debug compiles all the same TUs at `-O0` with full symbols). End users install both with `dnf install o3de2605 o3de2605-debug` to step through engine internals; `o3de2605-debug` requires the same exact NVR of `o3de2605` so they always upgrade in lockstep. Switching the launcher between configs is a runtime concern: `O3DE_BUILD_CONFIG=debug o3de2605`.
+This roughly doubles build time (debug compiles all the same TUs at `-O0` with full symbols). End users install it with `dnf install o3de2605 o3de2605-devel o3de2605-debug` to step through engine internals; `o3de2605-debug` requires the same exact NVR of `o3de2605` so they always upgrade in lockstep. Switching the launcher between configs is a runtime concern: `O3DE_BUILD_CONFIG=debug o3de2605`.
 
 ---
 
@@ -244,7 +244,7 @@ The first launch of `o3de2605` (or first run of `o3de2605-cli`) bootstraps the p
 The `/opt/O3DE/<version>/` install layout matches upstream's `.deb` and Windows `.msi` exactly, so cross-platform users see the same path mental model on Fedora, Debian/Ubuntu, and Windows. dnf treats each major as an independent package:
 
 ```bash
-sudo dnf install o3de2605 o3de2610            # both installed side-by-side
+sudo dnf install o3de2605 o3de2605-devel o3de2610 o3de2610-devel   # both majors side-by-side
 o3de2605                                      # launches 26.05.0 Project Manager
 o3de2610                                      # launches 26.10.0 Project Manager
 ls /opt/O3DE/                                 # 26.05.0  26.10.0

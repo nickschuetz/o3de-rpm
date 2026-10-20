@@ -111,12 +111,12 @@ This refreshes the COPR project page that end users see when they `dnf copr enab
 
 ### 9. Update README
 
-In `README.md`, update any version strings that point at the prior release. Bump examples that show `dnf install o3de2605` to the new version if a major changed.
+In `README.md`, update any version strings that point at the prior release. Bump examples that show `dnf install o3de2605 o3de2605-devel` to the new version if a major changed (install lines always name the `-devel` subpackage too).
 
 ### 10. Announce
 
 If you want to surface the build to community testers, post in the O3DE sig-release Discord:
-- "26.05.0 RPM is live at hellaenergy/o3de; F44 / F45 / rawhide / CS10. `sudo dnf copr enable hellaenergy/o3de && sudo dnf install o3de2605`"
+- "26.05.0 RPM is live at hellaenergy/o3de; F44 / F45 / rawhide / CS10. `sudo dnf copr enable hellaenergy/o3de && sudo dnf install o3de2605 o3de2605-devel`"
 
 The announcement is a manual step; no auto-post from the test infrastructure.
 
