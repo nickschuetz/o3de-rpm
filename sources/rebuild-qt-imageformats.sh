@@ -27,6 +27,11 @@ CXX="${CXX:-clang++}"
 # The bundled package's version must match the source tarballs exactly.
 QTVER=$(sed -n 's/^set(PACKAGE_VERSION "\(.*\)")$/\1/p' "$QT/lib/cmake/Qt6/Qt6ConfigVersionImpl.cmake")
 SRCVER=$(basename "$QTBASE_TAR" | sed -n 's/^qtbase-everywhere-src-\(.*\)\.tar\.xz$/\1/p')
+if [ ! -f "$QTBASE_TAR" ] || [ ! -f "$QTIF_TAR" ]; then
+    echo "rebuild-qt-imageformats: no plugin sources for bundled Qt '$QTVER' ($QTBASE_TAR);" >&2
+    echo "add a qtbase/qtimageformats Source pair for it in o3de.spec and the Makefile." >&2
+    exit 1
+fi
 if [ -z "$QTVER" ] || [ "$QTVER" != "$SRCVER" ]; then
     echo "rebuild-qt-imageformats: bundled Qt is '$QTVER' but the plugin sources are '$SRCVER';" >&2
     echo "update the qtbase/qtimageformats Source tarballs in o3de.spec to match." >&2

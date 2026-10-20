@@ -407,7 +407,7 @@ Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        116%{?dist}
+Release:        117%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -871,10 +871,18 @@ Source71:       sqlite-fetchcontent-system.cmake
 # rebuilds the two plugins against Fedora's libjpeg-turbo and libtiff. Only
 # used by bundled-Qt6 builds; retire with system Qt6 or an upstream Qt package
 # built with FEATURE_system_jpeg/FEATURE_system_tiff OFF.
+# One tarball pair per bundled Qt version a channel can pin: stabilization/26100
+# bundles qt-6.10.2-rev8 (Source72/73), development bundles qt-6.11.2-rev1
+# since o3de/o3de#20085 (Source75/76; its libqtiff.so is already clean, its
+# libqjpeg.so still links libjpeg.so.8). Both are always declared because
+# COPR re-runs rpmbuild -bs without our bconds; %%build picks the pair that
+# matches the unpacked package. Drop a pair when no channel bundles it.
 %if %{with qt6} && %{without system_qt6}
 Source72:       https://download.qt.io/official_releases/qt/6.10/6.10.2/submodules/qtbase-everywhere-src-6.10.2.tar.xz
 Source73:       https://download.qt.io/official_releases/qt/6.10/6.10.2/submodules/qtimageformats-everywhere-src-6.10.2.tar.xz
 Source74:       rebuild-qt-imageformats.sh
+Source75:       https://download.qt.io/official_releases/qt/6.11/6.11.2/submodules/qtbase-everywhere-src-6.11.2.tar.xz
+Source76:       https://download.qt.io/official_releases/qt/6.11/6.11.2/submodules/qtimageformats-everywhere-src-6.11.2.tar.xz
 %endif
 
 # Pre-built O3DE 3rdParty bundles — declare a Source10x and a matching
@@ -1119,7 +1127,7 @@ BuildRequires:  o3de-spirv-cross
 %if %{with system_tiff}
 BuildRequires:  libtiff-devel
 %endif
-# Rebuilt Qt jpeg/tiff image-format plugins (Source72-74), bundled-Qt6 builds.
+# Rebuilt Qt jpeg/tiff image-format plugins (Source72-76), bundled-Qt6 builds.
 %if %{with qt6} && %{without system_qt6}
 BuildRequires:  libjpeg-turbo-devel
 %if %{without system_tiff}
@@ -1852,10 +1860,15 @@ done
 
 %if %{with qt6} && %{without system_qt6}
 # Rebuild Qt's jpeg/tiff image-format plugins against Fedora's libjpeg-turbo
-# and libtiff (see Source72-74). The bundled Qt package was unpacked into
-# LY_3RDPARTY_PATH by the configure step above.
+# and libtiff (see Source72-76). The bundled Qt package was unpacked into
+# LY_3RDPARTY_PATH by the configure step above; use the source pair that
+# matches its version (the script refuses a mismatch or a missing pair).
 o3de_bundled_qt=$(ls -d %{_builddir}/%{o3de_source_dir}/3rdParty/packages/qt-*-linux/qt | head -1)
-bash %{SOURCE74} "$o3de_bundled_qt" %{SOURCE72} %{SOURCE73} %{_builddir}/qt-imageformats
+o3de_bundled_qt_ver=$(sed -n 's/^set(PACKAGE_VERSION "\(.*\)")$/\1/p' "$o3de_bundled_qt/lib/cmake/Qt6/Qt6ConfigVersionImpl.cmake")
+bash %{SOURCE74} "$o3de_bundled_qt" \
+    %{_sourcedir}/qtbase-everywhere-src-$o3de_bundled_qt_ver.tar.xz \
+    %{_sourcedir}/qtimageformats-everywhere-src-$o3de_bundled_qt_ver.tar.xz \
+    %{_builddir}/qt-imageformats
 %endif
 
 # ── INSTALL ──────────────────────────────────────────────────────────────────

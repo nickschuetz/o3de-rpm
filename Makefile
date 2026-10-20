@@ -174,21 +174,24 @@ snapshot:
 # such accidents from older SRPMs lying around.)
 SRPM_CLEAN := rm -f ~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
 
-# Qt 6.10.2 jpeg/tiff plugin sources for the bundled-Qt6 plugin rebuild
-# (o3de.spec Source72/73). Downloaded once into sources/ (gitignored) and
-# checked against these SHA-256 values (taken 2026-10-19 from download.qt.io,
+# Qt jpeg/tiff plugin sources for the bundled-Qt6 plugin rebuild (o3de.spec
+# Source72/73 = 6.10.2 for stabilization/26100, Source75/76 = 6.11.2 for
+# development). Downloaded once into sources/ (gitignored) and checked against
+# these SHA-256 values (6.10.2 taken 2026-10-19, 6.11.2 taken 2026-10-19, each
 # matching Qt's published md5sums.txt). Every SRPM/RPM target depends on it.
-QT_SRC_VERSION := 6.10.2
-QT_SRC_URL     := https://download.qt.io/official_releases/qt/6.10/$(QT_SRC_VERSION)/submodules
-QT_SRC_SHA256  := aeb78d29291a2b5fd53cb55950f8f5065b4978c25fb1d77f627d695ab9adf21e  qtbase-everywhere-src-$(QT_SRC_VERSION).tar.xz \
-                  8b8f9c718638081e7b3c000e7f31910140b1202a98e98df5d1b496fe6f639d67  qtimageformats-everywhere-src-$(QT_SRC_VERSION).tar.xz
+QT_SRC_VERSIONS := 6.10.2 6.11.2
+QT_SRC_SHA256   := aeb78d29291a2b5fd53cb55950f8f5065b4978c25fb1d77f627d695ab9adf21e  qtbase-everywhere-src-6.10.2.tar.xz \
+                   8b8f9c718638081e7b3c000e7f31910140b1202a98e98df5d1b496fe6f639d67  qtimageformats-everywhere-src-6.10.2.tar.xz \
+                   5b2e00eccaf5a4d8c14134ffa0ea8dfd0a35ae1ffc7f8d87fa4305a1ed23cf22  qtbase-everywhere-src-6.11.2.tar.xz \
+                   cecd8900f34b6550076309bc94f62f828008b633a4239e0a08c86788f41001f8  qtimageformats-everywhere-src-6.11.2.tar.xz
 
 .PHONY: qt-plugin-sources
 qt-plugin-sources:
-	@cd sources && for m in qtbase qtimageformats; do \
-	    f=$$m-everywhere-src-$(QT_SRC_VERSION).tar.xz; \
-	    [ -f $$f ] || { echo ">> downloading $$f"; curl -sSfLO $(QT_SRC_URL)/$$f; }; \
-	done; \
+	@cd sources && for v in $(QT_SRC_VERSIONS); do for m in qtbase qtimageformats; do \
+	    f=$$m-everywhere-src-$$v.tar.xz; \
+	    [ -f $$f ] || { echo ">> downloading $$f"; \
+	        curl -sSfLO https://download.qt.io/official_releases/qt/$${v%.*}/$$v/submodules/$$f; }; \
+	done; done; \
 	printf '%s  %s\n' $(QT_SRC_SHA256) | sha256sum --quiet -c - && echo ">> Qt plugin sources verified"
 
 srpm: qt-plugin-sources

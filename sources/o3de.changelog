@@ -1,3 +1,9 @@
+* Mon Oct 19 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-117
+- Carry Qt 6.11.2 jpeg/tiff plugin sources too (Source75/76): development
+  bundles qt-6.11.2-rev1 since o3de/o3de#20085, whose libqjpeg.so still links
+  libjpeg.so.8. %%build now picks the source pair matching the bundled Qt, so
+  development and experimental builds no longer stop at the version check.
+
 %changelog
 * Mon Oct 19 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-116
 - Rebuild the bundled Qt's jpeg and tiff image-format plugins against Fedora's
