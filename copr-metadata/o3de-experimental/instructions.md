@@ -3,7 +3,7 @@
 **If you're here anyway** (e.g. engine contributors on the development branch, or packagers validating the monolithic release-export path):
 
     sudo dnf copr enable hellaenergy/o3de-experimental
-    sudo dnf install o3de2610
+    sudo dnf install o3de2610 o3de2610-devel
 
 **CentOS Stream 10:** enable CRB and EPEL 10 before installing. They provide libraries the engine needs (assimp, google-benchmark, libunwind, poly2tri); without them `dnf` stops with "nothing provides" errors for those. COPR's own EPEL setting only applies while building the packages, not on your machine.
 
@@ -15,9 +15,7 @@ Then enable this project with the CentOS Stream repository named explicitly (a p
 
     sudo dnf copr enable hellaenergy/o3de-experimental centos-stream-10-x86_64
 
-The `o3de-dependencies` repo auto-enables alongside this one (no separate `dnf copr enable` needed). Add the optional `-devel` subpackage if you need engine static archives for native C++ gem development:
-
-    sudo dnf install o3de2610-devel
+The `o3de-dependencies` repo auto-enables alongside this one (no separate `dnf copr enable` needed). `o3de2610-devel` is part of the install line above on purpose. It carries the engine's static libraries, and every project build links its launchers against them (`AzGameFramework`, `Launcher.Static`), so Project Manager cannot build a project without it. The main package also Recommends it, but naming it explicitly keeps it installed where weak dependencies are off (containers, Toolbox/distrobox, minimal images, `install_weak_deps=False`).
 
 **What is this:** O3DE experimental builds. Realigned 2026-07-24 onto upstream's `development` branch (Qt6, same source as [hellaenergy/o3de-development](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-development/)) plus the **monolithic (release, static) engine permutation**. It was formerly the Stage-1 system-library-swap validation channel; that 17-swap set is now validated and shipping on the community channels. With the 26.10 stabilization branch (`stabilization/26100`) open and the shipping channels reverted to bundled Qt6, this channel now validates forward-looking, riskier changes that aren't ready for community testers, including the **system-Qt6 swap** held back from the shipping RPMs (Option B, pending a PySide6 rebuild against system Qt6).
 
@@ -27,7 +25,7 @@ Note: a downstream workaround is carried for an upstream gap where the engine do
 
 The package follows a **versioned-major naming convention** (`o3de2610` for the 26.10.x line) installing to `/opt/O3DE/<DISPLAY_VERSION>/`, matching upstream's `.deb` and Windows `.msi` install layout. Multiple majors can be installed side-by-side. Each major's `engine.json` ships `engine_name: "o3de"` (matching upstream); the manifest at `~/.o3de/o3de_manifest.json` is single-slot for active registration: switch via `<install-prefix>/scripts/o3de.sh register --this-engine`.
 
-**Subpackage layout**, same as the other channels: main `o3de2610` (runtime + project-build essentials; larger here because of the monolithic static libs); optional `o3de2610-devel` (engine static archives for native C++ gems that static-link engine internals); optional `o3de2610-debug` (debug-config binaries, only when `--with debug` is set, NOT activated in this channel). Project-build `*-devel` system packages pulled in via Recommends; opt out with `--setopt=install_weak_deps=False`. Note the inverse: containers, Toolbox/distrobox, and minimal/server images that already run with `install_weak_deps=False` will skip the toolchain, so project builds fail on missing compilers/headers until you backfill with `sudo dnf install $(rpm -q --recommends o3de2610 | awk '{print $1}')` (naming the Recommends explicitly, since a plain `sudo dnf install o3de2610` no-ops when it is already installed).
+**Subpackage layout**, same as the other channels: main `o3de2610` (runtime + project-build essentials; larger here because of the monolithic static libs); `o3de2610-devel` (engine static archives; every project build links its launchers against them, so install it with the main package); optional `o3de2610-debug` (debug-config binaries, only when `--with debug` is set, NOT activated in this channel). Project-build `*-devel` system packages pulled in via Recommends; opt out with `--setopt=install_weak_deps=False`. Note the inverse: containers, Toolbox/distrobox, and minimal/server images that already run with `install_weak_deps=False` will skip the toolchain, so project builds fail on missing compilers/headers until you backfill with `sudo dnf install $(rpm -q --recommends o3de2610 | awk '{print $1}')` (naming the Recommends explicitly, since a plain `sudo dnf install o3de2610` no-ops when it is already installed).
 
 **`o3de2610-cli` PATH wrapper**: `/usr/bin/o3de2610-cli` forwards to `/opt/O3DE/26.10.0/scripts/o3de.sh` so the upstream Python CLI (project / gem / engine management, ~25 sub-commands, including `export-project`) is reachable on `$PATH`.
 

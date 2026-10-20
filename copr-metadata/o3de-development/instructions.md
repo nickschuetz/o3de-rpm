@@ -11,7 +11,7 @@
 **If you're here looking for development-branch builds:**
 
     sudo dnf copr enable hellaenergy/o3de-development
-    sudo dnf install o3de2610
+    sudo dnf install o3de2610 o3de2610-devel
 
 **CentOS Stream 10:** enable CRB and EPEL 10 before installing. They provide libraries the engine needs (assimp, google-benchmark, libunwind, poly2tri); without them `dnf` stops with "nothing provides" errors for those. COPR's own EPEL setting only applies while building the packages, not on your machine.
 
@@ -27,11 +27,7 @@ The `o3de-dependencies` repo auto-enables alongside this one. The package name f
 
 **Maintainer note on `make copr-development` builds:** because this project tracks `o3de/development` tip, seven of our carry-patches (Patch0001/0002/0004/0005/0007/0008/0012) have upstream equivalents that already merged into development and would fail to apply against the source tree at `%prep` (Patch0004 is the newest, superseded by o3de/o3de#19752 on 2026-06-09). The spec's `%bcond_with development_snapshot` gates them off when active, and the Makefile's `copr-development` target sets `--with development_snapshot` automatically at SRPM-build time. **The bcond set is also configured on the chroots** via `copr-cli edit-chroot --rpmbuild-with '<full set>' hellaenergy/o3de-development/<chroot>` (because `--with` flags don't propagate through COPR's SRPM rebuild). The full set is `development_snapshot qt6 monolithic swap_hook` plus the 17 `system_*` swaps (assimp, dxc, expat, freetype, googlebenchmark, libsamplerate, lua, lz4, mcpp, mikkelsen, openexr, png, poly2tri, spirvcross, sqlite, vulkan_validation_layers, zlib). The `swap_hook` bcond activates the central system-swap download hook (Patch0014) that the 17 swaps ride on under `development_snapshot`. The `monolithic` bcond adds a second release-config engine build so a release game export works (promoted from o3de-experimental on 2026-08-03 after end-to-end export validation); it costs roughly +0.7 GB and +1.5 h per build. A `qt6-merge-gate` pre-flight halts the build if upstream `development` has flipped to Qt6 while these chroots do not yet carry the `qt6` bcond.
 
-**Optional subpackage** for native C++ gem development that needs to static-link against engine internals (test framework, builder targets):
-
-    sudo dnf install o3de2610-devel
-
-End users and Lua/ScriptCanvas project authors do not need it.
+`o3de2610-devel` is part of the install line above on purpose. It carries the engine's static libraries, and every project build links its launchers against them (`AzGameFramework`, `Launcher.Static`), so Project Manager cannot build a project without it. The main package also Recommends it, but naming it explicitly keeps it installed where weak dependencies are off (containers, Toolbox/distrobox, minimal images, `install_weak_deps=False`).
 
 **Building projects (the toolchain is installed for you):** a normal `sudo dnf install o3de2610` also pulls in everything needed to build a project from source, the compiler and build tools (`clang`, `cmake`, `ninja-build`) plus the `-devel` headers a project links against, declared as weak dependencies (Recommends) so dnf installs them by default while a runtime-only user can opt out. Heads-up for containers and minimal installs: if your environment has weak dependencies turned off, the toolchain is skipped and project builds fail on missing compilers or headers. This is common inside containers, Toolbox, and distrobox, on minimal/server images (which often set `install_weak_deps=False`), or when installing with `--no-install-recommends` / `--setopt=install_weak_deps=False`. Backfill the whole set with `sudo dnf install $(rpm -q --recommends o3de2610 | awk '{print $1}')`, which names the Recommends explicitly. A plain `sudo dnf install o3de2610` will not help here: dnf treats the already-installed package as "nothing to do" and never revisits the skipped weak deps.
 

@@ -1,7 +1,7 @@
 Enable + install:
 
     sudo dnf copr enable hellaenergy/o3de
-    sudo dnf install o3de2605
+    sudo dnf install o3de2605 o3de2605-devel
 
 **CentOS Stream 10:** enable CRB and EPEL 10 before installing. They provide libraries the engine needs (assimp, google-benchmark, libunwind, poly2tri); without them `dnf` stops with "nothing provides" errors for those. COPR's own EPEL setting only applies while building the packages, not on your machine.
 
@@ -17,9 +17,7 @@ This channel tracks upstream's `main` branch. Each O3DE release lands on `main` 
 
 For pre-release validation of the next release line (currently `stabilization/26100`, the 26.10 line), use **hellaenergy/o3de-stabilization**. For dev-tip / bleeding-edge builds from `o3de/development`, use **hellaenergy/o3de-development**.
 
-The `o3de-dependencies` repo auto-enables alongside this one. Optional `o3de2605-devel` subpackage adds the static-archive surface for native C++ gem development:
-
-    sudo dnf install o3de2605-devel
+The `o3de-dependencies` repo auto-enables alongside this one. `o3de2605-devel` is part of the install line above on purpose. It carries the engine's static libraries, and every project build links its launchers against them (`AzGameFramework`, `Launcher.Static`), so Project Manager cannot build a project without it. The main package also Recommends it, but naming it explicitly keeps it installed where weak dependencies are off (containers, Toolbox/distrobox, minimal images, `install_weak_deps=False`).
 
 **Building projects (the toolchain is installed for you):** a normal `sudo dnf install o3de2605` also pulls in everything needed to build a project from source, the compiler and build tools (`clang`, `cmake`, `ninja-build`) plus the `-devel` headers a project links against, declared as weak dependencies (Recommends) so dnf installs them by default while a runtime-only user can opt out. Heads-up for containers and minimal installs: if your environment has weak dependencies turned off, the toolchain is skipped and project builds fail on missing compilers or headers. This is common inside containers, Toolbox, and distrobox, on minimal/server images (which often set `install_weak_deps=False`), or when installing with `--no-install-recommends` / `--setopt=install_weak_deps=False`. Backfill the whole set with `sudo dnf install $(rpm -q --recommends o3de2605 | awk '{print $1}')`, which names the Recommends explicitly. A plain `sudo dnf install o3de2605` will not help here: dnf treats the already-installed package as "nothing to do" and never revisits the skipped weak deps.
 

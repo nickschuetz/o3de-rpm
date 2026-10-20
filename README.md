@@ -206,7 +206,7 @@ The main RPM ships alongside up to two optional subpackages:
 | `o3de2605-devel` | Static archives (`lib/Linux/profile/Default/*.a` + `lib64/`), about 178 `.a` files totalling ~4 GB. Includes `libAzGameFramework.a`, `libAzCore` static surfaces, `libAtomCore.a`, `libAssetBuilderSDK.a`, and the rest of the engine's `.a` link surface. | Always for project authors. **Project Manager's "Build" workflow links any GameLauncher / ServerLauncher / HeadlessServerLauncher target against these archives**; without `-devel` the cmake `--build` step fails at ninja with `libAzGameFramework.a, needed by ..., missing`. The only case for skipping `-devel` is a pure runtime-only deployment (e.g., headless server host running pre-built binaries from elsewhere) which is rare. |
 | `o3de2605-debug` | Debug-config binaries (`bin/Linux/debug/`) + matching static archives (`lib/Linux/debug/`). Full debug symbols, `-O0`. | Add when you need to step through engine code in a debugger. Set `O3DE_BUILD_CONFIG=debug` to launch the debug build. |
 
-`dnf install o3de2605` (default) pulls in `o3de2605-devel` automatically via the main package's `Recommends:`. If you want to override this and install runtime-only, pass `--setopt=install_weak_deps=False`. The project-build `*-devel` system packages (clang, mesa-libGL[U]-devel, libxcb-devel, the xcb-util-*-devel suite (xcb-util-devel, xcb-util-image-devel, xcb-util-keysyms-devel, xcb-util-renderutil-devel, xcb-util-wm-devel), libxkbcommon-devel, libxkbcommon-x11-devel, wayland-devel (Qt6 lines, 26.10+), fontconfig-devel, libcurl-devel, pcre2-devel, openssl-devel, libunwind-devel, libzstd-devel, zlib-devel, vim-common, plus the `*-devel` for any active Stage 1 system-library swap like mikkelsen-devel) are pulled in via the same `Recommends:` list; installed by default unless you pass `--setopt=install_weak_deps=False`.
+The install instructions name `o3de2605-devel` explicitly, because every project build links its launchers against the static archives it carries. The main package also pulls it in through `Recommends:`, which `--setopt=install_weak_deps=False` turns off; skip `-devel` only on a machine that never builds a project. The project-build `*-devel` system packages (clang, mesa-libGL[U]-devel, libxcb-devel, the xcb-util-*-devel suite (xcb-util-devel, xcb-util-image-devel, xcb-util-keysyms-devel, xcb-util-renderutil-devel, xcb-util-wm-devel), libxkbcommon-devel, libxkbcommon-x11-devel, wayland-devel (Qt6 lines, 26.10+), fontconfig-devel, libcurl-devel, pcre2-devel, openssl-devel, libunwind-devel, libzstd-devel, zlib-devel, vim-common, plus the `*-devel` for any active Stage 1 system-library swap like mikkelsen-devel) are pulled in via the same `Recommends:` list; installed by default unless you pass `--setopt=install_weak_deps=False`.
 
 ---
 
@@ -330,9 +330,7 @@ To consume (end users):
 #                                 active and you want to validate the
 #                                 NEXT release candidate.
 sudo dnf copr enable hellaenergy/o3de                  # change to o3de-testing if you want pre-stable soak
-sudo dnf install o3de2605                              # ~2 GB main + ~4 GB -devel (auto-pulled via Recommends);
-                                                       # pass --setopt=install_weak_deps=False to skip -devel
-                                                       # for runtime-only deployments.
+sudo dnf install o3de2605 o3de2605-devel               # ~2 GB main + ~4 GB -devel; project builds need -devel
 o3de2605                                               # launch Project Manager (GUI)
 o3de2605-cli --help                                    # CLI for project / gem / engine management
 ```

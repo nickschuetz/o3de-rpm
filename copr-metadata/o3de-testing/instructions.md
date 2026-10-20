@@ -1,7 +1,7 @@
 Enable + install:
 
     sudo dnf copr enable hellaenergy/o3de-testing
-    sudo dnf install o3de2605
+    sudo dnf install o3de2605 o3de2605-devel
 
 **CentOS Stream 10:** enable CRB and EPEL 10 before installing. They provide libraries the engine needs (assimp, google-benchmark, libunwind, poly2tri); without them `dnf` stops with "nothing provides" errors for those. COPR's own EPEL setting only applies while building the packages, not on your machine.
 
@@ -47,6 +47,6 @@ This channel is the pre-promotion soak buffer between the `main` HEAD of the [o3
 
 **Reporting issues:** if you hit a regression on this channel, please open an issue at https://github.com/nickschuetz/o3de-rpm/issues so it can be addressed before promotion to stable.
 
-The `o3de-dependencies` repo auto-enables alongside this one. The optional `o3de2605-devel` subpackage (auto-pulled by `dnf install o3de2605` via Recommends) adds the static archives that Project Manager's "Build" workflow links against (`libAzGameFramework.a` and friends).
+The `o3de-dependencies` repo auto-enables alongside this one. `o3de2605-devel` is part of the install line above on purpose: it carries the static archives that Project Manager's "Build" workflow links against (`libAzGameFramework.a` and friends), so a project cannot be built without it. The main package also Recommends it, but naming it explicitly keeps it installed where weak dependencies are off (containers, Toolbox/distrobox, minimal images).
 
 **Building projects (the toolchain is installed for you):** a normal `sudo dnf install o3de2605` also pulls in everything needed to build a project from source, the compiler and build tools (`clang`, `cmake`, `ninja-build`) plus the `-devel` headers a project links against, declared as weak dependencies (Recommends) so dnf installs them by default while a runtime-only user can opt out. Heads-up for containers and minimal installs: if your environment has weak dependencies turned off, the toolchain is skipped and project builds fail on missing compilers or headers. This is common inside containers, Toolbox, and distrobox, on minimal/server images (which often set `install_weak_deps=False`), or when installing with `--no-install-recommends` / `--setopt=install_weak_deps=False`. Backfill the whole set with `sudo dnf install $(rpm -q --recommends o3de2605 | awk '{print $1}')`, which names the Recommends explicitly. A plain `sudo dnf install o3de2605` will not help here: dnf treats the already-installed package as "nothing to do" and never revisits the skipped weak deps.

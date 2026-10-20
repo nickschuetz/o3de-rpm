@@ -1,7 +1,7 @@
 **Installation:**
 
     sudo dnf copr enable hellaenergy/o3de-stabilization
-    sudo dnf install o3de2610
+    sudo dnf install o3de2610 o3de2610-devel
 
 **CentOS Stream 10:** enable CRB and EPEL 10 before installing. They provide libraries the engine needs (assimp, google-benchmark, libunwind, poly2tri); without them `dnf` stops with "nothing provides" errors for those. COPR's own EPEL setting only applies while building the packages, not on your machine.
 
@@ -19,15 +19,11 @@ This channel now builds the **26.10 pre-release line** (`o3de2610`, from upstrea
 
     sudo dnf remove o3de                      # remove the pre-rename package first
     rm -rf ~/.o3de                            # clear stale manifest + per-engine venvs
-    sudo dnf install o3de2605                 # then install the renamed package
+    sudo dnf install o3de2605 o3de2605-devel  # then install the renamed package
 
 Skip this if you're a fresh installer (you'll just get `o3de2605` directly). This note will go away once the o3de→o3de2605 cohort has fully migrated.
 
-**Optional subpackage:** add this if you write native C++ gems with O3DE-specific APIs that need to static-link against engine internals (test framework, builder targets):
-
-    sudo dnf install o3de2610-devel
-
-End users running games and Lua/ScriptCanvas project authors do **not** need `-devel`. The main `o3de2610` package ships everything needed to run the Editor, build projects against the engine's `.so`s, and develop most native projects. `dnf install o3de2610` (default) also pulls in the `*-devel` system packages your project compilation needs (clang, mesa-libGL[U]-devel, libxcb-devel, fontconfig-devel, libcurl-devel, pcre2-devel, openssl-devel, libunwind-devel, libzstd-devel, vim-common, mikkelsen-devel) via Recommends; pass `--setopt=install_weak_deps=False` for a runtime-only minimal install (CI test containers, game distribution servers).
+`o3de2610-devel` is part of the install line above on purpose. It carries the engine's static libraries, and every project build links its launchers against them (`AzGameFramework`, `Launcher.Static`), so Project Manager cannot build a project without it. The main package also Recommends it, but naming it explicitly keeps it installed where weak dependencies are off (containers, Toolbox/distrobox, minimal images, `install_weak_deps=False`). `dnf install` also pulls in the `*-devel` system packages your project compilation needs (clang, mesa-libGL[U]-devel, libxcb-devel, fontconfig-devel, libcurl-devel, pcre2-devel, openssl-devel, libunwind-devel, libzstd-devel, vim-common, mikkelsen-devel) via Recommends. Only a machine that runs already-built games and never builds a project can skip both.
 
 **Building in a container?** That project-build toolchain is pulled via weak deps, so containers, Toolbox/distrobox, and minimal/server images that already run with `install_weak_deps=False` will skip it, and project builds then fail on missing compilers or headers. Backfill the whole set with `sudo dnf install $(rpm -q --recommends o3de2610 | awk '{print $1}')` (naming the Recommends explicitly). A plain `sudo dnf install o3de2610` no-ops once the package is already installed, so it will not pull the skipped weak deps.
 
