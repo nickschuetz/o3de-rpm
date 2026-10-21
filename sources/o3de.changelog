@@ -1,4 +1,20 @@
 %changelog
+* Wed Oct 21 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-122
+- Get the stable and testing channels ready for the 26.10.0 release
+  tarball. The carry-patches upstream already merged for 26.10 (0001, 0002,
+  0004, 0005, 0007, 0008, 0009, 0012) and the 26.05-only swap gates (0006,
+  0013, 0015) are now skipped whenever the source is on the 26.10 base: a
+  development_snapshot build as before, or a release build once stable_tag
+  is 2610.0 or later. Patch0018 also applies to 26.10 release builds, and
+  -devel no longer lists lib64/, which 26.10 does not install. Without this
+  a 2610.0 release build fails in %%prep (Patch0001 no longer applies).
+  The snapshot channels build exactly as before.
+- make srpm (stable and testing) now uses the same options as
+  stabilization (qt6, swap_hook and the 17 system swaps), so the SRPM also
+  carries the Qt jpeg/tiff plugin sources. The swap list is defined once in
+  the Makefile, and make -s print-copr-with prints each channel's COPR
+  chroot list.
+
 * Wed Oct 21 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-121
 - monolithic: drop the meshoptimizer workaround from %%install. Upstream
   installs the library itself now: stabilization/26100 has o3de/o3de#20070

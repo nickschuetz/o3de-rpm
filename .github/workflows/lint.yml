@@ -48,7 +48,7 @@ jobs:
         # + --with system_<X>). A regression in any conditional
         # BR/Requires/cmake block surfaces here before it reaches a
         # 5-hour COPR build.
-        run: make spec-parse spec-parse-snapshot spec-parse-stabilization spec-parse-experimental
+        run: make spec-parse spec-parse-stable spec-parse-snapshot spec-parse-stabilization spec-parse-experimental
 
       - name: rpmlint
         # The spec uses `%include %{SOURCE99}` to pull in the changelog

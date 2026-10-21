@@ -1,11 +1,10 @@
 ################################################################################
 # O3DE (Open 3D Engine) RPM spec — Fedora 44 / rpm 4.20+
 #
-# Build the stable release (profile binaries only):
-#     rpmbuild -bb \
-#         --define "_sourcedir $PWD/sources" \
-#         --define "_specdir   $PWD" \
-#         o3de.spec
+# Build the stable release (profile binaries only). From 26.10 on the
+# stable channel uses the same option set as stabilization (qt6, swap_hook and
+# the system swaps, see the Makefile's BCONDS_stable), so use the Makefile:
+#     make rpm          # or: make srpm, then rebuild the SRPM
 #
 # Build with the debug subpackage too (opt-in, ~2x build time):
 #     rpmbuild -bb --with debug \
@@ -117,15 +116,19 @@
 
 # Snapshot-against-o3de/development builds must skip the carry-patches whose
 # upstream equivalents have already landed in development. Each such patch is
-# wrapped below in `%%if %%{without development_snapshot}` so its declaration
-# (and %%autosetup application) drops out when this flag is set. Default OFF
-# so one-off snapshot builds against older refs still apply every patch.
+# gated below on o3de_base_2610 (defined after the snapshot auto-detect), which
+# this flag turns on, so its declaration (and %%autosetup application) drops
+# out. Default OFF so one-off snapshot builds against older refs still apply
+# every patch.
 # As of 2026-08-11 the stabilization channel repointed from stabilization/26050
 # to stabilization/26100, which was cut from development tip and therefore
 # already carries these merges -- so `make srpm-stabilization` now sets
 # `--with development_snapshot` too (the channel marker stays -stabilization via
 # the priority order below). This is the documented "retires when the channel
-# rebases onto the 26.10 base" retirement. Other ref-based snapshot builds
+# rebases onto the 26.10 base" retirement. A tagged-release build of 2610.0 or
+# later is on the same base and gets the same gating from stable_tag alone, so
+# the stable and testing channels do NOT set this flag (it would also turn
+# their channel marker into -development). Other ref-based snapshot builds
 # (e.g., qt6) still apply every patch unless their own audit says otherwise.
 # See project_branch_alignment_before_retirement.md for the gotcha pattern that
 # motivated this gate.
@@ -257,6 +260,7 @@
 #                  builds going to a dedicated COPR project, e.g.
 #                  hellaenergy/o3de-qt6 if a qt6 testing channel is set up)
 #   (none)         no channel bcond set; tagged release going to hellaenergy/o3de
+#                  and hellaenergy/o3de-testing
 # Marker reflects the destination project's channel, not the feature set.
 # Early Stage 1 work used to infer -experimental from "any system_<X>
 # bcond is on" but that broke when system swaps graduated into stab + stable
@@ -314,6 +318,21 @@
 %else
 %global o3de_source_dir o3de
 %global o3de_source_sha %{stable_sha256}
+%endif
+
+# Engine base of the source tree. The TIMEBOMB carry-patches (see the patch
+# list) are only needed on the 26.05 base. The 26.10 base (stabilization/26100,
+# the 2610.x release tarballs cut from it, and development) already has their
+# upstream merges, so applying them there fails %%prep. A snapshot is on the
+# 26.10 base when development_snapshot is set (o3de-development,
+# o3de-experimental and o3de-stabilization all set it); a tagged-release build
+# is when stable_tag is 2610 or later, which covers hellaenergy/o3de and
+# o3de-testing without a channel bcond. Defined after the auto-detect above
+# because COPR's binary build gets snapshot mode from it, not from a bcond.
+%if %{with development_snapshot} || (%{without snapshot} && %{o3de_major_tag} >= 2610)
+%global o3de_base_2610 1
+%else
+%global o3de_base_2610 0
 %endif
 
 # ── RPM build behavior ───────────────────────────────────────────────────────
@@ -408,7 +427,7 @@ Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        121%{?dist}
+Release:        122%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -493,21 +512,23 @@ Source99:       o3de.changelog
 # of which branch from development and so already contain the fix. NOTE:
 # stabilization/26050 shipped AS 26.05.0 and is frozen; it will NOT backport
 # these dev-only merges, so it is NOT the retirement trigger. Until a channel
-# moves to the 26.10 base it keeps the patch (the 26.05.0 tarball the stable
-# channel serves lacks all seven). The `--with development_snapshot` bcond
-# already gates all seven off for the development channel (they would
-# otherwise "previously applied"). References below to "NOT in
+# moves to the 26.10 base it keeps the patch (the 26.05.0 tarball lacks all
+# seven). The gate is o3de_base_2610 (see its definition): on for
+# development_snapshot builds (development, experimental, stabilization) and
+# for tagged-release builds once stable_tag is 2610.0 or later, so the stable
+# and testing channels retire the seven with the 26.10.0 tarball and a spec at
+# stable_tag 2605.x still applies them. References below to "NOT in
 # stabilization/26050" are factual provenance, not a wait-on-26050 trigger.
 #
 # Patch0001 -- merged upstream as o3de/o3de#19748 (in development, NOT in
-# stabilization/26050). Active for the 26.05-line channels; gated off when
-# building development snapshots so it doesn't fail-to-apply against a tree
+# stabilization/26050). Active for the 26.05-line channels; gated off on the
+# 26.10 base (o3de_base_2610) so it doesn't fail-to-apply against a tree
 # that already contains the change. See TIMEBOMB retirement model above.
-%if %{without development_snapshot}
+%if !%{o3de_base_2610}
 Patch0001:      0001-clang21-warning-suppressions.patch
 %endif
 # Patch0002 -- merged upstream as o3de/o3de#19751 (development only).
-%if %{without development_snapshot}
+%if !%{o3de_base_2610}
 Patch0002:      0002-manifest-py-engine-path-detection.patch
 %endif
 Patch0003:      0003-get-python-sh-rpm-venv-fixes.patch
@@ -518,11 +539,11 @@ Patch0003:      0003-get-python-sh-rpm-venv-fixes.patch
 # against development tip reports "previously applied" (2026-06-09), so it would
 # fail %prep on the development channel. The 26.05-line channels keep it (see
 # TIMEBOMB retirement model above); the development channel gates it off.
-%if %{without development_snapshot}
+%if !%{o3de_base_2610}
 Patch0004:      0004-lypython-non-editable-pip-for-installed-engine.patch
 %endif
 # Patch0005 -- merged upstream as o3de/o3de#19750 (development only).
-%if %{without development_snapshot}
+%if !%{o3de_base_2610}
 Patch0005:      0005-windowdecorationwrapper-propagate-initial-title.patch
 %endif
 
@@ -546,7 +567,7 @@ Patch0005:      0005-windowdecorationwrapper-propagate-initial-title.patch
 # grepping stabilization/26050 still showed 9+33 legacy typedef hits in
 # the two target files. See project_branch_alignment_before_retirement.md
 # memory note for the gotcha pattern.
-%if %{without development_snapshot}
+%if !%{o3de_base_2610}
 Patch0007:      0007-libtiff-c99-typedefs.patch
 %endif
 
@@ -558,12 +579,10 @@ Patch0007:      0007-libtiff-c99-typedefs.patch
 # o3de/o3de#19365 ("Assimp as FetchPackage") removed the
 # `assimp-5.4.3-rev3-linux` ly_associate_package line, which is one of the
 # anchored lines Patch0006 expected. Stabilization/26050 still has the
-# line, so the patch applies cleanly on the stabilization channel. Gated
-# under %%without development_snapshot so dev-snapshot builds skip it; the
-# o3de-development COPR project intentionally has no `system_*` swaps active
-# (see make-snapshot-tarball.sh + edit-chroot config) so the gate-flags
-# aren't needed there anyway.
-%if %{without development_snapshot} && %{without swap_hook}
+# line, so the patch applies on the 26.05 base only. Gated off on the 26.10
+# base (o3de_base_2610), where every channel sets swap_hook and Patch0014
+# gates the swaps instead.
+%if !%{o3de_base_2610} && %{without swap_hook}
 Patch0006:      0006-builtinpackages-gate-mikkelsen-on-system.patch
 %endif
 
@@ -584,7 +603,7 @@ Patch0006:      0006-builtinpackages-gate-mikkelsen-on-system.patch
 # Same retirement-gating story as Patch0007 -- retires per the TIMEBOMB
 # retirement model above when a channel rebases onto the 26.10 base. See
 # project_branch_alignment_before_retirement.md memory note.
-%if %{without development_snapshot}
+%if !%{o3de_base_2610}
 Patch0008:      0008-azcore-drop-lua-lobject-include.patch
 %endif
 
@@ -605,12 +624,12 @@ Patch0008:      0008-azcore-drop-lua-lobject-include.patch
 # o3de/o3de PR #19726 (PhysX 4 retirement) has now landed in o3de/development
 # (verified 2026-05-21: Gems/PhysX/Core/PhysX4/ tree gone). The PhysX4 hunk
 # fails-to-apply on dev tip. The 26.05 base still has PhysX4, so the
-# patch applies cleanly on the 26.05-line channels. Gated under %%without
-# development_snapshot. Eventual proper fix when a channel rebases onto
+# patch applies cleanly on the 26.05-line channels. Gated off on the 26.10
+# base (o3de_base_2610). Eventual proper fix when a channel rebases onto
 # the 26.10 base (stabilization/26100 cut, which inherits the PhysX4
 # retirement from development): drop the PhysX4 hunk from this patch and
 # regenerate with only PhysX5. See FOLLOW_UPS.md forward-obligation note.
-%if %{without development_snapshot}
+%if !%{o3de_base_2610}
 Patch0009:      0009-physx-pal-gate-poly2tri-on-system.patch
 %endif
 
@@ -676,7 +695,7 @@ Patch0011:      0011-luaide-watchespanel-lua-5-5-numtags-compat.patch
 # project_prctl_pdeathsig_thread_gotcha.md.
 #
 # Merged upstream as o3de/o3de#19747 (in development, NOT in stabilization/26050).
-%if %{without development_snapshot}
+%if !%{o3de_base_2610}
 Patch0012:      0012-v2-assetbuilder-parent-watchdog.patch
 %endif
 
@@ -699,9 +718,9 @@ Patch0012:      0012-v2-assetbuilder-parent-watchdog.patch
 # hits the same context-drift as Patch0006: o3de/o3de#19365 ("Assimp
 # as FetchPackage") shifted line numbers and changed surrounding
 # context. Stabilization/26050 still has the original layout, so all
-# three hunks apply cleanly there. Gated under %%without
-# development_snapshot for the same reason as Patch0006.
-%if %{without development_snapshot} && %{without swap_hook}
+# three hunks apply cleanly there. Gated off on the 26.10 base
+# (o3de_base_2610) for the same reason as Patch0006.
+%if !%{o3de_base_2610} && %{without swap_hook}
 Patch0013:      0013-vulkan-validationlayers-gate-on-system.patch
 %endif
 
@@ -712,7 +731,7 @@ Patch0013:      0013-vulkan-validationlayers-gate-on-system.patch
 # under the lazy model it is unnecessary anyway: ly_associate_package
 # only registers, and with the reference removed the resolver never
 # fires for it. See the patch header.
-%if %{without development_snapshot} && %{with swap_hook}
+%if !%{o3de_base_2610} && %{with swap_hook}
 Patch0015:      0015-vulkan-validationlayers-system-runtime-hunks.patch
 %endif
 
@@ -768,9 +787,13 @@ Patch0017:      0017-lmbrcentral-lrelease-skip-rpath-under-system-qt.patch
 # Restricted to the stabilization channel 2026-10-06: o3de/o3de#20085 (the
 # Qt 6.11.2 bump) removed the same std::move on development, so the hunk no
 # longer applies there and failed %%prep on four weekly o3de-development builds
-# (COPR 10981338 through 11073408). stabilization/26100 still has the std::move.
+# (COPR 10981338 through 11073408). stabilization/26100 still has the std::move,
+# and so do the 2610.x release tarballs cut from it, so tagged-release builds
+# of the 26.10 line (hellaenergy/o3de, o3de-testing) apply it too. The
+# o3de_major_tag check keeps it off later lines, which branch from a
+# development that already has #20085.
 # Retire entirely if #20085 is ever cherry-picked to stabilization.
-%if %{with development_snapshot} && %{with stabilization}
+%if %{o3de_major_tag} == 2610 && ((%{with development_snapshot} && %{with stabilization}) || %{without snapshot})
 Patch0018:      0018-editor-filechangemonitor-drop-pessimizing-move.patch
 %endif
 
@@ -795,10 +818,10 @@ Patch0019:      0019-install-linux-lycopy-skip-lrelease-rpath-system-qt.patch
 # deprecated-volatile / character-conversion lines, byte-identical whether
 # supplied by the in-tree #19748 block (dev-tip refs) or by Patch0001 (applied
 # first by numeric order on non-dev-snapshot builds; verified fuzz=0 on the
-# 26050 source). CAVEAT: a future 26.10.0 RELEASE build is non-dev-snapshot but
-# its source already HAS #19748, so Patch0001 and the rest of the TIMEBOMB set
-# would collide ("previously applied") and must be retired when that release
-# ships; this ungate does not change that pre-existing requirement. Iterated over
+# 26050 source). A 26.10.0 RELEASE build is non-dev-snapshot but its source
+# already HAS #19748; o3de_base_2610 gates Patch0001 and the rest of the
+# TIMEBOMB set off there, so 0020 meets the in-tree block as it does on the
+# stabilization channel. Iterated over
 # rawhide builds COPR 10979851 / 10984620 (2026-09-12); green on all four chroots
 # in 11045355. Upstream-worthy (extension of #19748).
 Patch0020:      0020-clang-demote-newer-werror-promotions.patch
@@ -2266,10 +2289,12 @@ appstream-util validate-relax --nonet \
 #     shim landed and the bundled-install path stopped emitting lib64/.
 #     Stabilization/26050 still has the old layout, so lib64/ is
 #     still present there. Gate both the exclude and the devel files
-#     line on %%without development_snapshot.
+#     line off on the 26.10 base (o3de_base_2610): the 26100-based
+#     stabilization packages carry no lib64/ (checked 2026-10-21), so
+#     listing it on a 2610.x release build would fail %%files.
 %exclude %{o3de_install_prefix}/lib/Linux/profile/*.a
 %exclude %{o3de_install_prefix}/lib/Linux/profile/Default/*.a
-%if %{without development_snapshot}
+%if !%{o3de_base_2610}
 %exclude %{o3de_install_prefix}/lib64
 %endif
 %{_bindir}/%{o3de_pkgname}
@@ -2314,7 +2339,7 @@ appstream-util validate-relax --nonet \
 %files devel
 %{o3de_install_prefix}/lib/Linux/profile/*.a
 %{o3de_install_prefix}/lib/Linux/profile/Default/*.a
-%if %{without development_snapshot}
+%if !%{o3de_base_2610}
 %{o3de_install_prefix}/lib64
 %endif
 

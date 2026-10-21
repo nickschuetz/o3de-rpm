@@ -2,7 +2,7 @@
 #
 # Common targets:
 #   make lint                         rpmlint + desktop + metainfo + spec parse
-#   make srpm                         build SRPM (stable mode)
+#   make srpm                         build SRPM (stable mode, stable channel bconds)
 #   make srpm-snapshot                build SRPM (snapshot mode; uses spec's pinned commit)
 #   make snapshot REF=<git-ref>       fetch+build snapshot tarball, paste pins yourself
 #   make srpm-snapshot-ref REF=<ref>  fetch tarball from ref + build SRPM in one step
@@ -23,6 +23,8 @@
 #   make trigger-tests BUILD_ID=N     fire test-installed.yml against an existing COPR build
 #                                     (default project: o3de-stabilization;
 #                                      override with COPR_PROJECT=o3de-experimental etc.)
+#   make -s print-copr-with CHANNEL=<c> [CHROOT=<chroot>]
+#                                     print the COPR chroot --rpmbuild-with list for a channel
 #   make clean                        rm -rf rpmbuild/{BUILD,BUILDROOT,RPMS,SRPMS} (NOT SOURCES)
 #
 # Variables:
@@ -83,7 +85,7 @@ RPMBUILD_DEFINES = \
 	--define "_specdir   $(PWD)"
 
 .PHONY: help lint spec-parse spec-parse-snapshot spec-parse-stabilization spec-parse-experimental spec-parse-development \
-        print-pkgname \
+        print-pkgname print-copr-with spec-parse-stable \
         snapshot srpm srpm-snapshot srpm-snapshot-ref srpm-snapshot-qt6 srpm-snapshot-development \
         srpm-stabilization srpm-experimental \
         rpm rpm-snapshot rpm-debug rpm-snapshot-debug rpm-experimental rpm-local-development \
@@ -100,7 +102,7 @@ help:
 
 # ── Lint / parse ────────────────────────────────────────────────────────────
 
-lint: spec-parse spec-parse-snapshot spec-parse-stabilization spec-parse-experimental
+lint: spec-parse spec-parse-stable spec-parse-snapshot spec-parse-stabilization spec-parse-experimental
 	@echo ">> sources/o3de.changelog starts with %changelog (entries above it leak into %postun)"
 	@[ "$$(head -1 sources/o3de.changelog)" = "%changelog" ] || { echo "ERROR: sources/o3de.changelog line 1 must be %changelog; add new entries BELOW it" >&2; exit 1; }
 	@echo ">> rpmlint o3de.spec (changelog inlined via textual splice; tracked spec keeps %include)"
@@ -127,6 +129,9 @@ print-pkgname:
 
 spec-parse:
 	@rpmspec $(RPMBUILD_DEFINES) -q o3de.spec
+
+spec-parse-stable:
+	@rpmspec $(RPMBUILD_DEFINES) $(SRPM_STABLE_FLAGS) -q o3de.spec
 
 spec-parse-snapshot:
 	@rpmspec $(RPMBUILD_DEFINES) --define "_with_snapshot 1" -q o3de.spec
@@ -165,6 +170,51 @@ snapshot:
 	@echo ">> Paste the printed snapshot_commit / snapshot_date / snapshot_sha256"
 	@echo ">> values into o3de.spec, then run 'make srpm-snapshot' or 'make rpm-snapshot'."
 
+# ---- Channel option sets -------------------------------------------------
+# One list of system-library swaps for the 26.10 line, shared by every engine
+# channel. The SRPM flag sets (SRPM_STABLE_FLAGS, SRPM_STABILIZATION_FLAGS,
+# SNAPSHOT_DEVELOPMENT_FLAGS) and the COPR chroot lists (print-copr-with) are
+# all derived from it, so adding or dropping a swap is one edit here plus an
+# edit-chroot pass over the projects that use it (see POST_RELEASE.md step 7).
+O3DE_SWAPS := assimp dxc expat freetype googlebenchmark libsamplerate lua lz4 mcpp \
+              mikkelsen openexr png poly2tri spirvcross sqlite vulkan_validation_layers zlib
+
+# Swaps a COPR chroot cannot take, removed from that chroot's print-copr-with
+# list only (the binary build follows the chroot, not the SRPM). Empty today.
+# If rapidjson joins O3DE_SWAPS, list it for CS10: EPEL-10's rapidjson 1.1.0
+# release trips gcc-toolset-15's -Werror=deprecated on std::iterator
+# (COPR 10526694).
+O3DE_SWAPS_SKIP_centos-stream-10-x86_64 :=
+
+# Per-channel bconds exactly as the COPR chroots carry them (--rpmbuild-with).
+# No `snapshot`: COPR's binary build gets snapshot mode from the tarball
+# auto-detect in o3de.spec. Debug siblings add `debug` to their namesake's list.
+#   stable         hellaenergy/o3de, o3de-testing (and o3de-testing-debug)
+#   stabilization  hellaenergy/o3de-stabilization
+#   development    hellaenergy/o3de-development (and o3de-development-debug)
+#   experimental   hellaenergy/o3de-experimental
+# stable carries no channel bcond: o3de.spec derives the 26.10-base patch
+# gating from stable_tag (o3de_base_2610) and leaves the GUI channel marker
+# empty. It must NOT get development_snapshot (that sets the -development
+# marker) or stabilization.
+BCONDS_stable        = qt6 swap_hook $(addprefix system_,$(O3DE_SWAPS))
+BCONDS_stabilization = stabilization development_snapshot qt6 swap_hook $(addprefix system_,$(O3DE_SWAPS))
+BCONDS_development   = development_snapshot qt6 monolithic swap_hook $(addprefix system_,$(O3DE_SWAPS))
+BCONDS_experimental  = development_snapshot qt6 swap_hook wayland wayland_ui $(addprefix system_,$(O3DE_SWAPS))
+
+# Print one channel's chroot list, e.g. for edit-chroot (which REPLACES the
+# whole list, so always pass all of it):
+#   make -s print-copr-with CHANNEL=stable CHROOT=centos-stream-10-x86_64
+print-copr-with:
+	@[ -n "$(BCONDS_$(CHANNEL))" ] || { echo "usage: make -s print-copr-with CHANNEL=stable|stabilization|development|experimental [CHROOT=<chroot>]" >&2; exit 2; }
+	@echo $(filter-out $(addprefix system_,$(O3DE_SWAPS_SKIP_$(CHROOT))),$(BCONDS_$(CHANNEL)))
+
+# srpm (stable / testing): the release tarball (--without snapshot, so a
+# snapshot tarball sitting in sources/ is not auto-detected) plus the stable
+# chroot bconds. qt6 also pulls the Qt jpeg/tiff plugin sources (Source72-76)
+# into the SRPM; without them the qt6 binary build has nothing to rebuild.
+SRPM_STABLE_FLAGS = --without snapshot $(foreach b,$(BCONDS_stable),--with $(b))
+
 # ── SRPM builds ─────────────────────────────────────────────────────────────
 
 # Clean stale SRPMs for THIS package before each rpmbuild -bs so the
@@ -198,7 +248,7 @@ qt-plugin-sources:
 
 srpm: qt-plugin-sources
 	$(SRPM_CLEAN)
-	rpmbuild -bs --without snapshot $(RPMBUILD_DEFINES) o3de.spec
+	rpmbuild -bs $(SRPM_STABLE_FLAGS) $(RPMBUILD_DEFINES) o3de.spec
 
 srpm-snapshot: qt-plugin-sources
 	$(SRPM_CLEAN)
@@ -280,12 +330,7 @@ srpm-snapshot-qt6: qt-plugin-sources
 # (not system_qt6) is what now activates Patch0014, so the 17 swaps stay --
 # under development_snapshot, Patch0006 is off and Patch0014 is the only swap
 # gate. System Qt6 returns once PySide6 is rebuilt against it (Option B).
-SNAPSHOT_DEVELOPMENT_FLAGS = --with development_snapshot --with qt6 --with swap_hook --with monolithic \
-                            --with system_assimp --with system_dxc --with system_expat --with system_freetype \
-                            --with system_googlebenchmark --with system_libsamplerate --with system_lua \
-                            --with system_lz4 --with system_mcpp --with system_mikkelsen --with system_openexr \
-                            --with system_png --with system_poly2tri --with system_spirvcross --with system_sqlite \
-                            --with system_vulkan_validation_layers --with system_zlib
+SNAPSHOT_DEVELOPMENT_FLAGS = $(foreach b,$(BCONDS_development),--with $(b))
 
 srpm-snapshot-development: qt-plugin-sources
 	$(MAKE) srpm-snapshot-ref REF=development SNAPSHOT_REF_EXTRA_BCOND="$(SNAPSHOT_DEVELOPMENT_FLAGS)"
@@ -335,28 +380,7 @@ srpm-stabilization: qt-plugin-sources
 # NOTE: the o3de-stabilization COPR chroots need a MATCHING --rpmbuild-with set
 # (all of these, incl. qt6 + swap_hook); --with here does not propagate to the
 # binary build. Chroots updated system_qt6 -> swap_hook 2026-08-17.
-SRPM_STABILIZATION_FLAGS = --with snapshot \
-                           --with stabilization \
-                           --with development_snapshot \
-                           --with qt6 \
-                           --with swap_hook \
-                           --with system_assimp \
-                           --with system_dxc \
-                           --with system_expat \
-                           --with system_freetype \
-                           --with system_googlebenchmark \
-                           --with system_libsamplerate \
-                           --with system_lua \
-                           --with system_lz4 \
-                           --with system_mcpp \
-                           --with system_mikkelsen \
-                           --with system_openexr \
-                           --with system_png \
-                           --with system_poly2tri \
-                           --with system_spirvcross \
-                           --with system_sqlite \
-                           --with system_vulkan_validation_layers \
-                           --with system_zlib
+SRPM_STABILIZATION_FLAGS = --with snapshot $(foreach b,$(BCONDS_stabilization),--with $(b))
 
 # DEPRECATED / UNWIRED as of 2026-07-24: o3de-experimental was realigned
 # onto o3de/development + monolithic (srpm-experimental now aliases
@@ -553,13 +577,13 @@ srpm-experimental: srpm-snapshot-development
 # the o3de-debug subpackage — roughly doubles build time and disk.
 
 rpm: qt-plugin-sources
-	rpmbuild -bb $(RPMBUILD_DEFINES) o3de.spec
+	rpmbuild -bb $(SRPM_STABLE_FLAGS) $(RPMBUILD_DEFINES) o3de.spec
 
 rpm-snapshot: qt-plugin-sources
 	rpmbuild -bb --with snapshot $(RPMBUILD_DEFINES) o3de.spec
 
 rpm-debug: qt-plugin-sources
-	rpmbuild -bb --with debug $(RPMBUILD_DEFINES) o3de.spec
+	rpmbuild -bb $(SRPM_STABLE_FLAGS) --with debug $(RPMBUILD_DEFINES) o3de.spec
 
 rpm-snapshot-debug: qt-plugin-sources
 	rpmbuild -bb --with snapshot --with debug $(RPMBUILD_DEFINES) o3de.spec
@@ -758,7 +782,8 @@ copr-stable: srpm
 		~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
 
 # o3de-testing is the pre-promotion soak channel for stable. Same SRPM
-# as stable (same release tag + same with_opts via chroot config); the
+# as stable (same release tag + same with_opts via chroot config, both
+# BCONDS_stable); the
 # difference is the destination project. Promotion flow:
 # main HEAD -> copr-testing-and-test (soak ~48h) -> copr-stable.
 # Mirrors Fedora's updates-testing semantics.

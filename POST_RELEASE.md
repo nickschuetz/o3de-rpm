@@ -36,6 +36,14 @@ Put it in this repo's `sources/` rather than `~/rpmbuild/SOURCES/`; the Makefile
 
 Note the sha256 value. You'll paste it into the spec next.
 
+Check the archive layout before going further:
+
+```bash
+tar -tzf o3de-<TAG>-lfs.tar.gz | head -3
+```
+
+The 2605.0 archive has the engine files at the top level (`.automatedtesting.json`, `.clang-format`, ...) with no wrapping directory, and the stable `%prep` relies on that (`%autosetup -c` makes the `o3de/` directory itself). If the first entries start with `o3de/`, drop the `-c` from the stable-mode `%autosetup` line before building, or the tree ends up at `o3de/o3de/`.
+
 ### 3. Spec updates
 
 In `o3de.spec`:
@@ -54,6 +62,8 @@ In `o3de.spec`:
 
 If the release is a major (YYMM bump rather than point release), nothing else needs bumping: `o3de_major_tag`, the package name (e.g., `o3de2610`) and the install prefix are all derived from `stable_tag`, and the Makefile's `PKGNAME` derivation follows.
 
+The carry-patch set follows `stable_tag` too. On the 26.10 base (`stable_tag` 2610.0 or later) the spec's `o3de_base_2610` macro skips the carry-patches upstream already merged, exactly as `development_snapshot` does for the snapshot channels, so a stable build applies the same patches as the stabilization channel (0003, 0010, 0011, 0014, 0018, 0020 on 26.10). Do not add `development_snapshot` to the stable build: it would set the `-development` channel marker.
+
 ### 4. SBOM bump
 
 In `sources/o3de2605.cdx.json` (or whichever `o3deNNNN` SBOM is current):
@@ -64,8 +74,8 @@ If a major bump: the spec's Source13 is `%{o3de_pkgname}.cdx.json`, so it picks 
 ### 5. Local validation
 
 ```bash
-make lint          # spec-parse in all four bcond modes, plus rpmlint and the validators
-make srpm          # builds the SRPM locally (needs the tarball in sources/)
+make lint          # spec-parse in all five bcond modes, plus rpmlint and the validators
+make srpm          # builds the SRPM locally with the stable bconds (needs the tarball in sources/)
 ls -la ~/rpmbuild/SRPMS/o3de*-<TAG>-*.src.rpm
 ```
 
@@ -89,7 +99,19 @@ git push origin main
 
 ### 7. Push to COPR
 
-If the release is a major, first bring the `hellaenergy/o3de` and `hellaenergy/o3de-testing` chroots onto the new line's `--rpmbuild-with` set. They still carry the previous major's set, and `--with` flags on the SRPM do not propagate to the COPR rebuild. Compare against the `o3de-stabilization` chroots (`copr-cli get-chroot hellaenergy/o3de-stabilization/<chroot>`), which built this line during the stabilization window. `edit-chroot --rpmbuild-with` replaces the whole list, so pass the full set and verify with `get-chroot` afterwards.
+If the release is a major, first bring the `hellaenergy/o3de`, `hellaenergy/o3de-testing` and `hellaenergy/o3de-testing-debug` chroots onto the new line's `--rpmbuild-with` set. They still carry the previous major's set, and `--with` flags on the SRPM do not propagate to the COPR rebuild. The Makefile prints the list (`BCONDS_stable`: the `o3de-stabilization` set without `stabilization` and `development_snapshot`); `o3de-testing-debug` adds `debug`. `edit-chroot --rpmbuild-with` replaces the whole list, so pass all of it, and verify with `get-chroot` afterwards. Take the chroot names from `copr-cli get hellaenergy/<project>`; all three projects had the same four on 2026-10-21.
+
+```bash
+for proj in o3de o3de-testing o3de-testing-debug; do
+  for ch in centos-stream-10-x86_64 fedora-44-x86_64 fedora-45-x86_64 fedora-rawhide-x86_64; do
+    opts=$(make -s print-copr-with CHANNEL=stable CHROOT=$ch)
+    [ "$proj" = o3de-testing-debug ] && opts="$opts debug"
+    args=(); for o in $opts; do args+=(--rpmbuild-with "$o"); done
+    copr-cli edit-chroot hellaenergy/$proj/$ch "${args[@]}"
+    copr-cli get-chroot hellaenergy/$proj/$ch | python3 -c 'import sys,json; print(" ".join(json.load(sys.stdin)["with_opts"]))'
+  done
+done
+```
 
 ```bash
 make release-stable
@@ -140,7 +162,7 @@ See `CONTRIBUTING.md` "COPR Projects" section for the channel layout and the rat
 ## Failure modes
 
 - **sha256 mismatch in make srpm**: redownload the tarball; GitHub's CDN may have served partial bytes. Retry the sha256 + paste sequence.
-- **COPR build fails at %prep on a carry-patch**: the release tarball may differ from stabilization tip's last state. Check whether any carry-patch needs to retire (on the 26.10 line the stabilization flag set applies only 0003, 0010, 0011, 0014, 0018 and 0020). Sequence: confirm the upstream PR merged, identify the snapshot source branch, verify the merge is reachable from main at the release tag, grep the target file on the release tarball. Only retire when all four checks pass.
+- **COPR build fails at %prep on a carry-patch**: the release tarball may differ from stabilization tip's last state. Check whether any carry-patch needs to retire (on the 26.10 line the stabilization and stable flag sets both apply only 0003, 0010, 0011, 0014, 0018 and 0020). Sequence: confirm the upstream PR merged, identify the snapshot source branch, verify the merge is reachable from main at the release tag, grep the target file on the release tarball. Only retire when all four checks pass. If 0001/0002/0004/0005/0007/0008/0009/0012 show up in the failing log, the build is not on the 26.10 gating: check `stable_tag` and that the chroot did not get `snapshot` mode.
 - **CS10 fails but F44/F45/rawhide pass**: known historical gaps (libunwind-devel in EPEL-10 not base CS10, RPM 4.19 spec-parser quirks). Check the build log against known CS10-specific blockers before assuming a real regression.
 
 ## Related
