@@ -1,0 +1,54 @@
+From: Nick Schuetz <nschuetz@redhat.com>
+Date: Wed, 21 Oct 2026 00:00:00 -0500
+Subject: [PATCH] CrySystem: use XML_GetCurrentLineNumber64 with expat 2.9+
+
+Expat 2.9.0 marks XML_GetCurrentLineNumber() deprecated in favor of
+XML_GetCurrentLineNumber64(). With system_expat on Fedora rawhide (expat
+2.9.0-1.fc46) the three calls in xml.cpp fail the build under
+-Werror,-Wdeprecated-declarations (COPR 11182169, 2026-10-21). Pick the
+64-bit call when the expat headers are 2.9 or newer; older headers,
+including the bundled expat package, keep the original call.
+
+--- a/Code/Legacy/CrySystem/XML/xml.cpp	2026-10-21 08:08:06.596479003 -0500
++++ b/Code/Legacy/CrySystem/XML/xml.cpp	2026-10-21 08:08:19.512821229 -0500
+@@ -12,6 +12,13 @@
+ #include <stdlib.h>
+ 
+ #include <expat.h>
++// Expat 2.9.0 deprecated XML_GetCurrentLineNumber() in favor of
++// XML_GetCurrentLineNumber64(); the build treats deprecation warnings as errors.
++#if XML_MAJOR_VERSION > 2 || (XML_MAJOR_VERSION == 2 && XML_MINOR_VERSION >= 9)
++#define O3DE_XML_CURRENT_LINE_NUMBER(parser) XML_GetCurrentLineNumber64(parser)
++#else
++#define O3DE_XML_CURRENT_LINE_NUMBER(parser) XML_GetCurrentLineNumber(parser)
++#endif
+ #include "xml.h"
+ #include <algorithm>
+ #include <stdio.h>
+@@ -1129,7 +1136,7 @@
+         node->AddRef(); // Childs need to be add refed.
+     }
+ 
+-    node->setLine(static_cast<int>(XML_GetCurrentLineNumber((XML_Parser)m_parser)));
++    node->setLine(static_cast<int>(O3DE_XML_CURRENT_LINE_NUMBER((XML_Parser)m_parser)));
+ 
+     // Call start element callback.
+     int i = 0;
+@@ -1314,7 +1321,7 @@
+         else
+         {
+             char str[1024];
+-            azsprintf(str, "%s%s at line %d", errorPrefix, XML_ErrorString(XML_GetErrorCode(m_parser)), (int)XML_GetCurrentLineNumber(m_parser));
++            azsprintf(str, "%s%s at line %d", errorPrefix, XML_ErrorString(XML_GetErrorCode(m_parser)), (int)O3DE_XML_CURRENT_LINE_NUMBER(m_parser));
+             errorString = str;
+             if (!bSuppressWarnings)
+             {
+@@ -1442,7 +1449,7 @@
+         }
+         else
+         {
+-            azsprintf(str, "%s%s at line %d (%s)", errorPrefix, XML_ErrorString(XML_GetErrorCode(m_parser)), (int)XML_GetCurrentLineNumber(m_parser), filename);
++            azsprintf(str, "%s%s at line %d (%s)", errorPrefix, XML_ErrorString(XML_GetErrorCode(m_parser)), (int)O3DE_XML_CURRENT_LINE_NUMBER(m_parser), filename);
+             errorString = str;
+             CryWarning(VALIDATOR_MODULE_SYSTEM, VALIDATOR_WARNING, "%s", str);
+         }

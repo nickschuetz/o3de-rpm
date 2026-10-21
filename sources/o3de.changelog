@@ -1,4 +1,10 @@
 %changelog
+* Wed Oct 21 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-124
+- Patch0023: build against expat 2.9.0 (Fedora rawhide), which deprecates
+  XML_GetCurrentLineNumber() in favor of XML_GetCurrentLineNumber64();
+  CrySystem's xml.cpp failed %%build under -Werror on rawhide in 2610.0-120.
+  The 64-bit call is used only with expat 2.9 or newer.
+
 * Wed Oct 21 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-123
 - Use the system rapidjson, xxhash, cityhash and libtiff on the 26.10 line
   (rapidjson not on CentOS Stream 10, whose EPEL rapidjson is still the

@@ -8,6 +8,8 @@ This file is intentionally a living scratchpad. Entries get added or removed as 
 
 ## State of play 2026-10-21 (26.10.0 release window)
 
+- **Rawhide expat 2.9.0 (2026-10-21): Patch0023, 2610.0-124.** expat 2.9.0 deprecates `XML_GetCurrentLineNumber()` for `XML_GetCurrentLineNumber64()`; CrySystem `xml.cpp` failed `%build` under `-Werror` on rawhide in stabilization 2610.0-120 (COPR 11182169), while F44 (2.8.5) and F45 (2.8.3) are unaffected until 2.9 reaches them. Patch0023 uses the 64-bit call only with expat 2.9 or newer. Upstream PR candidate (pitch first; small, version-guarded).
+
 Ground truth from the COPR API, `gh` and the spec on 2026-10-21. 26.10.0 is planned for 2026-10-28; the release notes (o3de/sig-release#375) are still open.
 
 - **o3de-stabilization:** 2610.0-116 published (COPR build 11174533, 2026-10-19, F44/F45/rawhide/CS10). The re-pin to stabilization/26100 tip 701b503c (the final 26.10 splash from o3de/o3de#20211, merged 2026-10-21) went out as 2610.0-118 (build 11182020, canceled) and then 2610.0-120 (build 11182169, running on all four chroots as of 2026-10-21). Next: confirm it green on all four chroots, then a launch check that the Editor shows the new splash. It predates 121-123, so it still carries the 17-library swap set and the bundled Vulkan validation layer.

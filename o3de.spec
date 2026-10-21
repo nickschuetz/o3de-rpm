@@ -427,7 +427,7 @@ Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        123%{?dist}
+Release:        124%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -858,6 +858,16 @@ Patch0021:      0021-vulkan-wayland-surface-use-vk-result-assert.patch
 %if %{with wayland_ui}
 Patch0022:      0022-wayland-xwayland-editor-ui-fixes.patch
 %endif
+
+# Patch0023 -- expat 2.9.0 (Fedora rawhide, 2026-10) deprecates
+# XML_GetCurrentLineNumber() in favor of XML_GetCurrentLineNumber64(), and
+# CrySystem's xml.cpp calls it three times under -Werror: rawhide failed
+# %%build on stabilization 2610.0-120 (COPR 11182169). The patch picks the
+# 64-bit call when the expat headers are 2.9 or newer and keeps the old call
+# otherwise (bundled expat, F44/F45's 2.8.x), so it is ungated. Applies at
+# fuzz 0 on stabilization/26100 (701b503c) and development (2462b90).
+# Upstream-worthy.
+Patch0023:      0023-crysystem-expat-2-9-line-number-64.patch
 
 # Stage 1 system-library find modules. Copied into cmake/3rdParty/
 # during %%prep when the matching `--with system_<lib>` is enabled.
