@@ -1,4 +1,16 @@
 %changelog
+* Wed Oct 21 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-121
+- monolithic: drop the meshoptimizer workaround from %%install. Upstream
+  installs the library itself now: stabilization/26100 has o3de/o3de#20070
+  (libmeshoptimizer.a per config plus a STATIC IMPORTED installer
+  Findmeshoptimizer.cmake), and development builds meshoptimizer as a
+  vendored engine target since o3de/o3de#20097, installed under
+  lib/Linux/release/Monolithic/ like the other static libraries. On
+  development the workaround only added a second copy of the library
+  under lib/Linux/release/ and a Findmeshoptimizer.cmake that upstream no
+  longer ships. Only o3de-development builds with monolithic, so no other
+  channel changes.
+
 * Wed Oct 21 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-120
 - Fix the changelog include: the -117, -118 and -119 entries had been added
   above the %%changelog line of sources/o3de.changelog, so they landed in the
