@@ -12,14 +12,11 @@
 # real multi-level asset tree on a project that ships networking,
 # replication, gameplay scripting -- a much bigger surface.
 #
-# Branch alignment: o3de-multiplayersample tracks O3DE's `development`.
-# No `stabilization/26050` branch exists in multiplayersample (the last
-# was `stabilization/25100`). For our 26.05.x engine snapshot pinned at
-# `stabilization/26050 @ 246b46f5`, the closest matching multiplayersample
-# branch is `development`. This is a known directional mismatch -- the
-# engine is on the locked release branch, the sample is on dev -- but
-# it's the best signal we have until multiplayersample cuts a 26.05
-# release branch.
+# Branch alignment: o3de-multiplayersample tracks O3DE's `development`,
+# the default here. For the 26.10 engine (stabilization/26100) the sample
+# has a matching `stabilization/26100` branch: pass
+# MPSAMPLE_BRANCH=stabilization/26100. It has no 26.05 branch, so 26.05.x
+# engines test against `development` (a known directional mismatch).
 #
 # Cost: ~10-30 min on a workstation (cold), ~5-15 min warm. Project
 # build is incremental thanks to ninja + ccache (if installed); the

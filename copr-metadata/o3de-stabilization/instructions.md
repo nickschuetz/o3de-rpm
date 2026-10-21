@@ -15,13 +15,13 @@ Then enable this project with the CentOS Stream repository named explicitly (a p
 
 This channel now builds the **26.10 pre-release line** (`o3de2610`, from upstream `stabilization/26100`, cut 2026-08-11; targeting release around Oct 28 2026). The `o3de-dependencies` repo auto-enables alongside this one. Launch with `o3de2610` (Project Manager) or via the desktop entry; the upstream Python CLI is on PATH as `o3de2610-cli`.
 
-**Upgrading from the pre-rename `o3de` package?** The package was renamed from `o3de` to `o3de2605` (versioned-major convention; install path moved from `/opt/o3de/` to `/opt/O3DE/26.05.0/`). `dnf` won't auto-replace the old package, so a clean transition needs:
+**Upgrading from the pre-rename `o3de` package?** The package was renamed from `o3de` to `o3de2605` (versioned-major convention; install path moved from `/opt/o3de/` to `/opt/O3DE/26.05.0/`), and this channel now ships `o3de2610`. `dnf` won't auto-replace the old package, so a clean transition needs:
 
     sudo dnf remove o3de                      # remove the pre-rename package first
     rm -rf ~/.o3de                            # clear stale manifest + per-engine venvs
-    sudo dnf install o3de2605 o3de2605-devel  # then install the renamed package
+    sudo dnf install o3de2610 o3de2610-devel  # then install the current package
 
-Skip this if you're a fresh installer (you'll just get `o3de2605` directly). This note will go away once the o3de→o3de2605 cohort has fully migrated.
+Skip this if you're a fresh installer (you'll just get `o3de2610` directly). This note will go away once the o3de to o3de2605 cohort has fully migrated.
 
 `o3de2610-devel` is part of the install line above on purpose. It carries the engine's static libraries, and every project build links its launchers against them (`AzGameFramework`, `Launcher.Static`), so Project Manager cannot build a project without it. The main package also Recommends it, but naming it explicitly keeps it installed where weak dependencies are off (containers, Toolbox/distrobox, minimal images, `install_weak_deps=False`). `dnf install` also pulls in the `*-devel` system packages your project compilation needs (clang, mesa-libGL[U]-devel, libxcb-devel, fontconfig-devel, libcurl-devel, pcre2-devel, openssl-devel, libunwind-devel, libzstd-devel, vim-common, mikkelsen-devel) via Recommends. Only a machine that runs already-built games and never builds a project can skip both.
 
@@ -34,9 +34,11 @@ The package follows a **versioned-major naming convention** (`o3deNNNN` where NN
 **Current 26.10 configuration:**
 - **Qt6 6.10.2 is BUNDLED.** 26.10 is a Qt6 engine. The Fedora system-Qt6 swap is implemented but held back for now (the bundled PySide6 needs a Qt private-API symbol that Fedora's Qt6 does not export, which makes a system-Qt6 build uninstallable on a clean box), so 26.10 ships the vanilla bundled Qt 6.10.2 for now. This keeps the QtForPython / DccScriptingInterface editor tooling working. Restore path is a PySide6 rebuild against system Qt6 (tracked as "Option B").
 - **17-library Stage-1 system-swap set active** (14 Fedora system libraries: assimp, expat, freetype, google-benchmark, libsamplerate, lua, lz4, mikkelsen, openexr+imath, libpng, poly2tri, sqlite, vulkan-validation-layers, zlib; plus the 3-pack Stage-2 rebuilds dxc / spirv-cross / mcpp from `o3de-dependencies`). Only Qt6 remains bundled among the migration targets.
+- **Bundled Qt image plugins rebuilt (from 2610.0-116):** the bundled Qt's jpeg and tiff plugins linked `libjpeg.so.8` and `libtiff.so.5`, which Fedora does not ship, so `.jpg` textures failed in the Asset Processor and the Project Manager background was missing ([o3de/o3de#20213](https://github.com/o3de/o3de/issues/20213)). They are now rebuilt against Fedora's libjpeg-turbo and libtiff. The same release Recommends `wayland-devel` (the bundled Qt's WaylandClient component is needed to configure a project).
+- **Wayland desktops:** 26.10 Editor builds support X11 and XWayland only. On a Wayland desktop the Editor uses XWayland automatically, so leave `QT_QPA_PLATFORM` unset (or set it to `xcb`). Forcing native Wayland with `QT_QPA_PLATFORM=wayland` crashes the Editor at startup ([o3de/o3de#19835](https://github.com/o3de/o3de/issues/19835)); this is not GPU-vendor specific (seen on NVIDIA and AMD). Native Wayland support is tracked upstream in [o3de/o3de#18513](https://github.com/o3de/o3de/issues/18513).
 - **Chroots:** fedora-44, fedora-45, fedora-rawhide (now Fedora 46), centos-stream-10.
 
-**Current pin:** `stabilization/26100` at `b706d4f5` (2026-10-08), package `2610.0~20261008gitb706d4f-114`, COPR build 11095659. The fixes cherry-picked into the branch since the 2026-08-11 cut are listed in the upstream branch history: https://github.com/o3de/o3de/commits/stabilization/26100
+**Current pin:** `stabilization/26100` at `b706d4f5` (2026-10-08), package `2610.0~20261008gitb706d4f-116`, COPR build 11174533. The fixes cherry-picked into the branch since the 2026-08-11 cut are listed in the upstream branch history: https://github.com/o3de/o3de/commits/stabilization/26100
 
 **26.05 stabilization cycle (historical record, kept for provenance):**
 - **Stage 1 14-pack**: engine links to / runtime-discovers system `expat`, `freetype`, `liblz4`, `libpng`, `mikkelsen` (`libmikktspace.so.0`), `openexr` (+ `imath`), `zlib`, `lua-libs`, `poly2tri`, `assimp`, `sqlite-libs`, `libsamplerate`, `google-benchmark`, **`vulkan-validation-layers`** instead of bundled copies. 12-pack subset promoted to this channel 2026-05-11 (build 10444167); the 13th (`system_googlebenchmark`) promoted 2026-05-12 alongside the Patch0012 v2 AssetBuilder watchdog fix; the 14th (`system_vulkan_validation_layers`) promoted 2026-05-14 after Patch0013 v4 validated in experimental build 10457745.
@@ -72,7 +74,7 @@ With these in, the stabilization/26050 tip is essentially what 2605.0 will ship 
 
 **Lua 5.5 forward-compat** (Patch0010 + Patch0011) carries the engine through Fedora rawhide's Lua 5.5 transition. Behavior-preserving on Lua 5.4 (F44); engine compiles green on Lua 5.5 (rawhide) with `liblua-5.5.so` linkage confirmed via build 10442708 (2026-05-11).
 
-**For bleeding-edge `development`-branch builds**, see `hellaenergy/o3de-development` (ad-hoc cadence).
+**For bleeding-edge `development`-branch builds**, see `hellaenergy/o3de-development` (weekly Sunday build when the upstream tip has moved).
 
 **Gems with system runtime dependencies:** some o3de-extras gems (ROS 2 family, AudioEngineWwise, OpenXRVk, etc.) require external system runtimes the engine RPM does not bundle. Project Manager surfaces the requirement on each gem's information icon. See [`docs/GEMS_WITH_SYSTEM_DEPS.md`](https://github.com/nickschuetz/o3de-rpm/blob/main/docs/GEMS_WITH_SYSTEM_DEPS.md) for install paths and the project-build workflow.
 

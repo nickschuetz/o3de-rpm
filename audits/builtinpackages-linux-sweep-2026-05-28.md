@@ -2,7 +2,9 @@
 
 Snapshot inventory of every `ly_associate_package()` call in `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` against the engine source tree at `~/PROJECTS/o3de` (dev tip; superset of stabilization/26050). Status assigned against the current `o3de2605` packaging state on 26.05.0 GA.
 
-Source file: `o3de/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake`. Row count: 31. Six rows are multiplatform-shared (top of file), 25 are Linux-platform-specific.
+Source file: `o3de/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake`. Row count: 32. Six rows are multiplatform-shared (top of file), 26 are Linux-platform-specific.
+
+**Superseded since this sweep (note added 2026-10-21; the inventory below is left as of 2026-05-28):** tiff (row 9) was unblocked 2026-06-05 by Patch0016 (`TIFF_DISABLE_DEPRECATED`) and validated on experimental, though no channel carries `system_tiff` today; the `o3de2605-` prefix on the `o3de-dependencies` packages (rows 6, 12, 21, 22) was dropped 2026-08-17 (now `o3de-cityhash`, `o3de-mcpp-az`, `o3de-dxc-spirv`, `o3de-spirv-cross`); the 26.10 line bundles vanilla Qt 6 (qt-6.10.2-rev8 on stabilization/26100, qt-6.11.2-rev1 on development) and pyside6 in place of rows 15 and 29, and development builds sqlite through FetchContent (o3de/o3de#20072) instead of row 30's package. Re-run the sweep against stabilization/26100 for the 26.10 state.
 
 ## Status legend
 
@@ -52,10 +54,9 @@ Source file: `o3de/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cm
 
 ## Summary counts
 
-- **swap-active**: 17 (the original 14-pack: expat, freetype, libpng, expat, lz4, mikkelsen, openexr, poly2tri, lua, assimp, sqlite, libsamplerate, googlebenchmark, vulkan-validation-layers; plus zlib; plus the multiplatform additions rapidjson in -83, xxhash in -84, cityhash in -85; rapidxml landed -82 then walked back -87)
+- **swap-active**: 17 (the original 14-pack: zlib, freetype, libpng, expat, lz4, mikkelsen, openexr, poly2tri, lua, assimp, sqlite, libsamplerate, googlebenchmark, vulkan-validation-layers; plus the multiplatform additions rapidjson in -83, xxhash in -84, cityhash in -85; rapidxml landed -82 then walked back -87)
 - **swap-parked**: 2 (tiff, rapidxml; both blocked on patched-fork APIs that Fedora's upstream packages lack)
 - **copr-ship**: 9 (AWSNativeSDK, AwsIotDeviceSdkCpp, mcpp, DXC, SPIRVCross, azslc, astc-encoder, ISPCTexComp, plus the AwsGameliftServer dep in the COPR repo though not in this file)
-- **swap-parked**: 1 (tiff)
 - **restricted-bundle**: 2 (Qt 5.15-rev9, squish-ccr; tiff effectively also restricted today)
 - **blocked-stage-3**: 2 (openimageio-opencolorio, pyside2)
 - **blocked-stage-4**: 1 (OpenSSL)

@@ -537,11 +537,12 @@ SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
 # o3de/development + the monolithic permutation, off its old Stage-1
 # system-swap base (26050 shipped as 26.05.0 and is frozen; the stabilization
 # channel repointed to stabilization/26100, cut from development tip 2026-08-11).
-# It now builds the SAME development-snapshot SRPM as copr-development; the
-# experimental chroots carry `development_snapshot qt6 monolithic` (set via
-# edit-chroot), so the only per-channel difference from o3de-development is
-# the monolithic bcond. Alias kept so the copr-experimental* targets that
-# depend on it keep working.
+# It now builds the SAME development-snapshot SRPM as copr-development.
+# Since 2026-10-09 the experimental F44/F45 chroots carry the native-Wayland
+# preview set instead of monolithic: `development_snapshot qt6 swap_hook
+# wayland wayland_ui` + the system swaps (set via edit-chroot; rawhide/CS10
+# still hold the old set and get no builds). Alias kept so the
+# copr-experimental* targets that depend on it keep working.
 srpm-experimental: srpm-snapshot-development
 
 # ── RPM builds ──────────────────────────────────────────────────────────────
@@ -817,12 +818,12 @@ copr-stabilization: srpm-stabilization
 	copr-cli build --timeout 28800 $(COPR_OWNER)/$(COPR_PROJECT_STABILIZATION) \
 		~/rpmbuild/SRPMS/$(PKGNAME)-*.src.rpm
 
-# o3de-experimental: realigned 2026-07-24 onto o3de/development + the
-# monolithic permutation (chroots carry `development_snapshot qt6 monolithic`).
-# Builds the SAME dev-snapshot SRPM as copr-development (via the
-# srpm-experimental alias); the only per-channel difference is the monolithic
-# bcond, which ships the release/Monolithic static libs so a release game
-# export works (see FOLLOW_UPS "monolithic"). Our sandbox for work not yet
+# o3de-experimental: realigned 2026-07-24 onto o3de/development; since
+# 2026-10-09 the native-Wayland preview (F44/F45 chroots carry
+# `development_snapshot qt6 swap_hook wayland wayland_ui` + swaps; monolithic
+# graduated to o3de-development 2026-08-03). Builds the SAME dev-snapshot SRPM
+# as copr-development (via the srpm-experimental alias); the per-channel
+# difference is the chroot bconds. Our sandbox for work not yet
 # ready for the community channels. qt6-merge-gate hard-stops if development
 # is on Qt6 but the experimental chroots lack the qt6 bcond.
 copr-experimental: srpm-experimental

@@ -26,7 +26,7 @@ Per-package classification:
 - **ahead-of-engine**: COPR ships newer than the engine pin (informational).
 - **gap**: engine references it, we do not ship in COPR, no `system_<X>` bcond in the spec.
 - **covered-by-spec**: engine references it; covered by `%bcond_with system_<X>` in `o3de.spec`.
-- **bundled-exception**: engine references it; deliberately bundled with a `BUNDLED_LIBRARIES.md` justification rather than swapped (e.g. `qt` (Qt6 6.10.2, bundled for 26.10 pending Option B), `pyside6`, `OpenSSL`). Informational, not a gap.
+- **bundled-exception**: engine references it; deliberately bundled with a `BUNDLED_LIBRARIES.md` justification rather than swapped (e.g. `qt` (Qt6, bundled for 26.10 pending Option B: 6.10.2 on `stabilization/26100`, 6.11.2 on `development`), `pyside6`, `OpenSSL`). Informational, not a gap.
 - **accepted-drift**: COPR version intentionally diverges from the engine pin, with a documented reason. Informational, does not fail the run.
 - **cruft**: COPR ships it but the engine no longer references it.
 
@@ -77,8 +77,9 @@ Exit codes (so callers/CI can react):
 Version-agnostic (matches the `qt-6` major, not the exact rev, so an upstream
 rev bump does not spuriously flip the verdict) and outage-aware. The
 `qt6-merge-gate` Makefile target builds on it: a pre-flight interlock wired into
-`make copr-development` / `copr-development-debug` / `copr-development-and-test`
-and the `snapshot-development.yml` cron, it hard-stops a build if development has
+`make copr-development` / `copr-development-debug` / `copr-development-and-test`,
+`copr-experimental` / `copr-experimental-and-test`, and the
+`snapshot-development.yml` cron, it hard-stops a build if development has
 gone Qt6 but the target COPR chroots still lack the `qt6` bcond, printing the
 exact `edit-chroot` flip commands.
 
@@ -111,7 +112,7 @@ or when the engine adds a new `ly_associate_package` entry, edit
 - `bundling_exception:`. Engine packages intentionally bundled with a
   `BUNDLED_LIBRARIES.md` justification (not in COPR, not behind a spec
   bcond); classified `bundled-exception` instead of `gap`. `qt` lives here
-  (Qt6 6.10.2 bundled for the 26.10 line, pending Option B), alongside
+  (Qt6 bundled for the 26.10 line, pending Option B), alongside
   `pyside6`, `OpenSSL`, and the restricted bundles.
 - `accepted_drift:`. Engine packages whose COPR version intentionally
   diverges from the engine pin, with a documented reason; classified

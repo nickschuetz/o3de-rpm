@@ -4,7 +4,7 @@ Some O3DE gems require system-level libraries or runtimes that this RPM does NOT
 
 ## Why this exists
 
-The `o3de2605` RPM ships the engine and ~117 gems sourced from the `o3de/o3de` repository. Additional gems live in the separate [`o3de/o3de-extras`](https://github.com/o3de/o3de-extras) repository and are not bundled into this RPM. They are discovered automatically by Project Manager via a default-registered remote gem repository and shown in the gem catalog with a download-cloud icon, indicating they fetch on demand into `~/.o3de/gems/<gem-name>/` when the user clicks "Download Gem". This is the same architecture upstream uses on Windows and Debian, and it lets each user opt in to only the gems they need.
+The `o3deNNNN` RPM (`o3de2605`, `o3de2610`) ships the engine and ~117 gems sourced from the `o3de/o3de` repository. Additional gems live in the separate [`o3de/o3de-extras`](https://github.com/o3de/o3de-extras) repository and are not bundled into this RPM. They are discovered automatically by Project Manager via a default-registered remote gem repository and shown in the gem catalog with a download-cloud icon, indicating they fetch on demand into `~/.o3de/gems/<gem-name>/` when the user clicks "Download Gem". This is the same architecture upstream uses on Windows and Debian, and it lets each user opt in to only the gems they need.
 
 A subset of those remote gems require external runtime dependencies that are too heavy or too license-encumbered to bundle into the engine RPM (or to ship from any single COPR project). Project Manager surfaces this requirement directly: each gem with a system dependency shows an information icon next to its description with text like `Requires ROS 2 installation (supported distributions: Humble, Jazzy). Source your workspace before building the Gem.` That message is the canonical source of truth for what each gem needs.
 
@@ -12,14 +12,14 @@ When a user enables one of these gems in their project, the project-side `cmake 
 
 ## General workflow
 
-1. Open Project Manager (run `o3de2605` from a terminal or launch via the desktop entry).
+1. Open Project Manager (run `o3deNNNN`, e.g. `o3de2610`, from a terminal or launch via the desktop entry).
 2. Browse the Gem Catalog and find the gem you want.
 3. Read the information icon next to the gem description for any runtime dependency notes.
 4. Install the required runtime via your preferred path (per-family details below).
 5. Click "Download Gem" in Project Manager to fetch the gem source into `~/.o3de/gems/`.
 6. Add the gem to your project's gem list (Project Manager `Edit Project Gems` UI or directly in `<project>/project.json`).
 7. Source any required setup script in the shell where you run the project's cmake (e.g. `source /opt/ros/lyrical/setup.bash`).
-8. Build the project with `cmake -S <project> -B <project>/build` followed by `cmake --build <project>/build`.
+8. Build the project with `cmake -S <project> -B <project>/build` followed by `cmake --build <project>/build`. This needs the `o3deNNNN-devel` subpackage installed: every project's launchers link static engine archives it carries.
 
 ## ROS 2 family
 
@@ -83,13 +83,13 @@ This section will be expanded with concrete Fedora-side install steps the first 
 
 ## XR (stub)
 
-`OpenXRVk` and `XR` require an OpenXR runtime appropriate for the target headset (Meta Quest, Valve Index, etc.). Fedora ships `openxr` and `openxr-loader` in the default repositories; headset-specific runtime layers (Meta XR, SteamVR, Monado) are obtained per vendor.
+`OpenXRVk` and `XR` require an OpenXR runtime appropriate for the target headset (Meta Quest, Valve Index, etc.). Fedora ships `openxr` and `openxr-libs` in the default repositories; headset-specific runtime layers (Meta XR, SteamVR, Monado) are obtained per vendor.
 
 This section will be expanded the first time a user reports their workflow.
 
 ## AI / ML (stub)
 
-`MachineLearning` requires an inference runtime; the gem author specifies which one in the Project Manager information icon (likely ONNX Runtime or similar). Fedora ships `onnxruntime` in `rpmfusion` (when not in the main repos).
+`MachineLearning` requires an inference runtime; the gem author specifies which one in the Project Manager information icon (likely ONNX Runtime or similar). Fedora ships `onnxruntime` in the main repositories (1.22 on Fedora 44, checked 2026-10-21).
 
 This section will be expanded the first time a user reports their workflow.
 

@@ -52,26 +52,24 @@ In `o3de.spec`:
   - <list any spec changes that landed alongside the release bump>
   ```
 
-If the release is a major (YYMM bump rather than point release):
-- Bump `%global o3de_major_tag` if applicable (e.g., 2605 -> 2610)
-- The Makefile's `PKGNAME` derivation will pick up the new tag automatically
+If the release is a major (YYMM bump rather than point release), nothing else needs bumping: `o3de_major_tag`, the package name (e.g., `o3de2610`) and the install prefix are all derived from `stable_tag`, and the Makefile's `PKGNAME` derivation follows.
 
 ### 4. SBOM bump
 
 In `sources/o3de2605.cdx.json` (or whichever `o3deNNNN` SBOM is current):
 - Set `"version": "<TAG>-1"` in both the metadata.component and components entries
 
-If a major bump: rename the SBOM file to match the new pkgname (`o3de2610.cdx.json`), update the spec's Source13 reference, update the install path in `%install`.
+If a major bump: the spec's Source13 is `%{o3de_pkgname}.cdx.json`, so it picks the new major's file (`o3de2610.cdx.json`) automatically; create that file if it does not exist yet, and keep the previous major's file for its line.
 
 ### 5. Local validation
 
 ```bash
-make spec-parse    # all four bcond modes
-make srpm          # builds the SRPM locally; verifies sha256 against Source0
+make lint          # spec-parse in all four bcond modes, plus rpmlint and the validators
+make srpm          # builds the SRPM locally (needs the tarball in sources/)
 ls -la ~/rpmbuild/SRPMS/o3de*-<TAG>-*.src.rpm
 ```
 
-If `make srpm` fails on sha256 mismatch, the tarball you downloaded doesn't match the value you pasted in step 3. Recompute and try again.
+The sha256 is checked by `make release-stable` (step 7) and again in `%prep`. If it reports a mismatch, the tarball you downloaded doesn't match the value you pasted in step 3. Recompute and try again.
 
 ### 6. Commit + push
 
@@ -91,13 +89,15 @@ git push origin main
 
 ### 7. Push to COPR
 
+If the release is a major, first bring the `hellaenergy/o3de` and `hellaenergy/o3de-testing` chroots onto the new line's `--rpmbuild-with` set. They still carry the previous major's set, and `--with` flags on the SRPM do not propagate to the COPR rebuild. Compare against the `o3de-stabilization` chroots (`copr-cli get-chroot hellaenergy/o3de-stabilization/<chroot>`), which built this line during the stabilization window. `edit-chroot --rpmbuild-with` replaces the whole list, so pass the full set and verify with `get-chroot` afterwards.
+
 ```bash
-make copr-stable
+make release-stable
 ```
 
-This fires the build into `hellaenergy/o3de`. Wall time ~4-6 hours across F44 + F45 + rawhide + CS10 chroots.
+`release-stable` checks that the spec's sha256 is real and matches the tarball in `sources/`, then runs `make copr-stable`, which fires the build into `hellaenergy/o3de`. Wall time ~4-6 hours across F44 + F45 + rawhide + CS10 chroots.
 
-While waiting: optionally trigger the post-build CI test via `make trigger-tests RPM_URL=<url-from-copr-build>`.
+While waiting: optionally trigger the post-build CI test via `make trigger-tests BUILD_ID=<copr-build-id> COPR_PROJECT=o3de`.
 
 ### 8. COPR project metadata update
 
@@ -140,11 +140,10 @@ See `CONTRIBUTING.md` "COPR Projects" section for the channel layout and the rat
 ## Failure modes
 
 - **sha256 mismatch in make srpm**: redownload the tarball; GitHub's CDN may have served partial bytes. Retry the sha256 + paste sequence.
-- **COPR build fails at %prep on a carry-patch**: the release tarball may differ from stabilization tip's last state. Check whether any of our 13 carry-patches need to retire (they should, since they targeted stabilization/26050 and that branch's tip is now folded into main). Sequence: confirm the upstream PR merged, identify the snapshot source branch, verify the merge is reachable from main at the release tag, grep the target file on the release tarball. Only retire when all four checks pass.
+- **COPR build fails at %prep on a carry-patch**: the release tarball may differ from stabilization tip's last state. Check whether any carry-patch needs to retire (on the 26.10 line the stabilization flag set applies only 0003, 0010, 0011, 0014, 0018 and 0020). Sequence: confirm the upstream PR merged, identify the snapshot source branch, verify the merge is reachable from main at the release tag, grep the target file on the release tarball. Only retire when all four checks pass.
 - **CS10 fails but F44/F45/rawhide pass**: known historical gaps (libunwind-devel in EPEL-10 not base CS10, RPM 4.19 spec-parser quirks). Check the build log against known CS10-specific blockers before assuming a real regression.
 
 ## Related
 
 - `CONTRIBUTING.md`: "COPR Projects" section explains channel topology
 - `tests/README.md`: Tier matrix for post-install validation
-- `MEMORY.md`: session-history references

@@ -8,7 +8,7 @@
 # Usage:
 #   tests/test-branch.sh <git-ref>                 # snapshot mode
 #   tests/test-branch.sh --tag <release-tag>       # stable mode
-#   tests/test-branch.sh stabilization/26050
+#   tests/test-branch.sh stabilization/26100
 #   tests/test-branch.sh main
 #
 # Requirements (fail fast if missing):
