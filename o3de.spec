@@ -427,7 +427,7 @@ Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        122%{?dist}
+Release:        123%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -731,7 +731,12 @@ Patch0013:      0013-vulkan-validationlayers-gate-on-system.patch
 # under the lazy model it is unnecessary anyway: ly_associate_package
 # only registers, and with the reference removed the resolver never
 # fires for it. See the patch header.
-%if !%{o3de_base_2610} && %{with swap_hook}
+# Applies at fuzz 0 on the 26.10 base too (stabilization/26100 701b503c and
+# development 2462b90, 2026-10-21). It is not one of the upstream-merged
+# carry-patches; gating it off with them left every 26.10 channel shipping
+# the bundled libVkLayer_khronos_validation.so 1.2.198 next to its
+# Requires: vulkan-validation-layers.
+%if %{with swap_hook}
 Patch0015:      0015-vulkan-validationlayers-system-runtime-hunks.patch
 %endif
 
@@ -759,10 +764,13 @@ Patch0014:      0014-3rdpartypackages-system-swap-download-hook.patch
 # migrated two; FrameCaptureSystemComponent.cpp was born clean,
 # verified on pin 8e75050 and dev tip 2026-06-04). Generated against
 # the pin with Patch0007 applied (ordering dependency, applies after
-# 0007). Gated on system_tiff while the swap revalidates on
-# o3de-experimental; if it proves out, candidate for upstream and the
-# Bundling Library Exception (Option C) retires.
-%if %{with system_tiff}
+# 0007). Gated on system_tiff.
+# Merged upstream as o3de/o3de#19825 (development, 2026-06-06, 32df480a),
+# so the 26.10 base already defines the macro in all three TUs and this
+# patch rejects there (all three hunks FAILED against 701b503c,
+# 2026-10-21). Gated off on the 26.10 base (o3de_base_2610) like the
+# other upstream-merged carry-patches.
+%if %{with system_tiff} && !%{o3de_base_2610}
 Patch0016:      0016-tiff-disable-deprecated-typedefs.patch
 %endif
 
@@ -885,6 +893,11 @@ Source46:       FindRapidXML-system.cmake
 Source47:       FindRapidJSON-system.cmake
 Source48:       Findxxhash-system.cmake
 Source49:       Findcityhash-system.cmake
+# development only: replaces the in-tree
+# Code/3rdParty/{rapidjson,xxhash,cityhash,mikktspace} providers, which since
+# o3de/o3de#20097 win over the Find shims above (see the file header).
+# Copied at %%prep only where the provider file exists.
+Source77:       fetchcontent-provider-system.cmake
 # System Qt6 swap shim (copied to cmake/3rdParty/FindQt.cmake at %%prep).
 Source70:       FindQt6-system.cmake
 Source71:       sqlite-fetchcontent-system.cmake
@@ -1590,6 +1603,9 @@ mkdir -p %{_builddir}/%{o3de_source_dir}/3rdParty
 # 3rdParty::<X> target from the system library.
 %if %{with system_mikkelsen}
 cp %{SOURCE30} cmake/3rdParty/Findmikkelsen.cmake
+if [ -f Code/3rdParty/mikktspace/CMakeLists.txt ]; then
+    cp %{SOURCE77} Code/3rdParty/mikktspace/CMakeLists.txt
+fi
 %endif
 %if %{with system_qt6}
 # Named FindQt.cmake (not FindQt6): the engine calls find_package(Qt ... MODULE).
@@ -1650,15 +1666,24 @@ cp %{SOURCE45} cmake/3rdParty/FindGoogleBenchmark.cmake
 %endif
 %if %{with system_rapidjson}
 cp %{SOURCE47} cmake/3rdParty/FindRapidJSON.cmake
+if [ -f Code/3rdParty/rapidjson/CMakeLists.txt ]; then
+    cp %{SOURCE77} Code/3rdParty/rapidjson/CMakeLists.txt
+fi
 %endif
 %if %{with system_rapidxml}
 cp %{SOURCE46} cmake/3rdParty/FindRapidXML.cmake
 %endif
 %if %{with system_xxhash}
 cp %{SOURCE48} cmake/3rdParty/Findxxhash.cmake
+if [ -f Code/3rdParty/xxhash/CMakeLists.txt ]; then
+    cp %{SOURCE77} Code/3rdParty/xxhash/CMakeLists.txt
+fi
 %endif
 %if %{with system_cityhash}
 cp %{SOURCE49} cmake/3rdParty/Findcityhash.cmake
+if [ -f Code/3rdParty/cityhash/CMakeLists.txt ]; then
+    cp %{SOURCE77} Code/3rdParty/cityhash/CMakeLists.txt
+fi
 %endif
 
 # ── BUILD ────────────────────────────────────────────────────────────────────

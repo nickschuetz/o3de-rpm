@@ -297,8 +297,8 @@ for swap in \
     "sqlite-libs:libsqlite3\.so\.[0-9]+" \
     "poly2tri:libpoly2tri\.so\.[0-9]+(\.[0-9]+)*" \
     "google-benchmark:libbenchmark\.so\.[0-9]+" \
-    "o3de2605-mcpp-az:libmcpp\.so\.[0-9]+" \
-    "o3de2605-cityhash:libcityhash\.so\.[0-9]+" \
+    "o3de-mcpp-az:libmcpp\.so\.[0-9]+" \
+    "o3de-cityhash:libcityhash\.so\.[0-9]+" \
 ; do
     # Stage 2 binary-shellout swaps (o3de2605-dxc-spirv, o3de2605-spirv-cross)
     # don't appear in auto-Requires (engine shells out to the binaries at

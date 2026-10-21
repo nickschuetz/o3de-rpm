@@ -176,15 +176,16 @@ snapshot:
 # SNAPSHOT_DEVELOPMENT_FLAGS) and the COPR chroot lists (print-copr-with) are
 # all derived from it, so adding or dropping a swap is one edit here plus an
 # edit-chroot pass over the projects that use it (see POST_RELEASE.md step 7).
-O3DE_SWAPS := assimp dxc expat freetype googlebenchmark libsamplerate lua lz4 mcpp \
-              mikkelsen openexr png poly2tri spirvcross sqlite vulkan_validation_layers zlib
+O3DE_SWAPS := assimp cityhash dxc expat freetype googlebenchmark libsamplerate lua lz4 mcpp \
+              mikkelsen openexr png poly2tri rapidjson spirvcross sqlite tiff \
+              vulkan_validation_layers xxhash zlib
 
 # Swaps a COPR chroot cannot take, removed from that chroot's print-copr-with
-# list only (the binary build follows the chroot, not the SRPM). Empty today.
-# If rapidjson joins O3DE_SWAPS, list it for CS10: EPEL-10's rapidjson 1.1.0
-# release trips gcc-toolset-15's -Werror=deprecated on std::iterator
-# (COPR 10526694).
-O3DE_SWAPS_SKIP_centos-stream-10-x86_64 :=
+# list only (the binary build follows the chroot, not the SRPM). CS10 skips
+# rapidjson: EPEL-10 still ships the rapidjson 1.1.0 release (1.1.0-42.el10_0
+# on 2026-10-21), which trips gcc-toolset-15's -Werror=deprecated on
+# std::iterator (COPR 10526694). Fedora ships a post-1.1.0 snapshot.
+O3DE_SWAPS_SKIP_centos-stream-10-x86_64 := rapidjson
 
 # Per-channel bconds exactly as the COPR chroots carry them (--rpmbuild-with).
 # No `snapshot`: COPR's binary build gets snapshot mode from the tarball
@@ -541,12 +542,11 @@ SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
 # builds; combined 6-pack validation lands with the same commit that
 # adds system_lz4.
 #
-# system_tiff Option C (Bundling Library Exception path, 2026-05-05) —
-# Patch0008 narrow-guard attempt failed because CryCommon's own internal
-# headers (Cry_ValidNumber.h's DoubleU64 macros) use `uint64` directly,
-# transitively included from EditorDefs.h before <tiffio.h>. Reordering
-# the includes ABI-mismatches at link time. Engine-wide CryCommon C99
-# migration ruled out as out-of-scope. Bundle stays.
+# system_tiff: the 2026-05-05 "Option C" decision to keep the bundled libtiff
+# (CryCommon's int64/uint64 typedefs collided with libtiff's) was superseded
+# 2026-06-05 by Patch0016, which defines TIFF_DISABLE_DEPRECATED before
+# <tiffio.h>. Upstream merged it as o3de/o3de#19825, so the 26.10 base needs
+# no patch.
 #
 # system_lua added 2026-05-07 (Stage 1 9-pack). Patch0008 carry-patch
 # (commit d69bb9c) drops AzCore ScriptContext.cpp's include of Lua's

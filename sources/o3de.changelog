@@ -1,4 +1,29 @@
 %changelog
+* Wed Oct 21 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-123
+- Use the system rapidjson, xxhash, cityhash and libtiff on the 26.10 line
+  (rapidjson not on CentOS Stream 10, whose EPEL rapidjson is still the
+  1.1.0 release). The first three were active on the 26.05 stable and
+  testing channels since 2605.0-95 but never entered the stabilization
+  option set that every 26.10 channel was copied from; system_tiff was
+  validated on 2026-06-05 and only ever ran on the old experimental channel.
+- Skip Patch0016 on the 26.10 base: upstream merged the same change as
+  o3de/o3de#19825, so the patch no longer applies there.
+- System libtiff also removes a latent hazard: the bundled static libtiff
+  4.2.0 is exported, unversioned, from libEditorLib.so and four Atom
+  libraries. Those are all loaded RTLD_LOCAL today, but if one were ever
+  loaded RTLD_GLOBAL its copy would shadow Fedora's libtiff for the Qt TIFF
+  plugin rebuilt in -116.
+- development: rapidjson, xxhash, cityhash and mikktspace are now built from
+  in-tree providers (o3de/o3de#20068, #20076, #20078, #20079), which since
+  o3de/o3de#20097 win over our Find modules, so those swaps (including the
+  long-active system_mikkelsen) had no effect there. Source77 replaces the
+  providers with the system packages when the swap is on.
+- Patch0015 (Vulkan validation layers runtime hunks) applies on the 26.10
+  base again. It was gated off with the upstream-merged carry-patches,
+  though it is not one of them, so every 26.10 build shipped the bundled
+  libVkLayer_khronos_validation.so 1.2.198 next to its Requires on
+  vulkan-validation-layers.
+
 * Wed Oct 21 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-122
 - Get the stable and testing channels ready for the 26.10.0 release
   tarball. The carry-patches upstream already merged for 26.10 (0001, 0002,

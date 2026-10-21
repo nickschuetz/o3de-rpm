@@ -50,7 +50,7 @@ if (NOT CITYHASH_SYSTEM_INCLUDE_DIR OR NOT CITYHASH_SYSTEM_LIBRARY)
     message(FATAL_ERROR
         "Findcityhash (system stub): could not locate city.h "
         "(${CITYHASH_SYSTEM_INCLUDE_DIR}) and/or libcityhash "
-        "(${CITYHASH_SYSTEM_LIBRARY}). Install o3de2605-cityhash-devel "
+        "(${CITYHASH_SYSTEM_LIBRARY}). Install o3de-cityhash-devel "
         "from hellaenergy/o3de-dependencies on COPR, or set "
         "LY_USE_SYSTEM_CITYHASH=OFF to fall back to the upstream fetcher.")
 endif()
