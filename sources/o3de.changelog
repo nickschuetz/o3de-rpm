@@ -1,3 +1,13 @@
+%changelog
+* Wed Oct 21 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-120
+- Fix the changelog include: the -117, -118 and -119 entries had been added
+  above the %%changelog line of sources/o3de.changelog, so they landed in the
+  main package's %%postun (which runs just before the %%include) and were
+  missing from the package changelog. Upgrading from or removing 117-119
+  reports a failed %%postun scriptlet (exit 2) once; the transaction still
+  completes and the desktop/icon cache refresh still runs. make lint now
+  fails if the file does not start with %%changelog.
+
 * Wed Oct 21 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-119
 - The -devel description now says building any project needs it (project
   launchers link the static AzGameFramework and Launcher.Static); it used to
@@ -13,7 +23,6 @@
   libjpeg.so.8. %%build now picks the source pair matching the bundled Qt, so
   development and experimental builds no longer stop at the version check.
 
-%changelog
 * Mon Oct 19 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-116
 - Rebuild the bundled Qt's jpeg and tiff image-format plugins against Fedora's
   libjpeg-turbo and libtiff (from Qt 6.10.2 source, Source72-74). The bundled

@@ -101,6 +101,8 @@ help:
 # ── Lint / parse ────────────────────────────────────────────────────────────
 
 lint: spec-parse spec-parse-snapshot spec-parse-stabilization spec-parse-experimental
+	@echo ">> sources/o3de.changelog starts with %changelog (entries above it leak into %postun)"
+	@[ "$$(head -1 sources/o3de.changelog)" = "%changelog" ] || { echo "ERROR: sources/o3de.changelog line 1 must be %changelog; add new entries BELOW it" >&2; exit 1; }
 	@echo ">> rpmlint o3de.spec (changelog inlined via textual splice; tracked spec keeps %include)"
 	@TMPDIR=$$(mktemp -d /tmp/o3de.lint.XXXXXX); \
 	  awk '/^%include %{SOURCE99}$$/{ while ((getline l < "sources/o3de.changelog") > 0) print l; next } {print}' o3de.spec > $$TMPDIR/o3de.spec; \
