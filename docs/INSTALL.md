@@ -59,6 +59,8 @@ The command line tool is available as `o3de2610-cli`. Example:
 o3de2610-cli create-project --project-path ~/MyProject --project-name MyProject
 ```
 
+The first `o3de2610-cli` command downloads O3DE's Python runtime and registers the engine for your account, the same setup Project Manager does on its first start (packages from 2610.0-126 on; with older ones, run `/opt/O3DE/26.10.0/python/get_python.sh` and then `o3de2610-cli register --this-engine` first).
+
 On a Wayland desktop, Project Manager and the Editor run through XWayland automatically. The 26.10 Editor supports X11 and XWayland only, so leave `QT_QPA_PLATFORM` unset or set it to `xcb`: with `QT_QPA_PLATFORM=wayland` the Editor crashes at startup (https://github.com/o3de/o3de/issues/19835).
 
 On first launch, O3DE downloads its Python runtime into your home directory, so the first start needs an internet connection and takes a few minutes. Per-user data, such as registered projects and Gems, is stored in `~/.o3de`.

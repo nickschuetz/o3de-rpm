@@ -1,4 +1,22 @@
 %changelog
+* Wed Oct 21 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-126
+- o3deNNNN-cli now sets up the per-user Python runtime (get_python.sh) and
+  registers the engine in ~/.o3de on first use, as Project Manager does at
+  startup. On a fresh CentOS Stream 10 install of stabilization 2610.0-125
+  the documented "o3de2610-cli create-project" failed with "Python has not
+  been downloaded/configured yet", and once Python was set up the project
+  configure stopped at "Engine registration is required before configuring
+  a project". The wrapper also reruns get_python.sh when an upgrade changes
+  the Python package.
+- %%post no longer runs "o3de.sh register --this-engine" as root. The
+  manifest is per-user and root has no O3DE Python venv, so it only printed
+  "Python has not been downloaded/configured yet" during the transaction.
+  The install message now says project builds need -devel.
+- EL10: recommend tk and tcl (Tk/Tcl 8.6 there) instead of Fedora's tk8 and
+  tcl8, which do not exist on CentOS Stream 10. The documented
+  "dnf install $(rpm -q --recommends o3de2610 ...)" command failed there
+  with "Unable to find a match: tcl8 tk8".
+
 * Wed Oct 21 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-125
 - Project builds against the installed SDK now use the system libraries the
   engine was built with. The SDK did not record the LY_USE_SYSTEM_<NAME>

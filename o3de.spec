@@ -427,7 +427,7 @@ Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        125%{?dist}
+Release:        126%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -1437,8 +1437,16 @@ Recommends:     wayland-devel
 # Android Project Generator; Export Settings stuck on the missing Tix
 # package even after installing tix by hand. Both reproduced + verified
 # fixed locally against the bundled python 3.10.
+# EL10 still ships Tk/Tcl 8.6 as tk/tcl and has no tk8/tcl8 packages; the
+# Fedora names there made the documented "dnf install $(rpm -q --recommends
+# ...)" command fail with "Unable to find a match: tcl8 tk8" (2026-10-21).
+%if 0%{?rhel}
+Recommends:     tk
+Recommends:     tcl
+%else
 Recommends:     tk8
 Recommends:     tcl8
+%endif
 Recommends:     tix
 
 # Stage 1 system-library swap activations also expose their *-devel as
@@ -2516,9 +2524,11 @@ appstream-util validate-relax --nonet \
 
 # ── Scriptlets ───────────────────────────────────────────────────────────────
 %post
-if [ -x %{o3de_install_prefix}/scripts/o3de.sh ]; then
-    %{o3de_install_prefix}/scripts/o3de.sh register --this-engine || :
-fi
+# No engine registration here: the manifest is per-user (~/.o3de), %%post
+# runs as root, and root has no O3DE Python venv, so the old
+# "o3de.sh register --this-engine" only printed "Python has not been
+# downloaded/configured yet" during the transaction. Project Manager and
+# %{name}-cli (Source16) register the engine on first use instead.
 /usr/bin/update-desktop-database -q %{_datadir}/applications &>/dev/null || :
 /usr/bin/gtk-update-icon-cache --quiet --force \
     %{_datadir}/icons/hicolor &>/dev/null || :
@@ -2538,17 +2548,14 @@ subpackage if available:
 
     sudo dnf install %{name}-debug
 
-For native C++ gem development that needs to static-link against
-engine internals (test framework, builder targets, etc.), also
-install the devel subpackage:
+Building a project (Project Manager's Build, or cmake against the
+engine) needs the devel subpackage:
 
     sudo dnf install %{name}-devel
 
-Most user projects (Lua/ScriptCanvas, native C++ projects against
-engine .so's) do not need %{name}-devel.
-
-The per-user Python venv bootstraps on first launch automatically;
-to pre-bootstrap it manually run:
+The per-user Python runtime downloads and the engine registers itself
+the first time you start Project Manager or run %{name}-cli; to set
+up Python ahead of time run:
 
     %{o3de_install_prefix}/python/get_python.sh
 
@@ -2560,7 +2567,6 @@ Launch the editor (Project Manager GUI):
 Use the command-line tool for project / gem / engine management:
 
     %{name}-cli --help                 # list sub-commands
-    %{name}-cli register --this-engine # one-time per-user setup
     %{name}-cli create-project --project-path ~/MyGame --project-name MyGame
 
 EOF

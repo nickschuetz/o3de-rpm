@@ -28,4 +28,38 @@
 # …). The Project Manager / Editor GUI launcher is /usr/bin/o3deNNNN
 # (separate command, same versioning).
 
-exec @O3DE_INSTALL_PREFIX@/scripts/o3de.sh "$@"
+o3de_prefix=@O3DE_INSTALL_PREFIX@
+
+# O3DE's Python runtime is per-user (~/.o3de/Python), fetched by
+# python/get_python.sh. Project Manager runs that on first launch, but
+# o3de.sh only prints "Python has not been downloaded/configured yet" and
+# exits, so the first CLI command on a new account failed (seen with
+# create-project on a fresh CentOS Stream 10 install, 2026-10-21). Run it
+# here too: on first use, and after an upgrade changes the Python package
+# (python.sh then reports "Python has been updated"). Its output goes to
+# stderr so the command's own stdout stays clean for scripts.
+if ! "$o3de_prefix/python/python.sh" -c '' >/dev/null 2>&1; then
+    echo "${0##*/}: setting up O3DE's Python runtime in ~/.o3de/Python (one time; needs an internet connection)" >&2
+    "$o3de_prefix/python/get_python.sh" >&2 || {
+        echo "${0##*/}: $o3de_prefix/python/get_python.sh failed" >&2
+        exit 1
+    }
+fi
+
+# A project configure also needs this engine in the user's manifest
+# (cmake/EngineFinder.cmake: "Engine registration is required before
+# configuring a project"). Project Manager registers it on launch and
+# %post can't (it runs as root), so register it here when the manifest
+# doesn't list it yet; leave it to the user when the command is register.
+# The manifest stores the resolved path (manifest.get_this_engine_path()),
+# which differs from the prefix where /opt is a symlink. As with Project
+# Manager, registering puts this engine first in the manifest's list.
+o3de_real=$(readlink -f "$o3de_prefix")
+if [ "$1" != register ] &&
+   ! grep -qF -e "\"$o3de_prefix\"" -e "\"$o3de_real\"" \
+        "$HOME/.o3de/o3de_manifest.json" 2>/dev/null; then
+    "$o3de_prefix/scripts/o3de.sh" register --this-engine >&2 ||
+        echo "${0##*/}: could not register $o3de_prefix; run: ${0##*/} register --this-engine" >&2
+fi
+
+exec "$o3de_prefix/scripts/o3de.sh" "$@"
