@@ -427,7 +427,7 @@ Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        124%{?dist}
+Release:        125%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -1530,6 +1530,70 @@ This build is a development snapshot at commit %{shortcommit} (%{snapshot_date})
 %package devel
 Summary:        Open 3D Engine — static archives for native C++ development
 Requires:       %{name}%{?_isa} = %{version}-%{release}
+# Project builds against the SDK resolve every system-library swap through
+# its Find shim (the SDK records the swap set, see %%install), and a shim
+# stops configure when the headers are missing. The main package only
+# Recommends these; -devel is what project builds install, so it Requires
+# them. Same conditionals as the main package's Recommends, plus zlib-devel
+# (Recommended there unconditionally) for the system_zlib shim.
+%if %{with system_assimp}
+Requires:       assimp-devel
+%endif
+%if %{with system_expat}
+Requires:       expat-devel
+%endif
+%if %{with system_freetype}
+Requires:       freetype-devel
+%endif
+%if %{with system_libsamplerate}
+Requires:       libsamplerate-devel
+%endif
+%if %{with system_lz4}
+Requires:       lz4-devel
+%endif
+%if %{with system_mikkelsen}
+Requires:       mikkelsen-devel
+%endif
+%if %{with system_openexr}
+Requires:       openexr-devel
+Requires:       imath-devel
+%endif
+%if %{with system_png}
+Requires:       libpng-devel
+%endif
+%if %{with system_poly2tri}
+Requires:       poly2tri-devel
+%endif
+%if %{with system_rapidjson}
+Requires:       rapidjson-devel
+%endif
+%if %{with system_rapidxml}
+Requires:       rapidxml-devel
+%endif
+%if %{with system_xxhash}
+Requires:       xxhash-devel
+%endif
+%if %{with system_cityhash}
+Requires:       o3de-cityhash-devel
+%endif
+%if %{with system_sqlite}
+Requires:       sqlite-devel
+%endif
+%if %{with system_tiff}
+Requires:       libtiff-devel
+%endif
+%if %{with system_lua}
+Requires:       lua-devel
+%endif
+%if %{with system_googlebenchmark}
+Requires:       google-benchmark-devel
+%endif
+%if %{with system_mcpp}
+Requires:       o3de-mcpp-az-devel
+%endif
+%if %{with system_zlib}
+Requires:       zlib-devel
+%endif
 
 %description devel
 Static archives (.a) for native C++ development against the Open 3D
@@ -1963,6 +2027,78 @@ DESTDIR=%{buildroot} cmake --install build-mono --config release --component MON
 # that installed it and replaced the stub Findmeshoptimizer.cmake was
 # retired in 2610.0-121.
 %endif
+
+# Project builds against the installed SDK must resolve 3rdParty targets the
+# way this build did. Patch0014 reads LY_USE_SYSTEM_<NAME> at configure time,
+# and the SDK does not record the values this build passed, so a project
+# configure downloads the bundled packages for every swap (Lua 5.4.4, zlib,
+# lz4, rapidjson 1.1.0, ...) and builds against them next to engine
+# libraries compiled with the system copies. A profile GameLauncher then
+# exports the bundled Lua, libAzCore.so binds to it instead of liblua-5.5.so,
+# and the launcher crashes at startup in luaL_openselectedlibs; a monolithic
+# launcher fails to link on that function, which only Lua 5.5 has.
+# Record the set passed to cmake in %%build (keep the two lists in step) in
+# the generated BuiltInPackages file, which cmake/3rdParty/BuiltInPackages.cmake
+# includes before its first ly_download_associated_package() call.
+# The hook checks the upper-cased target name, so the recorded
+# LY_USE_SYSTEM_VULKAN_VALIDATION_LAYERS never matches vulkan-validationlayers.
+# That is intended: Patch0015 drops the 3rdParty::vulkan-validationlayers
+# reference at engine configure, so no installed target asks for it. Gating
+# LY_USE_SYSTEM_VULKAN-VALIDATIONLAYERS as well would make an SDK that still
+# has the reference (2610.0-120 and older) fail at project configure, since
+# no Findvulkan-validationlayers.cmake exists.
+o3de_swap_flags=$(echo \
+    %{?with_system_assimp:LY_USE_SYSTEM_ASSIMP} \
+    %{?with_system_cityhash:LY_USE_SYSTEM_CITYHASH} \
+    %{?with_system_expat:LY_USE_SYSTEM_EXPAT} \
+    %{?with_system_freetype:LY_USE_SYSTEM_FREETYPE} \
+    %{?with_system_googlebenchmark:LY_USE_SYSTEM_GOOGLEBENCHMARK} \
+    %{?with_system_libsamplerate:LY_USE_SYSTEM_LIBSAMPLERATE} \
+    %{?with_system_lua:LY_USE_SYSTEM_LUA} \
+    %{?with_system_lz4:LY_USE_SYSTEM_LZ4} \
+    %{?with_system_mcpp:LY_USE_SYSTEM_MCPP} \
+    %{?with_system_mikkelsen:LY_USE_SYSTEM_MIKKELSEN} \
+    %{?with_system_qt6:LY_USE_SYSTEM_QT} \
+    %{?with_system_openexr:LY_USE_SYSTEM_OPENEXR LY_USE_SYSTEM_IMATH} \
+    %{?with_system_png:LY_USE_SYSTEM_PNG} \
+    %{?with_system_poly2tri:LY_USE_SYSTEM_POLY2TRI} \
+    %{?with_system_rapidjson:LY_USE_SYSTEM_RAPIDJSON} \
+    %{?with_system_rapidxml:LY_USE_SYSTEM_RAPIDXML} \
+    %{?with_system_sqlite:LY_USE_SYSTEM_SQLITE} \
+    %{?with_system_tiff:LY_USE_SYSTEM_TIFF} \
+    %{?with_system_vulkan_validation_layers:LY_USE_SYSTEM_VULKAN_VALIDATION_LAYERS} \
+    %{?with_system_xxhash:LY_USE_SYSTEM_XXHASH} \
+    %{?with_system_zlib:LY_USE_SYSTEM_ZLIB})
+if [ -n "$o3de_swap_flags" ]; then
+    for o3de_builtin in %{buildroot}%{o3de_install_prefix}/cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_*.cmake; do
+        {
+            echo
+            echo "# o3de-rpm: system libraries this SDK was built against (Patch0014 hook)."
+            for o3de_flag in $o3de_swap_flags; do
+                echo "set($o3de_flag ON CACHE BOOL \"o3de-rpm: this SDK was built with $o3de_flag\")"
+            done
+        } >> "$o3de_builtin"
+    done
+fi
+# development: the Source71/Source77 provider shims replace
+# Code/3rdParty/<name>/CMakeLists.txt in the build tree only. The SDK keeps
+# the provider directory without a recipe, so 3rdParty::sqlite
+# (AzToolsFramework) and 3rdParty::mikktspace (SceneProcessing) fall through
+# to Find modules that do not exist and a profile project configure stops at
+# 'No "Findsqlite.cmake" found'. Install each shim %%prep copied in as the
+# SDK's recipe (it includes the Find shim from the installed cmake/3rdParty/).
+# stabilization/26100 has no such providers, so nothing is installed there.
+o3de_install_provider() {
+    if [ -f Code/3rdParty/$1/CMakeLists.txt ]; then
+        install -D -p -m 0644 Code/3rdParty/$1/CMakeLists.txt \
+            %{buildroot}%{o3de_install_prefix}/Code/3rdParty/$1/CMakeLists.txt
+    fi
+}
+%{?with_system_rapidjson:o3de_install_provider rapidjson}
+%{?with_system_xxhash:o3de_install_provider xxhash}
+%{?with_system_cityhash:o3de_install_provider cityhash}
+%{?with_system_mikkelsen:o3de_install_provider mikktspace}
+%{?with_system_sqlite:o3de_install_provider sqlite}
 
 # Normalize ambiguous '#!/usr/bin/env python' shebangs to 'python3' across
 # the entire engine tree so brp-mangle-shebangs accepts them. We deliberately

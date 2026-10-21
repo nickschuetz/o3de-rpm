@@ -1,4 +1,31 @@
 %changelog
+* Wed Oct 21 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-125
+- Project builds against the installed SDK now use the system libraries the
+  engine was built with. The SDK did not record the LY_USE_SYSTEM_<NAME>
+  flags, so a project configure downloaded the bundled package for every
+  swap (Lua 5.4.4, zlib, lz4, expat, freetype, libpng, sqlite, ...) and
+  linked it into the project. On o3de-stabilization 2610.0-120 (Fedora 45)
+  the profile GameLauncher of a new DefaultProject exported the bundled Lua 5.4.4,
+  libAzCore.so bound to it instead of liblua-5.5.so, and the launcher
+  crashed at startup in luaL_openselectedlibs. On o3de-development
+  (2610.0-115 and -123) a release (monolithic) launcher failed to link on
+  that Lua 5.5 function. The generated BuiltInPackages file now records the
+  swap flags.
+- development: the sqlite (Source71) and rapidjson, xxhash, cityhash and
+  mikktspace (Source77) provider shims are installed into the SDK too.
+  Without them a profile project configure stopped at
+  'No "Findsqlite.cmake" found' (2610.0-115 and -123).
+- -devel now Requires the -devel package of every active system-library
+  swap (the main package still Recommends them), plus zlib-devel for
+  system_zlib. With the swap flags recorded, a missing one stops a project
+  configure in its Find shim instead of falling back to the bundled copy.
+- Vulkan validation layers need no change: Patch0015, back on the 26.10
+  base since 2610.0-123, drops the engine's 3rdParty::vulkan-validationlayers
+  reference, so a project neither downloads the bundled 1.2.198 layers nor
+  copies libVkLayer_khronos_validation.so into its bin/ (checked on
+  o3de-development 2610.0-123; 2610.0-120 on o3de-stabilization still did
+  both).
+
 * Wed Oct 21 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-124
 - Patch0023: build against expat 2.9.0 (Fedora rawhide), which deprecates
   XML_GetCurrentLineNumber() in favor of XML_GetCurrentLineNumber64();
