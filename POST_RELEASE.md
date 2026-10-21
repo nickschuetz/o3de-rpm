@@ -62,7 +62,7 @@ In `o3de.spec`:
 
 If the release is a major (YYMM bump rather than point release), nothing else needs bumping: `o3de_major_tag`, the package name (e.g., `o3de2610`) and the install prefix are all derived from `stable_tag`, and the Makefile's `PKGNAME` derivation follows.
 
-The carry-patch set follows `stable_tag` too. On the 26.10 base (`stable_tag` 2610.0 or later) the spec's `o3de_base_2610` macro skips the carry-patches upstream already merged, exactly as `development_snapshot` does for the snapshot channels, so a stable build applies the same patches as the stabilization channel (0003, 0010, 0011, 0014, 0018, 0020 on 26.10). Do not add `development_snapshot` to the stable build: it would set the `-development` channel marker.
+The carry-patch set follows `stable_tag` too. On the 26.10 base (`stable_tag` 2610.0 or later) the spec's `o3de_base_2610` macro skips the carry-patches upstream already merged, exactly as `development_snapshot` does for the snapshot channels, so a stable build applies the same patches as the stabilization channel (0003, 0010, 0011, 0014, 0015, 0018, 0020 on 26.10). Do not add `development_snapshot` to the stable build: it would set the `-development` channel marker.
 
 ### 4. SBOM bump
 
@@ -99,7 +99,7 @@ git push origin main
 
 ### 7. Push to COPR
 
-If the release is a major, first bring the `hellaenergy/o3de`, `hellaenergy/o3de-testing` and `hellaenergy/o3de-testing-debug` chroots onto the new line's `--rpmbuild-with` set. They still carry the previous major's set, and `--with` flags on the SRPM do not propagate to the COPR rebuild. The Makefile prints the list (`BCONDS_stable`: the `o3de-stabilization` set without `stabilization` and `development_snapshot`); `o3de-testing-debug` adds `debug`. `edit-chroot --rpmbuild-with` replaces the whole list, so pass all of it, and verify with `get-chroot` afterwards. Take the chroot names from `copr-cli get hellaenergy/<project>`; all three projects had the same four on 2026-10-21.
+If the release is a major, first bring the `hellaenergy/o3de`, `hellaenergy/o3de-testing` and `hellaenergy/o3de-testing-debug` chroots onto the new line's `--rpmbuild-with` set. They still carry the previous major's set, and `--with` flags on the SRPM do not propagate to the COPR rebuild. The Makefile prints the list (`BCONDS_stable`: the `o3de-stabilization` set without `stabilization` and `development_snapshot`), and `CHROOT=` drops the swaps a chroot cannot take (rapidjson on CS10); `o3de-testing-debug` adds `debug`. For the 26.05 to 26.10 roll this adds `qt6`, `swap_hook` and `system_tiff` to the 26.05 lists (checked against all twelve live chroots of the three projects on 2026-10-21; nothing to remove). `edit-chroot --rpmbuild-with` replaces the whole list, so pass all of it, and verify with `get-chroot` afterwards. Take the chroot names from `copr-cli get hellaenergy/<project>`; all three projects had the same four on 2026-10-21.
 
 ```bash
 for proj in o3de o3de-testing o3de-testing-debug; do
@@ -162,7 +162,7 @@ See `CONTRIBUTING.md` "COPR Projects" section for the channel layout and the rat
 ## Failure modes
 
 - **sha256 mismatch in make srpm**: redownload the tarball; GitHub's CDN may have served partial bytes. Retry the sha256 + paste sequence.
-- **COPR build fails at %prep on a carry-patch**: the release tarball may differ from stabilization tip's last state. Check whether any carry-patch needs to retire (on the 26.10 line the stabilization and stable flag sets both apply only 0003, 0010, 0011, 0014, 0018 and 0020). Sequence: confirm the upstream PR merged, identify the snapshot source branch, verify the merge is reachable from main at the release tag, grep the target file on the release tarball. Only retire when all four checks pass. If 0001/0002/0004/0005/0007/0008/0009/0012 show up in the failing log, the build is not on the 26.10 gating: check `stable_tag` and that the chroot did not get `snapshot` mode.
+- **COPR build fails at %prep on a carry-patch**: the release tarball may differ from stabilization tip's last state. Check whether any carry-patch needs to retire (on the 26.10 line the stabilization and stable flag sets both apply only 0003, 0010, 0011, 0014, 0015, 0018 and 0020). Sequence: confirm the upstream PR merged, identify the snapshot source branch, verify the merge is reachable from main at the release tag, grep the target file on the release tarball. Only retire when all four checks pass. If 0001/0002/0004/0005/0007/0008/0009/0012 or 0016 show up in the failing log, the build is not on the 26.10 gating: check `stable_tag` and that the chroot did not get `snapshot` mode.
 - **CS10 fails but F44/F45/rawhide pass**: known historical gaps (libunwind-devel in EPEL-10 not base CS10, RPM 4.19 spec-parser quirks). Check the build log against known CS10-specific blockers before assuming a real regression.
 
 ## Related

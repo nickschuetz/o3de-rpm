@@ -41,8 +41,9 @@ This channel is the pre-promotion soak buffer between the `main` HEAD of the [o3
 **What's in this channel vs stable:**
 
 - Same upstream engine source (tagged release; same SRPM as stable except for the destination COPR project).
-- Same active Stage 1 system-library swap set (14-pack: zlib, freetype, libpng, expat, lz4, mikkelsen, openexr, poly2tri, lua, assimp, sqlite, libsamplerate, googlebenchmark, vulkan-validation-layers).
+- Same active Stage 1 system-library swap set (on 26.05.0: zlib, freetype, libpng, expat, lz4, mikkelsen, openexr, poly2tri, lua, assimp, sqlite, libsamplerate, googlebenchmark, vulkan-validation-layers, xxhash, cityhash, and rapidjson except on CentOS Stream 10).
 - Same active Stage 2 binary-shellout / library-link swaps (DXC, SPIRV-Cross, mcpp).
+- From the 26.10.0 release (planned 2026-10-28) both channels move to the 26.10 set, which adds system libtiff (21 swaps in all, 20 on CentOS Stream 10).
 - Slightly newer packaging-side fixes that have not yet reached stable: typically Recommends changes, launcher tweaks, README corrections, and similar small enhancements. Each commit in main between the stable channel's published NVR and this channel's NVR is one fix; review the changelog at `dnf updateinfo info o3de2605` to see what's queued.
 
 **Reporting issues:** if you hit a regression on this channel, please open an issue at https://github.com/nickschuetz/o3de-rpm/issues so it can be addressed before promotion to stable.
