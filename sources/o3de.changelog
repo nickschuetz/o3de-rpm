@@ -1,3 +1,8 @@
+* Wed Oct 21 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-119
+- The -devel description now says building any project needs it (project
+  launchers link the static AzGameFramework and Launcher.Static); it used to
+  say most project authors did not.
+
 * Wed Oct 21 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-118
 - Re-pin stabilization to stabilization/26100 tip 701b503c (was b706d4f5),
   which brings in the final 26.10 Editor splash screen (o3de/o3de#20211).

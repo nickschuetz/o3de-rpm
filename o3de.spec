@@ -148,8 +148,9 @@
 # defaults to XCB-only (PAL_TRAIT_LINUX_WINDOW_MANAGER_XCB=ON,
 # PAL_TRAIT_LINUX_WINDOW_MANAGER_WAYLAND=OFF in cmake/Platform/Linux/PAL_linux.cmake).
 # Under a Qt6 native-Wayland session the Editor then builds an XCB VkSurfaceKHR
-# for a wl_surface window, and the NVIDIA driver faults at
-# vkGetPhysicalDeviceSurfaceFormatsKHR (o3de/o3de#19835). This bcond compiles in
+# for a wl_surface window, and the Vulkan driver faults at
+# vkGetPhysicalDeviceSurfaceFormatsKHR (o3de/o3de#19835; seen on NVIDIA and AMD,
+# not vendor specific). This bcond compiles in
 # the engine's existing Wayland surface path (vkCreateWaylandSurfaceKHR) via
 # -DPAL_TRAIT_LINUX_WINDOW_MANAGER_WAYLAND=ON and pulls its build deps. Default
 # OFF; validation gate for #19835, only meaningful alongside %bcond_with qt6.
@@ -407,7 +408,7 @@ Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        118%{?dist}
+Release:        119%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -1491,13 +1492,12 @@ with O3DE-specific APIs that need static linking against engine
 internals, or when building the engine's own static-only test
 infrastructure.
 
-End users running games, Lua/ScriptCanvas project authors, and most
-native C++ project authors do NOT need this package — the main
-%{name} runtime ships engine .so's and the per-target cmake config
-files those projects link against. Install %{name}-devel only if
-your project's cmake configure errors with `IMPORTED_LOCATION not
-found` on a static-archive path under %{o3de_install_prefix}/lib/
-or %{o3de_install_prefix}/lib64/.
+Building any project (including a new project from Project Manager)
+needs this package: every project's game and server launchers link the
+static AzGameFramework and Launcher.Static libraries shipped here.
+Without it, cmake configure fails with `IMPORTED_LOCATION not found` on
+a static-archive path under %{o3de_install_prefix}/lib/. Only running
+an already-built project does not need it.
 
 The %{name}-devel package contains:
   - %{o3de_install_prefix}/lib/Linux/profile/Default/*.a — engine static
