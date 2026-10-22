@@ -244,7 +244,7 @@ The first launch of Project Manager (`o3de2605`, `o3de2610`) sets up the per-use
 
 ### Multiple O3DE versions on one machine
 
-The `/opt/O3DE/<version>/` install layout matches upstream's `.deb` and Windows `.msi` exactly, so cross-platform users see the same path mental model on Fedora, Debian/Ubuntu, and Windows. dnf treats each major as an independent package:
+The `/opt/O3DE/<version>/` install layout follows the same pattern as upstream's `.deb` and Windows installer, so cross-platform users see the same paths on Fedora, Debian/Ubuntu, and Windows. Unlike the `.deb`, whose package is named `o3de` for every release (installing 26.10 replaces 26.05), the RPM majors install side by side. dnf treats each major as an independent package:
 
 ```bash
 sudo dnf install o3de2605 o3de2605-devel o3de2610 o3de2610-devel   # both majors side-by-side
@@ -253,7 +253,7 @@ o3de2610                                      # launches 26.10.0 Project Manager
 ls /opt/O3DE/                                 # 26.05.0  26.10.0
 ```
 
-**On the manifest:** all installed o3deNNNN majors share `engine_name: "o3de"` in their `engine.json` (matching upstream's `.deb`, so third-party gems' `compatible_engines` checks resolve). Each major adds itself to `~/.o3de/o3de_manifest.json` when its Project Manager starts or its CLI first runs, and both majors then stay registered. A project configures against the newest registered engine that its `project.json` `engine` field accepts, and a new project gets a plain `"engine": "o3de"`, which accepts either major. So once 26.10 is registered, a 26.05 project builds against 26.10 at its next configure. To keep a project on 26.05, pin it:
+**On the manifest:** all installed o3deNNNN majors share `engine_name: "o3de"` in their `engine.json` (the name in upstream's source `engine.json`, so third-party gems' `compatible_engines` checks resolve; upstream's `.deb` installs as `o3de-sdk` instead, and uses one package name for every release, so a new `.deb` replaces the previous one). Each major adds itself to `~/.o3de/o3de_manifest.json` when its Project Manager starts or its CLI first runs, and both majors then stay registered. A project configures against the newest registered engine that its `project.json` `engine` field accepts, and a new project gets a plain `"engine": "o3de"`, which accepts either major. So once 26.10 is registered, a 26.05 project builds against 26.10 at its next configure. To keep a project on 26.05, pin it:
 
 ```bash
 # writes engine_path to <project>/user/project.json; the configure then uses that engine

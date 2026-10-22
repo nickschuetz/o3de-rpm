@@ -1801,16 +1801,14 @@ unset CFLAGS CXXFLAGS LDFLAGS
 #     "o3de-sdk" in their compatible_engines (e.g. WarehouseAssets:
 #     ["o3de-sdk>=2.3.0", "o3de>=2.3.0"]). If we set engine_name to
 #     "o3de2605", PM rejects every existing third-party gem.
-# Setting engine_name=o3de matches upstream's pristine engine.json AND
-# upstream's .deb default — so gems work out of the box.
-#
-# Trade-off: the manifest's `engines_path` map keys by engine_name, so
-# multiple installs of o3deNNNN all collide on the "o3de" key. Only one
-# is "registered" at a time; switching uses scripts/o3de.sh
-# register --this-engine from the desired install root. This is
-# exactly upstream's multi-install UX on .deb. Multi-install on disk
-# still works (paths versioned at /opt/O3DE/<v>/); only the active
-# registration is single-slot.
+# Setting engine_name=o3de matches upstream's source engine.json, so gems
+# work out of the box. Upstream's .deb differs: its installer job passes
+# -DO3DE_INSTALL_ENGINE_NAME=o3de-sdk (scripts/build/Platform/Linux/
+# build_config.json, 2605.0 and stabilization/26100), and it uses one
+# package name for every release, so a new .deb replaces the old one.
+# Every o3deNNNN major registers under "o3de" and all of them stay in the
+# manifest; a project configures against the newest registered engine its
+# project.json accepts (README, "On the manifest").
 # O3DE_FETCHCONTENT_FORCE_GIT: upstream o3de/o3de#19622 (merged 2026-07-16)
 # switched ~10 3rdParty deps (googletest, assimp, meshoptimizer, Ogg, vorbis,
 # miniaudio, v-hacd, RecastNavigation, Manifold, OpenMesh) from git-clone to
