@@ -240,7 +240,7 @@ On a Wayland desktop the launcher starts Project Manager through XWayland (`QT_Q
 
 State written by either command lives under `~/.o3de/` (engine registration manifest, per-user Python venvs keyed by engine path, project user data). The engine root at `/opt/O3DE/26.05.0/` is read-only.
 
-The first launch of Project Manager (`o3de2605`, `o3de2610`) sets up the per-user Python venv and registers the engine in `~/.o3de`. `o3de2610-cli` does the same on its first run (stabilization builds from 2610.0-126, and every 26.10.0 release build) and reruns `get_python.sh` after an upgrade changes the Python package. With `o3de2605-cli`, and the earlier 26.10 test builds, run `python/get_python.sh` from the engine root and then `register --this-engine` before the first command; until then `create-project` fails with "Python has not been downloaded/configured yet" and a project configure with "Engine registration is required".
+The first launch of Project Manager (`o3de2605`, `o3de2610`) sets up the per-user Python venv and registers the engine in `~/.o3de`. `o3de2610-cli` does the same on its first run and reruns `get_python.sh` after an upgrade changes the Python package. With `o3de2605-cli`, run `python/get_python.sh` from the engine root and then `register --this-engine` before the first command; until then `create-project` fails with "Python has not been downloaded/configured yet" and a project configure with "Engine registration is required".
 
 ### Multiple O3DE versions on one machine
 
