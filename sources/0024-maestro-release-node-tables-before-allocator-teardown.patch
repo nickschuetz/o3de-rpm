@@ -1,0 +1,242 @@
+From: Nick Schuetz <nschuetz@redhat.com>
+Date: Thu, 22 Oct 2026 00:00:00 -0500
+Subject: [PATCH] Maestro: release node parameter tables in ~CMovieSystem()
+
+CMovieSystem::DoNodeStaticInitialisation() and the node constructors
+fill file-scope AZStd tables (the post-FX descriptions and the scene,
+layer, screen fader, comment and shadow setup parameter lists) that
+nothing empties. In a monolithic build their destructors run from the
+exit handlers after the SystemAllocator's environment variable is
+destroyed, so every deallocation calls a pure virtual on the dead
+allocator and an exported release game aborts on quit with "pure
+virtual method called" (o3de-development 2610.0-126, Fedora 44/45 and
+CentOS Stream 10, 2026-10-22).
+
+Release the tables from ~CMovieSystem(), which runs in
+CSystem::ShutDown() while the allocators are still alive, and reset the
+init flags so a later CMovieSystem fills them again. The vectors are
+swapped with empty ones because clear() keeps their buffers.
+
+diff --git a/Gems/Maestro/Code/Source/Cinematics/AnimPostFXNode.cpp b/Gems/Maestro/Code/Source/Cinematics/AnimPostFXNode.cpp
+index fa5f663714..327c7cea8e 100644
+--- a/Gems/Maestro/Code/Source/Cinematics/AnimPostFXNode.cpp
++++ b/Gems/Maestro/Code/Source/Cinematics/AnimPostFXNode.cpp
+@@ -212,6 +212,12 @@ namespace Maestro
+         }
+     }
+ 
++    void CAnimPostFXNode::Shutdown()
++    {
++        s_initialized = false;
++        s_fxNodeDescriptions.clear();
++    }
++
+     /*static*/ CFXNodeDescription* CAnimPostFXNode::GetFXNodeDescription(AnimNodeType nodeType)
+     {
+         CFXNodeDescription* retDescription = nullptr;
+diff --git a/Gems/Maestro/Code/Source/Cinematics/AnimPostFXNode.h b/Gems/Maestro/Code/Source/Cinematics/AnimPostFXNode.h
+index 6091c27790..1d3ed1230b 100644
+--- a/Gems/Maestro/Code/Source/Cinematics/AnimPostFXNode.h
++++ b/Gems/Maestro/Code/Source/Cinematics/AnimPostFXNode.h
+@@ -22,6 +22,7 @@ namespace Maestro
+         AZ_RTTI(CAnimPostFXNode, "{41FCA8BB-46A8-4F37-87C2-C1D10994854B}", CAnimNode);
+ 
+         static void Initialize();
++        static void Shutdown();
+         static CFXNodeDescription* GetFXNodeDescription(AnimNodeType nodeType);
+         static CAnimNode* CreateNode(const int id, AnimNodeType nodeType);
+ 
+diff --git a/Gems/Maestro/Code/Source/Cinematics/AnimScreenFaderNode.cpp b/Gems/Maestro/Code/Source/Cinematics/AnimScreenFaderNode.cpp
+index d4f507f438..8afc39dc3b 100644
+--- a/Gems/Maestro/Code/Source/Cinematics/AnimScreenFaderNode.cpp
++++ b/Gems/Maestro/Code/Source/Cinematics/AnimScreenFaderNode.cpp
+@@ -102,6 +102,13 @@ namespace Maestro
+         }
+     }
+ 
++    void CAnimScreenFaderNode::Shutdown()
++    {
++        using namespace AnimScreenFaderNodeHelper;
++        s_screenFaderNodeParamsInitialized = false;
++        AZStd::vector<CAnimNode::SParamInfo>().swap(s_screenFaderNodeParams);
++    }
++
+     void CAnimScreenFaderNode::Animate(SAnimContext& ac)
+     {
+         const auto nScreenFaderTracksNumber = static_cast<unsigned int>(m_tracks.size());
+diff --git a/Gems/Maestro/Code/Source/Cinematics/AnimScreenFaderNode.h b/Gems/Maestro/Code/Source/Cinematics/AnimScreenFaderNode.h
+index f2289a9adc..e6dcd233c9 100644
+--- a/Gems/Maestro/Code/Source/Cinematics/AnimScreenFaderNode.h
++++ b/Gems/Maestro/Code/Source/Cinematics/AnimScreenFaderNode.h
+@@ -27,6 +27,7 @@ namespace Maestro
+         ~CAnimScreenFaderNode();
+ 
+         static void Initialize();
++        static void Shutdown();
+ 
+         //! Overrides from CAnimNode
+         void Activate(bool bActivate) override;
+diff --git a/Gems/Maestro/Code/Source/Cinematics/CommentNode.cpp b/Gems/Maestro/Code/Source/Cinematics/CommentNode.cpp
+index 907746199f..a4f820062a 100644
+--- a/Gems/Maestro/Code/Source/Cinematics/CommentNode.cpp
++++ b/Gems/Maestro/Code/Source/Cinematics/CommentNode.cpp
+@@ -55,6 +55,12 @@ namespace Maestro
+         }
+     }
+ 
++    void CCommentNode::Shutdown()
++    {
++        s_nodeParamsInit = false;
++        AZStd::vector<CAnimNode::SParamInfo>().swap(s_nodeParameters);
++    }
++
+     void CCommentNode::Animate([[maybe_unused]] SAnimContext& ac)
+     {
+         // It's only for valid operation of key time editing.
+diff --git a/Gems/Maestro/Code/Source/Cinematics/CommentNode.h b/Gems/Maestro/Code/Source/Cinematics/CommentNode.h
+index fea1ae5e81..4b8d3cd0ce 100644
+--- a/Gems/Maestro/Code/Source/Cinematics/CommentNode.h
++++ b/Gems/Maestro/Code/Source/Cinematics/CommentNode.h
+@@ -25,6 +25,7 @@ namespace Maestro
+         CCommentNode();
+ 
+         static void Initialize();
++        static void Shutdown();
+ 
+         //-----------------------------------------------------------------------------
+         //! Overrides from CAnimNode
+diff --git a/Gems/Maestro/Code/Source/Cinematics/LayerNode.cpp b/Gems/Maestro/Code/Source/Cinematics/LayerNode.cpp
+index c25f518690..91a5e65048 100644
+--- a/Gems/Maestro/Code/Source/Cinematics/LayerNode.cpp
++++ b/Gems/Maestro/Code/Source/Cinematics/LayerNode.cpp
+@@ -54,6 +54,13 @@ namespace Maestro
+         }
+     }
+ 
++    void CLayerNode::Shutdown()
++    {
++        using namespace LayerNodeHelper;
++        s_nodeParamsInitialized = false;
++        AZStd::vector<CAnimNode::SParamInfo>().swap(s_nodeParams);
++    }
++
+     void CLayerNode::Animate(SAnimContext& ec)
+     {
+         int trackCount = NumTracks();
+diff --git a/Gems/Maestro/Code/Source/Cinematics/LayerNode.h b/Gems/Maestro/Code/Source/Cinematics/LayerNode.h
+index bd92ebb677..e3a1ad84a4 100644
+--- a/Gems/Maestro/Code/Source/Cinematics/LayerNode.h
++++ b/Gems/Maestro/Code/Source/Cinematics/LayerNode.h
+@@ -28,6 +28,7 @@ namespace Maestro
+         CLayerNode();
+         CLayerNode(const int id);
+         static void Initialize();
++        static void Shutdown();
+ 
+         //-----------------------------------------------------------------------------
+         //! Overrides from CAnimNode
+diff --git a/Gems/Maestro/Code/Source/Cinematics/Movie.cpp b/Gems/Maestro/Code/Source/Cinematics/Movie.cpp
+index 78ace0bf1f..c430a37939 100644
+--- a/Gems/Maestro/Code/Source/Cinematics/Movie.cpp
++++ b/Gems/Maestro/Code/Source/Cinematics/Movie.cpp
+@@ -254,6 +254,11 @@ CMovieSystem::~CMovieSystem()
+         AZ::Interface<IMovieSystem>::Unregister(this);
+     }
+ 
++    // The node parameter tables are statics. Release them here, while the
++    // allocator they use is alive: left to the exit handlers, a monolithic
++    // build frees them after the SystemAllocator and aborts with
++    // "pure virtual method called".
++    DoNodeStaticShutdown();
+ }
+ 
+ void CMovieSystem::DoNodeStaticInitialisation()
+@@ -265,6 +270,16 @@ void CMovieSystem::DoNodeStaticInitialisation()
+     Maestro::CLayerNode::Initialize();
+ }
+ 
++void CMovieSystem::DoNodeStaticShutdown()
++{
++    Maestro::CAnimPostFXNode::Shutdown();
++    Maestro::CAnimSceneNode::Shutdown();
++    Maestro::CAnimScreenFaderNode::Shutdown();
++    Maestro::CCommentNode::Shutdown();
++    Maestro::CLayerNode::Shutdown();
++    Maestro::CShadowsSetupNode::Shutdown();
++}
++
+ IAnimSequence* CMovieSystem::CreateSequence(const char* sequenceName, bool load, uint32 id, SequenceType sequenceType, AZ::EntityId entityId)
+ {
+     if (!load)
+diff --git a/Gems/Maestro/Code/Source/Cinematics/Movie.h b/Gems/Maestro/Code/Source/Cinematics/Movie.h
+index ba323516f2..31522844d3 100644
+--- a/Gems/Maestro/Code/Source/Cinematics/Movie.h
++++ b/Gems/Maestro/Code/Source/Cinematics/Movie.h
+@@ -192,6 +192,7 @@ private:
+ #endif
+ 
+     void DoNodeStaticInitialisation();
++    void DoNodeStaticShutdown();
+     void UpdateInternal(const float dt, const bool bPreUpdate);
+ 
+ #ifdef MOVIESYSTEM_SUPPORT_EDITING
+diff --git a/Gems/Maestro/Code/Source/Cinematics/SceneNode.cpp b/Gems/Maestro/Code/Source/Cinematics/SceneNode.cpp
+index 635b234371..7c0a3553f8 100644
+--- a/Gems/Maestro/Code/Source/Cinematics/SceneNode.cpp
++++ b/Gems/Maestro/Code/Source/Cinematics/SceneNode.cpp
+@@ -187,6 +187,13 @@ namespace Maestro
+         }
+     }
+ 
++    void CAnimSceneNode::Shutdown()
++    {
++        using namespace AnimSceneNodeHelper;
++        s_nodeParamsInitialized = false;
++        AZStd::vector<CAnimNode::SParamInfo>().swap(s_nodeParams);
++    }
++
+     void CAnimSceneNode::CreateDefaultTracks()
+     {
+         CreateTrack(AnimParamType::Camera);
+diff --git a/Gems/Maestro/Code/Source/Cinematics/SceneNode.h b/Gems/Maestro/Code/Source/Cinematics/SceneNode.h
+index 87909609a8..43a319f871 100644
+--- a/Gems/Maestro/Code/Source/Cinematics/SceneNode.h
++++ b/Gems/Maestro/Code/Source/Cinematics/SceneNode.h
+@@ -54,6 +54,7 @@ namespace Maestro
+         CAnimSceneNode();
+         ~CAnimSceneNode();
+         static void Initialize();
++        static void Shutdown();
+ 
+         //////////////////////////////////////////////////////////////////////////
+         // Overrides from CAnimNode
+diff --git a/Gems/Maestro/Code/Source/Cinematics/ShadowsSetupNode.cpp b/Gems/Maestro/Code/Source/Cinematics/ShadowsSetupNode.cpp
+index d91be772cb..40d28a26c0 100644
+--- a/Gems/Maestro/Code/Source/Cinematics/ShadowsSetupNode.cpp
++++ b/Gems/Maestro/Code/Source/Cinematics/ShadowsSetupNode.cpp
+@@ -57,6 +57,13 @@ namespace Maestro
+         }
+     }
+ 
++    void CShadowsSetupNode::Shutdown()
++    {
++        using namespace ShadowSetupNodeHelper;
++        s_shadowSetupParamsInit = false;
++        AZStd::vector<CAnimNode::SParamInfo>().swap(s_shadowSetupParams);
++    }
++
+     void CShadowsSetupNode::Animate(SAnimContext& ac)
+     {
+         IAnimTrack* pGsmCache = GetTrackForParameter(AnimParamType::GSMCache);
+diff --git a/Gems/Maestro/Code/Source/Cinematics/ShadowsSetupNode.h b/Gems/Maestro/Code/Source/Cinematics/ShadowsSetupNode.h
+index 2a4fd41f2c..702c742807 100644
+--- a/Gems/Maestro/Code/Source/Cinematics/ShadowsSetupNode.h
++++ b/Gems/Maestro/Code/Source/Cinematics/ShadowsSetupNode.h
+@@ -26,6 +26,7 @@ namespace Maestro
+         explicit CShadowsSetupNode(const int id);
+ 
+         static void Initialize();
++        static void Shutdown();
+ 
+         //-----------------------------------------------------------------------------
+         //! Overrides from CAnimNode

@@ -427,7 +427,7 @@ Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        126%{?dist}
+Release:        127%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -868,6 +868,17 @@ Patch0022:      0022-wayland-xwayland-editor-ui-fixes.patch
 # fuzz 0 on stabilization/26100 (701b503c) and development (2462b90).
 # Upstream-worthy.
 Patch0023:      0023-crysystem-expat-2-9-line-number-64.patch
+
+# Patch0024 -- Maestro fills file-scope AZStd tables (the node parameter
+# lists and the post-FX descriptions) that nothing empties. In a monolithic
+# build the exit handlers free them after the SystemAllocator, so an
+# exported release game aborts on quit with "pure virtual method called"
+# (o3de-development 2610.0-126, 2026-10-22). The patch releases them in
+# ~CMovieSystem(), which runs while the allocators are still alive. Ungated:
+# releasing them early is harmless in shared-module builds. Applies at fuzz 0
+# on development (2462b90), stabilization/26100 (701b503c) and 2605.0.
+# Upstream-worthy.
+Patch0024:      0024-maestro-release-node-tables-before-allocator-teardown.patch
 
 # Stage 1 system-library find modules. Copied into cmake/3rdParty/
 # during %%prep when the matching `--with system_<lib>` is enabled.
@@ -2538,8 +2549,11 @@ O3DE %{engine_cmake_version} installed at %{o3de_install_prefix}
 
 This package is %{name} — multiple O3DE majors can coexist on one
 system (e.g., o3de2605 alongside a future o3de2610), each at its
-own /opt/O3DE/<version>/ install root. Project Manager auto-routes
-each project to the engine version pinned in its project.json.
+own /opt/O3DE/<version>/ install root. A project builds against the
+newest registered engine that its project.json accepts, and new
+projects accept any major. To keep a project on this install:
+
+    %{name}-cli edit-project-properties -pp <project> --user --engine-path %{o3de_install_prefix}
 
 To step through engine code in a debugger, also install the debug
 subpackage if available:

@@ -1,4 +1,14 @@
 %changelog
+* Thu Oct 22 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-127
+- Patch0024: Maestro releases its node parameter tables in ~CMovieSystem().
+  In a monolithic build the exit handlers freed them after the
+  SystemAllocator, so an exported release game aborted on quit with "pure
+  virtual method called" (o3de-development 2610.0-126, 2026-10-22).
+- The %%post message no longer says Project Manager routes each project to
+  an engine pinned in its project.json. A project builds against the newest
+  registered engine its project.json accepts; the message now shows how to
+  keep a project on one install.
+
 * Wed Oct 21 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-126
 - o3deNNNN-cli now sets up the per-user Python runtime (get_python.sh) and
   registers the engine in ~/.o3de on first use, as Project Manager does at
