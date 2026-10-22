@@ -57,6 +57,8 @@ sudo dnf install ros-lyrical-o3de-gem-deps
 source /opt/ros/lyrical/setup.bash
 ```
 
+Tested end to end on 2026-10-22 in a fresh Fedora 44 container: o3de2610 2610.0-126 with `ros-lyrical-o3de-gem-deps` 1.0.0, and the ROS2 Gem 4.4.0 from o3de-extras `stabilization/26100`. The project configured and built, and a running GameLauncher showed `/o3de_ros2_node` publishing `/tf` and `/tf_static`.
+
 For O3DE 26.05, use Jazzy (`ros-jazzy-gazebo-msgs` adds the optional Gazebo messages):
 
 ```
@@ -74,6 +76,7 @@ When you start Project Manager or the Editor from the desktop menu, the launcher
 - **`setup.bash` must be sourced in the SAME shell** that runs `cmake -S <project> -B build`. If you source it then open a new terminal and run cmake there, the environment variables (`AMENT_PREFIX_PATH`, `CMAKE_PREFIX_PATH`, `LD_LIBRARY_PATH`, etc.) will not be present and cmake's `find_package(rclcpp)` will fail.
 - **Distribution mismatch**: the Gems record the ROS 2 distribution a project was configured with and stop with "ROS 2 distribution does not match" if a different one is sourced later; reconfigure the project after switching. Mixing distributions in one build is not supported and may surface as undefined references at link time. Project Manager does not check ROS 2 distribution at gem-download time; the build-time error is your only signal.
 - **Mixing install paths**: do not have both `hellaenergy/ros2` packages and a source build of ROS 2 active in the same shell. The shell environment can satisfy `find_package(rclcpp)` from either, but library-version mismatches are easy to introduce. Pick one path per project.
+- **First `ros2 node list` comes back empty**: right after the launcher starts, the first `ros2 node list` may return nothing because the ros2 daemon has just started and has not finished discovery; run it again or use `ros2 node list --no-daemon`. The Gem's node is `/o3de_ros2_node`.
 
 ## Audio Wwise (stub)
 
