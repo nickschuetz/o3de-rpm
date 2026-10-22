@@ -97,6 +97,8 @@ RESOLVED 2026-07-24 (Makefile: `srpm-experimental` now aliases `srpm-snapshot-de
 
 ## GAP: RPM ships profile-only, so RELEASE (monolithic) game export fails (raised by Donnie [RKG] in Discord, 2026-07-22)
 
+DECISION 2026-10-22 (Nick): the final hellaenergy/o3de 26.10.0 build carries exactly what stabilization 2610.0-128 carries, and stabilization has no `monolithic`, so 26.10.0 stable stays profile-only and release export is a known issue in docs/release-notes/2610.0.md. Monolithic remains on o3de-development (and development-debug). To ship it on stable later, it goes into o3de-stabilization first: what reaches hellaenergy/o3de always comes from o3de-stabilization, as upstream goes stabilization -> stable.
+
 Donnie hit `[ERROR] root: No monolithic artifacts are detected in the engine installation. Trying to build monolithic without libraries.` when exporting a launcher from Project Manager. Root-caused 2026-07-22 against o3de source + our stable package.
 
 Mechanism (evidence): our RPM builds only `%{_o3de_configs} = profile` (o3de.spec:1432; shared libs). O3DE release export is monolithic and requires the release/monolithic static-lib permutation to be present in the SDK. `export_source_built_project.py:105-110` calls `has_monolithic_artifacts()` (export_project.py:222), which globs `cmake/Platform/Linux/Monolithic/ConfigurationTypes_*.cmake` in the engine root. Our stable package ships ZERO of those (the 31 "Monolithic" files it does ship are gem-template scaffolding under Templates/PrebuiltGem/, not the engine permutation). So release export throws exactly his error.
