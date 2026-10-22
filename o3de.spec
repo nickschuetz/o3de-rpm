@@ -427,7 +427,7 @@ Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        127%{?dist}
+Release:        128%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -1259,6 +1259,12 @@ Recommends:     cmake
 Recommends:     ninja-build
 Recommends:     cmake-gui
 Recommends:     xdg-utils
+
+# Gamepad input: AzFramework dlopens libevdev at runtime (LibEVDevWrapper.cpp
+# tries libevdev.so, .so.2, .so.1), so the automatic dependency generator never
+# sees it. Desktops already have it through libinput; minimal and headless
+# installs log "libevdev not found - gamepad support disabled" without it.
+Recommends:     libevdev
 
 # ROS 2 Gems (o3de-extras ROS2, ROS2Sensors, ROS2Controllers,
 # SimulationInterfaces) build against the packages pulled in by this

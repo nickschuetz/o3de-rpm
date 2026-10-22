@@ -1,4 +1,9 @@
 %changelog
+* Thu Oct 22 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-128
+- Recommends libevdev: the engine loads it at runtime for gamepad input, so
+  rpm's automatic dependencies miss it, and minimal installs logged
+  "libevdev not found - gamepad support disabled".
+
 * Thu Oct 22 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-127
 - Patch0024: Maestro releases its node parameter tables in ~CMovieSystem().
   In a monolithic build the exit handlers freed them after the
