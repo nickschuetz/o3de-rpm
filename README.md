@@ -253,17 +253,18 @@ o3de2610                                      # launches 26.10.0 Project Manager
 ls /opt/O3DE/                                 # 26.05.0  26.10.0
 ```
 
-**On the manifest:** all installed o3deNNNN majors share `engine_name: "o3de"` in their `engine.json` (matching upstream's `.deb`, ensuring third-party gem `compatible_engines` checks resolve correctly). The user's `~/.o3de/o3de_manifest.json` keys engine registrations by name, so only ONE `o3de` engine is registered at a time. Switching the active engine between majors is a one-command operation:
+**On the manifest:** all installed o3deNNNN majors share `engine_name: "o3de"` in their `engine.json` (matching upstream's `.deb`, so third-party gems' `compatible_engines` checks resolve). Each major adds itself to `~/.o3de/o3de_manifest.json` when its Project Manager starts or its CLI first runs, and both majors then stay registered. A project configures against the newest registered engine that its `project.json` `engine` field accepts, and a new project gets a plain `"engine": "o3de"`, which accepts either major. So once 26.10 is registered, a 26.05 project builds against 26.10 at its next configure. To keep a project on 26.05, pin it:
 
 ```bash
-# from inside the desired install root, register that engine as the active "o3de"
-/opt/O3DE/26.10.0/scripts/o3de.sh register --this-engine    # to switch to 26.10
-/opt/O3DE/26.05.0/scripts/o3de.sh register --this-engine    # to switch to 26.05
+# writes engine_path to <project>/user/project.json; the configure then uses that engine
+o3de2610-cli edit-project-properties -pp ~/MyGame --user --engine-path /opt/O3DE/26.05.0
+# remove the pin (with o3de2610-cli: 26.05's o3de.sh drops empty arguments)
+o3de2610-cli edit-project-properties -pp ~/MyGame --user --engine-path ""
 ```
 
-This matches upstream's multi-install UX. Files for both majors stay co-installed; only the active registration is single-slot. Project Manager from either launcher (`o3de2605` or `o3de2610`) routes to whichever engine is currently registered.
+`register --this-engine` only moves an engine to the front of the manifest's list; it does not change which engine a project uses. `register --this-engine --remove` takes an engine out of the list until its Project Manager or CLI runs again. Checked on Fedora 44 with 2605.0-95 and 2610.0-126 installed together (2026-10-21).
 
-Project Manager auto-routes a project to the right engine via the project's `engine:` field in `project.json`. Subpackages follow the same versioning: `o3de2605-debug` and `o3de2610-debug` are independent and co-installable. Cross-major dnf upgrades are intentionally NOT automatic: different majors are different engine lines and you opt in explicitly with `dnf install o3de2610` when ready.
+Subpackages follow the same versioning: `o3de2605-debug` and `o3de2610-debug` are independent and co-installable. Cross-major dnf upgrades are intentionally NOT automatic: different majors are different engine lines and you opt in explicitly with `dnf install o3de2610` when ready.
 
 ### Gems with system runtime dependencies
 
