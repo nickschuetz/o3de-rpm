@@ -14,7 +14,7 @@ flowchart TB
     end
 
     subgraph DEPS["Build-time dependencies"]
-        DPK1["Fedora repos<br/>(Stage 1 system swaps:<br/>zlib, freetype, libpng, expat, lz4,<br/>openexr, poly2tri, lua,<br/>assimp, sqlite, libsamplerate,<br/>googlebenchmark, vulkan-validation-layers,<br/>xxhash, rapidjson (not CS10);<br/>26.10 line adds libtiff from 2610.0-123<br/>(rollout: development + experimental,<br/>then stabilization, stable at 26.10.0))"]
+        DPK1["Fedora repos<br/>(Stage 1 system swaps:<br/>zlib, freetype, libpng, expat, lz4,<br/>openexr, poly2tri, lua,<br/>assimp, sqlite, libsamplerate,<br/>googlebenchmark, vulkan-validation-layers,<br/>xxhash, rapidjson (not CS10);<br/>26.10 line adds libtiff from 2610.0-123<br/>(development + experimental from 123,<br/>stabilization from 125, stable at 26.10.0))"]
         DPK2["COPR<br/>hellaenergy/o3de-dependencies<br/>(o3de-qt5-rev9 (26.05 line only), PhysX, AWS SDK, azslc,<br/>ISPCTexComp, astc-encoder,<br/>mikkelsen (Stage 1 swap, not in Fedora),<br/>o3de-spirv-cross + o3de-dxc-spirv + o3de-mcpp-az<br/>(Stage 2 3-pack) + o3de-cityhash<br/>(Stage 1 swap, lib not in Fedora);<br/>o3de-<dep> naming, shared across majors (unversioned system paths)))"]
         DPK3["packages.o3de.org CDN<br/>(remaining bundled 3rdParty:<br/>Qt6 + PySide6/shiboken6<br/>(qt-6.10.2-rev8 on stabilization/26100,<br/>qt-6.11.2-rev1 on development)<br/>(26.10 line: system_qt6 swap REVERTED 2026-08-17;<br/>bundled PySide6 pins Qt_6_PRIVATE_API,<br/>Fedora Qt6 has only Qt_6.11_PRIVATE_API;<br/>exception in force, Option B pending) +<br/>PySide2 (26.05 line) +<br/>restricted (NvCloth, squish-ccr) +<br/>blocked-stage-3 (OIIO/OCIO) +<br/>blocked-stage-4 (OpenSSL) +<br/>bundled Python 3.10 +<br/>multiplatform (RapidXML AZ-fork, pybind11, glad))"]
     end
@@ -26,7 +26,7 @@ flowchart TB
         TP["%bcond_with thirdparty_*<br/>extract bundles to LY_3RDPARTY_PATH"]
         BUILD["cmake Ninja Multi-Config<br/>profile + (debug if --with debug)<br/>+ second release/Monolithic pass<br/>(build-mono/, if --with monolithic)"]
         QTP["Qt jpeg/tiff plugin rebuild (--with qt6, bundled Qt)<br/>rebuild-qt-imageformats.sh (Source74) relinks<br/>libqjpeg/libqtiff against Fedora libjpeg.so.62 + libtiff.so.6;<br/>source pair picked by the bundled Qt version:<br/>6.10.2 = Source72/73, 6.11.2 = Source75/76"]
-        INST["cmake --install<br/>+ shebang normalization<br/>+ Stage 2 binary-overlay symlinks<br/>(system_spirvcross, system_dxc)<br/>+ Stage 2 library-link (system_mcpp)"]
+        INST["cmake --install<br/>+ shebang normalization<br/>+ Stage 2 binary-overlay symlinks<br/>(system_spirvcross, system_dxc)<br/>+ Stage 2 library-link (system_mcpp)<br/>+ swap set recorded in the installed SDK<br/>(+ development provider shims, 2610.0-125)"]
         DBG{"--with debug ?"}
         BC -->|no| S1
         BC -->|yes| SNAP
@@ -41,7 +41,7 @@ flowchart TB
 
     subgraph INSTALL["Installed layout (RPMs produced)"]
         MAIN["o3deNNNN package (e.g. o3de2605, o3de2610)<br/>/opt/O3DE/&lt;DISPLAY_VERSION&gt;/ (CORE + DEFAULT + profile binaries)<br/>/usr/bin/o3deNNNN + per-major .desktop + metainfo + icons + SBOM<br/>Recommends: o3deNNNN-devel + project-build *-devel<br/>+ system_X-devel + wayland-devel (qt6 lines)<br/>Recommends: cmake (not Requires)<br/>Suggests: ros-lyrical-o3de-gem-deps (26.10+)"]
-        DEVELPKG["o3deNNNN-devel subpackage<br/>(always produced; needed by every project build:<br/>launchers link AZ::AzGameFramework / AZ::Launcher.Static)<br/>/opt/O3DE/&lt;DISPLAY_VERSION&gt;/lib/Linux/profile/{,Default/}*.a<br/>/opt/O3DE/&lt;DISPLAY_VERSION&gt;/lib64/ (Recast/Detour; 26.05 line only)<br/>Requires: o3deNNNN = same NVR"]
+        DEVELPKG["o3deNNNN-devel subpackage<br/>(always produced; needed by every project build:<br/>launchers link AZ::AzGameFramework / AZ::Launcher.Static)<br/>/opt/O3DE/&lt;DISPLAY_VERSION&gt;/lib/Linux/profile/{,Default/}*.a<br/>/opt/O3DE/&lt;DISPLAY_VERSION&gt;/lib64/ (Recast/Detour; 26.05 line only)<br/>Requires: o3deNNNN = same NVR<br/>+ the swaps' -devel packages (2610.0-125)"]
         DBGPKG["o3deNNNN-debug subpackage<br/>(only when --with debug)<br/>/opt/O3DE/&lt;DISPLAY_VERSION&gt;/bin/Linux/debug/"]
         DBG -->|no| MAIN
         DBG -->|yes| MAIN
@@ -55,17 +55,20 @@ flowchart TB
         MIG["first-run migration<br/>JSON-aware engine_path rewrite<br/>in &lt;project&gt;/user/project.json"]
         PY["~/.o3de/Python/venv/&lt;id&gt;/<br/>(get_python.sh, first run; one venv per engine path)"]
         UD["~/.o3de/user, ~/.o3de/Logs<br/>(writable state)"]
+        CLI["/usr/bin/o3deNNNN-cli<br/>(scripts/o3de.sh; first use runs get_python.sh<br/>+ register --this-engine, 2610.0-126)"]
         ENG["/opt/O3DE/&lt;DISPLAY_VERSION&gt;/bin/Linux/<br/>$O3DE_BUILD_CONFIG/Default/o3de"]
         BIN --> WRAP --> ENG
         WRAP --> MIG
         WRAP --> PY
         WRAP --> UD
+        CLI --> PY
+        CLI --> UD
     end
 
     subgraph DIST["Distribution channels"]
         DC1A["COPR<br/>hellaenergy/o3de<br/>(stable: tracks tagged<br/>upstream releases, 26.05.0 today<br/>(17 swaps + xxhash/cityhash/rapidjson);<br/>26.10.0 (planned 2026-10-28): BCONDS_stable,<br/>qt6 + swap_hook + 21 swaps;<br/>see POST_RELEASE.md)"]
         DC1T["COPR<br/>hellaenergy/o3de-testing<br/>(pre-promotion soak for stable;<br/>Fedora updates-testing semantics;<br/>main HEAD -> ~48h soak -> stable)"]
-        DC1B["COPR<br/>hellaenergy/o3de-stabilization<br/>(community testers,<br/>pre-release validation;<br/>active during stab/&lt;X&gt; windows, now stabilization/26100;<br/>snapshot + stabilization + development_snapshot<br/>+ qt6 + swap_hook + 21 swaps<br/>(after a green development build))"]
+        DC1B["COPR<br/>hellaenergy/o3de-stabilization<br/>(community testers,<br/>pre-release validation;<br/>active during stab/&lt;X&gt; windows, now stabilization/26100;<br/>snapshot + stabilization + development_snapshot<br/>+ qt6 + swap_hook + 21 swaps<br/>(from 2610.0-125))"]
         DC1S["COPR<br/>hellaenergy/o3de-development<br/>(engine o3de/o3de:development;<br/>development_snapshot + qt6 + swap_hook<br/>+ monolithic + 21 swaps (from 2610.0-123);<br/>Sunday 06:00 UTC cron via<br/>snapshot-development.yml)"]
         DC1C["COPR<br/>hellaenergy/o3de-experimental<br/>(native-Wayland preview on development:<br/>development stack + wayland + wayland_ui,<br/>no monolithic; F44/F45 builds)"]
         DC1D["COPR<br/>hellaenergy/o3de-testing-debug +<br/>hellaenergy/o3de-development-debug<br/>(debug bcond siblings: o3deNNNN-debug)"]
@@ -161,5 +164,7 @@ With the flag on, the prebuilt is never registered; `find_package(X)` runs eager
 **Two consumption patterns.** The above is the **prebuilt-package** path (`ly_associate_package`), which requires the gate patch because the associate line is what we have to intercept. The other pattern is **FetchContent** gems, which do `list(APPEND CMAKE_MODULE_PATH .../3rdParty)` then call `find_package(openmesh)` themselves, lazily, and only when the gem is enabled. Those can be swapped with NO patch: prepend a directory containing our `Find<X>.cmake` to `CMAKE_MODULE_PATH` and the gem's own `find_package` picks it up. As upstream migrates 3rdParty from prebuilt to FetchPackage (assimp already did, o3de/o3de#19365), those swaps become patch-free.
 
 **A third pattern, development only: in-tree providers.** Since [o3de/o3de#20097](https://github.com/o3de/o3de/pull/20097) (2026-09-25), development builds rapidjson, xxhash, cityhash and mikktspace from `Code/3rdParty/<name>/CMakeLists.txt`, and a `3rdParty::<Name>` reference resolves from that directory before any Find module is consulted, so our `Find<X>.cmake` shim is never reached and the swap silently builds the bundled copy (this left `system_mikkelsen` inert on `o3de-development` until 2610.0-123). When the matching swap is on, `%prep` copies `sources/fetchcontent-provider-system.cmake` (Source77) over each provider's `CMakeLists.txt`, only where that file exists (`stabilization/26100` predates the move). It defines the provider's targets from the Fedora package through the existing Find shim, which installs with the engine's `cmake/` directory, so project builds against the installed SDK resolve the same way. `sources/sqlite-fetchcontent-system.cmake` (Source71) does the same for the FetchContent sqlite (o3de/o3de#20072).
+
+**The installed SDK carries the swap set (from 2610.0-125).** The `LY_USE_SYSTEM_<X>` flags reach the engine's own configure, but upstream's install step does not record them, so a project configured against `/opt/O3DE/<version>` saw every flag off and downloaded the bundled packages. On o3de-stabilization 2610.0-120 a new project's profile GameLauncher exported the bundled Lua 5.4.4, `libAzCore.so` bound to it instead of the system Lua, and the launcher crashed at startup; on development a project configure stopped at `No "Findsqlite.cmake" found`. `%install` now appends `set(LY_USE_SYSTEM_<X> ON CACHE BOOL ...)` for the build's swap set to the installed `cmake/3rdParty/Platform/Linux/BuiltInPackages_linux_x86_64.cmake` (the generated file that includes the `Default/` or `Monolithic/` permutation, so both project build types see it), installs the development provider shims (sqlite, rapidjson, xxhash, cityhash, mikktspace) as the SDK's `Code/3rdParty/<name>/CMakeLists.txt`, and `o3deNNNN-devel` Requires the swaps' `-devel` packages. Checked on real stabilization 125 packages in fresh Fedora 45 and CentOS Stream 10 containers (2026-10-21): every Lua binding of a new project's launcher resolves to the system `liblua`, and no swapped package is downloaded.
 
 **Direction.** The central guard on the lazy resolver, `if (NOT LY_USE_SYSTEM_${pkg}) ly_download_associated_package(...) endif()` in `cmake/3rdParty.cmake`, makes the prebuilt path patch-free and lazy too: distros set `-DLY_USE_SYSTEM_<X>=ON` and drop a `Find<X>.cmake` on the module path, with no per-line BuiltInPackages patches and no over-eager resolution of gem-only libraries. This is exactly what Patch0014 (above) implements downstream, and it is proposed upstream as [o3de/o3de#19815](https://github.com/o3de/o3de/issues/19815) (sig-build). Landing it upstream would retire Patch0014 entirely.

@@ -39,7 +39,7 @@ On CentOS Stream the repository name `centos-stream-10-x86_64` has to be given: 
 * The engine's third-party dependencies, from a second repository, `hellaenergy/o3de-dependencies`, which is enabled automatically along with `hellaenergy/o3de`.
 * The compiler and tools needed to build projects (`clang`, `cmake`, `ninja-build` and the development headers), installed as recommended packages.
 
-The download is about 2 GiB including dependencies, and the install uses about 8 GiB of disk space. Updates arrive through `dnf upgrade` along with the rest of your system.
+The download is about 2 GiB including dependencies, and the install uses 6 to 9 GiB of disk space. The first build of a project downloads the engine's remaining bundled packages (Qt, PySide6, PhysX and others) into `~/.o3de/3rdParty`, so it also needs an internet connection. Updates arrive through `dnf upgrade` along with the rest of your system.
 
 If your system skips recommended packages (common in containers, Toolbox, distrobox and minimal installs), the build tools are left out and project builds fail. Install them with:
 
@@ -59,7 +59,7 @@ The command line tool is available as `o3de2610-cli`. Example:
 o3de2610-cli create-project --project-path ~/MyProject --project-name MyProject
 ```
 
-The first `o3de2610-cli` command downloads O3DE's Python runtime and registers the engine for your account, the same setup Project Manager does on its first start (packages from 2610.0-126 on; with older ones, run `/opt/O3DE/26.10.0/python/get_python.sh` and then `o3de2610-cli register --this-engine` first).
+The first `o3de2610-cli` command downloads O3DE's Python runtime and registers the engine for your account, the same setup Project Manager does on its first start. If it reports "Python has not been downloaded/configured yet" (early 26.10 test builds did not do this setup), run `/opt/O3DE/26.10.0/python/get_python.sh` and then `o3de2610-cli register --this-engine` once.
 
 On a Wayland desktop, Project Manager and the Editor run through XWayland automatically. The 26.10 Editor supports X11 and XWayland only, so leave `QT_QPA_PLATFORM` unset or set it to `xcb`: with `QT_QPA_PLATFORM=wayland` the Editor crashes at startup (https://github.com/o3de/o3de/issues/19835).
 
