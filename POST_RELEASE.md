@@ -144,7 +144,8 @@ The announcement is a manual step; no auto-post from the test infrastructure.
 
 ## After the first build is GREEN
 
-- Tag the spec commit (e.g., `release/2605.0`) so the post-release state is bookmarked.
+- Tag the spec commit with an annotated tag (e.g., `release/2610.0`) so the post-release state is bookmarked: `git tag -a release/<TAG> -m "O3DE <TAG> RPM (o3deNNNN <TAG>-<release>)"`, then `git push origin release/<TAG>`. (`release/2605.0` is a lightweight tag; use annotated from 2610.0 on.)
+- Publish the release notes as a GitHub Release on that tag: `gh release create release/<TAG> -R nickschuetz/o3de-rpm --title "O3DE <TAG> RPM" --notes-file docs/release-notes/<TAG>.md`. Draft `docs/release-notes/<TAG>.md` during the stabilization window from `sources/o3de.changelog` and the git log since the previous `release/` tag, written for users (highlights, upgrading from the previous release, known issues, upstream work, thanks), and get it approved before release day. The tag push and the GitHub Release are public, so both wait for an explicit go. Link the release from the Discord announcement (step 10).
 - Move on to dev-snapshot cadence: fire `make copr-development` to push a build of the new development tip into `hellaenergy/o3de-development`. This kicks off the next cycle's tracking.
 
 ## Between releases (post-release packaging fixes)

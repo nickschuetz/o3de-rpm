@@ -1110,6 +1110,8 @@ Reference state at end-of-day 2026-05-07:
 
 ## Qt6 GraphCanvas add-node crash: FILED as o3de#19977 + PR o3de#19978 (2026-08-05)
 
+Status 2026-10-22: both o3de#19966 and #19977 were closed as completed on 2026-10-21 (fixed by #19978, in 26.10); the reopen/close notes below are history.
+
 Runtime-validated Qt6 crash found + fixed while validating the earlier static-analysis GraphCanvas patch on a local Qt6 editor build (Fedora 44, clang 22.1.8, Qt6.10.2, dev HEAD 3a4b256277, gdb). The add-node palette segfaults in QSortFilterProxyModel::invalidate() (create_mapping_recursive, persistent-index remap); NodePaletteWidget::ResetDisplay/UpdateFilter used raw invalidate() instead of the gem's Qt6-safe beginFilterChange/endFilterChange pattern. Fix (2 files, +7/-2): bracket SetFilter/ClearFilter + drop the two external invalidate() calls. Reproduced crash, validated fix by re-run. Issue https://github.com/o3de/o3de/issues/19977 , PR https://github.com/o3de/o3de/pull/19978 (labels kind/crash, sig/content; DCO-signed; Addresses-not-Fixes).
 
 IMPORTANT outcome: the original static-analysis delete/connect patch (upstream-drafts/graphcanvas-qt6-crash.patch, sites: ConnectionComponent::StopMove self-delete, RootGraphicsItem Alt+click self-delete, SceneComponent::Delete) did NOT reproduce a crash on either patched or unpatched builds -> reframed as LATENT/unconfirmed in the issue's separate section, NOT shipped as a fix. Lesson: runtime validation disproved the static guess and surfaced the real crash. ASan named as the way to settle the latent delete/connect question (not run). Sibling GraphCanvasComboBox.cpp:255 raw invalidate() noted as likely-same latent issue, untouched.

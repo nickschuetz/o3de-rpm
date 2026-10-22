@@ -5,7 +5,7 @@
     sudo dnf copr enable hellaenergy/o3de-experimental
     sudo dnf install o3de2610 o3de2610-devel
 
-**Fedora 44 and Fedora 45 only for now.** The current `o3de2610` builds here are built for the fedora-44 and fedora-45 chroots only; the fedora-rawhide and centos-stream-10 chroots have no `o3de2610` build, so use [hellaenergy/o3de-stabilization](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-stabilization/) or [hellaenergy/o3de-development](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de-development/) there.
+**Built for Fedora 44, Fedora 45, rawhide and CentOS Stream 10** (all four chroots since 2610.0-125). On CentOS Stream 10, enable CRB and EPEL 10 first (`sudo dnf config-manager --set-enabled crb` and `sudo dnf install epel-release`), and name the repository when enabling this project: `sudo dnf copr enable hellaenergy/o3de-experimental centos-stream-10-x86_64` (a plain `dnf copr enable` looks for an `epel-10-x86_64` repository, which this project does not have).
 
 The `o3de-dependencies` repo auto-enables alongside this one (no separate `dnf copr enable` needed). `o3de2610-devel` is part of the install line above on purpose. It carries the engine's static libraries, and every project build links its launchers against them (`AzGameFramework`, `Launcher.Static`), so Project Manager cannot build a project without it. The main package also Recommends it, but naming it explicitly keeps it installed where weak dependencies are off (containers, Toolbox/distrobox, minimal images, `install_weak_deps=False`).
 
