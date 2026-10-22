@@ -40,7 +40,8 @@ o3de-rpm/
 │   └── <project>/{description,instructions}.md       #   pulled/pushed via scripts/copr-metadata.sh
 │       {homepage,contact}.txt                        #   make copr-metadata-{pull,diff,push}
 ├── scripts/                                           # repo tooling (not packaged into the RPM)
-│   └── copr-metadata.sh                               #   sync copr-metadata/ ↔ live COPR
+│   ├── copr-metadata.sh                               #   sync copr-metadata/ ↔ live COPR
+│   └── copr-download-stats.py                         #   snapshot the COPR download counters as CSV
 ├── tools/                                             # repo tooling (not packaged into the RPM)
 │   ├── check-deps-drift.py                            #   weekly 3rdParty dep-pin drift report (make check-deps-drift)
 │   ├── check-qt6-merge.py                             #   probe: has o3de qt6 merged into development? (make check-qt6-merge)
