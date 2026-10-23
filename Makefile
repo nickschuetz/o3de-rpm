@@ -122,6 +122,12 @@ lint: spec-parse spec-parse-stable spec-parse-snapshot spec-parse-stabilization 
 	                                | grep -q '^#!.*\(bash\|sh\)' && [ "$${x%.sh}" = "$$x" ] && echo "$$x"; done); do \
 	    [ -f "$$f" ] && bash -n "$$f" && echo "    $$f OK"; \
 	done | sort -u
+	@echo ">> o3de-launcher.sh leaves LD_LIBRARY_PATH unset (kde-open and other children inherit it)"
+	@T=$$(mktemp -d /tmp/o3de.launcher.XXXXXX); mkdir -p $$T/e/bin/Linux/profile/Default $$T/h; \
+	  printf '#!/bin/sh\necho "LD_LIBRARY_PATH=$${LD_LIBRARY_PATH-unset}"\n' > $$T/e/bin/Linux/profile/Default/o3de; \
+	  chmod +x $$T/e/bin/Linux/profile/Default/o3de; \
+	  OUT=$$(env -u LD_LIBRARY_PATH HOME=$$T/h O3DE_ENGINE_PATH=$$T/e O3DE_DISABLE_ROS2=1 bash sources/o3de-launcher.sh); \
+	  rm -rf $$T; [ "$$OUT" = "LD_LIBRARY_PATH=unset" ] || { echo "ERROR: launcher exported $$OUT" >&2; exit 1; }
 	@echo "All lints passed."
 
 print-pkgname:

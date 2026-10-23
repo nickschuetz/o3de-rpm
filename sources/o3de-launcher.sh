@@ -115,8 +115,14 @@ if [ -n "$ENGINE_ID" ] && [ -d "$HOME/.o3de/Python/venv/$ENGINE_ID/lib/python$PY
 fi
 
 PYTHONPATH="$ENGINE_PATH/scripts${VENV_SITEPKGS:+:$VENV_SITEPKGS}${PYTHONPATH:+:$PYTHONPATH}"
-LD_LIBRARY_PATH="$BIN_DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-export PYTHONPATH LD_LIBRARY_PATH
+export PYTHONPATH
+# No LD_LIBRARY_PATH: the engine's binaries find their libraries through
+# their own $ORIGIN RPATH/RUNPATH. Until 2610.0-129 this script put BIN_DIR
+# there, every program Project Manager and the Editor start inherited it,
+# and system Qt 6 / KDE programs loaded the bundled Qt instead of their own:
+# "open in default app" failed on KDE with "kde-open: .../libQt6Gui.so.6:
+# version `Qt_6.10_PRIVATE_API' not found" (field report 2026-10-23,
+# AlmaLinux 10). `make lint` checks that it stays unset.
 
 # All writable state lives under ~/.o3de. Engine root stays read-only.
 mkdir -p "$HOME/.o3de/user" "$HOME/.o3de/Logs"

@@ -1,4 +1,13 @@
 %changelog
+* Fri Oct 23 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-129
+- The launcher no longer puts the engine's bin directory on LD_LIBRARY_PATH.
+  Every program Project Manager and the Editor start inherited it, so system
+  Qt 6 and KDE programs loaded the bundled Qt instead of their own: opening a
+  file in its default application from the Editor failed on KDE with
+  "kde-open: .../libQt6Gui.so.6: version `Qt_6.10_PRIVATE_API' not found"
+  (field report 2026-10-23, AlmaLinux 10). The engine's binaries find their
+  libraries through their $ORIGIN RPATH/RUNPATH and do not need it.
+
 * Thu Oct 22 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-128
 - Recommends libevdev: the engine loads it at runtime for gamepad input, so
   rpm's automatic dependencies miss it, and minimal installs logged
