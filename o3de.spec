@@ -235,11 +235,11 @@
 # defaults only apply if no --define was passed. Lets parameterized
 # targets like `make srpm-snapshot-ref REF=qt6` override the snapshot
 # pin via --define snapshot_commit=... without editing the spec.
-# Pinned to stabilization/26100 tip (701b503c, 2026-10-21; #20211 26.10 splash on top of #20199), regenerated via
+# Pinned to stabilization/26100 tip (bb8f04e2, 2026-10-26; #20240 on top of the #20211 26.10 splash), regenerated via
 # `cd sources && ./make-snapshot-tarball.sh stabilization/26100`.
-%{?!snapshot_commit:%global snapshot_commit 701b503c4b351ee15df81dd72f498caebcc656de}
-%{?!snapshot_date:%global snapshot_date 20261021}
-%{?!snapshot_sha256:%global snapshot_sha256 538a63dff77544f7e424a336e6d476441720d172fb22fd4501b91d35dc0169bb}
+%{?!snapshot_commit:%global snapshot_commit bb8f04e27ff71b184c58c1c3bffc29a7038dcff1}
+%{?!snapshot_date:%global snapshot_date 20261026}
+%{?!snapshot_sha256:%global snapshot_sha256 6b55be417ef650ea6c5b018dcca4f0182f48302b2ebd81bcc019fd56857ee933}
 %global shortcommit %(c=%{snapshot_commit}; echo ${c:0:7})
 
 # Channel-identifying suffix for the version strings the GUI displays.
@@ -427,7 +427,7 @@ Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        129%{?dist}
+Release:        130%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT

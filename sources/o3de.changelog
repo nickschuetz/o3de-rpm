@@ -1,4 +1,11 @@
 %changelog
+* Mon Oct 26 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-130
+- Re-pinned to the stabilization/26100 tip bb8f04e2, which adds
+  o3de/o3de#20240: on an installed engine, the engine's Python packages are
+  copied into the per-user venv only when the engine directory is not
+  writable (as /opt/O3DE is for normal users); a writable engine keeps the
+  editable install.
+
 * Fri Oct 23 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-129
 - The launcher no longer puts the engine's bin directory on LD_LIBRARY_PATH.
   Every program Project Manager and the Editor start inherited it, so system
