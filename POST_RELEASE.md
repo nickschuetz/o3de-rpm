@@ -135,6 +135,8 @@ This refreshes the COPR project page that end users see when they `dnf copr enab
 
 In `README.md`, update any version strings that point at the prior release. Bump examples that show `dnf install o3de2605 o3de2605-devel` to the new version if a major changed (install lines always name the `-devel` subpackage too).
 
+Also update `docs/INSTALL.md`, which the o3debinaries.org Linux download page links to: drop the "reaches `hellaenergy/o3de` when ... is released ... Until then, ... `hellaenergy/o3de-stabilization`" note once the release is in `hellaenergy/o3de`, and keep the line that points users of the previous major at its package name.
+
 ### 10. Announce
 
 If you want to surface the build to community testers, post in the O3DE sig-release Discord:
