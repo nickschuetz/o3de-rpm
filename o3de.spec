@@ -874,11 +874,17 @@ Patch0023:      0023-crysystem-expat-2-9-line-number-64.patch
 # build the exit handlers free them after the SystemAllocator, so an
 # exported release game aborts on quit with "pure virtual method called"
 # (o3de-development 2610.0-126, 2026-10-22). The patch releases them in
-# ~CMovieSystem(), which runs while the allocators are still alive. Ungated:
-# releasing them early is harmless in shared-module builds. Applies at fuzz 0
-# on development (2462b90), stabilization/26100 (701b503c) and 2605.0.
-# Upstream-worthy.
+# ~CMovieSystem(), which runs while the allocators are still alive. Releasing
+# them early is harmless in shared-module builds. Applies at fuzz 0 on
+# stabilization/26100 (bb8f04e2) and 2605.0.
+# Merged upstream as o3de/o3de#20232 (development 106242cbde, 2026-10-26), so
+# development already carries the change and the hunk no longer applies there.
+# Applied only on the stabilization channel and tagged-release builds; the
+# development and experimental channels build the development tip.
+# Retire entirely once #20232 reaches stabilization/26100 or a release tag.
+%if %{with stabilization} || %{without snapshot}
 Patch0024:      0024-maestro-release-node-tables-before-allocator-teardown.patch
+%endif
 
 # Stage 1 system-library find modules. Copied into cmake/3rdParty/
 # during %%prep when the matching `--with system_<lib>` is enabled.
