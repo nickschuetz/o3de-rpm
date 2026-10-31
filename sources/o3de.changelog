@@ -1,4 +1,15 @@
 %changelog
+* Sat Oct 31 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-131
+- Re-pinned to the stabilization/26100 tip 5cfafc20, which adds three fixes.
+- o3de/o3de#20248: the Entity Inspector no longer shows empty components for
+  every selection made after a multi-select (o3de/o3de#20241). Multi-edit now
+  keeps entity and component IDs instead of component pointers that could go
+  stale.
+- o3de/o3de#20252: the scene builder's MeshOptimizer no longer reads a freed
+  node path while it adds nodes.
+- o3de/o3de#20254: EMotionFX copies the last key value before appending an end
+  keyframe, instead of reading freed memory when the key track grows.
+
 * Mon Oct 26 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-130
 - Re-pinned to the stabilization/26100 tip bb8f04e2, which adds
   o3de/o3de#20240: on an installed engine, the engine's Python packages are
