@@ -81,30 +81,46 @@ jobs:
             bash -n "$f" && echo "    $f OK"
           done
 
-      - name: Patch files apply cleanly to a checked-out engine ref
-        # Only runs when the snapshot pin in the spec matches a current ref.
-        # Best-effort — non-fatal if upstream has moved on, since the spec
-        # always pins a specific commit anyway.
+      - name: Carry patches apply to the pinned stabilization commit
+        # Applies the patches the stabilization channel declares, in the
+        # order %autosetup uses and at fuzz 0, to the commit the spec pins,
+        # and fails on the first one that does not apply (as %prep would).
+        # Until 2026-11-01 this step looked for a bare `%global
+        # snapshot_commit` line; the pin moved into `%{?!snapshot_commit:...}`
+        # on 2026-05-11 (c5cdd22), so every run since skipped it. Stable (the
+        # release tarball) and development (no fixed pin) are not covered
+        # here; their COPR %prep is the check. A GitHub fetch failure skips
+        # with a warning rather than failing the job (outage != drift).
         run: |
-          set +e
-          PIN=$(awk '/^%global snapshot_commit/ {print $3}' o3de.spec)
+          PIN=$(sed -nE 's/.*%global snapshot_commit ([0-9a-f]{40}).*/\1/p' o3de.spec | head -n 1)
           if [ -z "$PIN" ]; then
-            echo "no snapshot_commit pinned, skipping"
-            exit 0
+            echo "::error::no 40-character snapshot_commit pin found in o3de.spec"
+            exit 1
+          fi
+          FLAGS="--with snapshot"
+          for b in $(make -s print-copr-with CHANNEL=stabilization); do
+            FLAGS="$FLAGS --with $b"
+          done
+          PATCHES=$(rpmspec -P $FLAGS --define "_sourcedir $PWD/sources" \
+            --define "_specdir $PWD" o3de.spec | sed -nE 's/^Patch[0-9]+:[[:space:]]+//p')
+          if [ -z "$PATCHES" ]; then
+            echo "::error::rpmspec lists no patches for the stabilization channel"
+            exit 1
           fi
           dnf install -y --setopt=install_weak_deps=False git patch
-          # Bound the clone so a GitHub outage skips the patch dry-run rather
-          # than hanging the lint job (outage != drift). Patch health is
-          # re-checked on every push, so skipping one run is harmless.
-          if ! timeout 300 git clone --depth 1 -q https://github.com/o3de/o3de "/tmp/o3de"; then
-            echo "clone of o3de timed out/failed (network?); skipping patch dry-run"
+          mkdir /tmp/o3de
+          cd /tmp/o3de || exit 1
+          git init -q
+          if ! timeout 600 git fetch --depth 1 -q https://github.com/o3de/o3de.git "$PIN"; then
+            echo "::warning::could not fetch o3de $PIN (network, or the commit is gone); patch check skipped"
             exit 0
           fi
-          cd /tmp/o3de
-          git fetch --depth 1 origin "$PIN" 2>/dev/null || \
-            { echo "commit $PIN not reachable from a shallow clone — skipping patch dry-run"; exit 0; }
-          git checkout "$PIN"
-          for p in "$GITHUB_WORKSPACE"/sources/*.patch; do
-            echo ">> dry-run $p"
-            patch -p1 --dry-run -i "$p" || echo "    (failed; review)"
+          git checkout -q FETCH_HEAD
+          echo "pin $PIN"
+          for p in $PATCHES; do
+            if ! patch -p1 --fuzz=0 -s --no-backup-if-mismatch -i "$GITHUB_WORKSPACE/sources/$p"; then
+              echo "::error::$p does not apply to $PIN at fuzz 0"
+              exit 1
+            fi
+            echo "    applied $p"
           done
