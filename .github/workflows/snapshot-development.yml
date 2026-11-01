@@ -15,7 +15,9 @@ name: snapshot-development
 #
 # Setup (one-time): paste the contents of ~/.config/copr (the [copr-cli]
 # section from the COPR API token page) into a repo secret named
-# COPR_TOKEN_CONFIG. Re-paste if the token is rotated.
+# COPR_TOKEN_CONFIG. Re-paste if the token is rotated. Keep the file's
+# "# expiration date:" line: the auth step fails once that date has passed
+# and warns in the last 14 days.
 
 on:
   schedule:
@@ -69,6 +71,27 @@ jobs:
           # not even for the microsecond gap before a follow-up chmod.
           ( umask 077 && printf '%s' "$COPR_TOKEN_CONFIG" > ~/.config/copr )
           copr-cli whoami
+          # whoami still passes with an expired token (2026-11-01: it printed
+          # hellaenergy, then the build submit failed "Login invalid/expired"),
+          # so also check the "# expiration date:" line the COPR API page
+          # writes into the config.
+          exp=$(sed -n 's/^# *expiration date: *//p' ~/.config/copr | head -n 1)
+          case "$exp" in
+            [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9])
+              days_left=$(( ( $(date -u -d "$exp" +%s) - $(date -u -d "$(date -u +%F)" +%s) ) / 86400 ))
+              if [ "$days_left" -lt 0 ]; then
+                echo "ERROR: the COPR API token expired on $exp. Renew it at https://copr.fedorainfracloud.org/api and re-paste COPR_TOKEN_CONFIG." >&2
+                exit 1
+              elif [ "$days_left" -le 14 ]; then
+                echo "::warning::The COPR API token expires on $exp ($days_left days). Renew it at https://copr.fedorainfracloud.org/api and re-paste COPR_TOKEN_CONFIG."
+              else
+                echo "COPR API token expires on $exp ($days_left days)."
+              fi
+              ;;
+            *)
+              echo "::warning::COPR_TOKEN_CONFIG has no '# expiration date: YYYY-MM-DD' line, so the token expiry was not checked."
+              ;;
+          esac
 
       - name: Determine dev-tip + last-built sha
         id: dedup
