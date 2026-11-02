@@ -427,7 +427,7 @@ Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        131%{?dist}
+Release:        132%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -921,7 +921,8 @@ Source47:       FindRapidJSON-system.cmake
 Source48:       Findxxhash-system.cmake
 Source49:       Findcityhash-system.cmake
 # development only: replaces the in-tree
-# Code/3rdParty/{rapidjson,xxhash,cityhash,mikktspace} providers, which since
+# Code/3rdParty/{rapidjson,xxhash,cityhash,mikktspace} providers, and from
+# 2610.0-132 {zlib,lua,png,freetype,lz4,mcpp,libsamplerate}, which since
 # o3de/o3de#20097 win over the Find shims above (see the file header).
 # Copied at %%prep only where the provider file exists.
 Source77:       fetchcontent-provider-system.cmake
@@ -1721,21 +1722,51 @@ cp %{SOURCE31} cmake/3rdParty/Findexpat.cmake
 %endif
 %if %{with system_zlib}
 cp %{SOURCE32} cmake/3rdParty/FindZLIB.cmake
+# Development builds zlib, freetype and png in Code/3rdParty (o3de/o3de#20167,
+# #20169, #20168) and ships Code/3rdParty/Find<X>.cmake modules that load
+# those providers. The installer copies them to the SDK's cmake/3rdParty/,
+# the path of our system shims, and o3de_find_3rdparty_package prefers them
+# in the build, so they get the system shim as well. Conditional on the
+# files: stabilization/26100 has neither the providers nor the modules.
+if [ -f Code/3rdParty/zlib/CMakeLists.txt ]; then
+    cp %{SOURCE77} Code/3rdParty/zlib/CMakeLists.txt
+fi
+if [ -f Code/3rdParty/FindZLIB.cmake ]; then
+    cp %{SOURCE32} Code/3rdParty/FindZLIB.cmake
+fi
 %endif
 %if %{with system_freetype}
 cp %{SOURCE33} cmake/3rdParty/FindFreetype.cmake
+if [ -f Code/3rdParty/freetype/CMakeLists.txt ]; then
+    cp %{SOURCE77} Code/3rdParty/freetype/CMakeLists.txt
+fi
+if [ -f Code/3rdParty/FindFreetype.cmake ]; then
+    cp %{SOURCE33} Code/3rdParty/FindFreetype.cmake
+fi
 %endif
 %if %{with system_png}
 cp %{SOURCE34} cmake/3rdParty/FindPNG.cmake
+if [ -f Code/3rdParty/png/CMakeLists.txt ]; then
+    cp %{SOURCE77} Code/3rdParty/png/CMakeLists.txt
+fi
+if [ -f Code/3rdParty/FindPNG.cmake ]; then
+    cp %{SOURCE34} Code/3rdParty/FindPNG.cmake
+fi
 %endif
 %if %{with system_tiff}
 cp %{SOURCE35} cmake/3rdParty/FindTIFF.cmake
 %endif
 %if %{with system_lua}
 cp %{SOURCE36} cmake/3rdParty/FindLua.cmake
+if [ -f Code/3rdParty/lua/CMakeLists.txt ]; then
+    cp %{SOURCE77} Code/3rdParty/lua/CMakeLists.txt
+fi
 %endif
 %if %{with system_lz4}
 cp %{SOURCE37} cmake/3rdParty/Findlz4.cmake
+if [ -f Code/3rdParty/lz4/CMakeLists.txt ]; then
+    cp %{SOURCE77} Code/3rdParty/lz4/CMakeLists.txt
+fi
 %endif
 %if %{with system_openexr}
 cp %{SOURCE38} cmake/3rdParty/FindOpenEXR.cmake
@@ -1759,12 +1790,18 @@ fi
 %endif
 %if %{with system_libsamplerate}
 cp %{SOURCE42} cmake/3rdParty/Findlibsamplerate.cmake
+if [ -f Code/3rdParty/libsamplerate/CMakeLists.txt ]; then
+    cp %{SOURCE77} Code/3rdParty/libsamplerate/CMakeLists.txt
+fi
 %endif
 %if %{with system_assimp}
 cp %{SOURCE43} cmake/3rdParty/Findassimp.cmake
 %endif
 %if %{with system_mcpp}
 cp %{SOURCE44} cmake/3rdParty/Findmcpp.cmake
+if [ -f Code/3rdParty/mcpp/CMakeLists.txt ]; then
+    cp %{SOURCE77} Code/3rdParty/mcpp/CMakeLists.txt
+fi
 %endif
 %if %{with system_googlebenchmark}
 cp %{SOURCE45} cmake/3rdParty/FindGoogleBenchmark.cmake
@@ -2128,6 +2165,13 @@ o3de_install_provider() {
 %{?with_system_cityhash:o3de_install_provider cityhash}
 %{?with_system_mikkelsen:o3de_install_provider mikktspace}
 %{?with_system_sqlite:o3de_install_provider sqlite}
+%{?with_system_zlib:o3de_install_provider zlib}
+%{?with_system_lua:o3de_install_provider lua}
+%{?with_system_png:o3de_install_provider png}
+%{?with_system_freetype:o3de_install_provider freetype}
+%{?with_system_lz4:o3de_install_provider lz4}
+%{?with_system_mcpp:o3de_install_provider mcpp}
+%{?with_system_libsamplerate:o3de_install_provider libsamplerate}
 
 # Normalize ambiguous '#!/usr/bin/env python' shebangs to 'python3' across
 # the entire engine tree so brp-mangle-shebangs accepts them. We deliberately
