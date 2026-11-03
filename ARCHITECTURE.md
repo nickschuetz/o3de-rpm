@@ -121,7 +121,7 @@ flowchart TB
 
 ## Eight separations to notice
 
-> **Distro coverage.** Builds run on four chroots: **F44** (the primary production target), **F45** (the newly branched release), **fedora-rawhide** (the next Fedora, now F46), and **CentOS Stream 10** (upstream of RHEL 10). Each brings a different toolchain, which is what most of the chroot-specific handling exists for: rawhide ships Lua 5.5, so the `LUA_VERSION_NUM >= 505` patches fire only there, and CS10's older RPM 4.19 parser drives spec conventions like escaping `%%install` in comments. `o3de-experimental` currently builds F44 and F45 only. The running CS10 toolchain-compat list is in the `project_cs10_engine_build_blockers` memory note.
+> **Distro coverage.** Builds run on four chroots: **F44** (the primary production target), **F45** (the current Fedora release, out 2026-11-03), **fedora-rawhide** (the next Fedora, now F46), and **CentOS Stream 10** (upstream of RHEL 10). Each brings a different toolchain, which is what most of the chroot-specific handling exists for: rawhide ships Lua 5.5, so the `LUA_VERSION_NUM >= 505` patches fire only there, and CS10's older RPM 4.19 parser drives spec conventions like escaping `%%install` in comments. `o3de-experimental` currently builds F44 and F45 only. The running CS10 toolchain-compat list is in the `project_cs10_engine_build_blockers` memory note.
 
 1. **Source-mode toggle** decides between a stable tarball and a reproducible snapshot tarball, but the rest of the spec is identical for both.
 2. **3rdParty bundle toggles** are independent of source mode; each `--with thirdparty_<pkg>` extracts its `Source10x` tarball into `LY_3RDPARTY_PATH` before configure.
