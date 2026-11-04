@@ -1,4 +1,21 @@
 %changelog
+* Tue Nov 03 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-133
+- Development: expat is now built from Code/3rdParty (o3de/o3de#20170,
+  merged 2026-11-02), and xml.cpp calls XML_GetCurrentLineNumber64(), which
+  expat added in 2.9.0. Patch0023 no longer applied there, and CentOS
+  Stream 10 has expat 2.7.3. Development and experimental now apply
+  Patch0025 instead, which keeps the old call for expat older than 2.9.
+  Source77 replaces the new expat provider with the Fedora library, and the
+  system shim replaces development's Code/3rdParty/Findexpat.cmake.
+- Development: the bundled Qt exports its own zlib 1.2.11, so in Qt
+  processes libpng mixed two zlibs and 63 PNG assets failed in the Asset
+  Processor. Every Qt-linked executable now loads the system libz.so.1
+  first. The step checks the bundled Qt and does nothing when Qt exports no
+  zlib.
+- Stabilization and stable are unchanged: their source trees have none of
+  these files, their Qt exports no zlib, and the zlib step is not in their
+  build.
+
 * Sun Nov 01 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-132
 - Development: zlib, lua, png, freetype, lz4, mcpp and libsamplerate are now
   built from Code/3rdParty (o3de/o3de#20167, #20162, #20168, #20169, #20163,

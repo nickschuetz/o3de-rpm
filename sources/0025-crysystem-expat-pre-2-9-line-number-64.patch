@@ -1,0 +1,26 @@
+From: Nick Schuetz <nschuetz@redhat.com>
+Date: Tue, 3 Nov 2026 00:00:00 -0600
+Subject: [PATCH] CrySystem: build xml.cpp against expat older than 2.9
+
+o3de/o3de#20170 (development, 2026-11-02) moved expat 2.9.0 in-tree and
+switched the three line-number calls in xml.cpp to
+XML_GetCurrentLineNumber64(), which first appeared in expat 2.9.0. With
+system_expat on CentOS Stream 10 (expat 2.7.3) the call is undeclared and
+the build fails. Map it to XML_GetCurrentLineNumber() when the expat
+headers are older than 2.9; 2.9 and newer, including the in-tree copy,
+are unchanged. Development counterpart of Patch0023.
+
+--- a/Code/Legacy/CrySystem/XML/xml.cpp
++++ b/Code/Legacy/CrySystem/XML/xml.cpp
+@@ -12,6 +12,11 @@
+ #include <stdlib.h>
+ 
+ #include <expat.h>
++// XML_GetCurrentLineNumber64() first appeared in expat 2.9.0. Map it to the
++// older call when building against an earlier system expat (EL10 ships 2.7.3).
++#if XML_MAJOR_VERSION < 2 || (XML_MAJOR_VERSION == 2 && XML_MINOR_VERSION < 9)
++#define XML_GetCurrentLineNumber64(parser) XML_GetCurrentLineNumber(parser)
++#endif
+ #include "xml.h"
+ #include <algorithm>
+ #include <stdio.h>

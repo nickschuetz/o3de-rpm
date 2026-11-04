@@ -9,7 +9,7 @@ The RPM packages are built by the community (https://github.com/nickschuetz/o3de
 * Fedora 44
 * Fedora 45 and CentOS Stream 10 (packages are built, but have had less testing so far)
 
-These steps are for O3DE 26.10 (package `o3de2610`), which reaches `hellaenergy/o3de` when 26.10.0 is released (target 2026-10-28). Until then, 26.10 release-candidate builds are in `hellaenergy/o3de-stabilization`: use that name in the `dnf copr enable` command below, and switch to `hellaenergy/o3de` after the release. For O3DE 26.05, install `o3de2605` instead.
+These steps are for O3DE 26.10 (package `o3de2610`), which reaches `hellaenergy/o3de` when 26.10.0 is released (target 2026-11-11). Until then, 26.10 release-candidate builds are in `hellaenergy/o3de-stabilization`: use that name in the `dnf copr enable` command below, and switch to `hellaenergy/o3de` after the release. For O3DE 26.05, install `o3de2605` instead.
 
 ## Installing on Fedora
 

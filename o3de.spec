@@ -427,7 +427,7 @@ Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        132%{?dist}
+Release:        133%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -864,10 +864,22 @@ Patch0022:      0022-wayland-xwayland-editor-ui-fixes.patch
 # CrySystem's xml.cpp calls it three times under -Werror: rawhide failed
 # %%build on stabilization 2610.0-120 (COPR 11182169). The patch picks the
 # 64-bit call when the expat headers are 2.9 or newer and keeps the old call
-# otherwise (bundled expat, F44/F45's 2.8.x), so it is ungated. Applies at
-# fuzz 0 on stabilization/26100 (701b503c) and development (2462b90).
-# Upstream-worthy.
+# otherwise (bundled expat, CS10's 2.7.3). Applies at fuzz 0 on
+# stabilization/26100 (701b503c). Upstream-worthy.
+#
+# Patch0025 -- development counterpart. o3de/o3de#20170 (development
+# 2026-11-02) moved expat 2.9.0 in-tree and calls XML_GetCurrentLineNumber64()
+# unconditionally, so Patch0023 no longer applies there, and the call does not
+# exist before expat 2.9 (CS10 has 2.7.3: "implicit declaration", checked
+# 2026-11-03). Patch0025 maps it to the old call for expat < 2.9. Applies at
+# fuzz 0 on development cc96e3856e. Upstream-worthy (any system expat < 2.9).
+# Gated like Patch0024: the development and experimental channels build the
+# development tip.
+%if %{with stabilization} || %{without snapshot}
 Patch0023:      0023-crysystem-expat-2-9-line-number-64.patch
+%else
+Patch0025:      0025-crysystem-expat-pre-2-9-line-number-64.patch
+%endif
 
 # Patch0024 -- Maestro fills file-scope AZStd tables (the node parameter
 # lists and the post-FX descriptions) that nothing empties. In a monolithic
@@ -1719,6 +1731,15 @@ cp %{SOURCE70} cmake/3rdParty/FindQt.cmake
 %endif
 %if %{with system_expat}
 cp %{SOURCE31} cmake/3rdParty/Findexpat.cmake
+# Development builds expat in Code/3rdParty since o3de/o3de#20170
+# (2026-11-02), with a Code/3rdParty/Findexpat.cmake that loads it. Same
+# treatment as zlib below; stabilization/26100 has neither file.
+if [ -f Code/3rdParty/expat/CMakeLists.txt ]; then
+    cp %{SOURCE77} Code/3rdParty/expat/CMakeLists.txt
+fi
+if [ -f Code/3rdParty/Findexpat.cmake ]; then
+    cp %{SOURCE31} Code/3rdParty/Findexpat.cmake
+fi
 %endif
 %if %{with system_zlib}
 cp %{SOURCE32} cmake/3rdParty/FindZLIB.cmake
@@ -2172,6 +2193,7 @@ o3de_install_provider() {
 %{?with_system_lz4:o3de_install_provider lz4}
 %{?with_system_mcpp:o3de_install_provider mcpp}
 %{?with_system_libsamplerate:o3de_install_provider libsamplerate}
+%{?with_system_expat:o3de_install_provider expat}
 
 # Normalize ambiguous '#!/usr/bin/env python' shebangs to 'python3' across
 # the entire engine tree so brp-mangle-shebangs accepts them. We deliberately
@@ -2416,6 +2438,35 @@ find %{buildroot}%{o3de_install_prefix} -type f \
         echo "qt6 rpath-cleaned: ${f#%{buildroot}} -> $clean"
     fi
 done
+%endif
+
+%if %{with qt6} && %{with system_zlib} && %{with snapshot} && %{without stabilization}
+# Development's bundled Qt (qt-6.11.2-rev1, and 6.12.0-rev2 in 3p#406) links
+# O3DE's static zlib 1.2.11 and exports it from libQt6Core/libQt6Gui (@@Qt_6).
+# In any process that loads Qt before libz.so.1, unversioned zlib calls
+# (libAzCore, system libpng) bind to Qt's copy while libpng's versioned
+# inflateReset2 stays on system zlib, and 63 PNG assets fail in the Asset
+# Processor ("invalid distance too far back"; dev 127/132, 2026-11-02).
+# Putting libz.so.1 first in NEEDED of every Qt-linked executable makes the
+# system zlib win the global lookup (A/B: 63 failed -> 0). Does nothing unless
+# the bundled libQt6Core.so.6 defines inflate, so a fixed Qt package turns it
+# off by itself. Upstream fix belongs in the Qt package build.
+o3de_qtcore=$(find %{buildroot}%{o3de_install_prefix} -name 'libQt6Core.so.6*' \( -type f -o -type l \) | head -n1)
+if [ -n "$o3de_qtcore" ] && readelf -W --dyn-syms "$o3de_qtcore" \
+        | awk '$7 != "UND" && $8 ~ /^inflate(@|$)/ { f = 1 } END { exit !f }'; then
+    find %{buildroot}%{o3de_install_prefix}/bin -type f -perm -u+x | while read -r f; do
+        # Executables only (they have a program interpreter); not the .so files.
+        readelf -l "$f" 2>/dev/null | grep -q 'program interpreter' || continue
+        o3de_needed=$(readelf -d "$f" 2>/dev/null | sed -nE 's/.*\(NEEDED\).*\[(.*)\]/\1/p')
+        printf '%s\n' "$o3de_needed" | grep -qE '^libQt6(Core|Gui)\.so\.6$' || continue
+        [ "$(printf '%s\n' "$o3de_needed" | head -n1)" = "libz.so.1" ] && continue
+        if printf '%s\n' "$o3de_needed" | grep -qx 'libz.so.1'; then
+            patchelf --remove-needed libz.so.1 "$f"
+        fi
+        patchelf --add-needed libz.so.1 "$f"
+        echo "zlib-first: ${f#%{buildroot}}"
+    done
+fi
 %endif
 
 %if %{with system_qt6}

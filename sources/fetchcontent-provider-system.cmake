@@ -12,7 +12,7 @@
 # resolved from that provider directory before any Find module is consulted.
 # On 2026-10-29/30 zlib (#20167), lua (#20162), png (#20168), freetype
 # (#20169), lz4 (#20163), mcpp (#20160) and libsamplerate (#20166) moved
-# there as well.
+# there as well, and on 2026-11-02 expat (#20170).
 # Our cmake/3rdParty/Find<Name>.cmake shims are therefore never reached there
 # and the swap would silently build the bundled copy. When the matching
 # system_<name> bcond is on, the spec copies this file over
@@ -67,6 +67,13 @@ elseif (o3de_rpm_provider STREQUAL "mcpp")
     include("${LY_ROOT_FOLDER}/cmake/3rdParty/Findmcpp.cmake")
 elseif (o3de_rpm_provider STREQUAL "libsamplerate")
     include("${LY_ROOT_FOLDER}/cmake/3rdParty/Findlibsamplerate.cmake")
+elseif (o3de_rpm_provider STREQUAL "expat")
+    # Defines 3rdParty::expat and EXPAT::EXPAT; the upstream recipe also
+    # defines expat::expat.
+    include("${LY_ROOT_FOLDER}/cmake/3rdParty/Findexpat.cmake")
+    if (NOT TARGET expat::expat)
+        add_library(expat::expat ALIAS 3rdParty::expat)
+    endif()
 else()
     message(FATAL_ERROR "fetchcontent-provider-system.cmake: no system mapping for Code/3rdParty/${o3de_rpm_provider}")
 endif()
