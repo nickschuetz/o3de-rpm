@@ -206,6 +206,17 @@
 # earlier releases used o3de_<tag>_lfs.tar.gz with underscores)
 %global stable_sha256   f23c46eaf60fd7359279781f4abefa1b7f0d88091fd37ce9bff31431927c3f1e
 
+# Stable build from a pinned commit instead of the upstream release tarball.
+# 2026-11-14: upstream had not tagged 2610.0 (o3de/o3de#20226 still open) when
+# Nick called the RPM release, so hellaenergy/o3de ships the stabilization/26100
+# pin that stabilization 131 soaked. The file is that snapshot tarball copied
+# to o3de-<stable_tag>-<commit>.tar.gz, a name the snapshot auto-detect below
+# does not match, so COPR's SRPM rebuild stays in stable mode. Once upstream
+# publishes the release tarball: empty stable_from_commit, set stable_sha256
+# to the tarball's checksum and bump Release (POST_RELEASE.md).
+%global stable_from_commit 5cfafc20e9e0a90669815e06b2985123d0e63b57
+%global stable_from_sha256 de864e4ecb7bed977cf795f4dd22c8c39bb707a24edf30a68f86063d708ad1e3
+
 # CMake's project(VERSION) and O3DE's cmake/Version.cmake split the
 # version string by '.' and require MAJOR.MINOR.PATCH (3 components).
 # stable_tag is YYMM.PATCH (2 components) — derive a 3-component form:
@@ -316,8 +327,13 @@
 %global o3de_source_dir o3de-%{snapshot_commit}
 %global o3de_source_sha %{snapshot_sha256}
 %else
+%if "%{?stable_from_commit}" != ""
+%global o3de_source_dir o3de-%{stable_from_commit}
+%global o3de_source_sha %{stable_from_sha256}
+%else
 %global o3de_source_dir o3de
 %global o3de_source_sha %{stable_sha256}
+%endif
 %endif
 
 # Engine base of the source tree. The TIMEBOMB carry-patches (see the patch
@@ -427,7 +443,7 @@ Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        133%{?dist}
+Release:        134%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -436,7 +452,11 @@ URL:            https://o3de.org
 %if %{with snapshot}
 Source0:        o3de-%{snapshot_commit}.tar.gz
 %else
+%if "%{?stable_from_commit}" != ""
+Source0:        o3de-%{stable_tag}-%{stable_from_commit}.tar.gz
+%else
 Source0:        https://github.com/o3de/o3de/releases/download/%{stable_tag}/o3de-%{stable_tag}-lfs.tar.gz
+%endif
 %endif
 
 # Auxiliary sources kept alongside the spec.
@@ -1704,7 +1724,11 @@ echo "%{o3de_source_sha}  %{SOURCE0}" | sha256sum -c -
 %if %{with snapshot}
 %autosetup -n %{o3de_source_dir} -p1
 %else
+%if "%{?stable_from_commit}" != ""
+%autosetup -n %{o3de_source_dir} -p1
+%else
 %autosetup -c -n %{o3de_source_dir} -p1
+%endif
 %endif
 
 # Pre-populate LY_3RDPARTY_PATH from bundled 3rdParty source tarballs.

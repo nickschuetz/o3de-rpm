@@ -1,4 +1,13 @@
 %changelog
+* Sat Nov 14 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-134
+- O3DE 26.10.0 for hellaenergy/o3de. Upstream had not tagged 2610.0 or
+  published its release tarball (o3de/o3de#20226 still open), so this
+  build ships the stabilization/26100 commit 5cfafc20, the same source and
+  patch set that stabilization 2610.0-131 tested. A later build moves to
+  the upstream tarball once it is published.
+- Spec: new stable_from_commit/stable_from_sha256 globals select a pinned
+  commit tarball for stable mode; empty them to return to the release
+  tarball.
 * Tue Nov 03 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-133
 - Development: expat is now built from Code/3rdParty (o3de/o3de#20170,
   merged 2026-11-02), and xml.cpp calls XML_GetCurrentLineNumber64(), which

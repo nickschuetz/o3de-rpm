@@ -810,6 +810,8 @@ release-stable:
 	@set -e; \
 	tag=$$(rpmspec --without snapshot $(RPMBUILD_DEFINES) -q --qf '%{VERSION}\n' o3de.spec 2>/dev/null | head -1); \
 	sha=$$(awk '/^%global stable_sha256/ {print $$3; exit}' o3de.spec); \
+	from=$$(awk '/^%global stable_from_commit/ {print $$3; exit}' o3de.spec); \
+	if [ -n "$$from" ]; then sha=$$(awk '/^%global stable_from_sha256/ {print $$3; exit}' o3de.spec); fi; \
 	if [ "$$tag" = "%{stable_tag}" ] || [ -z "$$tag" ]; then \
 	    echo "ERROR: could not resolve stable_tag from spec"; exit 2; fi; \
 	if [ "$$sha" = "0000000000000000000000000000000000000000000000000000000000000000" ]; then \
@@ -818,6 +820,7 @@ release-stable:
 	if [ -z "$$sha" ] || [ $${#sha} -ne 64 ]; then \
 	    echo "ERROR: stable_sha256 is empty or wrong length ($$sha)"; exit 2; fi; \
 	tarball=$(PWD)/sources/o3de-$${tag}-lfs.tar.gz; \
+	if [ -n "$$from" ]; then tarball=$(PWD)/sources/o3de-$${tag}-$${from}.tar.gz; fi; \
 	if [ ! -f $$tarball ]; then \
 	    echo "ERROR: release tarball $$tarball not in $(PWD)/sources/ - pull it per POST_RELEASE.md step 2"; \
 	    echo "(2605.0+ uses dashes in the filename; earlier releases used underscores -- check if that's the issue)"; \
@@ -826,7 +829,7 @@ release-stable:
 	if [ "$$actual_sha" != "$$sha" ]; then \
 	    echo "ERROR: spec sha256 ($$sha) does not match tarball ($$actual_sha)"; \
 	    exit 2; fi; \
-	echo "release-stable pre-flight clean: tag=$$tag sha256=ok tarball=present"; \
+	echo "release-stable pre-flight clean: tag=$$tag sha256=ok tarball=$$(basename $$tarball)"; \
 	echo "Building SRPM + firing to $(COPR_OWNER)/$(COPR_PROJECT_STABLE) ..."; \
 	$(MAKE) copr-stable
 
