@@ -14,9 +14,9 @@ Three things break:
 Fix all four after install_dependencies completes.
 
 ---
---- a/python/get_python.sh	2026-04-29 16:28:59.139257538 -0500
-+++ b/python/get_python.sh	2026-04-29 16:30:06.977767535 -0500
-@@ -123,4 +123,54 @@
+--- a/python/get_python.sh
++++ b/python/get_python.sh
+@@ -140,4 +140,59 @@
  fi
  
  install_dependencies
@@ -33,11 +33,15 @@ Fix all four after install_dependencies completes.
 +        [ -f "${venv_dir}lib/engine.json" ] || \
 +            ln -sf "$DIR/../engine.json" "${venv_dir}lib/engine.json" 2>/dev/null || true
 +        # .pth file so user-site Python can import the venv's o3de package.
-+        if [ -d "${venv_dir}lib/python3.10/site-packages" ]; then
-+            mkdir -p "$HOME/.local/lib/python3.10/site-packages" 2>/dev/null || true
-+            printf '%s\n' "${venv_dir}lib/python3.10/site-packages" \
-+                > "$HOME/.local/lib/python3.10/site-packages/o3de-venv.pth" 2>/dev/null || true
-+        fi
++        # The bundled Python series differs per engine line (3.10 on 26.10,
++        # 3.15 on development), so take it from the venv itself.
++        for site_dir in "${venv_dir}"lib/python3.*/site-packages; do
++            [ -d "$site_dir" ] || continue
++            py_series=$(basename "$(dirname "$site_dir")")
++            mkdir -p "$HOME/.local/lib/$py_series/site-packages" 2>/dev/null || true
++            printf '%s\n' "$site_dir" \
++                > "$HOME/.local/lib/$py_series/site-packages/o3de-venv.pth" 2>/dev/null || true
++        done
 +    done
 +fi
 +
@@ -66,9 +70,10 @@ Fix all four after install_dependencies completes.
 +# O3DE_ENGINE_PATH-aware version takes effect (see manifest.py patch).
 +for venv_dir in "$HOME/.o3de/Python/venv"/*/; do
 +    [ -d "$venv_dir" ] || continue
-+    manifest_py="${venv_dir}lib/python3.10/site-packages/o3de/manifest.py"
-+    [ -f "$manifest_py" ] || continue
-+    cp "$DIR/../scripts/o3de/o3de/manifest.py" "$manifest_py" 2>/dev/null || true
++    for manifest_py in "${venv_dir}"lib/python3.*/site-packages/o3de/manifest.py; do
++        [ -f "$manifest_py" ] || continue
++        cp "$DIR/../scripts/o3de/o3de/manifest.py" "$manifest_py" 2>/dev/null || true
++    done
 +done
 +
 +exit $INSTALL_DEPENDENCIES_RC

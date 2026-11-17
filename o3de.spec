@@ -368,11 +368,6 @@
 # and unstripped .so binaries that dominate the payload compress extremely
 # well. Trade ~5 minutes of rpmbuild CPU for ~5 GB less for every install.
 
-# Bundled Python series — comes from O3DE's package CDN's
-# python-X.Y.Z-revN-linux tarball. Used for venv site-packages
-# directory name and shebang fix-ups. Bump when O3DE bumps.
-%global o3de_bundled_python 3.10
-
 # DXC is structurally a fork of Clang/LLVM, so its bundled libdxcompiler.so
 # links against its own internal libclang-12.so.1 (and transitively libtinfo)
 # under Builders/DirectXShaderCompiler/lib/. RPATH resolves them; they never
@@ -443,7 +438,7 @@ Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        134%{?dist}
+Release:        135%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -969,11 +964,12 @@ Source71:       sqlite-fetchcontent-system.cmake
 # used by bundled-Qt6 builds; retire with system Qt6 or an upstream Qt package
 # built with FEATURE_system_jpeg/FEATURE_system_tiff OFF.
 # One tarball pair per bundled Qt version a channel can pin: stabilization/26100
-# bundles qt-6.10.2-rev8 (Source72/73), development bundles qt-6.11.2-rev1
-# since o3de/o3de#20085 (Source75/76; its libqtiff.so is already clean, its
-# libqjpeg.so still links libjpeg.so.8). Both are always declared because
-# COPR re-runs rpmbuild -bs without our bconds; %%build picks the pair that
-# matches the unpacked package. Drop a pair when no channel bundles it.
+# bundles qt-6.10.2-rev8 (Source72/73). Development bundled qt-6.11.2-rev1
+# from o3de/o3de#20085 (Source75/76) until o3de/o3de#20260 (2026-11-16) moved
+# it to qt-6.12.0-rev4, whose plugins link no libjpeg/libtiff, so Source74
+# skips the rebuild there. Both pairs stay declared because COPR re-runs
+# rpmbuild -bs without our bconds; %%build picks the pair that matches the
+# unpacked package. Drop the 6.11.2 pair once no dev snapshot pin bundles it.
 %if %{with qt6} && %{without system_qt6}
 Source72:       https://download.qt.io/official_releases/qt/6.10/6.10.2/submodules/qtbase-everywhere-src-6.10.2.tar.xz
 Source73:       https://download.qt.io/official_releases/qt/6.10/6.10.2/submodules/qtimageformats-everywhere-src-6.10.2.tar.xz
@@ -2467,6 +2463,8 @@ done
 %if %{with qt6} && %{with system_zlib} && %{with snapshot} && %{without stabilization}
 # Development's bundled Qt (qt-6.11.2-rev1, and 6.12.0-rev2 in 3p#406) links
 # O3DE's static zlib 1.2.11 and exports it from libQt6Core/libQt6Gui (@@Qt_6).
+# qt-6.12.0-rev4 (development since o3de/o3de#20260, 2026-11-16) exports no
+# zlib symbols, so the check below turns this off there.
 # In any process that loads Qt before libz.so.1, unversioned zlib calls
 # (libAzCore, system libpng) bind to Qt's copy while libpng's versioned
 # inflateReset2 stays on system zlib, and 63 PNG assets fail in the Asset
@@ -2512,8 +2510,11 @@ find %{buildroot}%{o3de_install_prefix} -type f -name 'libQt6*.so*' -print -dele
 
 %if %{with qt6} && %{without system_qt6}
 # Replace the bundled jpeg/tiff image-format plugins with the ones rebuilt
-# against Fedora's libraries in %%build (every config's copy).
+# against Fedora's libraries in %%build (every config's copy). The script
+# leaves no output directory when the bundled plugins need no rebuild
+# (qt-6.12.0 on development); keep the bundled ones then.
 for o3de_plugin in libqjpeg.so libqtiff.so; do
+    [ -d %{_builddir}/qt-imageformats ] || break
     found=0
     while IFS= read -r -d '' target; do
         install -m 0755 %{_builddir}/qt-imageformats/$o3de_plugin "$target"

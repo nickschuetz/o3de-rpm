@@ -1,4 +1,16 @@
 %changelog
+* Tue Nov 17 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-135
+- Development: o3de/o3de#20260 (2026-11-16) moved the bundled Qt and
+  PySide6 to 6.12.0, Python to 3.15.2 and OpenSSL to 3.6.3. The Qt
+  jpeg/tiff plugin rebuild now skips when the bundled plugins link no
+  libjpeg/libtiff (qt-6.12.0-rev4); 26.10 still rebuilds them. The
+  libz-first step turns itself off because qt-6.12.0-rev4 exports no zlib.
+- get_python.sh (Patch0003) and the o3de launcher take the bundled Python
+  series from the venv instead of assuming 3.10, so the venv .pth,
+  manifest.py refresh and PYTHONPATH work on 3.10 and 3.15 alike.
+- Drop the unused o3de_bundled_python global.
+- Experimental SRPMs carry the experimental bconds, so Patch0022 is in
+  the SRPM (COPR 11261645 failed in %%prep without it).
 * Sat Nov 14 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-134
 - O3DE 26.10.0 for hellaenergy/o3de. Upstream had not tagged 2610.0 or
   published its release tarball (o3de/o3de#20226 still open), so this

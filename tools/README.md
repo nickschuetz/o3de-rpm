@@ -26,7 +26,7 @@ Per-package classification:
 - **ahead-of-engine**: COPR ships newer than the engine pin (informational).
 - **gap**: engine references it, we do not ship in COPR, no `system_<X>` bcond in the spec.
 - **covered-by-spec**: engine references it; covered by `%bcond_with system_<X>` in `o3de.spec`.
-- **bundled-exception**: engine references it; deliberately bundled with a `BUNDLED_LIBRARIES.md` justification rather than swapped (e.g. `qt` (Qt6, bundled for 26.10 pending Option B: 6.10.2 on `stabilization/26100`, 6.11.2 on `development`), `pyside6`, `OpenSSL`). Informational, not a gap.
+- **bundled-exception**: engine references it; deliberately bundled with a `BUNDLED_LIBRARIES.md` justification rather than swapped (e.g. `qt` (Qt6, bundled for 26.10 pending Option B: 6.10.2 on `stabilization/26100`, 6.12.0 on `development`), `pyside6`, `OpenSSL`). Informational, not a gap.
 - **accepted-drift**: COPR version intentionally diverges from the engine pin, with a documented reason. Informational, does not fail the run.
 - **cruft**: COPR ships it but the engine no longer references it.
 

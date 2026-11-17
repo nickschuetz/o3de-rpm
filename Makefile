@@ -575,7 +575,13 @@ SRPM_EXPERIMENTAL_FLAGS = --with snapshot \
 # wayland wayland_ui` + the system swaps (set via edit-chroot; rawhide/CS10
 # still hold the old set and get no builds). Alias kept so the
 # copr-experimental* targets that depend on it keep working.
-srpm-experimental: srpm-snapshot-development
+# The SRPM must carry the experimental bconds: Patch0022 is declared only
+# under wayland_ui, so a development-flag SRPM lacks the file and every
+# chroot fails in %prep (11261645, 2026-11-04).
+SNAPSHOT_EXPERIMENTAL_FLAGS = $(foreach b,$(BCONDS_experimental),--with $(b))
+
+srpm-experimental: qt-plugin-sources
+	$(MAKE) srpm-snapshot-ref REF=development SNAPSHOT_REF_EXTRA_BCOND="$(SNAPSHOT_EXPERIMENTAL_FLAGS)"
 
 # ── RPM builds ──────────────────────────────────────────────────────────────
 # Default: profile-config only (one RPM, ~70 min on a 32GB workstation).

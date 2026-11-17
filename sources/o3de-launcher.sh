@@ -10,9 +10,11 @@
 #   O3DE_ENGINE_PATH   override engine root (default: @O3DE_INSTALL_PREFIX@,
 #                      substituted to the versioned install path at %install
 #                      time — e.g. /opt/O3DE/26.05.0)
-#   O3DE_PYTHON_VERSION  bundled-Python series (default: 3.10)
-#                        Comes from O3DE's package CDN's python-X.Y.Z-revN-linux
-#                        and matches the venv site-packages directory name.
+#   O3DE_PYTHON_VERSION  bundled-Python series, e.g. 3.10 or 3.15
+#                        Default: read from the engine's venv
+#                        (lib/python3.*/site-packages). Comes from O3DE's
+#                        package CDN's python-X.Y.Z-revN-linux: 3.10 on the
+#                        26.10 line, 3.15 on development since o3de#20260.
 set -euo pipefail
 
 # @O3DE_INSTALL_PREFIX@ is the placeholder the spec's %install step
@@ -22,7 +24,7 @@ set -euo pipefail
 # (which intentionally keeps /opt/o3de as a HISTORICAL prefix to
 # migrate user state from).
 ENGINE_PATH="${O3DE_ENGINE_PATH:-@O3DE_INSTALL_PREFIX@}"
-PYV="${O3DE_PYTHON_VERSION:-3.10}"
+PYV="${O3DE_PYTHON_VERSION:-}"
 
 if [ -n "${O3DE_BUILD_CONFIG:-}" ]; then
     BUILD_CONFIG="$O3DE_BUILD_CONFIG"
@@ -110,7 +112,15 @@ if [ -n "$CMAKE_BIN" ]; then
 fi
 
 VENV_SITEPKGS=""
-if [ -n "$ENGINE_ID" ] && [ -d "$HOME/.o3de/Python/venv/$ENGINE_ID/lib/python$PYV/site-packages" ]; then
+if [ -n "$ENGINE_ID" ] && [ -z "$PYV" ]; then
+    for o3de_site in "$HOME/.o3de/Python/venv/$ENGINE_ID"/lib/python3.*/site-packages; do
+        [ -d "$o3de_site" ] || continue
+        o3de_series="$(basename "$(dirname "$o3de_site")")"
+        PYV="${o3de_series#python}"
+        break
+    done
+fi
+if [ -n "$ENGINE_ID" ] && [ -n "$PYV" ] && [ -d "$HOME/.o3de/Python/venv/$ENGINE_ID/lib/python$PYV/site-packages" ]; then
     VENV_SITEPKGS="$HOME/.o3de/Python/venv/$ENGINE_ID/lib/python$PYV/site-packages"
 fi
 

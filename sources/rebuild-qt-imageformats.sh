@@ -10,7 +10,8 @@
 # loader") and the Project Manager background is missing
 # (https://github.com/o3de/o3de/issues/20213). Upstream fix: build the Qt
 # package with FEATURE_system_jpeg=OFF / FEATURE_system_tiff=OFF. Retire this
-# script when that lands or when the RPM moves to system Qt6.
+# script when the RPM no longer bundles a Qt older than 6.12.0 (26.10 ships
+# 6.10.2) or moves to system Qt6.
 #
 # The plugins are compiled from Qt's own sources at the SAME version as the
 # bundled Qt (Qt refuses plugins built for another version), against the
@@ -23,6 +24,22 @@ set -euo pipefail
 
 QT="$1"; QTBASE_TAR="$2"; QTIF_TAR="$3"; OUT="$4"
 CXX="${CXX:-clang++}"
+
+# Nothing to do when the bundled plugins carry their own codecs: qt-6.12.0
+# (o3de/3p-package-source#406, development since o3de#20260, 2026-11-16) is
+# built with -qt-libjpeg and its libqjpeg/libqtiff NEED no libjpeg or libtiff.
+# Exit 0 without creating <out dir>; %install then keeps the bundled plugins.
+o3de_needs_codec=0
+for p in "$QT/plugins/imageformats/libqjpeg.so" "$QT/plugins/imageformats/libqtiff.so"; do
+    [ -f "$p" ] || { echo "rebuild-qt-imageformats: missing $p" >&2; exit 1; }
+    if readelf -d "$p" | grep -qE 'NEEDED.*\[lib(jpeg|tiff)\.so'; then
+        o3de_needs_codec=1
+    fi
+done
+if [ "$o3de_needs_codec" = 0 ]; then
+    echo "rebuild-qt-imageformats: bundled jpeg/tiff plugins link no libjpeg/libtiff; keeping them"
+    exit 0
+fi
 
 # The bundled package's version must match the source tarballs exactly.
 QTVER=$(sed -n 's/^set(PACKAGE_VERSION "\(.*\)")$/\1/p' "$QT/lib/cmake/Qt6/Qt6ConfigVersionImpl.cmake")
