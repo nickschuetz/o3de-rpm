@@ -106,7 +106,7 @@ flowchart TB
         T6["tests/multiplayersample-build-test.sh<br/>Tier 9: full MultiplayerSample build<br/>+ AP batch + launcher-load smoke<br/>(all 4 targets: GameLauncher,<br/>ServerLauncher, HeadlessServer,<br/>bare gem; opt-in; ~60-90 min cold,<br/>~3-10 min warm)"]
         T7["tests/newspaper-delivery-build-test.sh<br/>Tier 10: NewspaperDeliveryGame<br/>build + bake + playable-game smoke<br/>(opt-in; ~30-60 min cold,<br/>~3-10 min warm)"]
         T8["tests/post-load-liveness-test.sh<br/>Tier 11: post-load liveness smoke<br/>(launcher survives N seconds<br/>after LEVEL_LOAD_END without<br/>crash/freeze; opt-in; ~60-90 s)"]
-        T3[".github/workflows/test-installed.yml<br/>polls hellaenergy/o3de-testing;<br/>matrix: F44, F45, rawhide"]
+        T3[".github/workflows/test-installed.yml<br/>cron rotates: o3de-stabilization,<br/>o3de, o3de-testing (12 h each);<br/>matrix: F44, F45, rawhide"]
         T9[".github/workflows/check-deps-drift.yml<br/>weekly cron: engine pins vs COPR vs 3p,<br/>plus development rev_watch (qt, pyside6)"]
         DC1B -.-> T1
         DC1B -.-> T2
@@ -116,6 +116,8 @@ flowchart TB
         DC1B -.-> T7
         DC1B -.-> T8
         DC1T -.-> T3
+        DC1A -.-> T3
+        DC1B -.-> T3
         DC1S -.-> T9
         DC1C -.-> T1
         DC1C -.-> T2

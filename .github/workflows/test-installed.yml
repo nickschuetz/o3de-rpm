@@ -21,15 +21,16 @@ name: test-installed
 #                         client_payload: { rpm_url, build_id }
 #   schedule              cron-poll COPR every 4 hours; on a new
 #                         succeeded build that's never been tested,
-#                         run automatically. Polls o3de-testing (the
-#                         pre-promotion-to-stable channel, updates-
-#                         testing semantics) by default; o3de-
-#                         stabilization is the pre-release tester
-#                         channel which is dormant post-release until
-#                         the next stabilization/<X> branch opens;
-#                         o3de-development is for dev-branch builds
-#                         and doesn't need cron-driven testing. Dedup
-#                         via actions/cache keyed on the COPR build_id.
+#                         run automatically. Each tick polls one
+#                         project, rotating through COPR_PROJECTS
+#                         (o3de-stabilization, o3de, o3de-testing), so
+#                         each is checked every 12 hours. Until
+#                         2026-11-20 it polled o3de-testing only, which
+#                         after 26.10.0 went straight to stable meant
+#                         no 26.10 build was ever tested. o3de-development
+#                         builds (`^` snapshot NVRs) are not picked up.
+#                         Dedup via actions/cache keyed on the COPR
+#                         build_id, which is unique across projects.
 
 on:
   workflow_dispatch:
@@ -78,12 +79,12 @@ on:
 
 env:
   COPR_OWNER: hellaenergy
-  # The cron path polls this project for new builds. Defaults to
-  # o3de-testing (the pre-promotion soak channel for stable; Fedora
-  # updates-testing semantics). o3de-stabilization stays dormant
-  # between engine-stabilization-branch windows. o3de-development is
-  # for ad-hoc dev-branch builds and doesn't need cron-driven testing.
-  COPR_PROJECT: o3de-testing
+  # The cron path polls one of these per tick (see the schedule case in
+  # the detect job). o3de-stabilization feeds stable, o3de is what most
+  # users install, o3de-testing is the pre-promotion soak. o3de-development
+  # is left out: its `^` snapshot NVRs are filtered and it has its own
+  # weekly build.
+  COPR_PROJECTS: "o3de-stabilization o3de o3de-testing"
   # Opt JS-based actions (checkout, upload/download-artifact, cache) into
   # Node 24 ahead of GitHub's forced cutover on 2026-06-02. Surfaces any
   # Node 24 incompatibility now, on our schedule, instead of auto-flipping
@@ -140,6 +141,11 @@ jobs:
               # Query COPR for the most recent succeeded build. The api_3
               # build-list endpoint takes ownername+projectname as query
               # params, not path components — the path form returns 404.
+              # One project per 4-hour tick, chosen from the clock so the
+              # rotation needs no state.
+              read -r -a projects <<< "$COPR_PROJECTS"
+              COPR_PROJECT=${projects[$(( $(date -u +%s) / 14400 % ${#projects[@]} ))]}
+              echo "polling ${COPR_OWNER}/${COPR_PROJECT} this tick"
               api="https://copr.fedorainfracloud.org/api_3/build/list/?ownername=${COPR_OWNER}&projectname=${COPR_PROJECT}&limit=20"
               builds_json=$(copr_curl "$api") || skip_tick "api_3/build/list"
               build_id=$(printf '%s' "$builds_json" | jq -r '.items | map(select(.state == "succeeded")) | .[0].id // empty')

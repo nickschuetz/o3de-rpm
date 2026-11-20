@@ -251,7 +251,7 @@ Tier 9 and Tier 10 are the community-sample validation tracks; both pass on Fedo
 
 - **Manual** (`workflow_dispatch`): paste an RPM URL into the GitHub UI's "Run workflow" form.
 - **Programmatic** (`repository_dispatch`, `event_type: copr-build-succeeded`): fired by `make trigger-tests BUILD_ID=<copr-build-id>` after a COPR build succeeds, or end-to-end via `make copr-stabilization-and-test` (which submits, watches, then fires). Requires `gh` authenticated.
-- **Cron** (every 4 hours, offset to `:17`): polls COPR for the latest succeeded build in `hellaenergy/o3de-testing`. Dedup via `actions/cache` keyed on the COPR build ID, so the same build is never tested twice.
+- **Cron** (every 4 hours, offset to `:17`): polls COPR for the latest succeeded build, one project per tick, rotating through `hellaenergy/o3de-stabilization`, `hellaenergy/o3de` and `hellaenergy/o3de-testing` (each checked every 12 hours; until 2026-11-20 only `o3de-testing`, so no 26.10 build was ever picked up). Dedup via `actions/cache` keyed on the COPR build ID, so the same build is never tested twice.
 
 The full RPM build itself is too heavy for free GitHub runners (~25 GB output, multi-hour compile). COPR does that.
 

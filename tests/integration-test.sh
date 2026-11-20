@@ -247,7 +247,7 @@ for cfg in profile debug; do
         # Returns "not found" lines for any unresolved deps
         unresolved=$(ldd "$BIN" 2>/dev/null | grep -c 'not found')
         if [ "$unresolved" -eq 0 ]; then ok "ldd clean: $cfg/o3de"
-        else nope "ldd: $cfg/o3de" "$unresolved unresolved deps"; fi
+        else nope "ldd: $cfg/o3de" "$unresolved unresolved deps: $(ldd "$BIN" 2>/dev/null | awk '/not found/ {print $1}' | tr '\n' ' ')"; fi
     fi
 done
 
@@ -296,7 +296,7 @@ for swap in \
     "libsamplerate:libsamplerate\.so\.[0-9]+" \
     "sqlite-libs:libsqlite3\.so\.[0-9]+" \
     "poly2tri:libpoly2tri\.so\.[0-9]+(\.[0-9]+)*" \
-    "google-benchmark:libbenchmark\.so\.[0-9]+" \
+    "google-benchmark:libbenchmark\.so\.[0-9]+(\.[0-9]+)*" \
     "o3de-mcpp-az:libmcpp\.so\.[0-9]+" \
     "o3de-cityhash:libcityhash\.so\.[0-9]+" \
 ; do
@@ -319,7 +319,19 @@ for swap in \
         if [ -n "$match" ]; then
             ok "system-lib swap took effect: $O3DE_PKGNAME Requires:$pkg AND $match appears in auto-Requires"
         else
-            nope "system-lib swap: $pkg" "RPM declares Requires:$pkg but no ${soname} soname in auto-Requires; likely the swap regressed and the bundle is still being statically linked"
+            # libsamplerate on the 26.10 line: o3de/o3de#19737 gates the
+            # Microphone gem's libsamplerate use off on Linux
+            # (PAL_TRAIT_MICROPHONE_USES_LIBSAMPLERATE), so no binary links
+            # it at all and the spec's Requires has nothing behind it. That
+            # is not a swap regression; a bundled static copy would still
+            # carry the library's copyright string, so look for that.
+            if [ "$pkg" = libsamplerate ] && ! rpm -ql "$O3DE_PKGNAME" 2>/dev/null \
+                    | grep -E '\.so(\.[0-9]+)*$|/bin/Linux/[^/]+/Default/[^/.]+$' \
+                    | xargs -r -d '\n' grep -laF 'Erik de Castro Lopo' 2>/dev/null | grep -q .; then
+                skipped "system-lib swap: $pkg" "no shipped binary links or bundles libsamplerate (Microphone gates it off on Linux since o3de/o3de#19737)"
+            else
+                nope "system-lib swap: $pkg" "RPM declares Requires:$pkg but no ${soname} soname in auto-Requires; likely the swap regressed and the bundle is still being statically linked"
+            fi
         fi
     fi
 done

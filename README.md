@@ -486,7 +486,7 @@ This builds the snapshot tarball, patches the spec with the right pin values, ru
 
 ### CI for community use
 
-`.github/workflows/test-installed.yml` runs the test suite in clean Fedora containers (matrix: `fedora-44`, `fedora-45`, `fedora-rawhide`, extending as releases ship) against an RPM URL, typically a COPR build artifact. Trigger via GitHub UI with an `rpm_url` input. The CentOS Stream 10 chroot is exercised per-build on COPR (its own `centos-stream-10-x86_64` build of every SRPM) but not currently in the GH-Actions matrix; CS10 builds going green on COPR is the gate for that chroot.
+`.github/workflows/test-installed.yml` runs the test suite in clean Fedora containers (matrix: `fedora-44`, `fedora-45`, `fedora-rawhide`, extending as releases ship) against an RPM URL, typically a COPR build artifact. Trigger via GitHub UI with an `rpm_url` input; a 4-hourly cron tests new builds, one project per tick, rotating through `hellaenergy/o3de-stabilization`, `hellaenergy/o3de` and `hellaenergy/o3de-testing` (each checked every 12 hours; until 2026-11-20 only `o3de-testing`, so no 26.10 build was ever picked up). The CentOS Stream 10 chroot is exercised per-build on COPR (its own `centos-stream-10-x86_64` build of every SRPM) but not currently in the GH-Actions matrix; CS10 builds going green on COPR is the gate for that chroot.
 
 For automated COPR → CI integration, configure a COPR webhook to fire this workflow on every successful build, giving any branch a "healthy on Fedora" signal.
 
