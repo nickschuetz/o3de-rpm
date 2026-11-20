@@ -438,7 +438,7 @@ Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        135%{?dist}
+Release:        136%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -913,6 +913,23 @@ Patch0025:      0025-crysystem-expat-pre-2-9-line-number-64.patch
 Patch0024:      0024-maestro-release-node-tables-before-allocator-teardown.patch
 %endif
 
+# Patch0026 -- SimdMathCommon_sse.inl calls _mm_fmadd_ps() when __FMA__ is
+# defined, but MathTypes_Linux.h includes only the SSE headers; the FMA
+# intrinsics come from <immintrin.h>. CentOS Stream 10's clang 23.1.3
+# package (2026-10-28) adds -march=x86-64-v3 to its /etc/clang config
+# (22.1.8's had none), so __FMA__ is set even with -msse4.1 and AzCore
+# math fails to compile ("use of undeclared identifier
+# '_mm_fmadd_ps'"): seen in a project build against the dev 135 SDK on CS10
+# (2026-11-20); COPR CS10 build roots moved from clang 22.1.8 to 23.1.3 the
+# same week. The installed header is what projects compile against, so the
+# fix also reaches user project builds. It does not fix the engine's own
+# CS10 build under that config: Atom RPI's MaskedOcclusionCulling.cpp has
+# an #error for __AVX__/__AVX2__ (it must build at the baseline). Applies
+# at fuzz 0 on
+# stabilization/26100 (a8185e4f) and development (f9cf6109); every channel.
+# Upstream-worthy.
+Patch0026:      0026-azcore-include-immintrin-for-fma.patch
+
 # Stage 1 system-library find modules. Copied into cmake/3rdParty/
 # during %%prep when the matching `--with system_<lib>` is enabled.
 # Most Stage 1 swaps don't need a custom find module (cmake ships
@@ -1261,6 +1278,17 @@ Requires:       python3
 %if %{with system_qt6}
 Requires:       qt6-qtbase-gui
 Requires:       qt6-qtsvg
+%endif
+# Bundled Qt6: the package's .so files are installed mode 0644, and rpm's
+# ELF dependency generator reads only executable files, so their NEEDED
+# entries never become auto-Requires. Checked against dev 2610.0-135
+# (2026-11-20): the only one no other binary already pulls in is
+# libpcre2-16.so.0 (libQt6Core, also in qt-6.10.2-rev8). Without it,
+# installs with weak dependencies off fail to start (seen on rawhide in
+# test-installed run 44681463674; F44/F45 got it only through the
+# pcre2-devel Recommends).
+%if %{with qt6} && %{without system_qt6}
+Requires:       pcre2-utf16
 %endif
 # cmake is Recommends, not Requires: the launcher uses cmake -P to compute
 # the engine-path-id (which keys the per-user Python venv). The detection
@@ -1882,6 +1910,21 @@ mkdir -p build
 # Configurations_*.cmake supplies the equivalents (RELRO, BIND_NOW,
 # stack-protector, _FORTIFY_SOURCE).
 unset CFLAGS CXXFLAGS LDFLAGS
+# EL10: CentOS Stream 10's clang 23.1.3 package (2026-10-28) adds
+# -march=x86-64-v3 to /etc/clang/x86_64-redhat-linux-gnu-clang++.cfg (the
+# 22.1.8 config had no -march). That defines __FMA__/__AVX__/__AVX2__/__F16C__
+# in every engine TU: AzCore's Madd() then needs <immintrin.h> (Patch0026),
+# and Atom RPI's MaskedOcclusionCulling.cpp stops with an #error (it must
+# build at the baseline; its AVX2 variant is compiled separately and picked
+# at runtime). Build the engine at the x86-64 baseline it was built at with
+# clang 22.1.8 (stabilization 2610.0-135 CS10 failed in %%build without it,
+# COPR 11365892, 2026-11-20); a later -march on the command line overrides
+# the config file's. CMake reads CFLAGS/CXXFLAGS only to seed
+# CMAKE_C(XX)_FLAGS. Upstream may adopt x86-64-v3 as its baseline
+# (o3de/o3de#19973); revisit then.
+%if 0%{?rhel} >= 10
+export CFLAGS="-march=x86-64" CXXFLAGS="-march=x86-64"
+%endif
 
 %if %{with debug}
 %global _o3de_configs profile;debug

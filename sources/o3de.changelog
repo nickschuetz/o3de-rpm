@@ -1,4 +1,15 @@
 %changelog
+* Fri Nov 20 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-136
+- CentOS Stream 10: its clang 23.1.3 package adds -march=x86-64-v3 to
+  the default clang config, which broke both the engine build
+  (stabilization 2610.0-135, COPR 11365892) and project builds against
+  the installed SDK. Build the engine at the x86-64 baseline on EL10
+  (MaskedOcclusionCulling.cpp refuses AVX), and Patch0026 includes
+  <immintrin.h> for AzCore's FMA path so project builds work with the
+  default config.
+- Require pcre2-utf16: the bundled Qt .so files are installed mode 0644,
+  so rpm generated no dependency for libQt6Core's libpcre2-16.so.0;
+  installs without weak dependencies could not start.
 * Tue Nov 17 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-135
 - Development: o3de/o3de#20260 (2026-11-16) moved the bundled Qt and
   PySide6 to 6.12.0, Python to 3.15.2 and OpenSSL to 3.6.3. The Qt
