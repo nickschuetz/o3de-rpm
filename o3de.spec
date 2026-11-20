@@ -246,11 +246,11 @@
 # defaults only apply if no --define was passed. Lets parameterized
 # targets like `make srpm-snapshot-ref REF=qt6` override the snapshot
 # pin via --define snapshot_commit=... without editing the spec.
-# Pinned to stabilization/26100 tip (5cfafc20, 2026-10-31; #20248 on top of #20252 and #20254), regenerated via
+# Pinned to stabilization/26100 tip (a8185e4f, 2026-11-18; #20306 VS2026 fixes on top of 5cfafc20), regenerated via
 # `cd sources && ./make-snapshot-tarball.sh stabilization/26100`.
-%{?!snapshot_commit:%global snapshot_commit 5cfafc20e9e0a90669815e06b2985123d0e63b57}
-%{?!snapshot_date:%global snapshot_date 20261031}
-%{?!snapshot_sha256:%global snapshot_sha256 de864e4ecb7bed977cf795f4dd22c8c39bb707a24edf30a68f86063d708ad1e3}
+%{?!snapshot_commit:%global snapshot_commit a8185e4ff6cfed2997ef124cf05f6bc22c9a2df3}
+%{?!snapshot_date:%global snapshot_date 20261118}
+%{?!snapshot_sha256:%global snapshot_sha256 b629f3fbd33d17cd928ca9382dbb954fa227e658d86ca7778e2814036c7c12ed}
 %global shortcommit %(c=%{snapshot_commit}; echo ${c:0:7})
 
 # Channel-identifying suffix for the version strings the GUI displays.

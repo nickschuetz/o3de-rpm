@@ -8,29 +8,34 @@ For repo layout (which file goes where) see [`README.md`](README.md). For the pe
 flowchart TB
     subgraph SRC["Source acquisition"]
         S1["github.com/o3de/o3de releases<br/>tag tarball + LFS bundle"]
+        S1P["sources/o3de-&lt;tag&gt;-&lt;commit&gt;.tar.gz<br/>(stable_from_commit + stable_from_sha256:<br/>a stable build from a soaked snapshot<br/>before upstream tags; 26.10.0 = 5cfafc20)"]
         S2["github.com/o3de/o3de.git<br/>any ref + git lfs pull"]
         SH["sources/make-snapshot-tarball.sh<br/>(git clone + git lfs pull + tar;<br/>LFS pull is load-bearing;<br/>GitHub archive endpoint strips it)"]
         S2 --> SH --> SNAP["o3de-&lt;commit&gt;.tar.gz<br/>+ sha256"]
     end
 
     subgraph DEPS["Build-time dependencies"]
-        DPK1["Fedora repos<br/>(Stage 1 system swaps:<br/>zlib, freetype, libpng, expat, lz4,<br/>openexr, poly2tri, lua,<br/>assimp, sqlite, libsamplerate,<br/>googlebenchmark, vulkan-validation-layers,<br/>xxhash, rapidjson (not CS10);<br/>26.10 line adds libtiff from 2610.0-123<br/>(development + experimental from 123,<br/>stabilization from 125, stable at 26.10.0))"]
+        DPK1["Fedora repos<br/>(Stage 1 system swaps:<br/>zlib, freetype, libpng, expat, lz4,<br/>openexr, poly2tri, lua,<br/>assimp, sqlite, libsamplerate,<br/>googlebenchmark, vulkan-validation-layers,<br/>xxhash, rapidjson (not CS10);<br/>26.10 line adds libtiff from 2610.0-123<br/>(development + experimental from 123,<br/>stabilization from 125, stable from 2610.0-134))"]
         DPK2["COPR<br/>hellaenergy/o3de-dependencies<br/>(o3de-qt5-rev9 (26.05 line only), PhysX, AWS SDK, azslc,<br/>ISPCTexComp, astc-encoder,<br/>mikkelsen (Stage 1 swap, not in Fedora),<br/>o3de-spirv-cross + o3de-dxc-spirv + o3de-mcpp-az<br/>(Stage 2 3-pack) + o3de-cityhash<br/>(Stage 1 swap, lib not in Fedora);<br/>o3de-<dep> naming, shared across majors (unversioned system paths)))"]
-        DPK3["packages.o3de.org CDN<br/>(remaining bundled 3rdParty:<br/>Qt6 + PySide6/shiboken6<br/>(qt-6.10.2-rev8 on stabilization/26100,<br/>qt-6.12.0-rev4 on development)<br/>(26.10 line: system_qt6 swap REVERTED 2026-08-17;<br/>bundled PySide6 pins Qt_6_PRIVATE_API,<br/>Fedora Qt6 has only Qt_6.11_PRIVATE_API;<br/>exception in force, Option B pending) +<br/>PySide2 (26.05 line) +<br/>restricted (NvCloth, squish-ccr) +<br/>blocked-stage-3 (OIIO/OCIO) +<br/>blocked-stage-4 (OpenSSL) +<br/>bundled Python 3.10 (3.15 on development) +<br/>multiplatform (RapidXML AZ-fork, pybind11, glad))"]
+        DPK3["packages.o3de.org CDN<br/>(remaining bundled 3rdParty:<br/>Qt6 + PySide6/shiboken6<br/>(qt-6.10.2-rev8 + pyside6-6.10.2-py3.10 on stabilization/26100,<br/>qt-6.12.0-rev4 + pyside6-6.12.0-py3.15 on development<br/>since o3de#20260, 2026-11-16)<br/>(26.10 line: system_qt6 swap REVERTED 2026-08-17;<br/>bundled PySide6 pins Qt_6_PRIVATE_API,<br/>Fedora Qt6 has only Qt_6.11_PRIVATE_API;<br/>exception in force, Option B pending) +<br/>PySide2 (26.05 line) +<br/>restricted (NvCloth, squish-ccr) +<br/>blocked-stage-3 (OIIO/OCIO) +<br/>blocked-stage-4 (OpenSSL 1.1.1t; 3.6.3 on development<br/>since o3de#20260; Qt TLS plugin still 1.1.1t) +<br/>bundled Python 3.10 (3.15.2 on development) +<br/>multiplatform (RapidXML AZ-fork, glad, pybind11;<br/>pybind11 3.1.0 is a Code/3rdParty fetch on development))"]
     end
 
     subgraph SPEC["o3de.spec"]
         BC{"--with snapshot ?"}
+        SF{"stable_from_commit set ?"}
         SHA["sha256sum -c verify"]
-        AUTO["%autosetup -p1 (carry-patches Patch0001..0025)<br/>o3de_base_2610 (development_snapshot,<br/>or a release build with stable_tag >= 2610.0) gates off<br/>the merged-upstream 0001/0002/0004/0005/0007/0008/0009/0012/0016<br/>and the per-line swap gates 0006/0013 (Patch0014 + 0015 via swap_hook instead);<br/>stable + stabilization apply 0003/0010/0011/0014/0015/0018/0020/0023/0024,<br/>development the same without 0018 (pessimizing-move), with 0025 for 0023/0024,<br/>experimental adds 0022 (wayland_ui; 0021 only with wayland alone);<br/>0017+0019 (lrelease) system_qt6-only<br/>(inactive since the 2026-08-17 bundled-Qt6 revert);<br/>Find shims + Source77 over development in-tree providers;<br/>development also puts libz.so.1 first in Qt executables' NEEDED"]
+        AUTO["%autosetup -p1 (carry-patches Patch0001..0025)<br/>o3de_base_2610 (development_snapshot,<br/>or a release build with stable_tag >= 2610.0) gates off<br/>the merged-upstream 0001/0002/0004/0005/0007/0008/0009/0012/0016<br/>and the per-line swap gates 0006/0013 (Patch0014 + 0015 via swap_hook instead);<br/>stable + stabilization apply 0003/0010/0011/0014/0015/0018/0020/0023/0024,<br/>development 0003/0010/0011/0014/0015/0020/0025 (0025 replaces 0023;<br/>0018 and 0024 fixed upstream on development),<br/>experimental adds 0022 (wayland_ui; 0021 only with wayland alone);<br/>0017+0019 (lrelease) system_qt6-only<br/>(inactive since the 2026-08-17 bundled-Qt6 revert);<br/>Find shims + Source77 over development in-tree providers;<br/>development puts libz.so.1 first in Qt executables' NEEDED<br/>only when the bundled Qt exports zlib (off on qt-6.12.0);<br/>%autosetup -c for the release LFS tarball (tarbomb),<br/>no -c for snapshot and stable_from_commit tarballs"]
         TP["%bcond_with thirdparty_*<br/>extract bundles to LY_3RDPARTY_PATH"]
         BUILD["cmake Ninja Multi-Config<br/>profile + (debug if --with debug)<br/>+ second release/Monolithic pass<br/>(build-mono/, if --with monolithic)"]
         QTP["Qt jpeg/tiff plugin rebuild (--with qt6, bundled Qt)<br/>rebuild-qt-imageformats.sh (Source74) relinks<br/>libqjpeg/libqtiff against Fedora libjpeg.so.62 + libtiff.so.6;<br/>source pair picked by the bundled Qt version:<br/>6.10.2 = Source72/73, 6.11.2 = Source75/76;<br/>skipped when the plugins link no libjpeg/libtiff (qt-6.12.0)"]
         INST["cmake --install<br/>+ shebang normalization<br/>+ Stage 2 binary-overlay symlinks<br/>(system_spirvcross, system_dxc)<br/>+ Stage 2 library-link (system_mcpp)<br/>+ swap set recorded in the installed SDK<br/>(+ development provider shims, 2610.0-125)"]
         DBG{"--with debug ?"}
-        BC -->|no| S1
+        BC -->|no| SF
+        SF -->|no| S1
+        SF -->|yes| S1P
         BC -->|yes| SNAP
         S1 --> SHA
+        S1P --> SHA
         SNAP --> SHA
         SHA --> AUTO --> TP --> BUILD --> QTP --> INST
         INST --> DBG
@@ -51,7 +56,7 @@ flowchart TB
 
     subgraph RT["Runtime (per-user)"]
         BIN["/usr/bin/o3deNNNN<br/>(menu entry / CLI)"]
-        WRAP["o3deNNNN wrapper<br/>O3DE_ENGINE_PATH=/opt/O3DE/&lt;DISPLAY_VERSION&gt;<br/>O3DE_PYTHON_VERSION=3.10<br/>QT_QPA_PLATFORM=xcb for Project Manager when unset<br/>(not on --with wayland builds)"]
+        WRAP["o3deNNNN wrapper<br/>O3DE_ENGINE_PATH=/opt/O3DE/&lt;DISPLAY_VERSION&gt;<br/>Python series read from the venv<br/>(lib/python3.*: 3.10 on 26.10, 3.15 on development;<br/>O3DE_PYTHON_VERSION overrides, 2610.0-135)<br/>QT_QPA_PLATFORM=xcb for Project Manager when unset<br/>(not on --with wayland builds)"]
         MIG["first-run migration<br/>JSON-aware engine_path rewrite<br/>in &lt;project&gt;/user/project.json"]
         PY["~/.o3de/Python/venv/&lt;id&gt;/<br/>(get_python.sh, first run; one venv per engine path)"]
         UD["~/.o3de/user, ~/.o3de/Logs<br/>(writable state)"]
@@ -66,11 +71,11 @@ flowchart TB
     end
 
     subgraph DIST["Distribution channels"]
-        DC1A["COPR<br/>hellaenergy/o3de<br/>(stable: tracks tagged<br/>upstream releases, 26.05.0 today<br/>(17 swaps + xxhash/cityhash/rapidjson);<br/>26.10.0 (planned 2026-10-28): BCONDS_stable,<br/>qt6 + swap_hook + 21 swaps;<br/>see POST_RELEASE.md)"]
-        DC1T["COPR<br/>hellaenergy/o3de-testing<br/>(pre-promotion soak for stable;<br/>Fedora updates-testing semantics;<br/>main HEAD -> ~48h soak -> stable)"]
-        DC1B["COPR<br/>hellaenergy/o3de-stabilization<br/>(community testers,<br/>pre-release validation;<br/>active during stab/&lt;X&gt; windows, now stabilization/26100;<br/>snapshot + stabilization + development_snapshot<br/>+ qt6 + swap_hook + 21 swaps<br/>(from 2610.0-125))"]
-        DC1S["COPR<br/>hellaenergy/o3de-development<br/>(engine o3de/o3de:development;<br/>development_snapshot + qt6 + swap_hook<br/>+ monolithic + 21 swaps (from 2610.0-123);<br/>Sunday 06:00 UTC cron via<br/>snapshot-development.yml)"]
-        DC1C["COPR<br/>hellaenergy/o3de-experimental<br/>(native-Wayland preview on development:<br/>development stack + wayland + wayland_ui,<br/>no monolithic; F44/F45 builds)"]
+        DC1A["COPR<br/>hellaenergy/o3de<br/>(stable: tracks tagged<br/>upstream releases;<br/>26.10.0 since 2026-11-14 (2610.0-134):<br/>BCONDS_stable, qt6 + swap_hook + 21 swaps,<br/>built from stable_from_commit 5cfafc20<br/>until upstream tags 2610.0;<br/>26.05.0 (2605.0-95) still available;<br/>see POST_RELEASE.md)"]
+        DC1T["COPR<br/>hellaenergy/o3de-testing<br/>(pre-promotion soak for stable;<br/>Fedora updates-testing semantics;<br/>main HEAD -> ~48h soak -> stable;<br/>26.05 only today (2605.0-95);<br/>26.10.0 went to stable from the<br/>stabilization soak, 2026-11-14)"]
+        DC1B["COPR<br/>hellaenergy/o3de-stabilization<br/>(community testers,<br/>pre-release validation;<br/>active during stab/&lt;X&gt; windows, now stabilization/26100;<br/>snapshot + stabilization + development_snapshot<br/>+ qt6 + swap_hook + 21 swaps<br/>(from 2610.0-125);<br/>2610.0-135 at a8185e4f (2026-11-18);<br/>stays on stabilization/26100 until 2610.0 is tagged)"]
+        DC1S["COPR<br/>hellaenergy/o3de-development<br/>(engine o3de/o3de:development;<br/>development_snapshot + qt6 + swap_hook<br/>+ monolithic + 21 swaps (from 2610.0-123);<br/>bundled Qt/PySide 6.12.0 + Python 3.15.2 from 2610.0-135;<br/>Sunday 06:00 UTC cron via<br/>snapshot-development.yml)"]
+        DC1C["COPR<br/>hellaenergy/o3de-experimental<br/>(native-Wayland preview on development:<br/>development stack + wayland + wayland_ui,<br/>no monolithic; F44, F45, rawhide, CS10<br/>(all four since 2610.0-125))"]
         DC1D["COPR<br/>hellaenergy/o3de-testing-debug +<br/>hellaenergy/o3de-development-debug<br/>(debug bcond siblings: o3deNNNN-debug)"]
         DC2["o3debinaries.org<br/>(install instructions linking COPR<br/>+ docs/INSTALL.md)"]
         DC3["Fedora repo<br/>(see FEDORA_ROADMAP.md)"]
@@ -101,7 +106,8 @@ flowchart TB
         T6["tests/multiplayersample-build-test.sh<br/>Tier 9: full MultiplayerSample build<br/>+ AP batch + launcher-load smoke<br/>(all 4 targets: GameLauncher,<br/>ServerLauncher, HeadlessServer,<br/>bare gem; opt-in; ~60-90 min cold,<br/>~3-10 min warm)"]
         T7["tests/newspaper-delivery-build-test.sh<br/>Tier 10: NewspaperDeliveryGame<br/>build + bake + playable-game smoke<br/>(opt-in; ~30-60 min cold,<br/>~3-10 min warm)"]
         T8["tests/post-load-liveness-test.sh<br/>Tier 11: post-load liveness smoke<br/>(launcher survives N seconds<br/>after LEVEL_LOAD_END without<br/>crash/freeze; opt-in; ~60-90 s)"]
-        T3[".github/workflows/test-installed.yml<br/>matrix: F44, F45, rawhide<br/>+ check-deps-drift.yml weekly cron"]
+        T3[".github/workflows/test-installed.yml<br/>polls hellaenergy/o3de-testing;<br/>matrix: F44, F45, rawhide"]
+        T9[".github/workflows/check-deps-drift.yml<br/>weekly cron: engine pins vs COPR vs 3p,<br/>plus development rev_watch (qt, pyside6)"]
         DC1B -.-> T1
         DC1B -.-> T2
         DC1B -.-> T4
@@ -109,21 +115,21 @@ flowchart TB
         DC1B -.-> T6
         DC1B -.-> T7
         DC1B -.-> T8
-        DC1B -.-> T3
+        DC1T -.-> T3
+        DC1S -.-> T9
         DC1C -.-> T1
         DC1C -.-> T2
         DC1C -.-> T4
         DC1C -.-> T5
         DC1C -.-> T6
-        DC1C -.-> T3
     end
 ```
 
 ## Eight separations to notice
 
-> **Distro coverage.** Builds run on four chroots: **F44** (the primary production target), **F45** (the current Fedora release, out 2026-11-03), **fedora-rawhide** (the next Fedora, now F46), and **CentOS Stream 10** (upstream of RHEL 10). Each brings a different toolchain, which is what most of the chroot-specific handling exists for: rawhide ships Lua 5.5, so the `LUA_VERSION_NUM >= 505` patches fire only there, and CS10's older RPM 4.19 parser drives spec conventions like escaping `%%install` in comments. `o3de-experimental` currently builds F44 and F45 only. The running CS10 toolchain-compat list is in the `project_cs10_engine_build_blockers` memory note.
+> **Distro coverage.** Builds run on four chroots: **F44** (the primary production target), **F45** (the current Fedora release, out 2026-11-03), **fedora-rawhide** (the next Fedora, now F46), and **CentOS Stream 10** (upstream of RHEL 10). Each brings a different toolchain, which is what most of the chroot-specific handling exists for: rawhide ships Lua 5.5, so the `LUA_VERSION_NUM >= 505` patches fire only there, and CS10's older RPM 4.19 parser drives spec conventions like escaping `%%install` in comments. `o3de-experimental` builds all four since 2610.0-125. The running CS10 toolchain-compat list is in the `project_cs10_engine_build_blockers` memory note.
 
-1. **Source-mode toggle** decides between a stable tarball and a reproducible snapshot tarball, but the rest of the spec is identical for both.
+1. **Source-mode toggle** decides between a stable tarball and a reproducible snapshot tarball, but the rest of the spec is identical for both. A stable build can also take a pinned commit tarball (`stable_from_commit`) when the release ships before upstream tags it, as 26.10.0 did on 2026-11-14; see [`POST_RELEASE.md`](POST_RELEASE.md).
 2. **3rdParty bundle toggles** are independent of source mode; each `--with thirdparty_<pkg>` extracts its `Source10x` tarball into `LY_3RDPARTY_PATH` before configure.
 3. **System-library swaps** (Stage 1, the Fedora-inclusion track). Each `--with system_<lib>` swaps one bundled 3rdParty package for its Fedora equivalent, independent of every other toggle. See "How a Stage 1 system-library swap resolves" below for the mechanism, and [`BUNDLED_LIBRARIES.md`](BUNDLED_LIBRARIES.md) for current per-library status.
 4. **Read-only engine, writable user state.** `/opt/O3DE/<version>/` is owned by root; all writable state lives in `~/.o3de/`. The launcher wrapper is the only bridge between them.
@@ -135,7 +141,7 @@ flowchart TB
    * **The `hellaenergy/o3de-dependencies` COPR** (path 2), our license-clean rebuilds of things that aren't in Fedora proper (Stage 2; named `o3de-<dep>`, see separation 8). Two shapes: a binary the engine shells out to (e.g. spirv-cross, dxc), or a library the engine links (e.g. mcpp).
    * **The `packages.o3de.org` CDN** (path 3), everything still bundled, fetched at cmake-config time (so the COPR engine projects need `enable_net=true`).
 
-   A Stage 1 swap moves a dependency from path 3 to path 1; a Stage 2 rebuild moves it from path 3 to path 2. The endgame leaves path 3 holding only the genuinely restricted bundles (NvCloth's NVIDIA license, squish-ccr's BC7 patent encumbrance). Current per-dependency placement and Fedora-readiness live in [`BUNDLED_LIBRARIES.md`](BUNDLED_LIBRARIES.md); drift between the three paths is watched by the weekly `check-deps-drift.yml` cron, which files a sticky issue on any mismatch.
+   A Stage 1 swap moves a dependency from path 3 to path 1; a Stage 2 rebuild moves it from path 3 to path 2. The endgame leaves path 3 holding only the genuinely restricted bundles (NvCloth's NVIDIA license, squish-ccr's BC7 patent encumbrance). Current per-dependency placement and Fedora-readiness live in [`BUNDLED_LIBRARIES.md`](BUNDLED_LIBRARIES.md); drift between the three paths is watched by the weekly `check-deps-drift.yml` cron, which files a sticky issue on any mismatch and also fails when a `rev_watch` pin on development (qt, pyside6) moves off its verified baseline in `tools/dep-map.yaml`.
 
 8. **Shared dependency packages.** Our `o3de-dependencies` Stage 2 packages are named `o3de-<dep>` (e.g. `o3de-spirv-cross`), with no engine-major number, because they are shared across engine majors: the 26.05 and 26.10 lines pin the same 3rdParty versions, and each package owns an unversioned system path (`/usr/bin/dxc`, `/usr/bin/spirv-cross`, `/usr/bin/mcpp`, `/usr/lib64/libmcpp.so.0`), so a per-major copy could never co-install anyway. The engine packages (`o3de2605`, `o3de2610`) stay major-versioned because they genuinely coexist at separate `/opt/O3DE/<v>/` roots; the shared deps do not. A future ABI change in one of these is handled the normal Fedora way, by SONAME (`libmcpp.so.0`), not by a per-major package name. Each carries `Obsoletes`/`Provides` on the older engine-major-prefixed name so existing `Requires` keep resolving across the rename. Stage 1 system swaps use Fedora-conventional names throughout. The earlier `o3deNNNN-<dep>` convention and why it was walked back are in the `project_o3de_3p_versioning_research` memory note.
 

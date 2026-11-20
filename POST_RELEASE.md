@@ -150,6 +150,15 @@ The announcement is a manual step; no auto-post from the test infrastructure.
 - Publish the release notes as a GitHub Release on that tag: `gh release create release/<TAG> -R nickschuetz/o3de-rpm --title "O3DE <TAG> RPM" --notes-file docs/release-notes/<TAG>.md`. Draft `docs/release-notes/<TAG>.md` during the stabilization window from `sources/o3de.changelog` and the git log since the previous `release/` tag, written for users (highlights, upgrading from the previous release, known issues, upstream work, thanks), and get it approved before release day. The tag push and the GitHub Release are public, so both wait for an explicit go. Link the release from the Discord announcement (step 10).
 - Move on to dev-snapshot cadence: fire `make copr-development` to push a build of the new development tip into `hellaenergy/o3de-development`. This kicks off the next cycle's tracking.
 
+## Shipping before upstream tags (stable_from_commit)
+
+Used for 26.10.0 on 2026-11-14 (2610.0-134, COPR 11326762): the release date passed without a `2610.0` tag or `o3de-<TAG>-lfs.tar.gz`, so stable was built from the stabilization pin testers had soaked. Only with the release coordinator's explicit decision.
+
+1. Copy the soaked snapshot tarball to `sources/o3de-<TAG>-<commit>.tar.gz` (the new name keeps the spec's snapshot auto-detect off, so COPR's flag-free SRPM rebuild stays in stable mode; the inner directory stays `o3de-<commit>/`, so `%prep` runs `%autosetup` without `-c`).
+2. Set `%global stable_from_commit <commit>` and `%global stable_from_sha256 <sha256 of that file>` in `o3de.spec`; bump `Release`, changelog and SBOM; `make release-stable` checks whichever tarball the spec selects.
+3. Check the SRPM's spec, not the local tree: extract it and run `rpmspec -q` without bconds; NVR must be `<TAG>-<release>` and the patch set must match stabilization.
+4. When upstream tags: steps 1-2 above as normal, diff the tag's tree against `<commit>`, empty `stable_from_commit`, set `stable_sha256`, bump `Release` and rebuild.
+
 ## Between releases (post-release packaging fixes)
 
 The release ceremony above goes direct to stable because the release has soaked in `o3de-stabilization` for weeks already. Routine post-release packaging fixes (a community-reported `Recommends:` gap, a Wayland workaround, a launcher tweak) do NOT go direct to stable. They flow through `hellaenergy/o3de-testing` first:

@@ -3,6 +3,8 @@ Enable + install:
     sudo dnf copr enable hellaenergy/o3de-testing
     sudo dnf install o3de2605 o3de2605-devel
 
+**This channel carries only the 26.05 line today** (`o3de2605` 2605.0-95). O3DE 26.10.0 (`o3de2610`) went to [hellaenergy/o3de](https://copr.fedorainfracloud.org/coprs/hellaenergy/o3de/) directly from the hellaenergy/o3de-stabilization soak on 2026-11-14; `dnf install o3de2610` will not find a package here. For 26.10, enable hellaenergy/o3de instead.
+
 **CentOS Stream 10:** enable CRB and EPEL 10 before installing. They provide libraries the engine needs (assimp, google-benchmark, libunwind, poly2tri); without them `dnf` stops with "nothing provides" errors for those. COPR's own EPEL setting only applies while building the packages, not on your machine.
 
     sudo dnf install dnf-plugins-core
@@ -43,7 +45,7 @@ This channel is the pre-promotion soak buffer between the `main` HEAD of the [o3
 - Same upstream engine source (tagged release; same SRPM as stable except for the destination COPR project).
 - Same active Stage 1 system-library swap set (on 26.05.0: zlib, freetype, libpng, expat, lz4, mikkelsen, openexr, poly2tri, lua, assimp, sqlite, libsamplerate, googlebenchmark, vulkan-validation-layers, xxhash, cityhash, and rapidjson except on CentOS Stream 10).
 - Same active Stage 2 binary-shellout / library-link swaps (DXC, SPIRV-Cross, mcpp).
-- From the 26.10.0 release (planned 2026-10-28) both channels move to the 26.10 set, which adds system libtiff (21 swaps in all, 20 on CentOS Stream 10).
+- The 26.10 line (in stable since 2026-11-14, not in this channel yet) uses the 26.10 set, which adds system libtiff (21 swaps in all, 20 on CentOS Stream 10).
 - Slightly newer packaging-side fixes that have not yet reached stable: typically Recommends changes, launcher tweaks, README corrections, and similar small enhancements. Each commit in main between the stable channel's published NVR and this channel's NVR is one fix; review the changelog at `dnf updateinfo info o3de2605` to see what's queued.
 
 **Reporting issues:** if you hit a regression on this channel, please open an issue at https://github.com/nickschuetz/o3de-rpm/issues so it can be addressed before promotion to stable.

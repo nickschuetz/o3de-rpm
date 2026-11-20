@@ -9,6 +9,9 @@
   series from the venv instead of assuming 3.10, so the venv .pth,
   manifest.py refresh and PYTHONPATH work on 3.10 and 3.15 alike.
 - Drop the unused o3de_bundled_python global.
+- Stabilization: re-pin to stabilization/26100 a8185e4f (2026-11-18,
+  o3de/o3de#20306, Windows VS2026 compile fixes; no Linux behaviour
+  change expected).
 - Experimental SRPMs carry the experimental bconds, so Patch0022 is in
   the SRPM (COPR 11261645 failed in %%prep without it).
 * Sat Nov 14 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-134
