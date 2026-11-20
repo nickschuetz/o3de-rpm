@@ -336,6 +336,26 @@ for swap in \
     fi
 done
 
+# EL10 x86-64 baseline: CentOS Stream 10's clang 23 config adds
+# -march=x86-64-v3; the spec overrides it through O3DE_EXTRA_C(XX)_FLAGS.
+# A v3 engine crashes at startup (stabilization 2610.0-136 on CS10), and the
+# 136 override was silently dropped, so check the shipped code itself.
+if [ -r /etc/os-release ] && grep -qE '^ID="?(centos|rhel)' /etc/os-release; then
+    azcore="$ENGINE_PATH/bin/Linux/profile/Default/libAzCore.so"
+    if ! command -v objdump >/dev/null 2>&1; then
+        skipped "EL10 x86-64 baseline" "objdump not installed (binutils)"
+    elif [ ! -e "$azcore" ]; then
+        nope "EL10 x86-64 baseline" "$azcore not found"
+    else
+        ymm=$(objdump -d --no-show-raw-insn "$azcore" | grep -c '%ymm' || true)
+        if [ "$ymm" -eq 0 ]; then
+            ok "EL10 x86-64 baseline: libAzCore has no AVX (ymm) code"
+        else
+            nope "EL10 x86-64 baseline" "libAzCore has $ymm ymm instructions; the engine was built at x86-64-v3 and crashes at startup"
+        fi
+    fi
+fi
+
 # ── Tier 3: first-run user setup (opt-in) ────────────────────────────────────
 printf "$HEADER" "Tier 3: user-side first-run setup"
 

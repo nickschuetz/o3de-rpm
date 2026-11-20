@@ -1,4 +1,15 @@
 %changelog
+* Fri Nov 20 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-137
+- CentOS Stream 10: the x86-64 baseline override in 136 never reached the
+  compiler. O3DE's Configurations_common.cmake replaces CMAKE_C(XX)_FLAGS
+  with O3DE_EXTRA_C(XX)_FLAGS, so the CFLAGS/CXXFLAGS export was dropped
+  and the whole engine was built at clang 23's x86-64-v3 default;
+  AssetProcessorBatch and project game launchers crashed at startup in
+  AZ::HpAllocator (a 32-byte aligned AVX store into a 16-byte aligned
+  object). Pass -march=x86-64
+  through O3DE_EXTRA_C_FLAGS/O3DE_EXTRA_CXX_FLAGS instead (Atom's
+  MaskedOcclusionCulling.cpp was never at risk: it builds with -mno-avx).
+- tests: on EL10, fail if libAzCore contains AVX (ymm) code.
 * Fri Nov 20 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-136
 - CentOS Stream 10: its clang 23.1.3 package adds -march=x86-64-v3 to
   the default clang config, which broke both the engine build

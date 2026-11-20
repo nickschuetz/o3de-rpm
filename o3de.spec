@@ -438,7 +438,7 @@ Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        136%{?dist}
+Release:        137%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -1912,18 +1912,21 @@ mkdir -p build
 unset CFLAGS CXXFLAGS LDFLAGS
 # EL10: CentOS Stream 10's clang 23.1.3 package (2026-10-28) adds
 # -march=x86-64-v3 to /etc/clang/x86_64-redhat-linux-gnu-clang++.cfg (the
-# 22.1.8 config had no -march). That defines __FMA__/__AVX__/__AVX2__/__F16C__
-# in every engine TU: AzCore's Madd() then needs <immintrin.h> (Patch0026),
-# and Atom RPI's MaskedOcclusionCulling.cpp stops with an #error (it must
-# build at the baseline; its AVX2 variant is compiled separately and picked
-# at runtime). Build the engine at the x86-64 baseline it was built at with
-# clang 22.1.8 (stabilization 2610.0-135 CS10 failed in %%build without it,
-# COPR 11365892, 2026-11-20); a later -march on the command line overrides
-# the config file's. CMake reads CFLAGS/CXXFLAGS only to seed
-# CMAKE_C(XX)_FLAGS. Upstream may adopt x86-64-v3 as its baseline
-# (o3de/o3de#19973); revisit then.
+# 22.1.8 config had no -march), so every engine TU gets AVX2/FMA codegen and
+# defines __FMA__/__AVX__/__AVX2__/__F16C__. AzCore's Madd() then needs
+# <immintrin.h> (Patch0026), and a v3 engine crashes at startup:
+# HpAllocator's constructor does a 32-byte vmovdqa into a 16-byte-aligned
+# object (stabilization 2610.0-136 on CS10, COPR 11366300, 2026-11-20).
+# Build the engine at the x86-64 baseline it had with clang 22.1.8; a later
+# -march on the command line overrides the config file's. It must go in
+# O3DE_EXTRA_C(XX)_FLAGS: cmake/Platform/Common/Configurations_common.cmake
+# replaces CMAKE_C(XX)_FLAGS with those, so CFLAGS/CXXFLAGS from the
+# environment are dropped (what 136 did; its CS10 engine was all v3).
+# tests/integration-test.sh checks libAzCore for ymm code on EL10. Projects
+# built against the SDK still get the config's v3 (Patch0026 covers them).
+# Upstream may adopt x86-64-v3 as its baseline (o3de/o3de#19973); revisit then.
 %if 0%{?rhel} >= 10
-export CFLAGS="-march=x86-64" CXXFLAGS="-march=x86-64"
+%global _o3de_el10_march -DO3DE_EXTRA_C_FLAGS=-march=x86-64 -DO3DE_EXTRA_CXX_FLAGS=-march=x86-64
 %endif
 
 %if %{with debug}
@@ -1978,6 +1981,7 @@ cmake \
     -DLY_DISABLE_TEST_MODULES=ON \
     -DLY_STRIP_DEBUG_SYMBOLS=OFF \
     -DO3DE_FETCHCONTENT_FORCE_GIT=ON \
+    %{?_o3de_el10_march} \
     -DTHREADS_PREFER_PTHREAD_FLAG=ON \
     -DCMAKE_THREAD_LIBS_INIT=-lpthread \
     -DCMAKE_HAVE_THREADS_LIBRARY=1 \
@@ -2070,6 +2074,7 @@ cmake \
     -DLY_DISABLE_TEST_MODULES=ON \
     -DLY_STRIP_DEBUG_SYMBOLS=OFF \
     -DO3DE_FETCHCONTENT_FORCE_GIT=ON \
+    %{?_o3de_el10_march} \
     -DTHREADS_PREFER_PTHREAD_FLAG=ON \
     -DCMAKE_THREAD_LIBS_INIT=-lpthread \
     -DCMAKE_HAVE_THREADS_LIBRARY=1 \
