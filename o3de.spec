@@ -204,18 +204,23 @@
 %global stable_tag      2610.0
 # Compute with: sha256sum o3de-<tag>-lfs.tar.gz  (2605.0+ naming convention;
 # earlier releases used o3de_<tag>_lfs.tar.gz with underscores)
-%global stable_sha256   f23c46eaf60fd7359279781f4abefa1b7f0d88091fd37ce9bff31431927c3f1e
+%global stable_sha256   0b58b858c9922ad740413a038cb5edb28f6e4d1863df1c0bee8f6f49d18e8127
 
-# Stable build from a pinned commit instead of the upstream release tarball.
-# 2026-11-14: upstream had not tagged 2610.0 (o3de/o3de#20226 still open) when
-# Nick called the RPM release, so hellaenergy/o3de ships the stabilization/26100
-# pin that stabilization 131 soaked. The file is that snapshot tarball copied
-# to o3de-<stable_tag>-<commit>.tar.gz, a name the snapshot auto-detect below
-# does not match, so COPR's SRPM rebuild stays in stable mode. Once upstream
-# publishes the release tarball: empty stable_from_commit, set stable_sha256
-# to the tarball's checksum and bump Release (POST_RELEASE.md).
-%global stable_from_commit 5cfafc20e9e0a90669815e06b2985123d0e63b57
-%global stable_from_sha256 de864e4ecb7bed977cf795f4dd22c8c39bb707a24edf30a68f86063d708ad1e3
+# 2610.0 tarball: upstream tagged 2610.0 on 2026-11-20 (b6122815, tree
+# identical to stabilization/26100 a8185e4f) and published
+# o3de-2610.0-lfs.tar.gz (GitHub asset digest = the sha256 above; LFS
+# objects checked against the tag). 2610.0-134 on hellaenergy/o3de was
+# built from the stabilization pin 5cfafc20 instead (stable_from_commit).
+#
+# Stable build from a pinned commit instead of the upstream release tarball,
+# for a release called before upstream tags: define
+#   %%global stable_from_commit <commit>
+#   %%global stable_from_sha256 <sha256 of sources/o3de-<stable_tag>-<commit>.tar.gz>
+# here, with the snapshot tarball copied to o3de-<stable_tag>-<commit>.tar.gz
+# (a name the snapshot auto-detect below does not match, so COPR's SRPM
+# rebuild stays in stable mode). Leave both undefined otherwise: the Makefile's
+# release-stable reads them with awk, so an empty %%{nil} value would count as
+# set. See POST_RELEASE.md "Shipping before upstream tags".
 
 # CMake's project(VERSION) and O3DE's cmake/Version.cmake split the
 # version string by '.' and require MAJOR.MINOR.PATCH (3 components).
@@ -438,7 +443,7 @@ Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        137%{?dist}
+Release:        138%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -922,13 +927,33 @@ Patch0024:      0024-maestro-release-node-tables-before-allocator-teardown.patch
 # '_mm_fmadd_ps'"): seen in a project build against the dev 135 SDK on CS10
 # (2026-11-20); COPR CS10 build roots moved from clang 22.1.8 to 23.1.3 the
 # same week. The installed header is what projects compile against, so the
-# fix also reaches user project builds. It does not fix the engine's own
-# CS10 build under that config: Atom RPI's MaskedOcclusionCulling.cpp has
-# an #error for __AVX__/__AVX2__ (it must build at the baseline). Applies
+# fix also reaches user project builds. The engine's own EL10 build is kept
+# at the x86-64 baseline in %%build (O3DE_EXTRA_C(XX)_FLAGS). Applies
 # at fuzz 0 on
 # stabilization/26100 (a8185e4f) and development (f9cf6109); every channel.
 # Upstream-worthy.
 Patch0026:      0026-azcore-include-immintrin-for-fma.patch
+
+# Patch0027 -- the Editor wraps its main window in WindowDecorationWrapper
+# with O3DE's own title bar on every platform but macOS. On Linux that makes
+# Qt ask the X11 window manager for no decorations (_MOTIF_WM_HINTS
+# decorations 0), so there is no resize border. O3DE's own Linux resize
+# handling is 4-pixel title bar strips (the 12-pixel border handler is
+# Windows-only); under XWayland only the status bar's size grip resized the
+# window (development 241c78b806, 2026-10-15). On GNOME under XWayland the
+# main window could not be resized from its edges (2610.0-135, 2026-11-20),
+# and title bar drags never reach the window manager (no tile-snap,
+# o3de/o3de#19820). Same behaviour expected from upstream's .deb (same
+# source, XCB build, xcb forced by CryEdit.cpp). The patch takes the macOS
+# branch (OptionDisabled) on Linux too: the window manager draws the title
+# bar and border. Edge resize and tiling checked hands-on on a 2610.0-135
+# install with the patched libEditorLib.so (2026-11-20). Applies at fuzz 0
+# on 2610.0 (a8185e4f/b6122815); same block on development (83b321db).
+# Stabilization channel only until it soaks there (stabilization -> stable);
+# upstream as o3de/o3de#20325.
+%if %{with stabilization}
+Patch0027:      0027-editor-native-window-decorations-on-linux.patch
+%endif
 
 # Stage 1 system-library find modules. Copied into cmake/3rdParty/
 # during %%prep when the matching `--with system_<lib>` is enabled.

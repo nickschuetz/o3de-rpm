@@ -1,0 +1,33 @@
+From: Nick Schuetz <nschuetz@redhat.com>
+Date: Fri, 20 Nov 2026 00:00:00 -0600
+Subject: [PATCH] Editor: use the window manager's title bar and border on Linux
+
+The Editor wraps its main window in AzQtComponents::WindowDecorationWrapper
+with OptionAutoTitleBarButtons everywhere except macOS, so on Linux O3DE
+draws its own title bar and Qt asks the X11 window manager for no
+decorations (_MOTIF_WM_HINTS decorations 0). The window manager then gives
+the window no resize border. O3DE's own resize handling on Linux is only
+4-pixel strips of its title bar (TitleBar::isTopResizeArea and friends; the
+12-pixel border handler is Windows-only), and under XWayland on development
+241c78b806 (2026-10-15) only the status bar's size grip in the lower right
+corner resized the window. On GNOME under XWayland the main window
+cannot be resized from its edges, and title bar drags never reach the
+window manager, so tile-snap does not work either (o3de/o3de#19820).
+Use OptionDisabled on Linux too, as on macOS: the window manager draws the
+title bar and border and runs move, resize, maximize and snapping itself.
+The window title already propagates in this mode (o3de/o3de#19750).
+
+--- a/Code/Editor/CryEdit.cpp
++++ b/Code/Editor/CryEdit.cpp
+@@ -1545,7 +1545,10 @@
+     ((CCryDocManager*)m_pDocManager)->SetDefaultTemplate(pDocTemplate);
+ 
+     auto mainWindow = new MainWindow();
+-#ifdef Q_OS_MACOS
++    // On Linux, let the window manager draw the main window's title bar and border, as on macOS.
++    // With O3DE's own title bar the X11 window asks for no decorations, so the window manager gives
++    // it no resize border to drag.
++#if defined(Q_OS_MACOS) || defined(Q_OS_LINUX)
+     auto mainWindowWrapper = new AzQtComponents::WindowDecorationWrapper(AzQtComponents::WindowDecorationWrapper::OptionDisabled);
+ #else
+     auto mainWindowWrapper = new AzQtComponents::WindowDecorationWrapper(AzQtComponents::WindowDecorationWrapper::OptionAutoTitleBarButtons);
