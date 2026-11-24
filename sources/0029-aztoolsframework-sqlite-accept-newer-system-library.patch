@@ -1,0 +1,32 @@
+From: Nick Schuetz <nschuetz@redhat.com>
+Subject: [PATCH] AzToolsFramework/SQLite: accept a newer system SQLite at runtime
+
+Connection::Open asserts that the SQLite library matches the headers exactly
+(version number, source id and version string). With a system SQLite the
+distribution updates the library independently of the engine, so every
+SQLite update breaks the check. Fedora 45 moved from 3.53.4 (what the
+2610.0-138 build compiled against) to 3.54.1 on 2026-11-18, and the Asset
+Processor now opens a "Startup Errors" dialog:
+  "Sqlite header version number does not match library"
+
+SQLite 3 is backward compatible, so require the runtime library to be at
+least as new as the headers instead of identical.
+
+---
+diff --git a/Code/Framework/AzToolsFramework/AzToolsFramework/SQLite/SQLiteConnection.cpp b/Code/Framework/AzToolsFramework/AzToolsFramework/SQLite/SQLiteConnection.cpp
+index aa81b8d..ea9d103 100644
+--- a/Code/Framework/AzToolsFramework/AzToolsFramework/SQLite/SQLiteConnection.cpp
++++ b/Code/Framework/AzToolsFramework/AzToolsFramework/SQLite/SQLiteConnection.cpp
+@@ -66,9 +66,9 @@ namespace AzToolsFramework
+ 
+         bool Connection::Open(const AZStd::string& filename, bool readOnly)
+         {
+-            AZ_Assert(sqlite3_libversion_number() == SQLITE_VERSION_NUMBER, "Sqlite header version number does not match library");
+-            AZ_Assert(strncmp(sqlite3_sourceid(), SQLITE_SOURCE_ID, 80) == 0, "Sqlite header source id does not match library");
+-            AZ_Assert(strcmp(sqlite3_libversion(), SQLITE_VERSION) == 0, "Sqlite header version does not match library");
++            // A system SQLite can be updated after the engine was built. SQLite 3 keeps backward
++            // compatibility, so only require the library to be at least as new as the headers.
++            AZ_Assert(sqlite3_libversion_number() >= SQLITE_VERSION_NUMBER, "Sqlite library %s is older than the headers %s", sqlite3_libversion(), SQLITE_VERSION);
+             AZ_Assert(m_db == NULL, "You have to close the database prior to opening a new one.");
+             if (m_db)
+             {

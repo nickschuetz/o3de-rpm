@@ -193,6 +193,18 @@ EOF
         # 124 = timeout-killed, which is fine if it printed our marker
         if grep -q 'editor automation: ok' /tmp/o3de-editor-smoke.log; then
             printf "$PASS Editor ran the automation script to completion\n"
+            # Patch0028/0029 regression guards: asserts are logged, not fatal,
+            # so a clean exit can still hide a broken Lua registry layout
+            # (every Script Canvas graph crashes) or a SQLite version check.
+            if grep -qE 'Table refere(n)?ce should match|Function reference should match' /tmp/o3de-editor-smoke.log; then
+                printf "$FAIL Lua registry reference assert at startup (Lua 5.5 layout, see Patch0028); see /tmp/o3de-editor-smoke.log\n"
+                exit 1
+            fi
+            if grep -qE 'Sqlite header (version|source id)' /tmp/o3de-editor-smoke.log; then
+                printf "$FAIL SQLite header/library version assert (see Patch0029); see /tmp/o3de-editor-smoke.log\n"
+                exit 1
+            fi
+            printf "$PASS no Lua registry or SQLite version asserts in the Editor log\n"
         else
             printf "$FAIL Editor didn't print the automation marker; see /tmp/o3de-editor-smoke.log\n"
             exit 1

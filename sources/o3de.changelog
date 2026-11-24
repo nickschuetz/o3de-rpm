@@ -1,4 +1,16 @@
 %changelog
+* Tue Nov 24 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-140
+- Patch0028: Lua 5.5 runtime compat for system_lua builds (Fedora 45,
+  rawhide). AzCore's fixed Lua registry slots were one too high on Lua
+  5.5, so every Script Canvas graph crashed the Editor in game mode.
+  Also LUA_GCSTEP in bytes and size-0 lua_dump writer calls. Mirrors
+  upstream o3de/o3de#20313, guarded so Lua 5.4 builds are unchanged.
+- Patch0029: accept a system SQLite newer than the headers the engine
+  was built with. The Asset Processor showed a "Startup Errors" dialog
+  on Fedora 45 after its SQLite update to 3.54.1.
+- Both apply to stable, testing and stabilization builds and soak on
+  o3de-testing with Patch0027 before reaching hellaenergy/o3de.
+
 * Tue Nov 24 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-139
 - Patch0027 (window manager draws the Editor main window's title bar and
   border on Linux, so it resizes from its edges and tiles;

@@ -443,7 +443,7 @@ Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        139%{?dist}
+Release:        140%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -955,6 +955,33 @@ Patch0026:      0026-azcore-include-immintrin-for-fma.patch
 # upstream o3de/o3de#20325 lands.
 %if %{with stabilization} || %{without snapshot}
 Patch0027:      0027-editor-native-window-decorations-on-linux.patch
+%endif
+
+# Patch0028 -- Lua 5.5 runtime compat. Patch0010/0011 only make the engine
+# compile against Lua 5.5. On 5.5 LUA_RIDX_LAST is 3 (was 2) while luaL_ref
+# still starts at 4, so AzCore's fixed registry slots (LUA_RIDX_LAST + 2..6)
+# are one too high: "Table reference should match 5 but is instead 4!" at
+# startup, and every Script Canvas graph crashes the Editor in game mode
+# (FromNativeContext gets NULL; GetBoundContext+14 from
+# ExecutionStateHandler::Execute, F45 2610.0-138, coredump 2026-11-24; the
+# same graph runs on F44 with Lua 5.4.8). Also LUA_GCSTEP in bytes and
+# size-0 lua_dump writer calls. Mirrors upstream o3de/o3de#20313 (Lua 5.5.1
+# on development, 2026-11-19), guarded on LUA_VERSION_NUM >= 505 so Lua 5.4
+# builds (F44, CS10, bundled) are unchanged. Reached only through
+# system_lua (F45, rawhide). Same 26.10 channels as Patch0027; development
+# picks it up from upstream once its pin includes #20313.
+%if %{with system_lua} && (%{with stabilization} || %{without snapshot})
+Patch0028:      0028-azcore-script-lua-5-5-runtime-compat.patch
+%endif
+
+# Patch0029 -- SQLiteConnection::Open asserts the SQLite library equals the
+# headers exactly. With system_sqlite the distribution updates the library
+# on its own schedule: F45 went from 3.53.4 (138 build) to 3.54.1 on
+# 2026-11-18 and the Asset Processor shows a "Startup Errors" dialog. SQLite
+# 3 is backward compatible, so require library >= headers. Same 26.10
+# channels as Patch0027.
+%if %{with system_sqlite} && (%{with stabilization} || %{without snapshot})
+Patch0029:      0029-aztoolsframework-sqlite-accept-newer-system-library.patch
 %endif
 
 # Stage 1 system-library find modules. Copied into cmake/3rdParty/
