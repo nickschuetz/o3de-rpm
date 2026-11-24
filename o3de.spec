@@ -443,7 +443,7 @@ Version:        %{stable_tag}^%{snapshot_date}git%{shortcommit}
 %else
 Version:        %{stable_tag}
 %endif
-Release:        138%{?dist}
+Release:        139%{?dist}
 Summary:        Open 3D Engine — real-time, multi-platform 3D engine
 
 License:        Apache-2.0 OR MIT
@@ -949,9 +949,11 @@ Patch0026:      0026-azcore-include-immintrin-for-fma.patch
 # bar and border. Edge resize and tiling checked hands-on on a 2610.0-135
 # install with the patched libEditorLib.so (2026-11-20). Applies at fuzz 0
 # on 2610.0 (a8185e4f/b6122815); same block on development (83b321db).
-# Stabilization channel only until it soaks there (stabilization -> stable);
-# upstream as o3de/o3de#20325.
-%if %{with stabilization}
+# A fix for the shipped 26.10.0, so it applies in stable mode (o3de-testing
+# soak, then hellaenergy/o3de, 2610.0-139) and on the stabilization
+# channel (since 138); development and experimental skip it until
+# upstream o3de/o3de#20325 lands.
+%if %{with stabilization} || %{without snapshot}
 Patch0027:      0027-editor-native-window-decorations-on-linux.patch
 %endif
 

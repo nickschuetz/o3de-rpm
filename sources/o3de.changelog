@@ -1,4 +1,12 @@
 %changelog
+* Tue Nov 24 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-139
+- Patch0027 (window manager draws the Editor main window's title bar and
+  border on Linux, so it resizes from its edges and tiles;
+  o3de/o3de#19820, upstream as o3de/o3de#20325) now applies to stable
+  and testing builds as well as stabilization. It is a fix for the
+  shipped 26.10.0, so it soaks on o3de-testing before reaching
+  hellaenergy/o3de.
+
 * Fri Nov 20 2026 Nick Schuetz <nschuetz@redhat.com> - 2610.0-138
 - Stable: build from the upstream O3DE 2610.0 release tarball,
   https://github.com/o3de/o3de/releases/download/2610.0/o3de-2610.0-lfs.tar.gz
